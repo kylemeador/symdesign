@@ -569,55 +569,6 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
         # # convert selected_poses to PoseJob objects
         # selected_poses = [pose_job for pose_job in pose_jobs if pose_job_name in selected_poses]
-    # elif job.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
-    #     if not pose_jobs:  # not job.directory:
-    #         logger.critical(f'If using a --{flags.dataframe} for selection, you must include the directory where '
-    #                         f'the designs are located in order to properly select designs. Please specify '
-    #                         f'-d/--{flags.directory} with your command')
-    #         sys.exit(1)
-    #
-    #     total_df = pd.read_csv(job.dataframe, index_col=0, header=[0, 1, 2])
-    #     total_df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-    #
-    #     selected_poses_df = metrics.prioritize_design_indices(total_df, filter=job.filter, weight=job.weight,
-    #                                                           protocol=job.protocol, function=job.weight_function)
-    #     # Only drop excess columns as there is no MultiIndex, so no design in the index
-    #     save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
-    #     program_root = job.program_root
-    #     selected_poses = [PoseJob.from_directory(pose, root=job.projects)
-    #                       for pose in save_poses_df.index.tolist()]
-    # else:  # Generate design metrics on the spot
-    #     raise NotImplementedError('This functionality is currently broken')
-    #     selected_poses, selected_poses_df, total_df = [], pd.DataFrame(), pd.DataFrame()
-    #     logger.debug('Collecting designs to sort')
-    #     # if job.metric == 'score':
-    #     #     metric_design_dir_pairs = [(pose_job.score, pose_job.path) for pose_job in pose_jobs]
-    #     # elif job.metric == 'fragments_matched':
-    #     #     metric_design_dir_pairs = [(pose_job.number_fragments_interface, pose_job.path)
-    #     #                                for pose_job in pose_jobs]
-    #     # else:  # This is impossible with the argparse options
-    #     #     raise NotImplementedError(f'The metric "{job.metric}" is not supported!')
-    #     #     metric_design_dir_pairs = []
-    #
-    #     logger.debug(f'Sorting designs according to "{job.metric}"')
-    #     metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
-    #     sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0),
-    #                                             reverse=True)
-    #     top_designs_string = \
-    #         f'Top ranked Designs according to {job.metric}:\n\t{job.metric.title()}\tDesign\n\t%s'
-    #     results_strings = ['%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs]
-    #     logger.info(top_designs_string % '\n\t'.join(results_strings[:500]))
-    #     if len(pose_jobs) > 500:
-    #         design_source = f'top_{job.metric}'
-    #         # default_output_tuple = (utils.starttime, job.module, design_source)
-    #         putils.make_path(job.all_scores)
-    #         designs_file = \
-    #             os.path.join(job.all_scores, f'{utils.starttime}_{job.module}_{design_source}_pose.scores')
-    #         with open(designs_file, 'w') as f:
-    #             f.write(top_designs_string % '\n\t'.join(results_strings))
-    #         logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
-    #                     f'"{designs_file}" for the remainder')
-    #     sys.exit()  # terminate(output=False)
     # else:
     #     logger.critical('Missing a required method to provide or find metrics from %s. If you meant to gather '
     #                     'metrics from every pose in your input specification, ensure you include the --global '

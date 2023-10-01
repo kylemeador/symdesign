@@ -15,7 +15,6 @@ from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, 
     parse_entry_json, thermophilic_taxonomy_ids, thermophilicity_from_entity_json
 from .query.uniprot import query_uniprot
 from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
-from symdesign.structure.utils import parse_stride
 from symdesign.utils import path as putils
 # import dependencies.bmdca as bmdca
 
@@ -24,15 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 class APIDatabase(Database):
-    def __init__(self, stride: AnyStr | Path = None, sequences: AnyStr | Path = None,
+    def __init__(self, sequences: AnyStr | Path = None,
                  hhblits_profiles: AnyStr | Path = None, pdb: AnyStr | Path = None,
                  uniprot: AnyStr | Path = None, **kwargs):
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
-        self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
-                                load_file=parse_stride)
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=self.sql, log=self.log,
                                    load_file=read_fasta_file, save_file=write_sequence_to_fasta)
         # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
@@ -58,8 +55,7 @@ class APIDatabase(Database):
         #      self.load_file = bmdca.load_couplings
         #      self.save_file = not_implemented
 
-        # Todo modify to only load the necessary files upon self.load_all_data() call
-        self.sources = [self.stride, self.sequences, self.alignments, self.hhblits_profiles, self.pdb, self.uniprot]
+        self.sources = [self.sequences, self.alignments, self.hhblits_profiles, self.pdb, self.uniprot]
 
 
 class APIDatabaseFactory:
@@ -94,13 +90,8 @@ class APIDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            structure_info_dir = os.path.join(source, putils.structure_info)
-            sequence_info_dir = os.path.join(source, putils.sequence_info)
+            sequence_info_dir = os.path.join(source, 'SequenceInfo')
             external_db = os.path.join(source, 'ExternalDatabases')
-            # stride directory
-            stride_dir = os.path.join(structure_info_dir, 'stride')
-            # Todo only make paths if they are needed...
-            putils.make_path(stride_dir)
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
@@ -109,12 +100,10 @@ class APIDatabaseFactory:
             # external database subdirectories
             pdb = os.path.join(external_db, 'pdb')
             putils.make_path(pdb)
-            # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
-            # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
             uniprot = os.path.join(external_db, 'uniprot')
             putils.make_path(uniprot)
-            # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
-            self._database = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
+            # self._databases[source] = APIDatabase(sequences, profiles, pdb, uniprot, sql=None)
+            self._database = APIDatabase(sequences, profiles, pdb, uniprot, sql=None)
 
         # return self._databases[source]
         return self._database

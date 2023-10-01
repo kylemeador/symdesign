@@ -153,7 +153,7 @@ def interface_metrics(job: pose.PoseJob):
     """
     job.identify_interface()
     # metrics_flags = 'repack=yes'
-    job.protocol = putils.interface_metrics
+    job.protocol = flags.interface_metrics
     main_cmd = rosetta.script_cmd.copy()
 
     job.prepare_rosetta_flags(out_dir=job.scripts_path)
@@ -198,7 +198,7 @@ def interface_metrics(job: pose.PoseJob):
     if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
         metric_cmd_bound += ['-symmetry_definition', 'CRYST1']
     metric_cmd_bound += \
-        [os.path.join(putils.rosetta_scripts_dir, f'{job.protocol}{"_DEV" if job.job.development else ""}.xml')]
+        [os.path.join(putils.rosetta_scripts_dir, f'interface_metrics{"_DEV" if job.job.development else ""}.xml')]
     job.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
     entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                           f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
@@ -378,7 +378,7 @@ def design(job: pose.PoseJob):
 
     putils.make_path(job.data_path)
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-    if job.job.design.method == putils.rosetta_str:
+    if job.job.design.method == putils.rosetta:
         # Update upon completion given results of designs list file...
         # NOT # Update the Pose with the number of designs
         # raise NotImplementedError('Need to generate design_number matching job.proteinmpnn_design()...')
@@ -437,7 +437,7 @@ def design(job: pose.PoseJob):
     #         job.proteinmpnn_design()  # Sets job.protocol
     #     case _:
     #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    if job.job.design.method in [putils.rosetta_str, putils.consensus]:
+    if job.job.design.method in [putils.rosetta, putils.consensus]:
         # Write generated files
         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
@@ -472,7 +472,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         # design_file=None (str): The name of a particular design file present in the designs output
         threshold: The threshold above which background amino acid frequencies are allowed for mutation
     """
-    job.protocol = protocol_xml1 = putils.optimize_designs
+    job.protocol = protocol_xml1 = flags.optimize_designs._
     # job.protocol = putils.pross
     # Todo Notes for PROSS implementation
     #  I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible

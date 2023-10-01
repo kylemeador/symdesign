@@ -14,7 +14,7 @@ from psutil import cpu_count
 from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, termini_literal
-from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \
+from symdesign.utils import handle_errors, InputError, log_levels, remove_digit_table, path as putils, \
     pretty_format_table, to_iterable, logging_levels
 from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_logging_level, \
     default_path_file, ex_path, fragment_dbs, program_output, program_command, program_name, projects, \
@@ -204,6 +204,28 @@ mask_chains = 'mask_chains'
 require_residues = 'require_residues'
 require_chains = 'require_chains'
 use_proteinmpnn = 'use_proteinmpnn'
+setup = 'setup'
+mpi = 'mpi'
+cores = 'cores'
+range_ = 'range'
+project = 'project'
+single = 'single'
+fuse_chains = 'fuse_chains'
+save_total = 'save_total'
+weight_file = 'weight_file'
+weight = 'weight'
+weight_function = 'weight_function'
+file = 'file'
+filter_ = 'filter'
+filter_file = 'filter_file'
+csv = 'csv'
+symmetry = 'symmetry'
+query = 'query'
+guide = 'guide'
+overwrite = 'overwrite'
+prefix = 'prefix'
+suffix = 'suffix'
+log_level = 'log_level'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -302,6 +324,28 @@ def format_args(flag_args: Sequence[str]) -> str:
     return '/'.join(flag_args)
 
 
+project = Flag(project)
+single = Flag(single)
+fuse_chains = Flag(fuse_chains)
+setup = Flag(setup)
+mpi = Flag(mpi)
+cores = Flag(cores)
+range_ = Flag(range_)
+save_total = Flag(save_total)
+weight_file = Flag(weight_file)
+weight = Flag(weight)
+weight_function = Flag(weight_function)
+file = Flag(file)
+filter_ = Flag(filter_)
+filter_file = Flag(filter_file)
+csv = Flag(csv)
+symmetry = Flag(symmetry)
+query = Flag(query)
+guide = Flag(guide)
+overwrite = Flag(overwrite)
+prefix = Flag(prefix)
+suffix = Flag(suffix)
+log_level = Flag(log_level)
 development = Flag(development)
 force = Flag(force)
 quick = Flag(quick)
@@ -895,12 +939,11 @@ term_constraint_args = ('-tc', term_constraint.long)
 term_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                               help='Whether to include tertiary motif constraints during design.\n'
                                    f'{boolean_positional_prevent_msg(term_constraint)}')
-guide_args = ('--guide',)
+guide_args = (guide.long,)
 guide_kwargs = dict(action='store_true', help=f'Display guides for the full {program_name} and specific modules\n'
-                                              f"Ex: '{program_command} --guide'\nor: '{submodule_guide}'")
+                                              f"Ex: '{program_command} {guide.long}'\nor: '{submodule_guide}'")
 help_args = ('-h', '-help', '--help')
-help_kwargs = dict(action='store_true', help=f'Display argument help\nEx:'
-                                             f" '{program_command} --help'")
+help_kwargs = dict(action='store_true', help=f"Display argument help\nEx: '{program_command} --help'")
 clash_distance_args = (clash_distance.long,)
 clash_criteria_args = (clash_criteria.long,)
 ignore_clashes_args = ('-ic', ignore_clashes.long)
@@ -917,8 +960,7 @@ all_flags_help = f'Display all {program_name} flags'
 parser_all_flags = dict(description=all_flags_help, add_help=False)  # help=all_flags_help,
 parser_all_flags_group = dict(description=f'\n{all_flags_help}')
 # ---------------------------------------------------
-symmetry = 'symmetry'
-symmetry_args = ('-S', '--symmetry')
+symmetry_args = ('-S', symmetry.long)
 symmetry_kwargs = dict(metavar='RESULT:{GROUP1}{GROUP2}...',
                        help='The specific symmetry of the poses of interest. Preferably\n'
                             'in a composition formula such as T:{C3}{C3}... Can also\n'
@@ -932,7 +974,7 @@ symmetry_help = 'Specify a symmetric system in which to model inputs. Default mo
 parser_symmetry = dict(description=symmetry_help, help=symmetry_help)
 parser_symmetry_group = dict(title=f'{"_" * len(symmetry_title)}\n{symmetry_title}',
                              description=f'\n{symmetry_help}')
-sym_query_args = ('--query',)
+sym_query_args = (query.long,)
 symmetry_arguments = {
     sym_entry_args: sym_entry_kwargs,
     symmetry_args: symmetry_kwargs,
@@ -940,7 +982,7 @@ symmetry_arguments = {
                          help='Query the symmetries available for modeling\n'
                               'Choices=%(choices)s'),
     (nanohedra.long,): dict(action='store_true',
-                              help=f'True if only {nanohedra.title()} docking symmetries should be queried')
+                            help=f'True if only {nanohedra.title()} docking symmetries should be queried')
 }
 # ---------------------------------------------------
 options_help = 'Control runtime considerations and miscellaneous\n' \
@@ -948,7 +990,7 @@ options_help = 'Control runtime considerations and miscellaneous\n' \
 parser_options = dict(description=options_help, help=options_help)
 parser_options_group = dict(title=f'{"_" * len(options_title)}\n{options_title}',
                             description=f'\n{options_help}')
-cores_args = ('--cores',)
+cores_args = (cores.long,)
 multiprocessing_args = ('-M', multi_processing.long)
 multiprocessing_kwargs = dict(action='store_true', help='Should job be run with multiple processors?')
 project_name_args = (project_name.long,)
@@ -959,7 +1001,7 @@ proteinmpnn_model_kwargs = dict(choices=proteinmpnn_models, default='v_48_020', 
                                      'where the model name takes the form v_X_Y, with X indicating\n'
                                      'The number of neighbors, and Y indicating the training noise\n'
                                      'Choices=%(choices)s\nDefault=%(default)s')
-setup_args = ('--setup',)
+setup_args = (setup.long,)
 setup_kwargs = dict(action='store_true', help=f'Show set up instructions')
 options_arguments = {
     cores_args: dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
@@ -970,11 +1012,11 @@ options_arguments = {
     #                       help=f'Whether to utilize the SQL database for result processing\n'
     #                            f'{boolean_positional_prevent_msg("database")}'),
     (database_url.long,): dict(help='The location/server used to connect to a SQL database.\nOnly used '
-                                      f'during initial {program_output} directory set up.\nSubsequent jobs '
-                                      'will use the same url'),
+                                    f'during initial {program_output} directory set up.\nSubsequent jobs '
+                                    'will use the same url'),
     (development.long,): dict(action='store_true',
-                                help="Run in development mode. Only use if you're actively\n"
-                                     'developing and understand the side effects'),
+                              help="Run in development mode. Only use if you're actively\n"
+                                   'developing and understand the side effects'),
     use_evolution_args: use_evolution_kwargs,
     use_proteinmpnn_args: use_proteinmpnn_kwargs,
     distribute_args: dict(action='store_true',
@@ -983,12 +1025,12 @@ options_arguments = {
     ('-F', force.long): dict(action='store_true', help='Force generation of new files for existing projects'),
     guide_args: guide_kwargs,
     (interface_distance.long,): dict(type=float, default=9.0, metavar='FLOAT',
-                                       help='The default value to use for querying Cb-Cb\n'
-                                            'residue contacts across and interface'),
+                                     help='The default value to use for querying Cb-Cb\n'
+                                          'residue contacts across and interface'),
     ('-i', fragment_database.long): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
-                                           metavar='',
-                                           help='Database to match fragments for interface specific scoring matrices'
-                                                '\nChoices=%(choices)s\nDefault=%(default)s'),
+                                         metavar='',
+                                         help='Database to match fragments for interface specific scoring matrices'
+                                              '\nChoices=%(choices)s\nDefault=%(default)s'),
     clash_distance_args:
         dict(type=float, default=default_clash_distance, metavar='FLOAT',
              help='What distance should be used for clash checking?\nDefault=%(default)s'),
@@ -1001,12 +1043,12 @@ options_arguments = {
         dict(action='store_true', help='Ignore asu/pose clashes found during clash checks'),
     ignore_symmetric_clashes_args:
         dict(action='store_true', help='Ignore symmetric clashes found during clash checks'),
-    ('--log-level',): dict(type=log_level.get, default=default_logging_level, choices=logging_levels, metavar='',
-                           help='What level of log messages should be displayed to stdout?'
-                                '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
-    ('--mpi',): dict(type=int, metavar='INT',
-                     help='If commands should be run as MPI parallel processes,\n'
-                          'how many processes should be invoked for each job?\nDefault=%(default)s'),
+    (log_level.long,): dict(type=log_levels.get, default=default_logging_level, choices=logging_levels, metavar='',
+                            help='What level of log messages should be displayed to stdout?'
+                                 '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
+    (mpi.long,): dict(type=int, metavar='INT',
+                      help='If commands should be run as MPI parallel processes,\n'
+                           'how many processes should be invoked for each job?\nDefault=%(default)s'),
     multiprocessing_args: multiprocessing_kwargs,
     project_name_args: dict(help='If desired, the name of the initialized project\n'
                                  'Default is inferred from input'),
@@ -1486,15 +1528,15 @@ process_rosetta_metrics_arguments = {}
 # allow_multiple_poses_kwargs = dict(action='store_true',
 #                                    help='Allow multiple designs to be selected from the same Pose when using --total'
 #                                         '\nBy default, --total filters the selected designs by a single Pose')
-csv_args = ('--csv',)
+csv_args = (csv.long,)
 csv_kwargs = dict(action='store_true', help='Write the sequences file as a .csv instead of the default .fasta')
 designs_per_pose_args = (designs_per_pose.long,)
 designs_per_pose_kwargs = dict(type=int, metavar='INT', default=1,
                                help='What is the maximum number of designs to select from each pose?\n'
                                     'Default=%(default)s')
-filter_file_args = ('--filter-file',)
+filter_file_args = (filter_file.long,)
 filter_file_kwargs = dict(type=os.path.abspath, help='Whether to filter selection using metrics provided in a file')
-filter_args = ('--filter',)
+filter_args = (filter_.long,)
 all_filter_args = filter_args + filter_file_args
 filter_kwargs = dict(nargs='*', default=tuple(), help='Whether to filter selection using metrics')  # default=None,
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
@@ -1507,7 +1549,7 @@ protocol_args = (protocol.long,)
 protocol_kwargs = dict(nargs='*', default=tuple(), help='Use specific protocol(s) to filter designs?')
 pose_select_number_kwargs = \
     dict(type=int, default=sys.maxsize, metavar='INT', help='Number to return\nDefault=No Limit')
-save_total_args = ('--save-total',)
+save_total_args = (save_total.long,)
 save_total_kwargs = dict(action='store_true', help='Should the total dataframe accessed by selection be saved?')
 select_number_args = (select_number.long,)
 select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='INT',
@@ -1517,14 +1559,14 @@ select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='INT',
 #                     help='Should selection be based on the total design pool?\n'
 #                          'Searches for the top sequences from all poses, then\n'
 #                          f'chooses one sequence/pose unless --{allow_multiple_poses} is invoked')
-weight_file_args = ('--weight-file',)
+weight_file_args = (weight_file.long,)
 weight_file_kwargs = dict(type=os.path.abspath,
                           help='Whether to weight selection results using metrics provided in a file')
-weight_args = ('--weight',)
+weight_args = (weight.long,)
 all_weight_args = weight_args + weight_file_args
 weight_kwargs = dict(nargs='*', default=tuple(), help='Whether to weight selection results using metrics')  # default=None,
 # weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
-weight_function_args = ('-wf', '--weight-function')
+weight_function_args = ('-wf', weight_function.long)
 weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_functions, default='normalize', metavar='',
                               help='How to standardize metrics during selection weighting'
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
@@ -1624,7 +1666,7 @@ select_designs_arguments = {
     csv_args: csv_kwargs,
 }
 # ---------------------------------------------------
-file_args = ('-f', '--file')
+file_args = ('-f', file.long)
 multicistronic_help = 'Generate nucleotide sequences for selected designs by codon\n' \
                       'optimizing protein sequences, then concatenating nucleotide\n' \
                       f'sequences. Either .csv or .fasta file accepted with {format_args(file_args)}'
@@ -1680,14 +1722,14 @@ parser_rename_chains = dict(description=rename_chains_help, help=rename_chains_h
 #                              help='Generate a flags template to edit on your own.')
 # }
 # # ---------------------------------------------------
-fuse_chains_args = ('--fuse-chains',)
+fuse_chains_args = (fuse_chains.long,)
 load_to_db_args = (load_to_db.long,)
 load_to_db_kwargs = dict(action='store_true',
                          help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
-range_args = ('-r', '--range')
+range_args = ('-r', range_.long)
 # ---------------------------------------------------
-project_args = ('-p', '--project')
-single_args = ('-s', '--single')
+project_args = ('-p', project.long)
+single_args = ('-s', single.long)
 directory_args = ('-d', directory.long)
 directory_needed = f'To locate poses from a file utilizing pose identifiers (--{poses}, -sf)\n' \
                    f'provide your working {program_output} directory with {format_args(directory_args)}.\n' \
@@ -1717,8 +1759,8 @@ input_arguments = {
     **pose_inputs,
     cluster_map_args: cluster_map_kwargs,
     ('-df', dataframe.long): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
-                                    help=f'A DataFrame created by {program_name} analysis containing\n'
-                                         'pose metrics. File is output in .csv format'),
+                                  help=f'A DataFrame created by {program_name} analysis containing\n'
+                                       'pose metrics. File is output in .csv format'),
     fuse_chains_args: dict(nargs='*', default=tuple(), metavar='A:B C:D',
                            help='The name of a pair of chains to fuse during design. Paired\n'
                                 'chains should be separated by a colon, with the n-terminal\n'
@@ -1777,10 +1819,10 @@ parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
 output_arguments = {
     (increment_chains.long,): dict(action='store_true',
-                                     help='Whether assembly files should output with chain IDs incremented\n'
-                                          "or in 'Multimodel' format. Multimodel format is useful for PyMol\n"
-                                          "visualization with the command 'set all_states, on'. Chimera can\n"
-                                          'utilize either format as the BIOMT record is respected'),
+                                   help='Whether assembly files should output with chain IDs incremented\n'
+                                        "or in 'Multimodel' format. Multimodel format is useful for PyMol\n"
+                                        "visualization with the command 'set all_states, on'. Chimera can\n"
+                                        'utilize either format as the BIOMT record is respected'),
     ('-Oa', output_assembly.long):
         dict(action='store_true',
              help='Whether the symmetric assembly should be output.\nInfinite assemblies are output as a unit cell'),
@@ -1803,13 +1845,13 @@ output_arguments = {
         dict(action='store_true', help='For infinite materials, whether surrounding unit cells are output'),
     ('-Ot', output_trajectory.long):
         dict(action='store_true', help=f'For all structures generated, write them as a single multimodel file'),
-    ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structural info'),
+    (overwrite.long,): dict(action='store_true', help='Whether to overwrite existing structural info'),
     ('-Pf', pose_format.long): dict(action='store_true',
-                                      help='Whether outputs should be converted to pose number formatting,\n'
-                                           'where residue numbers start at one and increase sequentially\n'
-                                           'instead of using the original numbering'),
-    ('--prefix',): dict(metavar='STRING', help='String to prepend to output name'),
-    ('--suffix',): dict(metavar='STRING', help='String to append to output name'),
+                                    help='Whether outputs should be converted to pose number formatting,\n'
+                                         'where residue numbers start at one and increase sequentially\n'
+                                         'instead of using the original numbering'),
+    (prefix.long,): dict(metavar='STRING', help='String to prepend to output name'),
+    (suffix.long,): dict(metavar='STRING', help='String to append to output name'),
 }
 # all_flags_parsers = dict(all_flags=parser_all_flags_group)
 all_flags_arguments = {}

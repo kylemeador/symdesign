@@ -262,7 +262,7 @@ class JobResources:
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)
         # """Whether to reissue commands, only if distribute_work=False"""
-        self.log_level: bool = kwargs.get('log_level')
+        self.log_level: bool = kwargs.get(flags.log_level._)
         self.debug: bool = True if self.log_level == logging.DEBUG else False
         self.force: bool = kwargs.get(flags.force._)
         self.development: bool = kwargs.get(flags.development._)
@@ -270,7 +270,7 @@ class JobResources:
         if self.profile_memory and not self.development:
             logger.warning(f"{flags.profile_memory.long} was set but {flags.development.long} wasn't")
 
-        self.mpi: int = kwargs.get('mpi')
+        self.mpi: int = kwargs.get(flags.mpi)
         if self.mpi is None:
             self.mpi = 0
             self.distribute_work: bool = kwargs.get(flags.distribute_work._)
@@ -282,56 +282,44 @@ class JobResources:
             #             f'{job.design.number / number_mpi_processes:2f}-fold.')
         else:  # self.mpi > 0
             self.distribute_work = True
-            raise NotImplementedError(f"Can't compute the number of resources to allocate using --mpi yet...")
+            raise NotImplementedError(
+                f"Can't compute the number of resources to allocate using {flags.mpi.long} yet...")
 
         self.multi_processing: int = kwargs.get(flags.multi_processing._)
         if self.multi_processing:
             # Calculate the number of cores to use depending on computer resources
-            self.cores = utils.calculate_mp_cores(cores=kwargs.get('cores'))  # Todo mpi=self.mpi
+            self.cores = utils.calculate_mp_cores(cores=kwargs.get(flags.cores))  # Todo mpi=self.mpi
         else:
             self.cores: int = 1
         self.threads = self.cores * 2
         self.gpu_available = False
-        # self.reduce_memory = False
 
         # Input parameters
-        self.project_name = kwargs.get('project_name')
+        self.project_name = kwargs.get(flags.project_name._)
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
         self.projects = os.path.join(self.program_root, putils.projects)
-        self.job_paths = os.path.join(self.program_root, putils.job_paths)
-        self.sbatch_scripts = os.path.join(self.program_root, putils.scripts.title())
-        self.all_scores = os.path.join(self.program_root, putils.all_scores)
-        # data subdirectories
-        self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
-        self.structure_info = os.path.join(self.data, putils.structure_info)
-        self.pdbs = os.path.join(self.structure_info, 'PDBs')  # Used to store downloaded PDB's
-        self.sequence_info = os.path.join(self.data, putils.sequence_info)
-        self.external_db = os.path.join(self.data, 'ExternalDatabases')
-        # pdbs subdirectories
-        self.orient_dir = os.path.join(self.pdbs, 'oriented')
-        self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
-        self.refine_dir = os.path.join(self.pdbs, 'refined')
-        self.full_model_dir = os.path.join(self.pdbs, 'full_models')
-        self.stride_dir = os.path.join(self.structure_info, 'stride')
-        # sequence_info subdirectories
-        self.sequences = os.path.join(self.sequence_info, 'sequences')
-        self.profiles = os.path.join(self.sequence_info, 'profiles')
-        # external database subdirectories
-        self.pdb_api = os.path.join(self.external_db, 'pdb')
-        # self.pdb_entity_api = os.path.join(self.external_db, 'pdb_entity')
-        # self.pdb_assembly_api = os.path.join(self.external_db, 'pdb_assembly')
-        self.uniprot_api = os.path.join(self.external_db, 'uniprot')
-
-        # self.design_db = None
-        # self.score_db = None
-        putils.make_path(self.pdb_api)
-        # putils.make_path(self.pdb_entity_api)
-        # putils.make_path(self.pdb_assembly_api)
-        putils.make_path(self.uniprot_api)
+        self.job_paths = os.path.join(self.program_root, 'JobPaths')
+        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
+        self.all_scores = os.path.join(self.program_root, 'AllScores')
 
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
-        self.structure_db = structure_db.structure_database_factory.get(source=self.structure_info)
+        self.sequences = self.api_db.sequences.location
+        self.profiles = self.api_db.hhblits_profiles.location
+        self.pdb_api = self.api_db.pdb.location
+        self.uniprot_api = self.api_db.uniprot.location
+        # data subdirectories
+        self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
+        # pdbs subdirectories
+        self.structure_db = structure_db.structure_database_factory.get(
+            source=os.path.join(self.data, 'StructureInfo'))
+        self.pdbs = self.structure_db.models.location  # Used to store downloaded PDB's
+        self.orient_dir = self.structure_db.oriented.location
+        self.orient_asu_dir = self.structure_db.oriented_asu.location
+        self.refine_dir = self.structure_db.refined.location
+        self.full_model_dir = self.structure_db.full_models.location
+        self.stride_dir = self.structure_db.stride.location
+
         # Set the job instance on these db objects
         self.api_db.job = self
         self.structure_db.job = self
@@ -339,7 +327,7 @@ class JobResources:
 
         default_db = f'sqlite:///{os.path.join(self.data, f"{putils.program_name}.db")}'
         self.db_config = os.path.join(self.data, 'db.cfg')
-        database_url = kwargs.get('database_url')
+        database_url = kwargs.get(flags.database_url._)
         if initial:
             if database_url is None:
                 database_url = default_db
@@ -365,8 +353,8 @@ class JobResources:
         if initial:  # if not os.path.exists(self.internal_db):
             # Emit CREATE TABLE DDL
             sql.Base.metadata.create_all(self.db.engine)
-        self.load_to_db = kwargs.get('load_to_db')
-        self.reset_db = kwargs.get('reset_db')
+        self.load_to_db = kwargs.get(flags.load_to_db._)
+        self.reset_db = kwargs.get(flags.reset_db._)
         if self.reset_db:
             response = input(f"All database information will be wiped if you proceed. Enter 'YES' to proceed"
                              f"{utils.query.input_string}")
@@ -384,7 +372,7 @@ class JobResources:
 
         # PoseJob initialization flags
         self.init = Init.from_flags(**kwargs)
-        self.specify_entities = kwargs.get('specify_entities')
+        self.specify_entities = kwargs.get(flags.specify_entities._)
         # self.init.pre_refined
         # self.init.pre_loop_modeled
         # self.init.refine_input
@@ -395,7 +383,7 @@ class JobResources:
         #     self.preprocessed = True
         # else:
         #     self.preprocessed = False
-        self.range = kwargs.get('range')
+        self.range = kwargs.get(flags.range_._)
         if self.range is not None:
             try:
                 self.low, self.high = map(float, self.range.split('-'))
@@ -415,10 +403,10 @@ class JobResources:
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             process_design_selector_flags(**kwargs)
 
-        self.update_metadata = kwargs.get('update_metadata')
-        self.component1 = kwargs.get('component1')
-        self.query_codes = kwargs.get('query_codes')
-        pdb_codes = kwargs.get('pdb_code', kwargs.get('target_pdb_code'))
+        self.update_metadata = kwargs.get(flags.update_metadata._)
+        self.component1 = kwargs.get(flags.component1._)
+        self.query_codes = kwargs.get(flags.query_codes._)
+        pdb_codes = kwargs.get(flags.pdb_code._, kwargs.get('target_pdb_code'))
         if pdb_codes:
             # Collect all provided codes required for component 1 processing
             codes = []
@@ -428,7 +416,7 @@ class JobResources:
         else:
             self.pdb_codes = None
 
-        self.component2 = kwargs.get('component2')
+        self.component2 = kwargs.get(flags.component2._)
         self.query_codes2 = kwargs.get('query_codes2')
         pdb_codes2 = kwargs.get('pdb_code2', kwargs.get('aligned_pdb_code'))
         if pdb_codes2:
@@ -468,13 +456,13 @@ class JobResources:
                     self.dock.perturb_dof_steps_tx = 1
         else:  # None provided, set the unavailable dof to 1 step and warn if one was provided
             if self.dock.perturb_dof_steps is not None:
-                logger.warning(f"Couldn't use the flag --{flags.perturb_dof_steps} as --{flags.perturb_dof}"
+                logger.warning(f"Couldn't use the flag {flags.perturb_dof_steps.long} as {flags.perturb_dof.long}"
                                f" wasn't set")
             if self.dock.perturb_dof_steps_rot is not None:
-                logger.warning(f"Couldn't use the flag --{flags.perturb_dof_steps_rot} as --{flags.perturb_dof_rot}"
-                               f" wasn't set")
+                logger.warning(f"Couldn't use the flag {flags.perturb_dof_steps_rot.long} as "
+                               f"{flags.perturb_dof_rot.long} wasn't set")
             if self.dock.perturb_dof_steps_tx is not None:
-                logger.warning(f"Couldn't use the flag --{flags.perturb_dof_steps_tx} as --{flags.perturb_dof_tx}"
+                logger.warning(f"Couldn't use the flag {flags.perturb_dof_steps_tx.long} as {flags.perturb_dof_tx.long}"
                                f" wasn't set")
             self.dock.perturb_dof_steps = self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = 1
 
@@ -503,14 +491,14 @@ class JobResources:
         # self.match_value: bool = kwargs.get('match_value', False)
         # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
 
-        self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
+        self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get(flags.fuse_chains._, [])]
 
-        self.interface_distance = kwargs.get('interface_distance')
-        self.interface = kwargs.get('interface')
-        self.interface_only = kwargs.get('interface_only')
-        self.oligomeric_interfaces = kwargs.get('oligomeric_interfaces')
-        self.use_proteinmpnn = kwargs.get('use_proteinmpnn')
-        self.use_evolution = kwargs.get('use_evolution')
+        self.interface_distance = kwargs.get(flags.interface_distance._)
+        self.interface = kwargs.get(flags.interface._)
+        self.interface_only = kwargs.get(flags.interface_only._)
+        self.oligomeric_interfaces = kwargs.get(flags.oligomeric_interfaces._)
+        self.use_proteinmpnn = kwargs.get(flags.use_proteinmpnn._)
+        self.use_evolution = kwargs.get(flags.use_evolution._)
         # Explicitly set to false if not designing or predicting
         use_evolution_modules = [
             flags.nanohedra, flags.initialize_building_blocks, flags.refine, flags.interface_metrics,
@@ -551,17 +539,15 @@ class JobResources:
         # self.dock_only: bool = kwargs.get('dock_only')
         # if self.dock_only:
         #     self.design.sequences = self.design.structures = False
-        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info')
-        self.increment_chains: bool = kwargs.get('increment_chains')
-        # self.pre_refined: bool = kwargs.get('pre_refined', True)
-        # self.pre_loop_modeled: bool = kwargs.get('pre_loop_modeled', True)
-        self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
+        self.only_write_frag_info: bool = kwargs.get(flags.only_write_frag_info._)
+        self.increment_chains: bool = kwargs.get(flags.increment_chains._)
+        self.interface_to_alanine: bool = kwargs.get(flags.interface_to_alanine._)
         self.metrics: bool = kwargs.get(flags.metrics._)
-        self.measure_pose: str = kwargs.get('measure_pose')
-        self.specific_protocol: str = kwargs.get('specific_protocol')
+        self.measure_pose: str = kwargs.get(flags.measure_pose._)
+        self.specific_protocol: str = kwargs.get(flags.specific_protocol._)
         # Process symmetry
         sym_entry_number = kwargs.get(flags.sym_entry._)
-        symmetry = kwargs.get('symmetry')
+        symmetry = kwargs.get(flags.symmetry._)
         if sym_entry_number is None and symmetry is None:
             self.sym_entry: SymEntry.SymEntry | str | None = None
         else:
@@ -569,14 +555,15 @@ class JobResources:
                 # Later, symmetry information will be retrieved from the file header
                 self.sym_entry = SymEntry.CrystRecord  # Input was provided as 'cryst'
             else:
-                self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry_number=sym_entry_number, symmetry=symmetry)
+                self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(
+                    sym_entry_number=sym_entry_number, symmetry=symmetry)
 
         # Selection flags
-        self.save_total = kwargs.get('save_total')
+        self.save_total = kwargs.get(flags.save_total._)
         # self.total = kwargs.get('total')
         self.protocol = kwargs.get(flags.protocol._)
-        _filter = kwargs.get('filter')
-        _filter_file = kwargs.get('filter_file')
+        _filter = kwargs.get(flags.filter_._)
+        _filter_file = kwargs.get(flags.filter_file._)
         if _filter == list():
             # --filter was provided, but as a boolean-esq. Query the user once there is a df
             self.filter = True
@@ -584,8 +571,8 @@ class JobResources:
             self.filter = flags.parse_filters(_filter, file=_filter_file)
         else:
             self.filter = None
-        _weight = kwargs.get('weight')
-        _weight_file = kwargs.get('weight_file')
+        _weight = kwargs.get(flags.weight._)
+        _weight_file = kwargs.get(flags.weight_file._)
         if _weight == list():
             # --weight was provided, but as a boolean-esq. Query the user once there is a df
             self.weight = True
@@ -593,39 +580,37 @@ class JobResources:
             self.weight = flags.parse_weights(_weight, file=_weight_file)
         else:
             self.weight = None
-        self.weight_function = kwargs.get('weight_function')
-        self.select_number = kwargs.get('select_number')
-        self.designs_per_pose = kwargs.get('designs_per_pose')
+        self.weight_function = kwargs.get(flags.weight_function._)
+        self.select_number = kwargs.get(flags.select_number._)
+        self.designs_per_pose = kwargs.get(flags.designs_per_pose._)
         # self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
         self.tag_entities = kwargs.get(flags.tag_entities._)
-        # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get(flags.specification_file._)
         # Don't need this at the moment...
         # self.poses = kwargs.get(flags.poses)
         """Used to specify whether specific designs should be fetched for select_* modules"""
-        self.dataframe = kwargs.get('dataframe')
-        self.metric = kwargs.get('metric')
+        self.dataframe = kwargs.get(flags.dataframe._)
 
         # Sequence flags
         self.avoid_tagging_helices = kwargs.get(flags.avoid_tagging_helices._)
-        self.csv = kwargs.get('csv')
+        self.csv = kwargs.get(flags.csv._)
         self.nucleotide = kwargs.get(flags.nucleotide)
         self.optimize_species = kwargs.get(flags.optimize_species._)
         self.preferred_tag = kwargs.get(flags.preferred_tag._)
-        self.tag_linker = kwargs.get('tag_linker')
+        self.tag_linker = kwargs.get(flags.tag_linker._)
         self.multicistronic = kwargs.get(flags.multicistronic._)
         self.multicistronic_intergenic_sequence = kwargs.get(flags.multicistronic_intergenic_sequence._)
 
         # Output flags
-        self.overwrite: bool = kwargs.get('overwrite')
-        self.pose_format = kwargs.get('pose_format')
-        prefix = kwargs.get('prefix')
+        self.overwrite: bool = kwargs.get(flags.overwrite._)
+        self.pose_format = kwargs.get(flags.pose_format._)
+        prefix = kwargs.get(flags.prefix._)
         if prefix:
             self.prefix = f'{prefix}_'
         else:
             self.prefix = ''
 
-        suffix = kwargs.get('suffix')
+        suffix = kwargs.get(flags.suffix._)
         if suffix:
             self.suffix = f'_{suffix}'
         else:
@@ -648,8 +633,9 @@ class JobResources:
             self.output_directory = output_directory
             if os.path.exists(self.output_directory) and not self.overwrite:
                 print(f"The specified output directory '{self.output_directory}' already exists. Proceeding may "
-                      'overwrite your old data. Either specify a new one or use the flags '
-                      '--prefix or --suffix to modify the name. To proceed, append --overwrite to your command')
+                      f'overwrite your old data. Either specify a new one or use the flags {flags.prefix.long} or '
+                      f'{flags.suffix.long} to modify the name. To proceed, append {flags.overwrite.long} to your '
+                      f'command')
                 sys.exit(1)
             putils.make_path(self.output_directory)
 
@@ -659,8 +645,9 @@ class JobResources:
             if os.path.exists(self.output_file) and not self.overwrite:
                 # if self.module in flags.analysis:  # Todo this was allowed, but it's outdated...
                 print(f"The specified output file '{self.output_file}' already exists. Proceeding may "
-                      'overwrite your old data. Either specify a new one or use the flags '
-                      '--prefix or --suffix to modify the name. To proceed, append --overwrite to your command')
+                      f'overwrite your old data. Either specify a new one or use the flags {flags.prefix.long} or '
+                      f'{flags.suffix.long} to modify the name. To proceed, append {flags.overwrite.long} to your '
+                      f'command')
                 sys.exit(1)
 
         # When we are performing expand-asu, make sure we set output_assembly to True
@@ -677,9 +664,9 @@ class JobResources:
         self.output_trajectory: bool = kwargs.get(flags.output_trajectory._)
 
         self.skip_logging: bool = kwargs.get(flags.skip_logging._)
-        self.merge: bool = kwargs.get('merge')
-        self.save: bool = kwargs.get('save')
-        self.figures: bool = kwargs.get('figures')
+        # self.merge: bool = kwargs.get(flags.merge._)
+        # self.save: bool = kwargs.get(flags.save._)
+        # self.figures: bool = kwargs.get(flags.figures._)
 
         if self.output_structures or self.output_assembly or self.output_surrounding_uc or self.output_fragments \
                 or self.output_oligomers or self.output_entities or self.output_trajectory:
@@ -695,23 +682,22 @@ class JobResources:
         # self.construct_pose = True
 
         # Align helix flags
-        self.aligned_start = kwargs.get('aligned_start')
-        self.aligned_end = kwargs.get('aligned_end')
-        self.aligned_chain = kwargs.get('aligned_chain')
-        self.alignment_length = kwargs.get('alignment_length')
-        self.bend = kwargs.get('bend')
-        self.extension_length = kwargs.get('extend')
-        self.target_start = kwargs.get('target_start')
-        self.target_end = kwargs.get('target_end')
-        self.target_chain = kwargs.get('target_chain')
-        self.target_termini = kwargs.get('target_termini')
-        self.trim_termini = kwargs.get('trim_termini')
-
+        self.aligned_start = kwargs.get(flags.aligned_start._)
+        self.aligned_end = kwargs.get(flags.aligned_end._)
+        self.aligned_chain = kwargs.get(flags.aligned_chain._)
+        self.alignment_length = kwargs.get(flags.alignment_length._)
+        self.bend = kwargs.get(flags.bend._)
+        self.extension_length = kwargs.get(flags.extend._)
+        self.target_start = kwargs.get(flags.target_start._)
+        self.target_end = kwargs.get(flags.target_end._)
+        self.target_chain = kwargs.get(flags.target_chain._)
+        self.target_termini = kwargs.get(flags.target_termini._)
+        self.trim_termini = kwargs.get(flags.trim_termini._)
         # Helix Bending flags
-        self.direction = kwargs.get('direction')
-        self.joint_residue = kwargs.get('joint_residue')
-        self.joint_chain = kwargs.get('joint_chain')
-        self.sample_number = kwargs.get('sample_number')
+        self.direction = kwargs.get(flags.direction._)
+        self.joint_residue = kwargs.get(flags.joint_residue._)
+        self.joint_chain = kwargs.get(flags.joint_chain._)
+        self.sample_number = kwargs.get(flags.sample_number._)
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
         # self.num_predictions_per_model = kwargs.get('num_predictions_per_model')
@@ -724,12 +710,13 @@ class JobResources:
             self.predict.models_to_relax = None
 
         # Clustering flags
-        # Todo this is pretty sloppy. I should modify this DataClass mechanism...
-        self.cluster_selection = kwargs.get('cluster_selection')
+        # Todo
+        #  This is pretty sloppy. Modify this DataClass mechanism...
+        self.cluster_selection = kwargs.get(flags.cluster_selection._)
         # self.cluster_map = kwargs.get('cluster_map')
         # self.as_objects: bool = kwargs.get('as_objects')
         # self.mode: bool = kwargs.get('mode')
-        if flags.cluster_poses in self.modules or 'cluster_map' in kwargs:
+        if flags.cluster_poses in self.modules or flags.cluster_map._ in kwargs:
             self.cluster = Cluster.from_flags(**kwargs)
             # self.cluster.map: AnyStr
             # """The path to a file containing the currently loaded mapping from cluster representatives to members"""

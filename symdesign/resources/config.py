@@ -13,7 +13,7 @@ min_, max_ = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 weight_functions_literal = Literal['normalize', 'rank']
 default_weight_parameter: dict[str, str] = {
-    putils.rosetta_str: 'interface_energy',
+    putils.rosetta: 'interface_energy',
     putils.proteinmpnn: 'proteinmpnn_score_complex',
     putils.nanohedra: 'nanohedra_score_center',  # 'nanohedra_score_center_normalized',
     f'{putils.nanohedra}+{putils.proteinmpnn}': 'proteinmpnn_dock_cross_entropy_per_residue',

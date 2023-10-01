@@ -129,10 +129,10 @@ logging_level_literal = Literal[
 ]
 log_level_keys: tuple[str | int, ...] = get_args(logging_level_literal)
 logging_levels = [DEBUG, INFO, WARNING, ERROR, CRITICAL]
-log_level = dict(zip(log_level_keys, [DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
-                                      DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
-                                      DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL
-                                      ]))
+log_levels = dict(zip(log_level_keys, [DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
+                                       DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
+                                       DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL
+                                       ]))
 """log_level = {
 'debug': DEBUG, 'info': INFO, 'warning': WARNING, 'error': ERROR, 'critical': CRITICAL,
 'DEBUG': DEBUG, 'INFO': INFO, 'WARNING': WARNING, 'ERROR': ERROR, 'CRITICAL': CRITICAL,
@@ -159,7 +159,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
         Logger object to handle messages
     """
     _logger = getLogger(name)
-    _logger.setLevel(log_level[level])
+    _logger.setLevel(log_levels[level])
     # Todo make a mechanism to only emit warning or higher if propagate=True
     #  See below this function for adding handler[0].addFilter()
     _logger.propagate = propagate
@@ -193,7 +193,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
         lh = _handler()
 
     if handler_level is not None:
-        lh.setLevel(log_level[handler_level])
+        lh.setLevel(log_levels[handler_level])
 
     log_format = Formatter(fmt=message_fmt, style='{')
     lh.setFormatter(log_format)
@@ -221,16 +221,16 @@ def set_logging_to_level(level: logging_level_literal = None, handler_level: log
         handler_level: The level to set all logger handlers to
     """
     if level is not None:
-        _level = log_level[level]
+        _level = log_levels[level]
         set_level_func = Logger.setLevel
     elif handler_level is not None:  # Todo possibly rework this to accept both arguments
-        _level = log_level[handler_level]
+        _level = log_levels[handler_level]
 
         def set_level_func(logger_: Logger, level_: int):
             for handler in logger_.handlers:
                 handler.setLevel(level_)
     else:  # if level is None and handler_level is None:
-        _level = log_level[1]
+        _level = log_levels[1]
         set_level_func = Logger.setLevel
 
     # print(root_logger.manager.loggerDict)

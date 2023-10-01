@@ -310,7 +310,7 @@ def setup(args):
                 if i == number_rosetta_variables:
                     while rosetta_env_variable == '':
                         print('Failed detection of Rosetta environmental variable = '
-                              f'{", ".join(op(putils.rosetta_str) for op in string_ops)}')
+                              f'{", ".join(op(putils.rosetta) for op in string_ops)}')
                         print('For setup to be fully functional, the location of your Rosetta install needs to be '
                               'accessed. It is recommended to modify your shell to include an environmental variable '
                               "'ROSETTA' (accessed at '$ROSETTA'), leading to the 'main' directory of Rosetta.")
@@ -362,7 +362,7 @@ def setup(args):
                     'characters that are a suffix to each of the executables in the '
                     f'{putils.rosetta_default_bin} directory', make_types)
                 if rosetta_env_variable == '':
-                    rosetta_env_variable = search_env_for_variable(putils.rosetta_str)
+                    rosetta_env_variable = search_env_for_variable(putils.rosetta)
                 break
             elif retry == retry_kw:
                 # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
@@ -489,7 +489,7 @@ if __name__ == '__main__':
     hhsuite_database_args = (f'--hhsuite-database',)
     hhsuite_database_kwargs = \
         dict(action='store_true', help=f'Whether {putils.program_name} should be set up with hhsuite databases')
-    rosetta_args = (f'--{putils.rosetta_str}',)
+    rosetta_args = (f'--{putils.rosetta}',)
     rosetta_kwargs = \
         dict(action='store_true', help=f'Whether {putils.program_name} should be set up with Rosetta dependency')
     dry_run = 'dry_run'

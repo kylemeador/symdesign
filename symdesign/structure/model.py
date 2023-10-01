@@ -27,8 +27,8 @@ from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal
 from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
-from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
-    sequence_to_one_hot, sequences_to_numeric
+from .sequence import SequenceProfile, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
+    sequence_to_one_hot
 from .utils import DesignError, SymmetryError, chain_id_generator, coords_type_literal, default_clash_criteria, \
     default_clash_distance
 from symdesign import flags, metrics, resources, utils
@@ -6963,7 +6963,7 @@ class Pose(SymmetricModel, Metrics):
 
             For rosetta, this function isn't implemented
         """
-        if method == putils.rosetta_str:
+        if method == putils.rosetta:
             sequences_and_scores = {}
             raise NotImplementedError(f"Can't score with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
@@ -7123,7 +7123,7 @@ class Pose(SymmetricModel, Metrics):
             For rosetta, this function isn't implemented
         """
         # rosetta: Whether to design using Rosetta energy functions
-        if method == putils.rosetta_str:
+        if method == putils.rosetta:
             sequences_and_scores = {}
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
@@ -7290,16 +7290,14 @@ class Pose(SymmetricModel, Metrics):
                 c_term = True
 
         if report_if_helix:
-            # if self.api_db:
             try:
-                # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_stride_info = resources.wrapapi.api_database_factory().stride.retrieve_data
+                retrieve_stride_info = resources.structure_db.structure_database_factory().stride.retrieve_data
             except AttributeError:
-                retrieve_stride_info = Structure.utils.parse_stride
-
-            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-            if parsed_secondary_structure:
-                entity.secondary_structure = parsed_secondary_structure
+                pass
+            else:
+                parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                if parsed_secondary_structure:
+                    entity.secondary_structure = parsed_secondary_structure
 
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False

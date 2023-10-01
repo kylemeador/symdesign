@@ -1100,10 +1100,7 @@ class StructureDatabaseFactory:
     def destruct(self, **kwargs):
         self._database = None
 
-    def __call__(self, source: str = os.path.join(os.getcwd(),
-                                                  f'{putils.program_name}{putils.data.title()}',
-                                                  putils.structure_info),
-                 sql: bool = False, **kwargs) -> StructureDatabase:
+    def __call__(self, source: str = None, sql: bool = False, **kwargs) -> StructureDatabase:
         """Return the specified StructureDatabase object singleton
 
         Args:
@@ -1115,13 +1112,11 @@ class StructureDatabaseFactory:
         if self._database:
             return self._database
         elif sql:
-            raise NotImplementedError('SQL set up has not been completed!')
+            raise NotImplementedError('SQL set up has not been completed')
         else:
-            # source = os.path.join(source, putils.structure_info)
             pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(source, 'stride')
-            # Todo only make paths if they are needed...
             putils.make_path(stride_dir)
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')
@@ -1139,16 +1134,16 @@ class StructureDatabaseFactory:
 
         return self._database
 
-    def get(self, **kwargs) -> StructureDatabase:
+    def get(self, source: str = None, **kwargs) -> StructureDatabase:
         """Return the specified Database object singleton
 
         Keyword Args:
-            source: str = 'current_working_directory/Data' - The StructureDatabase source path, or name if SQL database
+            source: str = None - The StructureDatabase source path, or name if SQL database
             sql: bool = False - Whether the StructureDatabase is a SQL database
         Returns:
             The instance of the specified StructureDatabase
         """
-        return self.__call__(**kwargs)
+        return self.__call__(source, **kwargs)
 
 
 structure_database_factory: Annotated[StructureDatabaseFactory,

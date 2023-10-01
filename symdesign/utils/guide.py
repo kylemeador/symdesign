@@ -270,5 +270,5 @@ def setup_instructions():
     print(instructions)
 
 
-hhblits_setup_instructions = f' Follow the install directions by running {putils.hhsuite_setup_comand} ' \
+hhblits_setup_instructions = f' Follow the install directions by running {putils.hhsuite_setup_command} ' \
                              f'or on the web at {putils.hhsuite_git}'

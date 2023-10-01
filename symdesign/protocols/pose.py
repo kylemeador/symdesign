@@ -198,9 +198,9 @@ class PoseDirectory:
         self.pose_directory = directory
         # PoseDirectory attributes. Set after finding correct path
         self.log_path: str | Path = os.path.join(self.pose_directory, f'{name}.log')
-        self.designs_path: str | Path = os.path.join(self.pose_directory, putils.designs)
+        self.designs_path: str | Path = os.path.join(self.pose_directory, 'designs')
         # /root/Projects/project_Poses/design/designs
-        self.scripts_path: str | Path = os.path.join(self.pose_directory, putils.scripts)
+        self.scripts_path: str | Path = os.path.join(self.pose_directory, 'scripts')
         # /root/Projects/project_Poses/design/scripts
         self.frags_path: str | Path = os.path.join(self.pose_directory, putils.frag_dir)
         # /root/Projects/project_Poses/design/matching_fragments
@@ -210,14 +210,14 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/data
         self.scores_file: str | Path = os.path.join(self.data_path, f'{name}.sc')
         # /root/Projects/project_Poses/design/data/name.sc
-        self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
+        self.serialized_info: str | Path = os.path.join(self.data_path, 'info.pkl')
         # /root/Projects/project_Poses/design/data/info.pkl
         self.pose_path: str | Path = os.path.join(self.pose_directory, f'{name}.pdb')
-        self.asu_path: str | Path = os.path.join(self.pose_directory, putils.asu)
+        self.asu_path: str | Path = os.path.join(self.pose_directory, 'asu.pdb')
         # /root/Projects/project_Poses/design/asu.pdb
         # self.asu_path: str | Path = os.path.join(self.pose_directory, f'{self.name}_{putils.asu}')
         # # /root/Projects/project_Poses/design/design_name_asu.pdb
-        self.assembly_path: str | Path = os.path.join(self.pose_directory, f'{name}_{putils.assembly}')
+        self.assembly_path: str | Path = os.path.join(self.pose_directory, f'{name}_assembly.pdb')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
         self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
         # /root/Projects/project_Poses/design/data/design_name.pdb
@@ -286,7 +286,7 @@ class PoseDirectory:
             # self.output_asu_path: str | Path = os.path.join(self.output_path, f'{self.output_modifier}_{putils.asu}')
             # """/output_path/{self.output_modifier}_asu.pdb"""
             self.output_assembly_path: str | Path = \
-                os.path.join(self.output_path, f'{self.output_modifier}_{putils.assembly}')
+                os.path.join(self.output_path, f'{self.output_modifier}_assembly.pdb')
             """/output_path/{self.output_modifier}_{putils.assembly}.pdb """
             # pose_directory = self.job.output_directory  # /output_directory <- self.pose_directory/design.pdb
 
@@ -2546,7 +2546,7 @@ class PoseProtocol(PoseData):
                 #      [os.path.join(self.data_path, 'hbnet_selected.tags')]
                 #     ]
             else:  # Run the legacy protocol
-                self.protocol = protocol_xml1 = putils.interface_design
+                self.protocol = protocol_xml1 = flags.interface_design
                 nstruct_instruct = ['-nstruct', str(self.job.design.number)]
 
         # DESIGN: Prepare command and flags file
@@ -4991,7 +4991,7 @@ class PoseProtocol(PoseData):
         similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
         sim_series = []
         if putils.structure_background not in unique_design_protocols:
-            self.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
+            self.log.info(f"Missing background protocol '{putils.structure_background}'. No protocol significance "
                           f'measurements available for this pose')
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info("Can't measure protocol significance, only one protocol of interest")

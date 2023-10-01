@@ -508,7 +508,7 @@ def main():
                             scale = putils.scout if job.design.scout \
                                 else (putils.hbnet_design_profile if job.design.hbnet
                                       else (putils.structure_background if job.design.structure_background
-                                            else putils.interface_design))
+                                            else flags.interface_design))
                     else:
                         # Todo make viable rosettascripts
                         scale = flags.design
@@ -821,9 +821,6 @@ def main():
         base_symdesign_dir = utils.get_program_root_directory(args.directory)
         if base_symdesign_dir == args.directory:
             select_from_directory = True
-        # # When selecting by dataframe or metric, don't initialize, input is handled in module protocol
-        # if job.dataframe:  # or job.metric:
-        #     initialize = False
     # elif job.module in [flags.select_designs, flags.select_sequences] \
     #         and job.select_number == sys.maxsize and not args.total:
     #     # Change default number to a single sequence/pose when not doing a total selection
@@ -1171,7 +1168,7 @@ def main():
                 preprocess_entities_by_symmetry = {'C1': []}
 
             # Get api wrapper
-            retrieve_stride_info = job.api_db.stride.retrieve_data
+            retrieve_stride_info = job.structure_db.stride.retrieve_data
             possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], list[sql.ProteinMetadata]] = defaultdict(list)
             # possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
             # Todo
@@ -1304,7 +1301,8 @@ def main():
                             entity.secondary_structure = parsed_secondary_structure
                         else:
                             # entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                            entity.calculate_secondary_structure(to_file=job.api_db.stride.path_to(name=entity.name))
+                            entity.calculate_secondary_structure(
+                                to_file=job.structure_db.stride.path_to(name=entity.name))
                         protein_metadata.n_terminal_helix = entity.is_termini_helical()
                         protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
 
@@ -1710,9 +1708,9 @@ def main():
                     try:
                         job.dataframe = df_glob[0]
                     except IndexError:
-                        raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located at "
-                                         f'the location "{job.location}". Initialize again with the path to the '
-                                         'relevant dataframe')
+                        raise IndexError(
+                            f"There was no {flags.dataframe.long} specified and one couldn't be located at the location"
+                            f" '{job.location}'. Initialize again with the path to the relevant dataframe")
 
                 df = pd.read_csv(job.dataframe, index_col=0, header=[0])
                 print('INDICES:\n %s' % df.index.tolist()[:4])
