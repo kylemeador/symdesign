@@ -46,6 +46,9 @@ zero_probability_frag_value = -20  # log_pseudovalue0p001  # -20 is a pseudovalu
 zero_probability_evol_value = log_pseudovalue0p001  # Targets a pseudovalue of 0.001%
 proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
 # Only slice the final 3 values
+# Currently dropped in sum_per_residue_metrics()
+# 'sasa_relative_bound': 'relative_area_bound',
+# 'sasa_relative_complex': 'relative_area_complex',
 sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface_sasa_metric_names),
                                     *zip(per_residue_sasa_states, sasa_metric_names)])
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
@@ -955,24 +958,14 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
     groupby_df = df.T.groupby(level=-1)
     rename_columns = {
         'hydrophobic_collapse': 'hydrophobicity',
-        # Currently dropped in sum_per_residue_metrics()
-        # 'sasa_relative_bound': 'relative_area_bound',
-        # 'sasa_relative_complex': 'relative_area_complex',
         **energy_metrics_rename_mapping,
         **sasa_metrics_rename_mapping,
         **renamed_design_metrics,
         **(rename_columns or {})}
-    count_df = groupby_df.count().rename(columns=rename_columns)
-    # Using min_count=1, we ensure that those columns with np.nan remain np.nan
-    summed_df = groupby_df.sum(min_count=1).rename(columns=rename_columns)
-    # logger.debug('After residues sum: {summed_df}')
-    # _mean_metrics = ['hydrophobicity', 'relative_area_bound', 'relative_area_complex']
-    if mean_metrics is None:
-        # # Set empty slice
-        # mean_metrics = slice(None)
-        pass
-    else:  # if mean_metrics is not None:  # Make a list and incorporate
-        # _mean_metrics += list(mean_metrics)
+    count_df = groupby_df.count().T.rename(columns=rename_columns)
+    # Using min_count=1, ensure that those columns with np.nan remain np.nan
+    summed_df = groupby_df.sum(min_count=1).T.rename(columns=rename_columns)
+    if mean_metrics is not None:
         summed_df[mean_metrics] = summed_df[mean_metrics].div(count_df[mean_metrics], axis=0)
 
     return summed_df
