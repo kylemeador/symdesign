@@ -895,6 +895,7 @@ class StoreDictKeyPair(argparse.Action):
 # Todo Found the following for formatting the prog use case in subparsers
 #  {'refine': ArgumentParser(prog='{putils.program_command} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
+# make_no_argument = '--no-{}'.format
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
 """Use this message in all help keyword arguments using argparse.BooleanOptionalAction with default=True to specify the
  --no- prefix when the argument should be False
@@ -1165,9 +1166,9 @@ sample_number_kwargs = dict(type=int, default=10, metavar='INT',
 possible_termini = get_args(termini_literal)
 helix_bending_arguments = {
     (direction.long,): dict(type=str.upper, required=True, choices=possible_termini, metavar='',
-                              help='Which direction should the bending be applied?\n'
-                                   f"Choices=%(choices)s where 'c' implies residues c-terminal to\n"
-                                   f"{format_args(joint_residue_args)} will be bent"),
+                            help='Which direction should the bending be applied?\n'
+                                 f"Choices=%(choices)s where 'c' implies residues c-terminal to\n"
+                                 f"{format_args(joint_residue_args)} will be bent"),
     joint_residue_args: dict(type=int, metavar='INT', required=True,
                              help='The chain where the bending is desired at'),
     (joint_chain.long,): dict(required=True, help='The residue number to perform the bending at'),
@@ -1235,7 +1236,7 @@ align_component2_args = ('-c2', component2.long, f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
                         help=f'Path to component file, either directory or single file')
-pdb_codes_args = ('-C', pdb_code.long, f'--{pdb_code}1', f'--{pdb_code}s1'f'--{pdb_code}s')
+pdb_codes_args = ('-C', pdb_code.long, f'--{pdb_code}1', f'--{pdb_code}s1', f'--{pdb_code}s')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
 query_pdb_codes_args = ('-Q', query_codes.long)
 query_pdb_codes2_args = ('-Q2', f'--{query_codes}2')
@@ -1270,8 +1271,8 @@ refine_help = 'Process Structures into an energy function'
 parser_refine = dict(description=refine_help, help=refine_help)
 refine_arguments = {
     ('-ala', interface_to_alanine.long): dict(action=argparse.BooleanOptionalAction, default=False,
-                                                help='Whether to mutate interface residues to alanine before '
-                                                     'refinement\n'),
+                                              help='Whether to mutate interface residues to alanine before '
+                                                   'refinement\n'),
     measure_pose_args: measure_pose_kwargs,
     ('-met', metrics.long): dict(action=argparse.BooleanOptionalAction, default=True,
                                  help='Whether to calculate interface metrics after refinement\n'
@@ -1293,16 +1294,16 @@ dock_weight_file_kwargs = dict(type=os.path.abspath,
                                help='Whether to filter dock trajectory according to metrics provided in a file')
 nanohedra_arguments = {
     (contiguous_ghosts.long,): dict(action='store_true',  # argparse.BooleanOptionalAction, default=False,
-                                      help='Whether to prioritize docking with ghost fragments that form continuous'
-                                           '\nsegments on a single component\nDefault=%(default)s'),
+                                    help='Whether to prioritize docking with ghost fragments that form continuous'
+                                         '\nsegments on a single component\nDefault=%(default)s'),
     dock_filter_args: dock_filter_kwargs,
     dock_filter_file_args: dock_filter_file_kwargs,
     dock_weight_args: dock_weight_kwargs,
     dock_weight_file_args: dock_weight_file_kwargs,
     ('-iz', initial_z_value.long): dict(type=float, default=1.,
-                                          help='The standard deviation z-score threshold for initial fragment overlap\n'
-                                               'Smaller values lead to more stringent matching overlaps\n'
-                                               'Default=%(default)s'),
+                                        help='The standard deviation z-score threshold for initial fragment overlap\n'
+                                             'Smaller values lead to more stringent matching overlaps\n'
+                                             'Default=%(default)s'),
     ('-mv', match_value.long):
         dict(type=float, metavar='FLOAT', default=0.5,
              help='What is the minimum match score required for a high quality fragment?\n'
@@ -1311,39 +1312,39 @@ nanohedra_arguments = {
         dict(type=int, metavar='INT', default=3,
              help='How many high quality fragment pairs are required for a Pose to pass?\nDefault=%(default)s'),
     (only_write_frag_info.long,): dict(action=argparse.BooleanOptionalAction, default=False,
-                                         help='Used to write fragment information to a directory for C1 based docking'),
+                                       help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:
         dict(type=os.path.abspath, default=None,
              help='Where should the output be written?\nDefault='
                   f'{ex_path(program_output, projects, "NanohedraEntry[ENTRYNUMBER]_[BUILDING-BLOCKS]_Poses")}'),
     (perturb_dof.long,): dict(action=argparse.BooleanOptionalAction, default=False,
-                                help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
-                                     'found transformations and repeating docking iterations'),
+                              help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
+                                   'found transformations and repeating docking iterations'),
     (perturb_dof_rot.long,): dict(action=argparse.BooleanOptionalAction, default=False,
-                                    help='Whether the rotational degrees of freedom should be finely sampled in\n'
-                                         'subsequent docking iterations'),
+                                  help='Whether the rotational degrees of freedom should be finely sampled in\n'
+                                       'subsequent docking iterations'),
     (perturb_dof_tx.long,): dict(action=argparse.BooleanOptionalAction, default=False,
-                                   help='Whether the translational degrees of freedom should be finely sampled in\n'
-                                        'subsequent docking iterations'),
+                                 help='Whether the translational degrees of freedom should be finely sampled in\n'
+                                      'subsequent docking iterations'),
     # These have no default since None is used to signify whether they were explicitly requested
     (perturb_dof_steps.long,): dict(type=int, metavar='INT',
-                                      help='How many dof steps should be used during subsequent docking iterations.\n'
-                                           f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
-                                           f'perturbation\nDefault={default_perturbation_steps}'),
+                                    help='How many dof steps should be used during subsequent docking iterations.\n'
+                                         f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
+                                         f'perturbation\nDefault={default_perturbation_steps}'),
     (perturb_dof_steps_rot.long,): dict(type=int, metavar='INT',
-                                          help='How many rotational dof steps should be used during perturbations\n'
-                                               f'Default={default_perturbation_steps}'),
+                                        help='How many rotational dof steps should be used during perturbations\n'
+                                             f'Default={default_perturbation_steps}'),
     (perturb_dof_steps_tx.long,): dict(type=int, metavar='INT',
-                                         help='How many translational dof steps should be used during perturbations\n'
-                                              f'Default={default_perturbation_steps}'),
+                                       help='How many translational dof steps should be used during perturbations\n'
+                                            f'Default={default_perturbation_steps}'),
     (proteinmpnn_score.long,): dict(action=argparse.BooleanOptionalAction, default=False,
-                                      help='Whether docking fit should be measured using ProteinMPNN'),
+                                    help='Whether docking fit should be measured using ProteinMPNN'),
     ('-r1', rotation_step1.long): dict(type=float, metavar='FLOAT', default=3.,
-                                         help='The size of degree increments to search during initial rotational\n'
-                                              'degrees of freedom search\nDefault=%(default)s'),
+                                       help='The size of degree increments to search during initial rotational\n'
+                                            'degrees of freedom search\nDefault=%(default)s'),
     ('-r2', rotation_step2.long): dict(type=float, metavar='FLOAT', default=3.,
-                                         help='The size of degree increments to search during initial rotational\n'
-                                              'degrees of freedom search\nDefault=%(default)s'),
+                                       help='The size of degree increments to search during initial rotational\n'
+                                            'degrees of freedom search\nDefault=%(default)s'),
     trim_termini_args: trim_termini_kwargs,
 }
 # parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding to parsers depending on need below
@@ -1357,8 +1358,8 @@ parser_initialize_building_blocks = dict(description=initialize_building_blocks_
 initialize_building_blocks_arguments = {
     **component_mutual1_arguments,
     (update_metadata.long,): dict(nargs='*', action=StoreDictKeyPair,
-                                    help='Whether ProteinMetadata should be update with some\n'
-                                         'particular value in the database'),
+                                  help='Whether ProteinMetadata should be update with some\n'
+                                       'particular value in the database'),
 }
 # ---------------------------------------------------
 cluster_map_args = ('-c', cluster_map.long)
@@ -1374,7 +1375,7 @@ cluster_poses_help = 'Cluster all poses by their spatial or interfacial similari
 parser_cluster = dict(description=cluster_poses_help, help=cluster_poses_help)
 cluster_poses_arguments = {
     (as_objects.long,): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
-                                                         'PoseJob objects\nDefault stores as pose IDs'),
+                                                       'PoseJob objects\nDefault stores as pose IDs'),
     (cluster_mode.long,):
         dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, default='transform', metavar='',
              help='Which type of clustering should be performed?\nChoices=%(choices)s\nDefault=%(default)s'),
@@ -1457,8 +1458,8 @@ parser_metrics = dict(description=interface_metrics_help, help=interface_metrics
 interface_metrics_arguments = {
     measure_pose_args: measure_pose_kwargs,
     ('-sp', specific_protocol.long): dict(metavar='PROTOCOL',
-                                            help='A specific type of design protocol to perform metrics on.\n'
-                                                 'If not provided, captures all design protocols')
+                                          help='A specific type of design protocol to perform metrics on.\n'
+                                               'If not provided, captures all design protocols')
 }
 # ---------------------------------------------------
 poses_args = (poses.long,)
@@ -1637,24 +1638,24 @@ select_sequences_arguments = {
              help='Should nucleotide sequences by output in multicistronic format?\nBy default, uses the pET-Duet '
                   'intergeneic sequence containing\na T7 promoter, LacO, and RBS'),
     nucleotide_args: dict(action=argparse.BooleanOptionalAction, default=True,
-                               help='Should codon optimized nucleotide sequences be output?'
-                                    f'\n{boolean_positional_prevent_msg(nucleotide)}'),
+                          help='Should codon optimized nucleotide sequences be output?'
+                               f'\n{boolean_positional_prevent_msg(nucleotide)}'),
     ('-t', preferred_tag.long): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
-                                       metavar='', help='The name of your preferred expression tag\n'
-                                                        'Choices=%(choices)s\nDefault=%(default)s'),
+                                     metavar='', help='The name of your preferred expression tag\n'
+                                                      'Choices=%(choices)s\nDefault=%(default)s'),
     (tag_entities.long,): dict(type=str.lower,  # choices=tagging_args,
-                                 help='If there are specific entities in the designs you want to tag,\n'
-                                      'indicate how tagging should occur. Choices:\n\t'
-                                      '"single" - a single entity\n\t'
-                                      '"all" - all entities\n\t'
-                                      '"none" - no entities\n\t'
-                                      'comma separated list such as '
-                                      '"1,0,1" where\n'
-                                      '\t    - "1" indicates a tag is required\n'
-                                      '\t    - "0" indicates no tag is required'),
+                               help='If there are specific entities in the designs you want to tag,\n'
+                                    'indicate how tagging should occur. Choices:\n\t'
+                                    '"single" - a single entity\n\t'
+                                    '"all" - all entities\n\t'
+                                    '"none" - no entities\n\t'
+                                    'comma separated list such as '
+                                    '"1,0,1" where\n'
+                                    '\t    - "1" indicates a tag is required\n'
+                                    '\t    - "0" indicates no tag is required'),
     (tag_linker.long,): dict(type=str.upper,  # metavar='', choices=constants.expression_tags.keys(),
-                               help='The amino acid sequence of the linker region between each\n'
-                                    f'expression tag and the protein\nDefault={constants.default_tag_linker}'),
+                             help='The amino acid sequence of the linker region between each\n'
+                                  f'expression tag and the protein\nDefault={constants.default_tag_linker}'),
     **multicistronic_args,
 }
 # ---------------------------------------------------
