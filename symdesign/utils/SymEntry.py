@@ -386,6 +386,8 @@ class SymEntry:
             self.__external_dof = [], [], [], [], []
         self.number = entry
         self.entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
+        # Check if this entry ever has the same symmetry
+        self._same_symmetry = len(self.entry_groups) != len(set(self.entry_groups))
         # group1, group2, *extra = entry_groups
         if sym_map is None:  # Assume standard SymEntry
             # Assumes 2 component symmetry. index with only 2 options
@@ -516,10 +518,10 @@ class SymEntry:
                     f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
         self.groups.append(group)
 
-        def add_group():
-            # Todo
-            #  Can the accuracy of this creation method be guaranteed with the usage of the same symmetry
-            #  operator and different orientations? Think T33
+        def add_group() -> bool:
+            if self._same_symmetry:
+                if int_dof in self._int_dof_groups:
+                    return False
             self._int_dof_groups.append(int_dof)
             self._setting_matrices.append(setting_matrices[set_mat_number])
             self._setting_matrices_numbers.append(set_mat_number)
@@ -537,12 +539,15 @@ class SymEntry:
                         raise utils.SymmetryInputError(
                             f"Can't create {self.__class__.__name__} with external degrees of freedom and > 2 groups")
 
+            return True
+
         if isinstance(group, SymEntry):
             group = group.resulting_symmetry
         for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in self.group_info:
             if group == entry_group_symmetry:
-                add_group()
-                break
+                # Try to add the group. If it doesn't work, then proceed
+                if add_group():
+                    break
         else:  # None was found for this group
             # raise utils.SymmetryInputError(
             logger.critical(

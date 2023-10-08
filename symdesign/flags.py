@@ -1057,8 +1057,8 @@ options_arguments = {
     (skip_logging.long,): dict(action='store_true',
                                  help='Skip logging to files and direct all logging to stream'),
     (profile_memory.long,): dict(action='store_true',
-                                   help='Use memory_profiler.profile() to understand memory usage of a module.\n'
-                                        'Must be run with --development'),
+                                 help='Use memory_profiler.profile() to understand memory usage of a module.\n'
+                                      'Must be run with --development'),
     quick_args: dict(action='store_true',
                      help='Run Nanohedra in minimal sampling mode to generate enough hits to\n'
                           'test quickly. This should only be used for active development'),

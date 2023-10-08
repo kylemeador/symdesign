@@ -857,8 +857,6 @@ def main():
     uses_fragments = [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]
     if job.module in uses_fragments:
         if job.module == flags.generate_fragments:
-            # Todo
-            #  Include when other database types are available
             from symdesign.structure.fragment.db import fragment_factory
             job.fragment_db = fragment_factory(source=job.fragment_source)
             if job.fragment_db.source == putils.biological_interfaces:
