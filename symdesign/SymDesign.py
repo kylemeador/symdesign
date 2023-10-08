@@ -860,7 +860,7 @@ def main():
             # Todo
             #  Include when other database types are available
             from symdesign.structure.fragment.db import fragment_factory
-            job.fragment_db = fragment_factory(source=args.fragment_database)
+            job.fragment_db = fragment_factory(source=job.fragment_source)
             if job.fragment_db.source == putils.biological_interfaces:
                 logger.info(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
                             'biological homo-oligomers. Understand the caveats of using fragment information at '

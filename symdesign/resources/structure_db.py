@@ -228,7 +228,7 @@ def query_qs_bio(entry_id: str) -> int:
         # Get the first assembly in matching oligomers
         if len(biological_assemblies) != 1:
             logger.info(f'Found multiple biological assemblies for EntryID {entry_id}. Choosing the first: '
-                        f'{", ".join(biological_assemblies)}')
+                        f'{", ".join(map(str, biological_assemblies))}')
         assembly = biological_assemblies[0]
     else:
         assembly = 1

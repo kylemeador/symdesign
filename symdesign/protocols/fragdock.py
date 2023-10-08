@@ -29,7 +29,7 @@ from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets, superposition3d
 from symdesign.structure.fragment import GhostFragment
-from symdesign.structure.fragment.db import TransformHasher
+from symdesign.structure.fragment.db import fragment_factory, TransformHasher
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, Models
@@ -530,7 +530,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         protocol_name = putils.fragment_docking
     #
     # protocol = Protocol(name=protocol_name)
-
+    job.fragment_db = fragment_factory(source=job.fragment_source)
     euler_lookup = job.fragment_db.euler_lookup
     # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1

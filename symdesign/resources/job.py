@@ -323,6 +323,7 @@ class JobResources:
         # Set the job instance on these db objects
         self.api_db.job = self
         self.structure_db.job = self
+        self.fragment_source = kwargs.get(flags.fragment_source._)
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
 
         default_db = f'sqlite:///{os.path.join(self.data, f"{putils.program_name}.db")}'

@@ -952,7 +952,7 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
     #     errors='ignore', axis=1)
 
     # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
-    groupby_df = df.groupby(axis=1, level=-1)
+    groupby_df = df.T.groupby(level=-1)
     rename_columns = {
         'hydrophobic_collapse': 'hydrophobicity',
         # Currently dropped in sum_per_residue_metrics()

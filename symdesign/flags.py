@@ -135,7 +135,7 @@ poses = 'poses'
 specific_protocol = 'specific_protocol'
 directory = 'directory'
 dataframe = 'dataframe'
-fragment_database = 'fragment_database'
+fragment_source = 'fragment_source'
 database_url = 'database_url'
 interface_to_alanine = 'interface_to_alanine'
 metrics = 'metrics'
@@ -376,7 +376,7 @@ predict_entities = Flag(predict_entities)
 models_to_relax = Flag(models_to_relax)
 cluster_poses = Flag(cluster_poses)
 generate_fragments = Flag(generate_fragments)
-fragment_database = Flag(fragment_database)
+fragment_source = Flag(fragment_source)
 database_url = Flag(database_url)
 interface_metrics = Flag(interface_metrics)
 optimize_designs = Flag(optimize_designs)
@@ -1027,10 +1027,10 @@ options_arguments = {
     (interface_distance.long,): dict(type=float, default=9.0, metavar='FLOAT',
                                      help='The default value to use for querying Cb-Cb\n'
                                           'residue contacts across and interface'),
-    ('-i', fragment_database.long): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
-                                         metavar='',
-                                         help='Database to match fragments for interface specific scoring matrices'
-                                              '\nChoices=%(choices)s\nDefault=%(default)s'),
+    ('-i', fragment_source.long): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
+                                       metavar='',
+                                       help='Database to match fragments for interface specific scoring matrices'
+                                            '\nChoices=%(choices)s\nDefault=%(default)s'),
     clash_distance_args:
         dict(type=float, default=default_clash_distance, metavar='FLOAT',
              help='What distance should be used for clash checking?\nDefault=%(default)s'),
@@ -1235,7 +1235,7 @@ align_component2_args = ('-c2', component2.long, f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
                         help=f'Path to component file, either directory or single file')
-pdb_codes_args = ('-C', pdb_code.long, f'--{pdb_code}s')
+pdb_codes_args = ('-C', pdb_code.long, f'--{pdb_code}1', f'--{pdb_code}s1'f'--{pdb_code}s')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
 query_pdb_codes_args = ('-Q', query_codes.long)
 query_pdb_codes2_args = ('-Q2', f'--{query_codes}2')
