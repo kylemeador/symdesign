@@ -259,7 +259,7 @@ def setup(args):
     if args.rosetta:
         print(f"First, follow this url '{rosetta_url}' to begin licensing and download of the Rosetta Software suite "
               "if you haven't installed it already")
-        choice1 = utils.validate_input(
+        choice1 = utils.query.validate_input(
             "Once downloaded, type 'Y' to continue with install or 'S' to skip if Rosetta is already "
             "installed. ",
             # Todo ensure that mpi is the case
@@ -357,7 +357,7 @@ def setup(args):
                       f'{putils.program_name} to interface with Rosetta')
                 make_types = ['default', 'python', 'mpi', 'cxx11thread', 'cxx11threadmpi']
                 # if rosetta_env_variable == '':
-                rosetta_make = utils.validate_input(
+                rosetta_make = utils.query.validate_input(
                     'Did you make Rosetta with any particular build? This is usually a string of '
                     'characters that are a suffix to each of the executables in the '
                     f'{putils.rosetta_default_bin} directory', make_types)
@@ -379,7 +379,6 @@ def setup(args):
     #  May need to investigate this option
     #  --disable-threads
     # Todo
-    #  Required PREINSTALL CHECK
     #  sudo apt-get install build-essential autoconf libc++-dev libc++abi-dev
     freesasa_autoreconf_cmd = ['autoreconf', '-i']
     freesasa_configure_cmd = ['./configure', '--disable-xml', '--disable-json']
@@ -440,7 +439,7 @@ def setup(args):
     # Todo
     #  collab use bfd minimal...
     if args.hhsuite_database:
-        _input = utils.validate_input(
+        _input = utils.query.validate_input(
             f'To use {putils.hhblits}, a sequence database needs to be available. Default use is with UniClust and the '
             f'database file will take >50 GB of hard drive space. Ensure that you have the capacity for this operation.'
             f" This will automatically be downloaded in the directory '{putils.hhsuite_db_dir}' if you consent.",
@@ -454,7 +453,7 @@ def setup(args):
 
     # Get alphafold database. 5.3 is for params only
     if args.alphafold_database:
-        _input = utils.validate_input(
+        _input = utils.query.validate_input(
             'To use AlphaFold for structure prediction, model parameters need to be available. Downloading them will '
             'take 5.3 GB of hard drive space. This will automatically be downloaded in the directory '
             f"'{putils.alphafold_db_dir}' if you consent.", ['Y', 'n'])
