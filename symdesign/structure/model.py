@@ -2983,9 +2983,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         Sets fragment_db for each dependent in 'structure_containers' attribute
         """
         super(Model, Model).fragment_db.fset(self, fragment_db)
-        for structure_type in self.structure_containers:
-            for structure in self.__getattribute__(structure_type):
-                structure.fragment_db = self._fragment_db
+        if self._fragment_db is not None:
+            for structure_type in self.structure_containers:
+                for structure in self.__getattribute__(structure_type):
+                    structure.fragment_db = self._fragment_db
+        else:  # This is likely the RELOAD_DB token, just reload
+            return
 
     @property
     def chain_breaks(self) -> list[int]:
