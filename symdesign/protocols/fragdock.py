@@ -3614,6 +3614,13 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             _full_ext_tx1 = blank_parameters if full_ext_tx1 is None else full_ext_tx1.squeeze()
             _full_ext_tx2 = blank_parameters if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
+            if job.use_proteinmpnn:
+                # Explicitly set false as scoring the wildtype sequence isn't desired now
+                reset_use_proteinmpnn = True
+                job.use_proteinmpnn = False
+            else:
+                reset_use_proteinmpnn = False
+
             for idx, pose_job in enumerate(pose_jobs):
                 # Add the next set of coordinates
                 update_pose_coords(idx)
@@ -3729,6 +3736,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 poses_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
                 poses_df_.to_csv(trajectory_metrics_csv)
                 logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
+
+            # After pose output loop
+            # Explicitly set false as scoring the wildtype sequence isn't desired now
+            if reset_use_proteinmpnn:
+                job.use_proteinmpnn = True
 
         # Populate the database with pose information. Has access to nonlocal session
         populate_pose_metadata()
