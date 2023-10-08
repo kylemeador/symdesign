@@ -11,10 +11,6 @@ from typing import Sequence, AnyStr, Iterable, Literal, Any, TypedDict, get_args
 
 import numpy as np
 from Bio import AlignIO, SeqIO
-# Todo
-# BiopythonDeprecationWarning: Bio.pairwise2 has been deprecated, and we intend to remove it in a future release of
-# Biopython. As an alternative, please consider using Bio.Align.PairwiseAligner as a replacement, and contact the
-# Biopython developers if you still need the Bio.pairwise2 module.
 from Bio.Align import Alignment, MultipleSeqAlignment, PairwiseAligner, PairwiseAlignments, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord

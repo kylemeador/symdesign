@@ -12,7 +12,8 @@ logger.addHandler(logging.StreamHandler())
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Query the PDB for symmetric oligomers\n')
     parser.add_argument(*flags.symmetry_args, required=True, type=str.upper,
-                        help='What is the schoenflies symbol of the desired oligomeric symmetry?')
+                        help='What is the schoenflies symbol of the desired oligomeric\n'
+                             'symmetry? For asymmetric, provide the argument as C1')
     #                   **flags.symmetry_kwargs)
     parser.add_argument('--lower-length', default=80, type=int,
                         help='How many amino acids is the shortest allowed protein?')
@@ -20,7 +21,7 @@ if __name__ == '__main__':
                         help='How many amino acids is the longest allowed protein?')
     args = parser.parse_args()
 
-    # Testing retrieval of ids
+    # Generate parameters to perform retrieval of ids
     query_params = QueryParams(symmetry=args.symmetry, lower_length=args.lower_length, upper_length=args.upper_length)
 
     # Get thermophilic representative group ids and representatives

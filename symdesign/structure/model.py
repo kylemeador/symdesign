@@ -6405,13 +6405,24 @@ class Pose(SymmetricModel, Metrics):
         counter = 1
         # index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
         for counter, (metrics1, metrics2) in enumerate(combinations(entity_metrics, 2), counter):
-            radius_ratio = metrics1['radius'] / metrics2['radius']
-            min_ratio = metrics1['min_radius'] / metrics2['min_radius']
-            max_ratio = metrics1['max_radius'] / metrics2['max_radius']
-            # residue_ratio = metrics1.number_of_residues / metrics2.number_of_residues
-            radius_ratio_sum += abs(1 - radius_ratio)
-            min_ratio_sum += abs(1 - min_ratio)
-            max_ratio_sum += abs(1 - max_ratio)
+            if metrics1['radius'] > metrics2['radius']:
+                radius_ratio = metrics2['radius'] / metrics1['radius']
+            else:
+                radius_ratio = metrics1['radius'] / metrics2['radius']
+
+            if metrics1['min_radius'] > metrics2['min_radius']:
+                min_ratio = metrics2['min_radius'] / metrics1['min_radius']
+            else:
+                min_ratio = metrics1['min_radius'] / metrics2['min_radius']
+
+            if metrics1['max_radius'] > metrics2['max_radius']:
+                max_ratio = metrics2['max_radius'] / metrics1['max_radius']
+            else:
+                max_ratio = metrics1['max_radius'] / metrics2['max_radius']
+
+            radius_ratio_sum += 1 - radius_ratio
+            min_ratio_sum += 1 - min_ratio
+            max_ratio_sum += 1 - max_ratio
             # Todo
             #  These could be useful in the PoseMetrics selection section to calculate on the fly
             #  They are cumbersome and not recommended DB etiquette

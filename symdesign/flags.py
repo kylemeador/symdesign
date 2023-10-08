@@ -1182,9 +1182,9 @@ align_helices_help = 'Align, then fuse, the helices of two protein systems. The 
 # Nanohedra symmetry combination materials (SCM)
 parser_align_helices = dict(description=align_helices_help, help=align_helices_help)
 target_start_args = (target_start.long,)
-target_start_kwargs = dict(type=int, metavar='INT', help='First residue of the targe molecule to align on')
+target_start_kwargs = dict(type=int, metavar='INT', help='First residue of the target molecule to align on')
 target_end_args = (target_end.long,)
-target_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the targe molecule to align on')
+target_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the target molecule to align on')
 target_chain_args = (target_chain.long,)
 target_chain_kwargs = dict(help='A desired chainID of the target molecule')
 target_termini_args = (target_termini.long,)
@@ -1192,7 +1192,7 @@ target_termini_kwargs = dict(type=str.lower, nargs='*', choices=possible_termini
                              help="If particular termini of the target are desired, specify with 'n' and/or 'c'")
 trim_termini_args = (trim_termini.long,)
 trim_termini_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
-                           help='Whether the termini should be trimmed back to the nearest helix\n'
+                           help='Whether the termini should be trimmed of irregularly\nstructured residues\n'
                                 f'{boolean_positional_prevent_msg(trim_termini)}')
 aligned_start_args = (aligned_start.long,)
 aligned_start_kwargs = dict(type=int, metavar='INT', help='First residue of the aligned molecule to align on')

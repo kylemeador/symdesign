@@ -283,7 +283,7 @@ metrics = {
         dict(description='The furthest point the entity reaches from the assembly core',
              direction=min_, function=rank, filter=True),
     'entity_max_radius_average_deviation':
-        dict(description='In a multi entity assembly, the total deviation of the max radii of each entity '
+        dict(description='In a multi-entity assembly, the total deviation of the maximum radii of each entity '
                          'from one another', direction=min_, function=rank, filter=True),
     # 'entity_max_radius_ratio_v':
     #     dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
@@ -292,7 +292,7 @@ metrics = {
         dict(description='The closest point the entity approaches the assembly core',
              direction=max_, function=rank, filter=True),
     'entity_min_radius_average_deviation':
-        dict(description='In a multi entity assembly, the total deviation of the min radii of each entity from'
+        dict(description='In a multi-entity assembly, the total deviation of the minimum radii of each entity from'
                          ' one another',
              direction=min_, function=rank, filter=True),
     # 'entity_min_radius_ratio_v':
@@ -364,7 +364,7 @@ metrics = {
         dict(description='The center of mass of the entity from the assembly core',
              direction=min_, function=rank, filter=True),
     'entity_radius_average_deviation':
-        dict(description='In a multi entity assembly, the total deviation of the center of mass of each entity'
+        dict(description='In a multi-entity assembly, the total deviation of the center of mass of each entity'
                          ' from one another',
              direction=min_, function=rank, filter=True),
     # 'entity_radius_ratio_v':

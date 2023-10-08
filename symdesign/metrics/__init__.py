@@ -501,7 +501,7 @@ def interface_composition_similarity(series: Mapping) -> float:
     class_ratio_differences = []
     for residue_class, function in zip(residue_classification, (core_res_fn, rim_res_fn, support_res_fn)):
         expected = function(int_area)
-        class_ratio_difference = (1 - (abs(series[residue_class] - expected) / expected))
+        class_ratio_difference = (1 - (abs(series[residue_class]-expected) / expected))
         if class_ratio_difference < 0:
             # Above calculation fails to bound between 0 and 1 with large obs values due to proportion > 1
             class_ratio_difference = 0

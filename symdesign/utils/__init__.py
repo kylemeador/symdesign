@@ -1360,4 +1360,5 @@ def condensed_to_square(k, n):
     return i, j
 
 
-from . import guide, rosetta, SymEntry, symmetry
+from . import path, rosetta, SymEntry, symmetry
+# guide causes import error due to flags import
