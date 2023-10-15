@@ -385,7 +385,7 @@ class SymEntry:
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
             self.__external_dof = [], [], [], [], []
         self.number = entry
-        self.entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
+        self.entry_groups = [group_name for group_name, group_params in self.group_info if group_name is not None]
         # Check if this entry ever has the same symmetry
         self._same_symmetry = len(self.entry_groups) != len(set(self.entry_groups))
         # group1, group2, *extra = entry_groups
@@ -394,8 +394,8 @@ class SymEntry:
             self.sym_map = [self.resulting_symmetry] + self.entry_groups
             groups = self.entry_groups
         else:  # Requires full specification of all symmetry groups
-            self.sym_map = sym_map
-            result, *groups = sym_map  # Remove the result and pass the groups
+            # Clean any missing groups then remove the result, pass the groups
+            result, *groups = self.sym_map = [sym for sym in sym_map if sym is not None]
 
         # Solve the group information for each passed symmetry
         self.groups = []
@@ -1068,6 +1068,16 @@ class SymEntry:
     def __repr__(self):
         return f'{self.__class__.__name__}({self.specification})'
 
+    @property
+    def _key(self) -> tuple[str, list[str]]:
+        return self.specification, self.sym_map
+
+    def __eq__(self, other: SymEntry) -> bool:
+        if isinstance(other, SymEntry):
+            return self._key == other._key
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
+
 
 class CrystSymEntry(SymEntry):
     # deorthogonalization_matrix: np.ndarray
@@ -1430,7 +1440,8 @@ def parse_symmetry_to_sym_entry(sym_entry_number: int = None, symmetry: str = No
             elif symmetry in valid_symmetries:
                 # logger.debug(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
                 #              f"{symmetry} hasn't been tested thoroughly yet")
-                # Specify as [result, entity1, no other entities]
+                # Specify as [result, entity1, None as there are no other entities]
+                # If the symmetry is specified as C2 and the Structure represents an A2B2, then this may fail
                 sym_map = [symmetry, symmetry, None]
             elif len(symmetry) == 3 and symmetry[1].isdigit() and symmetry[2].isdigit():  # like I32, O43 format
                 sym_map = [*symmetry]
