@@ -40,6 +40,7 @@ from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
 from symdesign.structure.model import Entity, Pose
+import symdesign.utils.guide
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],
