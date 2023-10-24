@@ -1679,7 +1679,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
         else:
             raise ValueError(
                 f"The specified symmetries '{', '.join(symmetry_operators)}' couldn't be coerced to make the resulting "
-                f"symmetry '{result}'. Try to reformat your symmetry specification if this is the result of a typo to "
+                f"symmetry='{result}'. Try to reformat your symmetry specification if this is the result of a typo to "
                 'include only symmetries that are group members of the resulting symmetry such as '
                 f'{", ".join(all_sym_entry_dict.get(result, {}).keys())}\nUse the format {example_symmetry_specification} '
                 'during your specification')

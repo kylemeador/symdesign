@@ -969,7 +969,7 @@ symmetry_kwargs = dict(metavar='RESULT:{GROUP1}{GROUP2}...',
 sym_entry_args = ('-E', sym_entry.long, '--entry')
 sym_entry_kwargs = dict(type=int, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
-                             f'See {symmetry} --query for possible symmetries')
+                             f'See {symmetry} {query.long} for possible symmetries')
 # ---------------------------------------------------
 symmetry_help = 'Specify a symmetric system in which to model inputs. Default module use performs a symmetry query'
 parser_symmetry = dict(description=symmetry_help, help=symmetry_help)

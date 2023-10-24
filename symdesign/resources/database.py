@@ -165,6 +165,8 @@ class DataStore:
         Returns:
             If the data is available, the object requested will be returned, else None
         """
+        if name is None:
+            return None
         data = getattr(self, name, None)
         if data:
             self.log.debug(f'{name}{self.extension} was retrieved from {self.__class__.__name__}')

@@ -1274,7 +1274,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         ...}
         """
         if api_return:
-            self._api_data = api_return[self.name]
+            if self.name.lower() in api_return:
+                self.name = self.name.lower()
+
+            self._api_data = api_return.get(self.name, {})
         else:
             self._api_data = {}
 
@@ -2114,7 +2117,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             if number_of_subunits != subunit_number:
                 raise SymmetryError(
                     f"{file_name} couldn't be oriented: It has {number_of_subunits} subunits while a multiple of "
-                    f'{subunit_number} are expected for {symmetry} symmetry')
+                    f'{subunit_number} are expected for symmetry={symmetry}')
         else:
             raise SymmetryError(
                 f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
@@ -3143,7 +3146,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 else:
                     raise SymmetryError(
                         f"{file_name} couldn't be oriented: It has {number_of_subunits} subunits while a multiple of "
-                        f'{subunit_number} are expected for {symmetry} symmetry')
+                        f'{subunit_number} are expected for symmetry={symmetry}')
         else:
             raise SymmetryError(
                 f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
@@ -3508,8 +3511,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if self.api_entry:
             self.log.debug(f'Found PDB API information: '
                            f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
-            # Set the identified name
-            self.name = parsed_name.lower()  # self.name.lower()
+            # Set the identified name to lowercase
+            self.name = parsed_name.lower()
+            for entity in self.entities:
+                entity.name = entity.name.lower()
 
     def entity(self, entity_id: str) -> Entity | None:
         """Retrieve an Entity by name from the PDB object

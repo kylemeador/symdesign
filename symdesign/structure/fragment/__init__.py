@@ -426,7 +426,8 @@ class MonoFragment(Fragment):
             _, self.rotation, self.translation = superposition3d(coords, self.template_coords)
             # self.guide_coords = coords
         else:
-            raise ValueError(f'{self.__class__.__name__} coords.shape ({coords.shape}) != (3, 3)')
+            raise ValueError(
+                f'{self.__class__.__name__} coords.shape ({coords.shape}) != (3, 3)')
 
     # def get_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
     #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
