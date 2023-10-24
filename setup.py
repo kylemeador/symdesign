@@ -420,7 +420,7 @@ def setup(args):
             # Possibly change directory
             os.chdir(change_dir_paths[command_type])
             # Execute the command
-            p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate()
 
     # Set up fragment database from files
@@ -444,19 +444,24 @@ def setup(args):
             f'database file will take >50 GB of hard drive space. Ensure that you have the capacity for this operation.'
             f" This will automatically be downloaded in the directory '{putils.hhsuite_db_dir}' if you consent.",
             ['Y', 'n'])
+    elif args.hhsuite_database:
+        _input = 'y'
     else:
         _input = 'n'
+
     if _input == 'n':
         pass
     else:
         config['uniclust_db'] = download_hhblits_latest_database(dry_run=dry_run)
 
     # Get alphafold database. 5.3 is for params only
-    if args.alphafold_database:
+    if args.command_line:
         _input = utils.query.validate_input(
             'To use AlphaFold for structure prediction, model parameters need to be available. Downloading them will '
             'take 5.3 GB of hard drive space. This will automatically be downloaded in the directory '
             f"'{putils.alphafold_db_dir}' if you consent.", ['Y', 'n'])
+    elif args.alphafold_database:
+        _input = 'y'
     else:
         _input = 'n'
 
@@ -507,4 +512,5 @@ if __name__ == '__main__':
         parser.add_argument(*_flags, **flags_params)
 
     args, additional_args = parser.parse_known_args()
+    args.command_line = True
     setup(args)
