@@ -90,7 +90,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
             profile = api_db.hhblits_profiles.retrieve_data(name=uniprot_id)
             if not profile:
                 null_entries = entity.create_null_entries(range(entity.number_of_residues))
-                for entry, residue in zip(null_entries, entity.residues):
+                for entry, residue in zip(null_entries.values(), entity.residues):
                     entry['type'] = residue.type
 
                 evolutionary_profile.update(null_entries)
