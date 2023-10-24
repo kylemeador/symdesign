@@ -89,7 +89,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
         for uniprot_id in entity.uniprot_ids:
             profile = api_db.hhblits_profiles.retrieve_data(name=uniprot_id)
             if not profile:
-                evolutionary_profile.update(entity.create_null_entries())
+                evolutionary_profile.update(entity.create_null_entries(range(entity.number_of_residues)))
                 # # Try and add... This would be better at the program level due to memory issues
                 # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
                 pass
