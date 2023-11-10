@@ -798,7 +798,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                     os.path.join(project_dir, f'{model1.name}_{residue_number}_paired_frags_'
                                               f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
 
-        raise RuntimeError(f'Suspending operation of {model1.name}/{model2.name} after write')
+        raise RuntimeError(
+            f'Suspending operation of {model1.name}/{model2.name} after write')
 
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_j_indices1, surf_i_indices2)
     # Axis 0 is ghost frag, 1 is surface frag
@@ -1171,7 +1172,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         pass
 
     if job.multi_processing:
-        raise NotImplementedError(f"Can't perform {fragment_dock.__name__} using --{flags.multi_processing} just yet")
+        raise NotImplementedError(
+            f"Can't perform {fragment_dock.__name__} using {flags.multi_processing.long} yet")
         rotation_pairs = None
         results = utils.mp_map(initial_euler_search, rotation_pairs, processes=job.cores)
     else:
@@ -1192,8 +1194,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     #  |
     #  Majority of time is spent indexing the 6D euler overlap arrays which should be quite easy to speed up given
     #  understanding of different computational efficiencies at this check
+    logger.info('Querying building blocks for initial fragment overlap')
     # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
     perturb_dof = job.dock.perturb_dof
+    total_dof_combinations = rotations_to_perform1 * rotations_to_perform2
+    progress_iter = iter(tqdm(range(total_dof_combinations), total=total_dof_combinations))
     for idx1 in range(rotations_to_perform1):
         rot1_count = idx1%number_of_rotations1 + 1
         degen1_count = idx1//number_of_rotations1 + 1
@@ -1202,13 +1207,14 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         if forward_reverse:
             rotation_surf_euler_ints1 = stacked_surf_euler_int1[idx1]
         for idx2 in range(rotations_to_perform2):
+            next(progress_iter)  # Updates progress bar
             # Rotate oligomer2 surface and ghost fragment guide coordinates using rot_mat2 and set_mat2
             rot2_count = idx2%number_of_rotations2 + 1
             degen2_count = idx2//number_of_rotations2 + 1
             rot_mat2 = rotation_matrices2[idx2]
 
-            logger.info(f'***** OLIGOMER 1: Degeneracy {degen1_count} Rotation {rot1_count} | '
-                        f'OLIGOMER 2: Degeneracy {degen2_count} Rotation {rot2_count} *****')
+            logger.debug(f'***** OLIGOMER 1: Degeneracy {degen1_count} Rotation {rot1_count} | '
+                         f'OLIGOMER 2: Degeneracy {degen2_count} Rotation {rot2_count} *****')
 
             euler_start = time.time()
             # euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
@@ -1363,8 +1369,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             if pre_cluster_passing_shifts == 0:
                 # logger.debug(f'optimal_shifts length: {len(optimal_shifts)}')
                 # logger.debug(f'transform_passing_shifts shape: {len(transform_passing_shifts)}')
-                logger.info(f'\tNo transforms were found passing optimal shift criteria '
-                            f'(took {optimal_shifts_time:8f}s)')
+                logger.debug(f'\tNo transforms were found passing optimal shift criteria '
+                             f'(took {optimal_shifts_time:8f}s)')
                 continue
             elif cluster_translations:
                 cluster_time_start = time.time()
@@ -1412,22 +1418,22 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
             if full_int_tx1 is not None:
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx1.extend(transform_passing_shifts[positive_indices,
-                                                             sym_entry.number_dof_external].tolist())
+                full_int_tx1.extend(
+                    transform_passing_shifts[positive_indices, sym_entry.number_dof_external].tolist())
 
             if full_int_tx2 is not None:
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx2.extend(transform_passing_shifts[positive_indices,
-                                                             sym_entry.number_dof_external + 1].tolist())
+                full_int_tx2.extend(
+                    transform_passing_shifts[positive_indices, sym_entry.number_dof_external + 1].tolist())
 
             full_rotation1.append(np.tile(rot_mat1, (number_passing_shifts, 1, 1)))
             full_rotation2.append(np.tile(rot_mat2, (number_passing_shifts, 1, 1)))
 
             logger.debug(f'\tOptimal shift search took {optimal_shifts_time:8f}s for '
                          f'{len(euler_matched_ghost_indices1)} guide coordinate pairs')
-            logger.info(f'\t{number_passing_shifts if number_passing_shifts else "No"} initial interface '
-                        f'match{"es" if number_passing_shifts != 1 else ""} found '
-                        f'(took {time.time() - euler_start:8f}s)')
+            logger.debug(f'\t{number_passing_shifts if number_passing_shifts else "No"} initial interface '
+                         f'match{"es" if number_passing_shifts != 1 else ""} found '
+                         f'(took {time.time() - euler_start:8f}s)')
 
             # # Tod0 debug
             # tx_param_list = []
@@ -1460,6 +1466,10 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             # #                           reference_rmsds)
             # # Tod0 debug
 
+    try:
+        next(progress_iter)  # Updates progress bar
+    except StopIteration:
+        pass
     # -----------------------------------------------------------------------------------------------------------------
     # Below creates vectors for cluster transformations
     # Then asu clash testing, scoring, and symmetric clash testing are performed
@@ -1698,8 +1708,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, None, :],
             rotation2=full_inv_rotation1[:, None, :, :])
 
-    logger.info(f'\tTransformation of viable oligomer 2 CB atoms and surface fragments took '
-                f'{time.time() - int_cb_and_frags_start:8f}s')
+    logger.info('Transformation of viable oligomer 2 CB atoms and surface fragments '
+                f'(took {time.time() - int_cb_and_frags_start:8f}s)')
 
     del full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, full_ext_tx_sum
     del surf_guide_coords2
@@ -1724,7 +1734,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # all_passing_surf_indices = []
     # all_passing_z_scores = []
     # Get residue number for all model1, model2 CB Pairs that interact within cb_distance
-    for idx in range(number_non_clashing_transforms):
+    for idx in tqdm(range(number_non_clashing_transforms), total=number_non_clashing_transforms):
         # query/contact pairs/isin  - 0.028367  <- I predict query is about 0.015
         # indexing guide_coords     - 0.000389
         # total get_int_frags_time  - 0.028756 s
@@ -1881,8 +1891,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             # number_passing_overlaps = len(passing_overlaps_indices)
             # number_passing_overlaps = number_of_checks - np.count_nonzero(all_fragment_z_score <= low_quality_z_value)
             number_passing_overlaps = np.count_nonzero(all_fragment_z_score <= low_quality_z_value)
-            logger.info(f'\t{high_qual_match_count} high quality fragments out of {number_passing_overlaps} matches '
-                        f'found (took {all_fragment_match_time:8f}s)')
+            logger.debug(f'\t{high_qual_match_count} high quality fragments out of {number_passing_overlaps} matches '
+                         f'found (took {all_fragment_match_time:8f}s)')
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
             # sorted_fragment_indices = np.argsort(all_fragment_z_score)[:number_passing_overlaps]
             # sorted_match_scores = match_score_from_z_value(sorted_z_values)
