@@ -231,13 +231,13 @@ class Metrics(abc.ABC):
     """Perform Metric evaluation for derived classes
 
     Subclasses of Metrics must have implement the method calculate_metrics which can accept any arguments and
-    returns dict[str, Any]]
+    returns dict[str, Any]
     """
     _df: pd.Series
     _metrics: _metrics_table
     # _metrics_table: sql.Base
     _metrics_d: dict[str, Any]
-    state_attributes = {'_df', '_metrics', '_metrics_d'}
+    state_attributes: set[str] = {'_df', '_metrics', '_metrics_d'}
 
     @property
     @abc.abstractmethod

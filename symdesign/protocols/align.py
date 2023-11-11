@@ -4,18 +4,16 @@ import logging
 import math
 import os
 import time
-from collections import defaultdict
 from itertools import count
 from typing import Generator, Iterable, Iterator
 
 import numpy as np
 # from memory_profiler import profile
-from sqlalchemy import inspect, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from symdesign import flags, utils, structure
-from symdesign.protocols.pose import PoseJob
+from symdesign.protocols.pose import insert_pose_jobs, PoseJob
 from symdesign.resources import job as symjob, sql
 from symdesign.structure.base import Residue, SS_HELIX_IDENTIFIERS, Structure
 from symdesign.structure.coords import superposition3d
@@ -830,7 +828,7 @@ def get_terminal_helix_start_index_and_length(secondary_structure: str, termini:
     return start_index, alignment_length
 
 
-# @profile  # Need to perform not on cassini
+# @profile
 def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     """
 
@@ -1541,86 +1539,14 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                             output_pose(name)
 
-    def terminate(pose_jobs: list[PoseJob]) -> list[PoseJob]:
-        # , poses_df_: pd.DataFrame, residues_df_: pd.DataFrame) -> list[PoseJob]:
+    logger.info(f'Total {project} trajectory took {time.time() - align_time_start:.2f}s')
+    if not pose_jobs:
+        logger.info(f'Found no viable outputs')
+        return []
+
+    def terminate(pose_jobs: list[PoseJob]) -> list[PoseJob]:  # poses_df_: pd.DataFrame, residues_df_: pd.DataFrame)
         """Finalize any remaining work and return to the caller"""
-        # Add PoseJobs to the database
-        error_count = count(1)
-        while True:
-            pose_name_pose_jobs = {pose_job.name: pose_job for pose_job in pose_jobs}
-            session.add_all(pose_jobs)
-            try:  # Flush PoseJobs to the current session to generate ids
-                session.flush()
-            except IntegrityError:  # PoseJob.project/.name already inserted
-                session.rollback()
-                number_flush_attempts = next(error_count)
-                pose_names = list(pose_name_pose_jobs.keys())
-                logger.debug(f'rollback() #{number_flush_attempts}')
-                logger.debug(f'From {len(pose_names)} pose_names:\n{sorted(pose_names)}')
-                # Find the actual pose_jobs_to_commit and place in session
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
-                    .where(PoseJob.name.in_(pose_names))
-                existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
-                # Note: Values are sorted by alphanumerical, not numerical
-                # ex, design 11 is processed before design 2
-                existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
-                new_pose_names = set(pose_names).difference(existing_pose_names)
-                logger.debug(f'Found {len(new_pose_names)} new_pose_names:\n{sorted(new_pose_names)}')
-                if not new_pose_names:  # No new PoseJobs
-                    return existing_pose_jobs
-                else:
-                    pose_jobs = [pose_name_pose_jobs[pose_name] for pose_name in new_pose_names]
-                    if number_flush_attempts == 2:
-                        # Try to attach existing protein_metadata.entity_id
-                        # possibly_new_uniprot_to_prot_metadata = {}
-                        possibly_new_uniprot_to_prot_metadata = defaultdict(list)
-                        # pose_name_to_prot_metadata = defaultdict(list)
-                        for pose_job in pose_jobs:
-                            for entity_data in pose_job.entity_data:
-                                possibly_new_uniprot_to_prot_metadata[
-                                    entity_data.meta.uniprot_ids].append(entity_data.meta)
-
-                        all_uniprot_id_to_prot_data = sql.initialize_metadata(
-                            session, possibly_new_uniprot_to_prot_metadata)
-
-                        # logger.debug([[data.meta.entity_id for data in pose_job.entity_data] for pose_job in pose_jobs])
-                        # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
-                        for pose_name, pose_job in pose_name_pose_jobs.items():
-                            for entity_data in pose_job.entity_data:
-                                entity_id = entity_data.meta.entity_id
-                                # Search the updated ProteinMetadata
-                                for protein_metadata in all_uniprot_id_to_prot_data.values():
-                                    for data in protein_metadata:
-                                        if entity_id == data.entity_id:
-                                            # Set with the valid ProteinMetadata
-                                            entity_data.meta = data
-                                            break
-                                    else:  # No break occurred, continue with outer loop
-                                        continue
-                                    break  # outer loop too
-                                else:
-                                    insp = inspect(entity_data)
-                                    logger.warning(
-                                        f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data} with '
-                                        f'entity_id {entity_id}')
-                                    logger.debug(f'\tThis instance is transient? {insp.transient}, pending?'
-                                                 f' {insp.pending}, persistent? {insp.persistent}')
-                        logger.debug(f'Found the newly added Session instances:\n{session.new}')
-                    elif number_flush_attempts == 3:
-                        attrs_of_interest = \
-                            ['id', 'entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
-                        properties = []
-                        for pose_job in pose_jobs:
-                            for entity_data in pose_job.entity_data:
-                                properties.append('\t'.join([f'{attr}={getattr(entity_data.meta, attr)}'
-                                                             for attr in attrs_of_interest]))
-                        pose_job_properties = '\n\t'.join(properties)
-                        logger.warning(f"The remaining PoseJob instances have the following "
-                                       f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
-                        # This is another error
-                        raise
-            else:
-                break
+        pose_jobs = insert_pose_jobs(session, pose_jobs, project)
 
         # # Format output data, fix missing
         # if job.db:
@@ -1703,11 +1629,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                     oligomer=True)
         return pose_jobs
 
-    logger.info(f'Total {project} trajectory took {time.time() - align_time_start:.2f}s')
-    if not pose_jobs:
-        logger.info(f'Found no viable outputs')
-        return []
-
     with job.db.session(expire_on_commit=False) as session:
         pose_jobs = terminate(pose_jobs)  # , poses_df, residues_df)
         session.commit()
@@ -1715,8 +1636,5 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             .execution_options(populate_existing=True) \
             .options(selectinload(PoseJob.metrics))
         pose_jobs = session.scalars(metrics_stmt).all()
-        # # Load all the committed metrics to the PoseJob instances
-        # for pose_job in pose_jobs:
-        #     pose_job.metrics
 
     return pose_jobs

@@ -6,6 +6,7 @@ import re
 import shutil
 import traceback
 import warnings
+from collections import defaultdict
 from glob import glob
 from itertools import combinations, repeat, count
 from math import sqrt
@@ -24,7 +25,8 @@ import pandas as pd
 from scipy.spatial.distance import pdist, cdist
 # import seaborn as sns
 import sklearn as skl
-from sqlalchemy import select
+from sqlalchemy import select, inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, reconstructor
 from sqlalchemy.orm.exc import DetachedInstanceError
 import torch
@@ -43,7 +45,7 @@ from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
 from symdesign.third_party.alphafold.alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
-    pickle_object, rosetta, starttime, SymDesignException
+    rosetta, starttime, SymDesignException
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 
 # Globals
@@ -5384,3 +5386,97 @@ class PoseProtocol(PoseData):
 
 class PoseJob(PoseProtocol):
     pass
+def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: str) -> list['PoseJob']:
+    """Add PoseJobs to the database accounting for existing entries
+
+    Args:
+        session: An open sqlalchemy session
+        pose_jobs: The PoseJob instances which should be inserted
+        project: The name of the project which the `pose_jobs` belong
+    Raises:
+        sqlalchemy.exc.IntegrityError
+    Returns:
+        The PoseJob instances that are already present
+    """
+    error_count = count(1)
+    while True:
+        pose_name_to_pose_jobs = {pose_job.name: pose_job for pose_job in pose_jobs}
+        session.add_all(pose_jobs)
+        try:  # Flush PoseJobs to the current session to generate ids
+            session.flush()
+        except IntegrityError:  # PoseJob.project/.name already inserted
+            session.rollback()
+            number_flush_attempts = next(error_count)
+            pose_names = list(pose_name_to_pose_jobs.keys())
+            logger.debug(f'rollback() #{number_flush_attempts}')
+            logger.debug(f'From {len(pose_names)} pose_names:\n{sorted(pose_names)}')
+
+            # Find the actual pose_jobs_to_commit and place in session
+            fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
+                .where(PoseJob.name.in_(pose_names))
+            existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
+            # Note: Values are sorted by alphanumerical, not numerical
+            # ex, design 11 is processed before design 2
+            existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
+            new_pose_names = set(pose_names).difference(existing_pose_names)
+            if new_pose_names:
+                logger.debug(
+                    f'Found {len(new_pose_names)} new_pose_names:\n{sorted(new_pose_names)}\n'
+                    f'Removing existing docked poses from output: {", ".join(existing_pose_names)}')
+            if not new_pose_names:  # No new PoseJobs
+                return existing_pose_jobs
+            else:
+                pose_jobs = [pose_name_to_pose_jobs[pose_name] for pose_name in new_pose_names]
+                if number_flush_attempts == 2:
+                    # Try to attach existing protein_metadata.entity_id
+                    # possibly_new_uniprot_to_prot_metadata = {}
+                    possibly_new_uniprot_to_prot_metadata = defaultdict(list)
+                    # pose_name_to_prot_metadata = defaultdict(list)
+                    for pose_job in pose_jobs:
+                        for entity_data in pose_job.entity_data:
+                            possibly_new_uniprot_to_prot_metadata[
+                                entity_data.meta.uniprot_ids].append(entity_data.meta)
+
+                    all_uniprot_id_to_prot_data = sql.initialize_metadata(
+                        session, possibly_new_uniprot_to_prot_metadata)
+
+                    # logger.debug([[data.meta.entity_id for data in pose_job.entity_data] for pose_job in pose_jobs])
+                    # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+                    for pose_name, pose_job in pose_name_to_pose_jobs.items():
+                        for entity_data in pose_job.entity_data:
+                            entity_id = entity_data.meta.entity_id
+                            # Search the updated ProteinMetadata
+                            for protein_metadata in all_uniprot_id_to_prot_data.values():
+                                for data in protein_metadata:
+                                    if entity_id == data.entity_id:
+                                        # Set with the valid ProteinMetadata
+                                        entity_data.meta = data
+                                        break
+                                else:  # No break occurred, continue with outer loop
+                                    continue
+                                break  # outer loop too
+                            else:
+                                insp = inspect(entity_data)
+                                logger.warning(
+                                    f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data} with '
+                                    f'entity_id {entity_id}')
+                                logger.debug(f'\tThis instance is transient? {insp.transient}, pending?'
+                                             f' {insp.pending}, persistent? {insp.persistent}')
+                    logger.debug(f'Found the newly added Session instances:\n{session.new}')
+                elif number_flush_attempts == 3:
+                    attrs_of_interest = \
+                        ['id', 'entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
+                    properties = []
+                    for pose_job in pose_jobs:
+                        for entity_data in pose_job.entity_data:
+                            properties.append('\t'.join([f'{attr}={getattr(entity_data.meta, attr)}'
+                                                         for attr in attrs_of_interest]))
+                    pose_job_properties = '\n\t'.join(properties)
+                    logger.warning(f"The remaining PoseJob instances have the following "
+                                   f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
+                    # This is another error
+                    raise
+        else:
+            break
+
+    return pose_jobs

@@ -3064,7 +3064,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             current_transformation_ids = create_transformation_hash()
             minimize_translations()
 
-        poses_df, residues_df = collect_dock_metrics()
         # Todo
         #  enable precise metric acquisition
         #  dock_metrics = collect_dock_metrics(score_functions, proteinmpnn_score=job.dock.proteinmpnn_score)
@@ -3519,69 +3518,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     poses_df.index = residues_df.index = passing_index
     pose_names = poses_df.index.tolist()
 
-    def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame) -> list[PoseJob]:
+    def terminate(poses_df: pd.DataFrame, residues_df: pd.DataFrame) -> list[PoseJob]:
         """Finalize any remaining work and return to the caller"""
-        nonlocal number_of_transforms, pose_names
-
-        # Add PoseJobs to the database
-        error_count = count()
-        while True:
-            pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
-                         for pose_name in pose_names]
-            session.add_all(pose_jobs)
-            try:  # Flush PoseJobs to the current session to generate ids
-                session.flush()
-            except IntegrityError:  # PoseJob.project/.name already inserted
-                session.rollback()
-                if next(error_count) == 1:
-                    # This is another error
-                    raise
-                # Find the actual pose_jobs_to_commit and place in session
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
-                    .where(PoseJob.name.in_(pose_names))
-                existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
-                # Note: Values are sorted by alphanumerical, not numerical
-                # ex, design 11 is processed before design 2
-                existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
-                new_pose_names = set(pose_names).difference(existing_pose_names)
-                if not new_pose_names:  # No new PoseJobs
-                    return existing_pose_jobs
-                else:
-                    pose_names_ = []
-                    for name in new_pose_names:
-                        pose_name_index = pose_names.index(name)
-                        if pose_name_index != -1:
-                            pose_names_.append((pose_name_index, name))
-                    # Finally, sort all the names to ensure that the indices from the first pass are accurate
-                    # with the new set
-                    existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
-                    # Select poses_df/residues_df by existing_indices_
-                    # poses_df_ = poses_df_.loc[existing_indices_, :]
-                    # residues_df_ = residues_df_.loc[existing_indices_, :]
-                    poses_df_ = poses_df_.loc[pose_names, :]
-                    residues_df_ = residues_df_.loc[pose_names, :]
-                    logger.info(f'Removing existing docked poses from output: {", ".join(existing_pose_names)}')
-                    logger.debug(f'Reset the pose solutions with attributes:\n'
-                                 f'\tpose names={pose_names}\n'
-                                 f'\texisting transform indices={existing_indices_}\n')
-                    number_of_transforms = len(pose_names)
-                    filter_transforms_by_indices(list(existing_indices_))
-            else:
-                break
-
-        # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
-        # session.add(trajectory)
-
-        # Format output data, fix missing
-        if job.db:
-            pose_ids = [pose_job.id for pose_job in pose_jobs]
-        else:
-            pose_ids = pose_names
-
         # Extract transformation parameters for output
         def populate_pose_metadata():
             """Add all required PoseJob information to output the created Pose instances for persistent storage"""
-            nonlocal poses_df_, residues_df_
             # Save all pose transformation information
             # From here out, the transforms used should be only those of interest for outputting/sequence design
             # filter_transforms_by_indices() <- This is done above
@@ -3623,17 +3564,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             _full_ext_tx1 = blank_parameters if full_ext_tx1 is None else full_ext_tx1.squeeze()
             _full_ext_tx2 = blank_parameters if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
-            if job.use_proteinmpnn:
-                # Explicitly set false as scoring the wildtype sequence isn't desired now
-                reset_use_proteinmpnn = True
-                job.use_proteinmpnn = False
-            else:
-                reset_use_proteinmpnn = False
-
             for idx, pose_job in enumerate(pose_jobs):
-                # Add the next set of coordinates
-                update_pose_coords(idx)
-
                 # Update the sql.EntityData with transformations
                 external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]
                 external_translation_x2, external_translation_y2, external_translation_z2 = _full_ext_tx2[idx]
@@ -3661,14 +3592,14 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 # Update sql.EntityData, sql.EntityMetrics, sql.EntityTransform
                 # pose_id = pose_job.id
                 # entity_data = []
-                entity_transforms = []
                 # Todo the number of entities and the number of transformations could be different
+                entity_transforms = []
                 for entity, transform in zip(pose.entities, entity_transformations):
                     transformation = sql.EntityTransform(**transform)
                     entity_transforms.append(transformation)
                     pose_job.entity_data.append(sql.EntityData(
                         meta=entity.metadata,
-                        metrics=entity.metrics,
+                        # metrics=entity.metrics,
                         transform=transformation)
                     )
                 # print('pose_job.entity_data', pose_job.entity_data)
@@ -3682,77 +3613,127 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 # pose_job.entity_data.append(sql.EntityData(pose=pose_job,
 
                 session.add_all(entity_transforms)  # + entity_data)
-                # Need to generate the EntityData.id
-                session.flush()
-                # if job.output:
-                if job.output_fragments:
-                    add_fragments_to_pose()  # <- here generating fragments fresh
-                if job.output_trajectory:
-                    if idx % 2 == 0:
-                        new_pose = pose.copy()
-                        # new_pose = pose.models[0]copy()
-                        for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
-                            entity.chain_id = 'D'
-                            # Todo make more reliable
-                            # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
-                        trajectory_models.append_model(new_pose)
-                # Set the ASU, then write to a file
-                pose.set_contacting_asu(distance=cb_distance)
-                try:  # Remove existing cryst_record
-                    del pose._cryst_record
-                except AttributeError:
-                    pass
-                # pose.uc_dimensions
-                # if sym_entry.unit_cell:  # 2, 3 dimensions
-                #     cryst_record = generate_cryst1_record(full_uc_dimensions[idx], sym_entry.resulting_symmetry)
-                # else:
-                #     cryst_record = None
-                # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
-                pose_job.pose = pose
-                pose_job.calculate_pose_design_metrics(session)
-                putils.make_path(pose_job.pose_directory)
-                pose_job.output_pose()
-                pose_job.source_path = pose_job.pose_path
-                pose_job.pose = None
-                logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
+                # # Need to generate the EntityData.id
+                # session.flush()
 
-                # Reset entity.metrics
-                for entity in pose.entities:
-                    entity.clear_metrics()
+        pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
+                     for pose_name in pose_names]
 
-            if job.db:
-                # Update the poses_df_ and residues_df_ index to reflect the new pose_ids
-                poses_df_.index = pd.Index(pose_ids, name=sql.PoseMetrics.pose_id.name)
-                # Write dataframes to the sql database
-                metrics.sql.write_dataframe(session, poses=poses_df_)
-                output_residues = False
-                if output_residues:  # Todo job.metrics.residues
-                    residues_df_.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
-                    metrics.sql.write_dataframe(session, pose_residues=residues_df_)
-            else:  # Write to disk
-                residues_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
-                putils.make_path(job.all_scores)
-                residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
-                residues_df_.to_csv(residue_metrics_csv)
-                logger.info(f'Wrote residue metrics to {residue_metrics_csv}')
-                trajectory_metrics_csv = \
-                    os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
-                job.dataframe = trajectory_metrics_csv
-                poses_df_ = pd.concat([poses_df_], keys=[('dock', 'pose')], axis=1)
-                poses_df_.columns = poses_df_.columns.swaplevel(0, 1)
-                poses_df_.sort_index(level=2, axis=1, inplace=True, sort_remaining=False)
-                poses_df_.sort_index(level=1, axis=1, inplace=True, sort_remaining=False)
-                poses_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-                poses_df_.to_csv(trajectory_metrics_csv)
-                logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
-
-            # After pose output loop
-            # Explicitly set false as scoring the wildtype sequence isn't desired now
-            if reset_use_proteinmpnn:
-                job.use_proteinmpnn = True
-
+        # Format output data, fix existing entries
         # Populate the database with pose information. Has access to nonlocal session
         populate_pose_metadata()
+        # Next, insert metadata information to database
+        pose_jobs = insert_pose_jobs(session, pose_jobs, project)
+
+        # For all new PoseJobs, insert them and their metrics into the database
+        remaining_pose_idx_name_pairs = []
+        for pose_job in pose_jobs:
+            name = pose_job.name
+            pose_name_index = pose_names.index(name)
+            if pose_name_index != -1:
+                remaining_pose_idx_name_pairs.append((pose_name_index, name))
+
+        # Finally, sort all the names to ensure that the indices from the first pass are accurate
+        # with the new set
+        remaining_indices, remaining_pose_names = zip(
+            *sorted(remaining_pose_idx_name_pairs, key=lambda name: name[0]))
+        # Select poses_df/residues_df by remaining remaining_pose_names
+        poses_df = poses_df.loc[remaining_pose_names, :]
+        residues_df = residues_df.loc[remaining_pose_names, :]
+        logger.debug(f'Reset the pose solutions with attributes:\n'
+                     f'\tpose names={remaining_pose_names}\n'
+                     f'\texisting transform indices={remaining_indices}\n')
+        # number_of_transforms = len(remaining_pose_names)
+        filter_transforms_by_indices(list(remaining_indices))
+
+        # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
+        # session.add(trajectory)
+
+        if job.db:
+            pose_ids = [pose_job.id for pose_job in pose_jobs]
+        else:
+            pose_ids = remaining_pose_names
+
+        if job.use_proteinmpnn:
+            # Explicitly set false as scoring the wild-type sequence isn't desired now
+            reset_use_proteinmpnn = True
+            job.use_proteinmpnn = False
+        else:
+            reset_use_proteinmpnn = False
+
+        for idx, pose_job in enumerate(pose_jobs):
+            # Add the next set of coordinates
+            update_pose_coords(idx)
+
+            if job.output_fragments:
+                add_fragments_to_pose()  # <- here generating fragments fresh
+            if job.output_trajectory:
+                # Todo
+                #  This should be move to before filtering incase the whole trajectory is desired
+                if idx % 2 == 0:
+                    new_pose = pose.copy()
+                    # new_pose = pose.models[0]copy()
+                    for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
+                        entity.chain_id = 'D'
+                        # Todo make more reliable
+                        # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
+                    trajectory_models.append_model(new_pose)
+            # Set the ASU, then write to a file
+            pose.set_contacting_asu(distance=cb_distance)
+            try:  # Remove existing cryst_record
+                del pose._cryst_record
+            except AttributeError:
+                pass
+            # pose.uc_dimensions
+            # if sym_entry.unit_cell:  # 2, 3 dimensions
+            #     cryst_record = generate_cryst1_record(full_uc_dimensions[idx], sym_entry.resulting_symmetry)
+            # else:
+            #     cryst_record = None
+            # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
+            pose_job.pose = pose
+            pose_job.calculate_pose_design_metrics(session)
+            putils.make_path(pose_job.pose_directory)
+            pose_job.output_pose()
+            pose_job.source_path = pose_job.pose_path
+            pose_job.pose = None
+            logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
+
+            # Add metrics to the PoseJob then reset for next pose
+            for entity, data in zip(pose.entities, pose_job.entity_data):
+                data.metrics = entity.metrics
+                entity.clear_metrics()
+
+        # Output acquired metrics
+        if job.db:
+            # Update the poses_df and residues_df index to reflect the new pose_ids
+            poses_df.index = pd.Index(pose_ids, name=sql.PoseMetrics.pose_id.name)
+            # Write dataframes to the sql database
+            sql.write_dataframe(session, poses=poses_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                residues_df.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
+                sql.write_dataframe(session, pose_residues=residues_df)
+        else:  # Write to disk
+            residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
+            putils.make_path(job.all_scores)
+            residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
+            residues_df.to_csv(residue_metrics_csv)
+            logger.info(f'Wrote residue metrics to {residue_metrics_csv}')
+            trajectory_metrics_csv = \
+                os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
+            job.dataframe = trajectory_metrics_csv
+            poses_df = pd.concat([poses_df], keys=[('dock', 'pose')], axis=1)
+            poses_df.columns = poses_df.columns.swaplevel(0, 1)
+            poses_df.sort_index(level=2, axis=1, inplace=True, sort_remaining=False)
+            poses_df.sort_index(level=1, axis=1, inplace=True, sort_remaining=False)
+            poses_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            poses_df.to_csv(trajectory_metrics_csv)
+            logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
+
+        # After pose output loop
+        # Explicitly set false as scoring the wildtype sequence isn't desired now
+        if reset_use_proteinmpnn:
+            job.use_proteinmpnn = True
 
         # # Todo 2 modernize with the new SQL database and 6D transform aspirations
         # # Cluster by perturbation if perturb_dof:
@@ -3760,11 +3741,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         #     perturbation_identifier = '-p_'
         #     cluster_type_str = 'ByPerturbation'
         #     seed_transforms = utils.remove_duplicates(
-        #         [pose_name.split(perturbation_identifier)[0] for pose_name in pose_names])
-        #     cluster_map = {seed_transform: pose_names[idx * number_perturbations_applied:
+        #         [pose_name.split(perturbation_identifier)[0] for pose_name in remaining_pose_names])
+        #     cluster_map = {seed_transform: remaining_pose_names[idx * number_perturbations_applied:
         #                                               (idx + 1) * number_perturbations_applied]
         #                    for idx, seed_transform in enumerate(seed_transforms)}
-        #     # for pose_name in pose_names:
+        #     # for pose_name in remaining_pose_names:
         #     #     seed_transform, *perturbation = pose_name.split(perturbation_identifier)
         #     #     clustered_transformations[seed_transform].append(pose_name)
         #
@@ -3778,7 +3759,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # job.cluster.map = utils.pickle_object(cluster_map,
         #                                       name=putils.default_clustered_pose_file.format('', cluster_type_str),
         #                                       out_path=project_dir)
-        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_names)} pose inputs. '
+        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(remaining_pose_names)} pose inputs. '
         #             f'Wrote cluster map to {job.cluster.map}')
 
         # Write trajectory if specified
@@ -3788,22 +3769,17 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
             trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
                                     oligomer=True)
-
         return pose_jobs
 
     # Clean up, save data/output results
-    # with job.db.session() as session:
     with job.db.session(expire_on_commit=False) as session:
-        pose_jobs = terminate(pose, poses_df, residues_df)
+        pose_jobs = terminate(poses_df, residues_df)
         session.commit()
         metrics_stmt = select(PoseJob).where(PoseJob.id.in_([pose_job.id for pose_job in pose_jobs])) \
             .execution_options(populate_existing=True) \
             .options(selectinload(PoseJob.metrics))
         pose_jobs = session.scalars(metrics_stmt).all()
-        # # Load all the committed metrics to the PoseJob instances
-        # for pose_job in pose_jobs:
-        #     pose_job.metrics
+
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     return pose_jobs
-    # ------------------ TERMINATE DOCKING ------------------------
