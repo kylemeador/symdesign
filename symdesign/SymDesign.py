@@ -257,7 +257,7 @@ def load_poses_from_structure_and_entity_pairs(job: JobResources,
     return structures
 
 
-def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any], **kwargs) \
+def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: list[Any], **kwargs) \
         -> list[tuple[PoseJob, Exception]] | list:
     """Filter out any exceptions from results
 
@@ -267,11 +267,20 @@ def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any
     Returns:
         Tuple of passing PoseDirectories and Exceptions
     """
-    if results is None:
-        return []
-    else:
+    if results:
         exception_indices = [idx for idx, result_ in enumerate(results) if isinstance(result_, BaseException)]
-        return [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
+        if pose_jobs:
+            if len(pose_jobs) == len(results):
+                return [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
+            else:
+                raise ValueError(
+                    f"The number of PoseJob instances {len(pose_jobs)} != {len(results)}, the number of job results."
+                )
+        else:
+            return [(None, results.pop(idx)) for idx in reversed(exception_indices)]
+            # return list(zip(repeat(None), results))
+    else:
+        return []
 
 
 def destruct_factories():
@@ -1551,18 +1560,19 @@ def main():
             if job.module in protocols.config.returns_pose_jobs:
                 results = []
                 if results_:  # Not an empty list
-                    if isinstance(results_[0], list):  # In the case returning collection of pose_jobs (nanohedra)
+                    if isinstance(results_[0], list):  # In the case returning collection of pose_jobs, i.e. nanohedra
                         for result in results_:
                             results.extend(result)
                     else:
                         results.extend(results_)
-                pose_jobs = results
+                pose_jobs = results.copy()
             # elif job.module == flags.cluster_poses:  # Returns None
             #    pass
             else:
                 results = results_
-                # Update the current state of protocols and exceptions
-                exceptions.extend(parse_results_for_exceptions(pose_jobs, results))
+
+            # Update the current state of protocols and exceptions
+            exceptions.extend(parse_results_for_exceptions(pose_jobs, results))
 
             # # Retrieve any program flags necessary for termination
             # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
