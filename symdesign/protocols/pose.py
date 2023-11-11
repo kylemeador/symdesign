@@ -2243,7 +2243,7 @@ class PoseProtocol(PoseData):
             # Save the entity_designs_df DataFrames
             with self.job.db.session(expire_on_commit=False) as session:
                 for entity_designs_df in entity_design_dfs:
-                    metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+                    sql.write_dataframe(session, entity_designs=entity_designs_df)
                 session.commit()
 
             # Try to perform an analysis of the separated versus the combined prediction
@@ -2677,7 +2677,7 @@ class PoseProtocol(PoseData):
             # analysis_start = time.time()
             designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
             entity_designs_df = self.analyze_design_entities_per_residue(residues_df)
-            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+            sql.write_dataframe(session, entity_designs=entity_designs_df)
 
             # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
             #                f"{time.time() - design_start:8f}s total")
@@ -2819,7 +2819,7 @@ class PoseProtocol(PoseData):
                 # designs.index.set_names(design_index_names, inplace=True)
                 designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
                 # _design_ids = metrics.sql.write_dataframe(session, designs=designs)
-                metrics.sql.write_dataframe(session, designs=designs)
+                sql.write_dataframe(session, designs=designs)
 
             if residues is not None:
                 # residue_index_names = ['pose', 'design']
@@ -2838,11 +2838,11 @@ class PoseProtocol(PoseData):
                     dataframe_kwargs = dict(residues=residues)
 
                 residues.index.set_names(index_name, inplace=True)
-                metrics.sql.write_dataframe(session, **dataframe_kwargs)
+                sql.write_dataframe(session, **dataframe_kwargs)
 
             if design_residues is not None:
                 design_residues.index.set_names(sql.ResidueMetrics.design_id.name, inplace=True)
-                metrics.sql.write_dataframe(session, design_residues=design_residues)
+                sql.write_dataframe(session, design_residues=design_residues)
         else:
             putils.make_path(self.data_path)
             if residues is not None:
@@ -3258,7 +3258,7 @@ class PoseProtocol(PoseData):
             # If so, proceed with insert, file rename and commit
             self.output_metrics(session, designs=designs_df)
             if rosetta_provided_new_design_names:
-                metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+                sql.write_dataframe(session, entity_designs=entity_designs_df)
             output_residues = False
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
@@ -3463,7 +3463,7 @@ class PoseProtocol(PoseData):
                 pass
             else:
                 self.output_metrics(session, design_residues=residues_df)
-        metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+        sql.write_dataframe(session, entity_designs=entity_designs_df)
         #     # Commit the newly acquired metrics
         #     session.commit()
 
@@ -3903,7 +3903,7 @@ class PoseProtocol(PoseData):
 
         # Commit the newly acquired metrics to the database
         with self.job.db.session(expire_on_commit=False) as session:
-            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+            sql.write_dataframe(session, entity_designs=entity_designs_df)
             self.output_metrics(session, designs=designs_df)
             output_residues = False
             if output_residues:  # Todo job.metrics.residues
