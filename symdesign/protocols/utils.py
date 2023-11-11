@@ -66,9 +66,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (SymDesignExcepti
 
 
 def handle_job_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
-    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
-
-    This argument is typically self and is in a class with .log attribute
+    """Wrap a function/method with try/except `errors`
 
     Args:
         errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
@@ -77,7 +75,7 @@ def handle_job_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,
     """
     def wrapper(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapped(*args, **kwargs) -> Any:
+        def wrapped(*args, **kwargs) -> list[Any]:
             try:
                 return func(*args, **kwargs)
             except errors as error:
