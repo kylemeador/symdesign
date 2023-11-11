@@ -22,7 +22,7 @@ from sqlalchemy.orm import selectinload
 from tqdm import tqdm
 
 from . import cluster
-from .pose import load_evolutionary_profile, PoseJob
+from .pose import insert_pose_jobs, load_evolutionary_profile, PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
@@ -2313,10 +2313,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             #  'sequence_loss_fragment': per_residue_fragment_profile_loss
         }
 
-        # Initialize proteinmpnn for dock/design analysis
-        proteinmpnn_score = proteinmpnn_score or job.dock.proteinmpnn_score
         if proteinmpnn_score:
-            # Retrieve the ProteinMPNN model
+            # Initialize and retrieve the ProteinMPNN model for dock analysis
             mpnn_model = ml.proteinmpnn_factory(ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model)
             # Set up model sampling type based on symmetry
             if pose.is_symmetric():
@@ -2995,7 +2993,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
         return transform_hashes, perturbation_shape, n_perturbed_dof
 
-    def optimize_found_transformations_by_metrics() -> tuple[pd.DataFrame, list[int]]:  # float:
+    def optimize_found_transformations_by_metrics() -> tuple[pd.DataFrame, list[int]]:
         """Perform a cycle of (optional) transformation perturbation, and then score and select those which are ranked
         highest
 
@@ -3069,7 +3067,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         poses_df, residues_df = collect_dock_metrics()
         # Todo
         #  enable precise metric acquisition
-        # dock_metrics = collect_dock_metrics(score_functions)
+        #  dock_metrics = collect_dock_metrics(score_functions, proteinmpnn_score=job.dock.proteinmpnn_score)
+        poses_df, residues_df = collect_dock_metrics(proteinmpnn_score=job.dock.proteinmpnn_score)
         weighted_trajectory_df: pd.DataFrame = prioritize_transforms_by_selection(poses_df)
         weighted_trajectory_df_index = weighted_trajectory_df.index
 
@@ -3285,9 +3284,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         Returns:
             The DataFrame that has been sorted according to the specified filters/weights
         """
-        weighted_df = \
-            metrics.prioritize_design_indices(df, filters=job.dock.filter, weights=job.dock.weight,
-                                              default_weight=default_weight_metric)
+        weighted_df = metrics.prioritize_design_indices(
+            df, filters=job.dock.filter, weights=job.dock.weight, default_weight=default_weight_metric)
         # Set the metrics_of_interest to the default weighting metric name as well as any weights that are specified
         metrics_of_interest = [metrics.selection_weight_column]
         if job.dock.weight:
@@ -3336,11 +3334,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     #     return selected_metrics_df.mean(axis=0)
     #     # other_metrics_df.mean(axis=1)
 
-    # Initialize output DataFrames which are set in prioritize_transforms_by_selection()
-    poses_df, residues_df = collect_dock_metrics()
+    # Initialize output DataFrames
     # Todo
     #  enable precise metric acquisition
-    # dock_metrics = collect_dock_metrics(score_functions)
+    #  dock_metrics = collect_dock_metrics(score_functions, proteinmpnn_score=job.dock.proteinmpnn_score)
+    poses_df, residues_df = collect_dock_metrics(proteinmpnn_score=job.dock.proteinmpnn_score)
     weighted_trajectory_df = prioritize_transforms_by_selection(poses_df)
     # # Get selected indices (sorted in original order)
     # selected_indices = weighted_trajectory_df.index.sort_values().tolist()
@@ -3511,10 +3509,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     number_of_transforms = len(passing_index)
     if starting_transforms != number_of_transforms:
         logger.info(f'Removed {starting_transforms - number_of_transforms} due to transformation duplication')
-    # Finally, tabulate the ProteinMPNN metrics if they weren't already
+
+    # Finally, tabulate the ProteinMPNN metrics if they weren't already and are requested
     if job.dock.proteinmpnn_score:
         pass  # ProteinMPNN metrics already collected
-    else:  # Collect
+    elif job.use_proteinmpnn:  # Collect
         logger.info(f'Measuring quality of docked interfaces with ProteinMPNN unconditional probabilities')
         poses_df, residues_df = collect_dock_metrics(proteinmpnn_score=True)
     poses_df.index = residues_df.index = passing_index
