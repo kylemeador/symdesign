@@ -1147,7 +1147,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         Currently reports error traceback
         """
-        self.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
+        self.log.info(''.join(traceback.format_exc()))
 
     def format_see_log_msg(self) -> str:
         """Issue a standard informational message indicating the location of further error information"""

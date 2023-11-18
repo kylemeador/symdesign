@@ -121,7 +121,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (SymDesignException
             except errors as error:
                 # Perform exception reporting using job.log
                 job.log.error(error)
-                job.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
+                job.log.info(''.join(traceback.format_exc()))
                 func_return = ReportException(str(error))
             # remove_structure_memory()
             if job.job.reduce_memory:

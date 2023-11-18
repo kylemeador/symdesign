@@ -12,6 +12,7 @@ import os
 import random
 import shutil
 import sys
+import traceback
 from argparse import Namespace
 from collections import defaultdict
 from glob import glob
@@ -1785,14 +1786,23 @@ def main():
 
 
 def app(*args):
+    exit_code = None
     try:
         main()
     except KeyboardInterrupt:
         print('\nJob Ended By KeyboardInterrupt\n')
-        sys.exit(1)
+        exit_code = 1
+    except Exception:
+        exit_code = 1
+        error = 'ERROR'
+        print(
+            f"\n{''.join(traceback.format_exc())}\n"
+            f"\033[38;5;93m{error}\033[0;0m: If your issue persists, please file an issue at: {putils.git_issue_url}\n"
+        )
     finally:
         destruct_factories()
-
+        if exit_code is not None:
+            sys.exit(exit_code)
 #
 #
 # def notebook(*args):

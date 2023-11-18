@@ -12,7 +12,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from . import cluster
 from .pose import PoseJob
@@ -26,6 +26,7 @@ from symdesign.sequence import constants, optimize_protein_sequence, write_seque
 putils = utils.path
 
 logger = logging.getLogger(__name__)
+TQDM_BAR_FORMAT = '{l_bar}{bar}| [elapsed: {elapsed} ~remaining: {remaining}]'
 
 
 def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd.DataFrame:
@@ -1514,7 +1515,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             logger.info(f'Copying Pose files...')
             # Create new output of designed PDB's
             final_pose_id_to_identifier = {}
-            for pose_id_ in tqdm(selected_pose_ids):
+            for pose_id_ in tqdm(selected_pose_ids, bar_format=TQDM_BAR_FORMAT, leave=False):
                 pose_job = session.get(PoseJob, pose_id_)
                 final_pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
                 structure_path = pose_job.get_pose_file()
@@ -1758,7 +1759,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
             pose_id_to_identifier = {}
             design_id_to_identifier = {}
             results = []
-            for pose_id_, design_ids in tqdm(selected_pose_id_to_design_ids.items()):
+            for pose_id_, design_ids in tqdm(
+                    selected_pose_id_to_design_ids.items(), bar_format=TQDM_BAR_FORMAT, leave=False):
                 pose_job = session.get(PoseJob, pose_id_)
                 pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
                 current_designs = []

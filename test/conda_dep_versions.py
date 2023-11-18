@@ -8,7 +8,7 @@ import yaml
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 def digit_keeper() -> defaultdict:

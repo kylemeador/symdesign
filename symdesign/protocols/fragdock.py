@@ -17,9 +17,8 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from . import cluster
 from .pose import insert_pose_jobs, load_evolutionary_profile, PoseJob
@@ -41,6 +40,7 @@ putils = utils.path
 # Globals
 logger = logging.getLogger(__name__)
 zero_offset = 1
+TQDM_BAR_FORMAT = '{l_bar}{bar}| [elapsed: {elapsed} ~remaining: {remaining}]'
 
 
 # TODO decrease amount of work by saving each index array and reusing...
@@ -1198,7 +1198,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
     perturb_dof = job.dock.perturb_dof
     total_dof_combinations = rotations_to_perform1 * rotations_to_perform2
-    progress_iter = iter(tqdm(range(total_dof_combinations), total=total_dof_combinations))
+    progress_iter = iter(tqdm(
+        range(total_dof_combinations), bar_format=TQDM_BAR_FORMAT, leave=False))
     for idx1 in range(rotations_to_perform1):
         rot1_count = idx1%number_of_rotations1 + 1
         degen1_count = idx1//number_of_rotations1 + 1
@@ -1734,7 +1735,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # all_passing_surf_indices = []
     # all_passing_z_scores = []
     # Get residue number for all model1, model2 CB Pairs that interact within cb_distance
-    for idx in tqdm(range(number_non_clashing_transforms), total=number_non_clashing_transforms):
+    for idx in tqdm(
+            range(number_non_clashing_transforms), bar_format=TQDM_BAR_FORMAT, leave=False):
         # query/contact pairs/isin  - 0.028367  <- I predict query is about 0.015
         # indexing guide_coords     - 0.000389
         # total get_int_frags_time  - 0.028756 s
@@ -2560,7 +2562,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # Stack the entity coordinates to make up a contiguous block for each pose
         new_coords = []
         # Get metrics for each Pose
-        for idx in tqdm(pose_ids, total=number_of_transforms):
+        for idx in tqdm(pose_ids, bar_format=TQDM_BAR_FORMAT, leave=False):
             # logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
             # Add the next set of coordinates
             update_pose_coords(idx)
