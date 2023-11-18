@@ -93,7 +93,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
             if not profile:
                 null_entries = entity.create_null_entries(range(entity.number_of_residues))
                 for entry, residue in zip(null_entries.values(), entity.residues):
-                    entry['type'] = residue.type
+                    entry['type'] = residue.type1
 
                 evolutionary_profile.update(null_entries)
                 # # Try and add... This would be better at the program level due to memory issues
