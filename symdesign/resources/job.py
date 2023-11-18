@@ -1293,10 +1293,6 @@ class JobResources:
                         f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.fasta', '-M', 'first', '-r']
                     msa_cmds.extend([sto_cmd, fasta_cmd])
 
-                # Todo
-                #   Implement .h_fields/.j_couplings from above
-                #   Implement msa command mechanism from above
-
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
                 raise RuntimeError(
@@ -1314,28 +1310,21 @@ class JobResources:
                 # Run commands in this process
                 if self.multi_processing:
                     zipped_args = zip(hhblits_cmds, repeat(hhblits_log_file))
-                    # Todo
-                    #   Calculate how many cores are available to use given memory limit
                     utils.mp_starmap(distribute.run, zipped_args, processes=self.cores)
                 else:
-                    with open(hhblits_log_file, 'w') as f:
-                        for cmd in hhblits_cmds:
-                            logger.info(f'Starting command: {subprocess.list2cmdline(cmd)}')
-                            p = subprocess.Popen(cmd, stdout=f, stderr=f)
-                            p.communicate()
+                    for cmd in hhblits_cmds:
+                        logger.info(f'Starting command: {subprocess.list2cmdline(cmd)}')
+                        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        stdout, stderr = p.communicate()
+                        if stderr:
+                            logger.warning(stderr.decode('utf-8'))
 
                 # Format .a3m multiple sequence alignments to .sto/.fasta
-                with open(hhblits_log_file, 'w') as f:
-                    for cmd in msa_cmds:
-                        p = subprocess.Popen(cmd, stdout=f, stderr=f)
-                        p.communicate()
-                # Todo
-                #  This would be preferable.
-                #  for cmd in hhblits_cmds:
-                #      p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                #      stdout, stderr = p.communicate()
-                #      if stdout or stderr:
-                #          logger.info()
+                for cmd in msa_cmds:
+                    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout, stderr = p.communicate()
+                    if stderr:
+                        logger.warning(stderr.decode('utf-8'))
             else:  # Convert each command to a string and write to distribute
                 hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
                 msa_cmds = [subprocess.list2cmdline(cmd) for cmd in msa_cmds]
@@ -1364,24 +1353,16 @@ class JobResources:
                 info_messages.append(hhblits_job_info_message)
         elif msa_cmds:  # These may still be missing
             putils.make_path(self.profiles)
-            hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
 
             if not os.access(putils.reformat_msa_exe_path, os.X_OK):
                 logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
 
             # Format .a3m multiple sequence alignments to .sto/.fasta
-            with open(hhblits_log_file, 'w') as f:
-                for cmd in msa_cmds:
-                    p = subprocess.Popen(cmd, stdout=f, stderr=f)
-                    p.communicate()
-
-            # Todo
-            #  This would be preferable.
-            #  for cmd in hhblits_cmds:
-            #      p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            #      stdout, stderr = p.communicate()
-            #      if stdout or stderr:
-            #          logger.info()
+            for cmd in msa_cmds:
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, stderr = p.communicate()
+                if stderr:
+                    logger.warning(stderr.decode('utf-8'))
 
         if bmdca_cmds:
             putils.make_path(self.profiles)
@@ -1408,8 +1389,6 @@ class JobResources:
             else:
                 shell = distribute.default_shell
 
-            # Todo
-            #  Add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
             bmdca_script_message = \
                 f'Once you are satisfied, enter the following to distribute jobs:\n\t{shell} %s' \
                 % bmdca_script if not info_messages else 'ONCE this job is finished, to calculate evolutionary ' \
