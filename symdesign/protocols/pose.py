@@ -125,27 +125,26 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
             else:
                 logger.debug(f'Adding {entity.name}.msa')
                 msas.append(msa)
+                # Todo
+                #  The alignment of concatenated evolutionary profiles is sensitive to the length of the internal
+                #  gaps when there is an extend penalty
+                #  modify_alignment_algorithm = True
+                #  query_internal_extend_gap_score=0
 
-        # Combine all
-        max_alignment_size = max([msa_.length for msa_ in msas])
-        msa, *other_msas = msas
-        combined_alignment = msa.alignment
-        msa_: MultipleSequenceAlignment
-        for msa_ in other_msas:
-            length_difference = max_alignment_size - msa_.length
-            if length_difference:  # Not 0
-                msa_.pad_alignment(length_difference)
-            combined_alignment += msa_.alignment
-        msa = MultipleSequenceAlignment(combined_alignment)
-
-        try:  # To create the full MultipleSequenceAlignment
-            entity.msa = msa
-        except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-            msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
-            logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '
-                        f"at '{msa_file}' are different lengths: {error}")
-            raise ValueError("This error shouldn't be reachable anymore")
-            warn = True
+        if msas:
+            # Combine all
+            max_alignment_size = max([msa_.length for msa_ in msas])
+            msa, *other_msas = msas
+            combined_alignment = msa.alignment
+            # modify_alignment_algorithm = False
+            msa_: MultipleSequenceAlignment
+            for msa_ in other_msas:
+                length_difference = max_alignment_size - msa_.length
+                if length_difference:  # Not 0
+                    msa_.pad_alignment(length_difference)
+                combined_alignment += msa_.alignment
+            # To create the full MultipleSequenceAlignment
+            entity.msa = MultipleSequenceAlignment(combined_alignment)
 
     if warn_metrics and warn:
         if not measure_evolution and not measure_alignment:
