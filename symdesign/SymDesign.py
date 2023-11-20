@@ -624,7 +624,7 @@ def main():
         # if not args.query:
         #     args.query = 'all-entries'
         if args.query not in utils.SymEntry.query_mode_args:
-            print(f"Error: Please specify the query mode with '--query' to proceed")
+            print(f"Error: Please specify the query mode after '{flags.query.long}' to proceed")
             sys.exit(1)
         utils.SymEntry.query(args.query, *additional_args, nanohedra=args.nanohedra)
         sys.exit()
@@ -1797,20 +1797,12 @@ def app(*args):
         error = 'ERROR'
         print(
             f"\n{''.join(traceback.format_exc())}\n"
-            f"\033[38;5;93m{error}\033[0;0m: If your issue persists, please file an issue at: {putils.git_issue_url}\n"
+            f"\033[1;31;40m{error}\033[0;0m: If your issue persists, please open an issue at: {putils.git_issue_url}\n"
         )
     finally:
         destruct_factories()
         if exit_code is not None:
             sys.exit(exit_code)
-#
-#
-# def notebook(*args):
-#     try:
-#         main()
-#     except KeyboardInterrupt:
-#         print('\nJob Ended By KeyboardInterrupt\n')
-#         sys.exit(1)
 
 
 if __name__ == '__main__':

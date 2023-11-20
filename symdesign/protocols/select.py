@@ -26,7 +26,7 @@ from symdesign.sequence import constants, optimize_protein_sequence, write_seque
 putils = utils.path
 
 logger = logging.getLogger(__name__)
-TQDM_BAR_FORMAT = '{l_bar}{bar}| [elapsed: {elapsed} ~remaining: {remaining}]'
+TQDM_BAR_FORMAT = '{l_bar}{bar}| {n_fmt}/{total_fmt} [elapsed: {elapsed} ~remaining: {remaining}]'
 
 
 def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd.DataFrame:

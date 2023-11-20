@@ -1190,7 +1190,8 @@ target_chain_args = (target_chain.long,)
 target_chain_kwargs = dict(help='A desired chainID of the target molecule')
 target_termini_args = (target_termini.long,)
 target_termini_kwargs = dict(type=str.lower, nargs='*', choices=possible_termini,
-                             help="If particular termini of the target are desired, specify with 'n' and/or 'c'")
+                             help="If particular termini of the target are desired,\n"
+                                  "specify with 'n' and/or 'c'")
 trim_termini_args = (trim_termini.long,)
 trim_termini_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                            help='Whether the termini should be trimmed of irregularly\nstructured residues\n'
@@ -1231,20 +1232,20 @@ query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corre
 # parser_component_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 component1_args = ('-c1', component1.long)
 component2_args = ('-c2', component2.long)
-align_component1_args = ('-c1', component1.long, f'--target')
-align_component2_args = ('-c2', component2.long, f'--aligned')
+align_component1_args = (*component1_args, f'--target')
+align_component2_args = (*component2_args, f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
                         help=f'Path to component file, either directory or single file')
-pdb_codes_args = ('-C', pdb_code.long, f'--{pdb_code}1', f'--{pdb_code}s1', f'--{pdb_code}s')
+pdb_codes_args = ('-C1', pdb_code.long, f'--{pdb_code}s', f'--{pdb_code}1', f'--{pdb_code}s1')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
 query_pdb_codes_args = ('-Q', query_codes.long)
 query_pdb_codes2_args = ('-Q2', f'--{query_codes}2')
-align_pdb_codes1_args = ('-C1', f'--target-{pdb_code}', f'--target-{pdb_code}s')
-align_pdb_codes2_args = ('-C2', f'--aligned-{pdb_code}', f'--aligned-{pdb_code}s')
-pdb_codes_kwargs = dict(nargs='*',  default=tuple(),  # default=None,
-                        help='Input code(s), and/or file(s) with codes where each code\n'
-                             'is a PDB EntryID/EntityID/AssemblyID')
+align_pdb_codes1_args = (*pdb_codes_args, f'--target-{pdb_code}', f'--target-{pdb_code}s')
+align_pdb_codes2_args = (*pdb_codes2_args, f'--aligned-{pdb_code}', f'--aligned-{pdb_code}s')
+pdb_codes_kwargs = dict(nargs='*',  default=tuple(),
+                        help='Accession code(s) OR the path to file(s) containing codes\n'
+                             'where each code is a PDB EntryID|EntityID|AssemblyID')
 parser_component_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 component_mutual1_arguments = {
     component1_args: component_kwargs,

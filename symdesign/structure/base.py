@@ -136,7 +136,9 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
             'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
             'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
             'TYR': 263, 'VAL': 174}  # From table 1, theoretical values of Tien et al. 2013, PMID:24278298
-sasa_burial_threshold = 0.25  # Default relative_sasa amount from Levy 2010
+# This publication claims to have normalized tripeptides of all the standard AA which can be used to calculate non-polar
+# and polar area: https://doi.org/10.1016/j.compbiolchem.2014.11.007
+# They are not actually available, however. Should email authors to acquire these...
 # Set up hydrophobicity values for various calculations
 black_and_mould = [
     0.702, 0.987, -1.935, -1.868, 2.423, 0.184, -1.321, 2.167, -0.790, 2.167, 1.246, -1.003, 1.128, -0.936, -2.061,
@@ -1560,8 +1562,9 @@ class ContainsAtomsMixin(StructureBase, ABC):
     _atoms: Atoms
     # _coords: Coords
     _inverse_number_atoms: np.ndarray
-    _indices_attributes: set[str] = {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
-                                     '_heavy_indices', '_side_chain_indices'}
+    _indices_attributes: set[str] = {
+        '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
+        '_side_chain_indices'}
     backbone_and_cb_indices: list[int]
     backbone_indices: list[int]
     ca_indices: list[int]
@@ -1571,7 +1574,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
     number_of_atoms: int
     side_chain_indices: list[int]
     # These state_attributes are used by all subclasses
-    state_attributes = StructureBase.state_attributes | _indices_attributes
+    state_attributes = StructureBase.state_attributes | _indices_attributes | {'_inverse_number_atoms'}
 
     @classmethod
     def from_atoms(cls, atoms: list[Atom] | Atoms = None, **kwargs):
@@ -3264,7 +3267,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # self._residues = None
         # self._residue_indices = None
         self.biological_assembly = biological_assembly
-        self.biomt = biomt if biomt else None  # numpy array of vectors with [x, y, z, tx], ...
+        self.biomt = biomt  # numpy array of vectors with [x, y, z, tx], ...
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.file_path = file_path
         self.nucleotides_present = False
@@ -4878,15 +4881,16 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if 'n' in termini_ and remove_x_nterm_residues:
             self.log.debug(f'Found N-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
             self.log.info(f"Removing {remove_x_nterm_residues} N-term residues with new terminal secondary structure:\n"
+                          f"\told N:{secondary_structure[:remove_x_nterm_residues + 10]}"
                           f"\tnew N:{'-' * remove_x_nterm_residues}"
-                          f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n"
-                          f"\told N:{secondary_structure[:remove_x_nterm_residues + 10]}")
+                          f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n")
             _delete_residues += residues[:remove_x_nterm_residues]
         if 'c' in termini_ and remove_x_cterm_residues:
             self.log.debug(f'Found C-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
             self.log.info(f"Removing {remove_x_cterm_residues} C-term residues with new terminal secondary structure:\n"
-                          f"\tnew C:{secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}\n"
-                          f"\told C:{secondary_structure[c_term_index - 10:]}")
+                          f"\told C:{secondary_structure[c_term_index - 10:]}"
+                          f"\tnew C:{secondary_structure[c_term_index - 10:c_term_index]}"
+                          f"{'-' * remove_x_cterm_residues}\n")
             _delete_residues += residues[c_term_index:]
 
         self.delete_residues(_delete_residues)

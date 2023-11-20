@@ -1514,11 +1514,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         for transform in self._chain_transforms:
             mate_coms.append(np.matmul(com, transform['rotation'].T) + transform['translation'])
 
-        # print('MATE COMS', mate_coms)
         # np.array makes the right shape while concatenate doesn't
         return np.array(mate_coms)
-        # self._center_of_mass_symmetric_models = np.array(mate_coms)
-        # return self._center_of_mass_symmetric_models
 
     def is_captain(self) -> bool:
         """Is the Entity instance the captain?"""
@@ -1670,8 +1667,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                                                                                     degeneracy_matrices)
         except KeyError:
             raise ValueError(
-                f"Symmetry {symmetry} isn't viable, You can add compatibility for it if you believe this is a mistake. "
-                f'Try increasing utils.symmetry.MAXIMUM_SYMMETRY which is currently = {utils.symmetry.MAX_SYMMETRY}')
+                f"Symmetry '{symmetry}' isn't viable. If you believe this is a mistake, "
+                f'try increasing utils.symmetry.MAXIMUM_SYMMETRY which is currently = {utils.symmetry.MAX_SYMMETRY}')
 
         self.symmetry = symmetry
         # self._is_captain = True
@@ -4564,10 +4561,16 @@ class SymmetricModel(Model):  # Models):
         if self.is_symmetric():  # True if symmetry keyword args were passed
             # Ensure the number of Entity instances matches the SymEntry groups
             if number_of_entities != self.sym_entry.number_of_groups:
+                n_groups = self.sym_entry.number_of_groups
+                if n_groups == 1:
+                    verb = 'was'
+                else:
+                    verb = 'were'
+
                 raise SymmetryError(
-                    f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities. '
-                    f'{self.sym_entry.number_of_groups} were expected based on the specified symmetry '
-                    f'{repr(self.sym_entry)}')
+                    f'The {self.__class__.__name__} has {number_of_entities} entities. '
+                    f'{n_groups} {verb} expected based on the {repr(self.sym_entry)} specified'
+                )
 
             # Ensure the Model is an asu
             if number_of_entities != self.number_of_chains:
@@ -4885,8 +4888,8 @@ class SymmetricModel(Model):  # Models):
         try:
             return self._center_of_mass_symmetric_entities
         except AttributeError:
-            self._center_of_mass_symmetric_entities = [list(self.return_symmetric_coords(entity.center_of_mass))
-                                                       for entity in self.entities]
+            self._center_of_mass_symmetric_entities = [
+                list(self.return_symmetric_coords(entity.center_of_mass)) for entity in self.entities]
             return self._center_of_mass_symmetric_entities
 
     @property
@@ -5417,7 +5420,7 @@ class SymmetricModel(Model):  # Models):
                     z_shifts = [0.]
                 else:
                     raise SymmetryError(
-                        f"The specified symmetry {self.symmetry} dimension ({self.dimension}) isn't crystalline")
+                        f"The symmetry={self.symmetry} with dimension={self.dimension} isn't crystalline")
 
                 uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
                 surrounding_frac_coords = \
@@ -5869,7 +5872,7 @@ class SymmetricModel(Model):  # Models):
 
             if entity_model_indices is None:  # No solution
                 raise SymmetryError(
-                    f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}),'
+                    f'For {repr(self)} with symmetry={self.symmetry},'
                     f' there was no solution found for Entity #{group_idx + 1}. A possible issue could be '
                     "that the supplied Model has it's Entities out of order for the assumed symmetric "
                     f'entry "{self.sym_entry.specification}". If the order of the Entities in the file is '

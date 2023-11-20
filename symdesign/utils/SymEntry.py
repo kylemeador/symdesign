@@ -10,16 +10,15 @@ from typing import AnyStr, Iterable, Literal, get_args
 
 import numpy as np
 
-from symdesign import resources, utils
-from symdesign.utils import path as putils
+from symdesign import utils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
     sub_symmetries, flip_y_matrix, MAX_SYMMETRY, valid_symmetries, CRYST
 
 __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
-__version__ = "1.0"
 
+putils = utils.path
 logger = logging.getLogger(__name__)
 symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
@@ -1774,8 +1773,8 @@ def query(mode: query_modes_literal, *additional_mode_args, nanohedra: bool = Tr
             additional_mode_args = utils.query.format_input(more_info_prompt)
 
         if mode == 'combination':
-            combination, *_ = additional_mode_args
-            match_string = f"{mode} {''.join('{%s}' % group for group in combination)}"
+            combination = additional_mode_args
+            match_string = f"{mode} {''.join(f'{{{group}}}' for group in combination)}"
             # query_combination(*additional_mode_args)
             # def query_combination(*combination):
             for entry_number, entry in symmetry_combinations_of_interest.items():
@@ -1817,7 +1816,7 @@ def query(mode: query_modes_literal, *additional_mode_args, nanohedra: bool = Tr
                     if dimension == dim:
                         matching_entries.append(entry_number)
             else:
-                print(f"Dimension '{dim}' isn't supported. Valid dimensions are: 0, 2 or 3'")
+                print(f"Dimension '{dim}' isn't supported. Valid dimensions are: 0, 2 or 3")
                 sys.exit()
         else:
             raise ValueError(
