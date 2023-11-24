@@ -888,7 +888,7 @@ def main():
     pose_jobs: list[PoseJob] | list[tuple[Any, Any]] = []
     logger.info(f'Setting up input for {job.module}')
     if job.module == flags.initialize_building_blocks:
-        logger.critical(f'Ensuring provided building blocks are oriented')
+        logger.info(f'Ensuring provided building blocks are oriented')
         # Create a SymEntry for just group1
         sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
         _, possibly_new_uniprot_to_prot_metadata = \
@@ -976,7 +976,7 @@ def main():
                 poses.append(pose_job.pose)
             grouped_structures_entity_ids.append(poses)
         else:
-            logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
+            logger.info(f'Ensuring provided building blocks are oriented for {job.module}')
             structure_id_to_entity_ids, possibly_new_uni_to_prot_metadata = \
                 initialize_structures(job, paths=job.component1, pdb_codes=job.pdb_codes,
                                       query_codes=job.query_codes, sym_entry=sym_entry1)
@@ -1792,6 +1792,9 @@ def app(*args):
     except KeyboardInterrupt:
         print('\nJob Ended By KeyboardInterrupt\n')
         exit_code = 1
+    except utils.SymDesignException:
+        exit_code = 1
+        print(''.join(traceback.format_exc()))
     except Exception:
         exit_code = 1
         error = 'ERROR'

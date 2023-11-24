@@ -3347,10 +3347,10 @@ class PoseProtocol(PoseData):
 
     # Todo remove the session arg?
     def calculate_pose_design_metrics(self, session: Session, scores: dict[str, str | int | float] = None, novel_interface: bool = True):
-        """Collect 'design' and per-residue metrics on the reference Pose
+        """Collects 'design' and per-residue metrics on the reference Pose
 
         Args:
-            session: A currently open transaction within sqlalchemy
+            session: An open transaction within sqlalchemy
             scores: Parsed Pose scores from Rosetta output
             novel_interface: Whether the pose interface is novel (i.e. docked) or from a bona-fide input
         """
@@ -5385,7 +5385,9 @@ class PoseProtocol(PoseData):
 
 class PoseJob(PoseProtocol):
     pass
-def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: str) -> list['PoseJob']:
+
+
+def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: str) -> list[PoseJob]:
     """Add PoseJobs to the database accounting for existing entries
 
     Args:

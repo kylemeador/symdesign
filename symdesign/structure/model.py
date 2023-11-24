@@ -4974,7 +4974,7 @@ class SymmetricModel(Model):  # Models):
         if minimal is None:
             # When the Pose is asymmetric
             return self.copy()
-        else:  # Check for the surrounding_uc and minimial assembly flags
+        else:  # Check for the surrounding_uc and minimal assembly flags
             # surrounding_uc needs to be made before get_asu_interaction_model_indices()
             if self.dimension:
                 if surrounding_uc:
@@ -4994,10 +4994,10 @@ class SymmetricModel(Model):  # Models):
             if minimal:  # Only return contacting
                 name = f'{self.name}-minimal-assembly'
                 # Add the ASU index to the model first
-                model_indices = [0] + self.get_asu_interaction_model_indices()  # calculate_contacts=False)
+                model_indices = [0] + self.get_asu_interaction_model_indices()
             else:
                 name = f'{self.name}-{symmetry_type_str}assembly'
-                model_indices = range(number_of_symmetry_mates)
+                model_indices = list(range(number_of_symmetry_mates))
 
             self.log.debug(f'Found selected models {model_indices} for assembly')
 
@@ -7336,7 +7336,7 @@ class Pose(SymmetricModel, Metrics):
         """
         if oligomeric_interfaces:
             raise NotImplementedError(
-                "Need to perform this calculation 'oligomeric_interfaces' on the Entity.oligomer")
+                "Need to perform 'oligomeric_interfaces' calculation on the Entity.oligomer")
 
         contact_order = []
         for idx, entity in enumerate(self.entities):
@@ -7488,7 +7488,8 @@ class Pose(SymmetricModel, Metrics):
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
         # Remove *_indices from further analysis
-        interface_fragment_residue_indices = self.interface_fragment_residue_indices = pose_metrics.pop('center_indices', [])
+        interface_fragment_residue_indices = self.interface_fragment_residue_indices = (
+            pose_metrics.pop('center_indices', []))
         pose_metrics.pop('total_indices')
         number_residues_fragment_center = pose_metrics.pop('number_residues_fragment_center')
         number_residues_fragment_total = pose_metrics.pop('number_residues_fragment_total')

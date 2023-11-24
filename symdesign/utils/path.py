@@ -24,7 +24,7 @@ except subprocess.CalledProcessError:
     commit = commit_short = 'unknown'
 
 program_name = 'SymDesign'
-program_exe = git_source
+program_exe = git_source  # Where __main__.py is located
 conda_environment = os.path.join(git_source, 'conda_env.yml')
 logging_cfg_file = os.path.join(python_source, 'logging.cfg')
 config_file = os.path.join(python_source, 'cfg.json')

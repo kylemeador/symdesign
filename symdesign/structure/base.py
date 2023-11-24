@@ -1435,11 +1435,11 @@ class Atoms:
         other = cls.__new__(cls)
 
         # Copy all Atom instances
-        atom: Atom
+        struct: Atom
         other_structs = [None for _ in range(len(self))]
         for idx, struct in enumerate(self):
             # Set an attribute to indicate the struct shouldn't be "detached"
-            # since a Structure owns this Structures instance
+            # since this container owns each Structure instance
             struct._copier = True
             other_structs[idx] = new_struct = struct.copy()
             new_struct._copier = struct._copier = False
@@ -3121,7 +3121,7 @@ class Residues:
     def __copy__(self) -> Residues:  # -> Self Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        residue: Residue
+        struct: Residue
         # other.residues = self.residues.copy()
         # for idx, residue in enumerate(other.residues):
         #     # Set an attribute to indicate the residue shouldn't be "detached"
@@ -4881,16 +4881,16 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if 'n' in termini_ and remove_x_nterm_residues:
             self.log.debug(f'Found N-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
             self.log.info(f"Removing {remove_x_nterm_residues} N-term residues with new terminal secondary structure:\n"
-                          f"\told N:{secondary_structure[:remove_x_nterm_residues + 10]}"
+                          f"\told N:{secondary_structure[:remove_x_nterm_residues + 10]}\n"
                           f"\tnew N:{'-' * remove_x_nterm_residues}"
-                          f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n")
+                          f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}")
             _delete_residues += residues[:remove_x_nterm_residues]
         if 'c' in termini_ and remove_x_cterm_residues:
             self.log.debug(f'Found C-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
             self.log.info(f"Removing {remove_x_cterm_residues} C-term residues with new terminal secondary structure:\n"
-                          f"\told C:{secondary_structure[c_term_index - 10:]}"
+                          f"\told C:{secondary_structure[c_term_index - 10:]}\n"
                           f"\tnew C:{secondary_structure[c_term_index - 10:c_term_index]}"
-                          f"{'-' * remove_x_cterm_residues}\n")
+                          f"{'-' * remove_x_cterm_residues}")
             _delete_residues += residues[c_term_index:]
 
         self.delete_residues(_delete_residues)
@@ -6110,7 +6110,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             else:
                 raise NotImplementedError(
                     "Can't set up structure_containers when there are more than 1 initialized and there are missing "
-                    f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
+                    f"'structure_containers'. Initialized={self.structure_containers}, Missing={missing_containers}")
 
     def __copy__(self) -> Structure:  # -> Self Todo python3.11
         cls = self.__class__
