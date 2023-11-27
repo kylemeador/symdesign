@@ -13,7 +13,7 @@ from itertools import chain as iter_chain, combinations_with_replacement, combin
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import Any, AnyStr, Generator, IO, Iterable, Sequence
+from typing import Any, AnyStr, Container, Generator, IO, Iterable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -485,8 +485,9 @@ class MultiModel:
             del self._model_iterator
             # delattr(self, '_model_iterator')
         except IndexError:  # Todo handle mismatched lengths, either passed or existing
-            raise IndexError('The added Model contains fewer models than present in the MultiModel. Only pass a Model '
-                             f'that has the same number of States ({self.number_of_states}) as the MultiModel')
+            raise IndexError(
+                'The added Model contains fewer models than present in the MultiModel. Only pass a Model '
+                f'that has the same number of States ({self.number_of_states}) as the MultiModel')
 
         if not independent:
             self.dependents.add(self.number_of_models - 1)
@@ -797,18 +798,18 @@ class ContainsChainsMixin:
             chain_ids: The desired chain_ids, used in order, for the new chains. Padded if shorter than Chain instances
         Keyword Args:
             as_mate: bool = False - Whether Chain instances should be controlled by a captain (True), or be dependents
-                of their parent
         Sets:
             self.chain_ids (list[str])
             self.chains (list[Chain] | Structures)
             self.original_chain_ids (list[str])
         """
         residues = self.residues
-        residue_idx_start, idx = 0, 1
         try:  # If there are no residues, there is an empty Model
             prior_residue, *other_residues = residues
         except TypeError:   # self.residues is None, cannot unpack non-iterable NoneType object
             return
+
+        residue_idx_start, idx = 0, 1
         chain_residue_indices = []
         for idx, residue in enumerate(other_residues, idx):  # Start at the second index to avoid off by one
             if residue.number <= prior_residue.number or residue.chain_id != prior_residue.chain_id:
@@ -861,8 +862,8 @@ class ContainsChainsMixin:
 
     def are_chains_pdb_compatible(self) -> bool:
         """Returns True if the chain_ids are compatible with legacy PDB format"""
-        for chain in self.chain_ids:
-            if len(chain) > 1:
+        for chain_id in self.chain_ids:
+            if len(chain_id) > 1:
                 return False
 
         return True
@@ -879,25 +880,14 @@ class ContainsChainsMixin:
             exclude_chains = []
 
         # Update chain_ids, then each chain
-        self.chain_ids = []
         available_chain_ids = chain_id_generator()
-        for idx in range(self.number_of_chains):
+        self.chain_ids = []
+        for chain in self.chains:
             chain_id = next(available_chain_ids)
             while chain_id in exclude_chains:
                 chain_id = next(available_chain_ids)
+            chain.chain_id = chain_id
             self.chain_ids.append(chain_id)
-
-        for chain, new_id in zip(self.chains, self.chain_ids):
-            chain.chain_id = new_id
-
-        # # Todo matches Model.__init__()
-        # for chain in range(self.chains):
-        #     chain_id = next(available_chain_ids)
-        #     while chain_id in exclude_chains:
-        #         chain_id = next(available_chain_ids)
-        #     chain.chain_id = chain_id
-        #
-        # self.chain_ids = [chain.chain_id for chain in self.chains]
 
     def renumber_residues_by_chain(self):
         """For each Chain instance, renumber Residue objects sequentially starting with 1"""
@@ -918,8 +908,8 @@ class ContainsChainsMixin:
                     return self.chains[idx]
                 except IndexError:
                     raise IndexError(
-                        f'The number of chains in the {self.__class__.__name__}, '
-                        f'{self.number_of_chains} != {len(self.chain_ids)}, the number of .chain_ids')
+                        f'The number of chains in {repr(self)}, {self.number_of_chains} != {len(self.chain_ids)}, '
+                        'the number of .chain_ids')
         return None
 
     def set_reference_sequence_from_seqres(self, reference_sequence: dict[str, str]):
@@ -1126,20 +1116,20 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Todo
             #  Handle chains with imperfect symmetry by using the actual chain and forgoing the transform
             #  Need to make a copy of the chain and make it an "Entity mate"
-            number_of_residues = self.number_of_residues
             self_seq = self.sequence
             ca_coords = self.ca_coords
             for chain in additional_chains:  # Todo match this mechanism with the symmetric chain index
                 chain_seq = chain.sequence
-                if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
-                    # Do an apples to apples comparison
-                    # Todo
-                    #  length alone is inaccurate if chain is missing first residue and self is missing it's last...
-                    _, rot, tx = superposition3d(chain.ca_coords, ca_coords)
-                else:  # Do an alignment, get selective indices, then follow with superposition
-                    self.log.info(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
+                if chain_seq == self_seq:  # Sequences are apples to apples
+                    additional_chain_coords = chain.ca_coords
+                    first_chain_coords = ca_coords
+                else:  # Get aligned indices, then follow with superposition
+                    self.log.debug(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
                     fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
-                    _, rot, tx = superposition3d(chain.ca_coords[fixed_indices], ca_coords[moving_indices])
+                    additional_chain_coords = chain.ca_coords[fixed_indices]
+                    first_chain_coords = ca_coords[moving_indices]
+
+                _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Todo when capable of asymmetric symmetrization
                 #  self.chains.append(chain)
@@ -1329,7 +1319,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     @property
     def reference_sequence(self) -> str:
-        """Return the entire Entity sequence, constituting all Residues, not just structurally modeled ones
+        """Return the entire sequence, constituting all described residues, not just structurally modeled ones
 
         Returns:
             The sequence according to the Entity reference, or the Structure sequence if no reference available
@@ -1415,7 +1405,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.chain_ids: list(str)
         """
         first_chain_id = self.chain_id
-        self.chain_ids = [first_chain_id]  # Use the existing chain_id
         chain_gen = chain_id_generator()
         # Iterate over the generator until the current chain_id is found
         discard = next(chain_gen)
@@ -1427,11 +1416,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # The end of the generator was reached without a success. Try to just use the first chain_ids returned
             chain_gen = chain_id_generator()
 
-        # Iterate over the generator adding each successive chain_id to self.chain_ids
-        for _ in range(self.number_of_symmetry_mates - 1):  # Only get ids for the mate chains
-            self.chain_ids.append(next(chain_gen))
-
-        # Must set chain_ids first, then chains
+        # Use the existing chain_id and iterate over the generator for the mate chains
+        self.chain_ids = [first_chain_id] + [next(chain_gen) for _ in range(self.number_of_symmetry_mates - 1)]
+        # Must set .chain_ids first as the .chains property uses .chain_ids to generate .chains.
         for chain, new_id in zip(self.chains[1:], self.chain_ids[1:]):
             chain.chain_id = new_id
 
@@ -1534,7 +1521,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     @property
     def entities(self) -> list[Entity]:  # Structures
-        """Returns an iterator over the Entity"""
+        """Returns the Entity instance as a list"""
         return [self]
 
     @property
@@ -1543,8 +1530,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return 1
 
     @property
-    def chains(self) -> list[Entity]:  # Todo python3.11 -> list[Self] Structures
-        """Returns transformed copies of the Entity"""
+    def chains(self) -> list[Entity]:  # Todo python3.11 -> list[Self] | Structures
+        """The mate Chain instances of the instance. If not created, returns transformed copies of the instance"""
         # Set in __init__() -> self._chains = [self]
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
@@ -1761,21 +1748,20 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return new_structure
 
     def format_header(self, **kwargs) -> str:
-        """Return the BIOMT and the SEQRES records based on the Entity
+        """Return the BIOMT and the SEQRES records as a .pdb format header
 
         Returns:
-            The header with PDB file formatting
+            The header with .pdb file formatting
         """
-        return super().format_header(**kwargs) + self.format_seqres(**kwargs)
-        # return super().format_header(**kwargs) + self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
+        return super().format_header(**kwargs) + self._format_seqres(**kwargs)
 
-    def format_seqres(self, asu: bool = True, **kwargs) -> str:  # Todo same function in Model, different default
+    def _format_seqres(self, asu: bool = True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Args:
             asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
         Returns:
-            The PDB formatted SEQRES record
+            The .pdb formatted SEQRES record
         """
         if asu:
             structure_container = self.entities
@@ -2003,7 +1989,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             #             f"\tOffending file located at: {self.msa_file}")
             #     msas = (uniclust30_msa,)
             else:
-                raise ValueError(f"Couldn't acquire AlphaFold msa features")
+                raise ValueError("Couldn't acquire AlphaFold msa features")
 
             self.log.debug(f"Found the first 5 species_ids: {species_ids[:5]}")
             msa_features = {
@@ -2373,10 +2359,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     trunk.append(jump)
                 last_jump = idx  # index where the VRTs and connect_virtuals end. The "last jump"
 
-        if set(trunk).difference(virtuals) != set():
-            raise SymmetryError('Symmetry Definition File VRTS are malformed')
-        if self.number_of_symmetry_mates != len(subunits):
-            raise SymmetryError('Symmetry Definition File VRTX_base are malformed')
+        if set(trunk).difference(virtuals):
+            raise SymmetryError(
+                f"Symmetry Definition File VRTS are malformed. See '{to_file}'")
+        if len(subunits) != self.number_of_symmetry_mates:
+            raise SymmetryError(
+                f"Symmetry Definition File VRTX_base are malformed. See '{to_file}'")
 
         if self.is_dihedral():  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
@@ -2388,14 +2376,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         jumps_com_to_add = set(virtuals).difference(jumps_com)
         count_ = 0
-        if jumps_com_to_add != set():
+        if jumps_com_to_add:
             for count_, jump_com in enumerate(jumps_com_to_add, count_):
                 lines.insert(last_jump + count_,
                              f'connect_virtual JUMP{jump_com}_to_com VRT{jump_com} VRT{jump_com}_base')
             lines[-2] = lines[-2].strip() + (' JUMP%s_to_subunit' * len(jumps_com_to_add)) % tuple(jumps_com_to_add)
 
         jumps_subunit_to_add = set(virtuals).difference(jumps_subunit)
-        if jumps_subunit_to_add != set():
+        if jumps_subunit_to_add:
             for count_, jump_subunit in enumerate(jumps_subunit_to_add, count_):
                 lines.insert(last_jump + count_,
                              f'connect_virtual JUMP{jump_subunit}_to_subunit VRT{jump_subunit}_base SUBUNIT')
@@ -2747,19 +2735,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     Can initialize by passing a file, or passing Atom/Residue/Chain/Entity instances
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
-
-    Keyword Args:
-        pose_format: bool = False - Whether to renumber the Model to use Residue numbering from 1 to N
-        rename_chains: bool = False - Whether to name each chain an incrementally new Alphabetical character
-        log
-        name
     """
-    # metadata
-    api_entry: dict[str, dict[Any] | float] | None
+    # api_entry: dict[str, dict[Any] | float] | None
     biological_assembly: str | int | None
-    # chain_ids: list[str]
-    # chains: list[Chain] | Structures | bool | None
-    # cryst: dict[str, str | tuple[float]] | None
     cryst_record: str | None
     # dbref: dict[str, dict[str, str]]
     design: bool
@@ -2767,10 +2745,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     entity_info: dict[str, dict[dict | list | str]] | dict
     # file_path: AnyStr | None
     header: list
-    # multimodel: bool
-    # original_chain_ids: list[str]
     resolution: float | None
-    api_db: resources.wrapapi.APIDatabase
     # _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -2805,7 +2780,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                  cryst_record: str = None, entity_info: dict[str, dict[dict | list | str]] = None,
                  fragment_db: FragmentDatabase = None, pose_format: bool = False, rename_chains: bool = False,
                  resolution: float = None, reference_sequence: dict[str, str] = None,
-                 # api_db: resources.wrapapi.APIDatabase = None, metadata: Model = None,
+                 # metadata: Model = None,
                  **kwargs):
         """Process various types of Structure containers to update the Model with the corresponding information
 
@@ -2816,18 +2791,32 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 instances to create the Model with
             model: Whether to create this Model from another Model instance
             pose_format: Whether to initialize Structure with residue numbering from 1 until the end
-            rename_chains: Whether to name each chain an incrementally new Alphabetical character
         Keyword Args:
             entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
                 of entities. Names will take precedence over query_by_sequence if passed
             query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
                 sequence. Only used if entity_names not provided
+            -*Passed to Structure*-
+            atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
+            biological_assembly: str | int = None - The integer of the biological assembly
+                (as indicated by PDB AssemblyID format)
+            biomt: np.ndarray = None - A parsed array of transformations to recreate the molecules symmetry
+            biomt_header: str = None - The REMARK 350 formatted lines for printing the BIOMT record
+            file_path: AnyStr = None: The location on disk where the file was accessed
+            residues: list[Residue] | Residues = None - The Residue instances which should constitute a new Structure
+                instance
+            residue_indices: list[int] = None - The indices which specify the particular Residue instances to make this
+                Structure instance. Used with a parent to specify a subdivision of a larger Structure
+            -*Passed to StructureBase*-
+            parent: StructureBase = None - If another Structure object created this Structure instance, pass the
+                'parent' instance. Will take ownership over Structure containers (coords, atoms, residues) for
+                dependent Structures
+            log: Log | Logger | bool = True - The Log or Logger instance, or the name for the logger to handle parent
+                Structure logging. None or False prevents logging while any True assignment enables it
+            coords: Coords | np.ndarry | list[list[float]] = None - When setting up a parent Structure instance, the
+                coordiantes of that Structure
+            name: str = None - The identifier for the Structure instance
         """
-        # kwargs passed to Structure
-        #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
-        #          residue_indices: list[int] = None,
-        # kwargs passed to StructureBase
-        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
 
         using_structures = False
         """Ensure only one of the allowed arguments is used during class construction"""
@@ -2837,7 +2826,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 super().__init__(**model.get_base_containers(), **kwargs)
             else:
                 raise NotImplementedError(
-                    f"Setting {self.__class__.__name__} with a {type(model).__name__} isn't supported")
+                    f"Setting {self.__class__.__name__} with model={type(model).__name__} isn't supported")
         else:
             super().__init__(**kwargs)
 
@@ -2850,26 +2839,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         self.entity_info = {} if entity_info is None else entity_info
         self.header = []
         self.resolution = resolution
-        # Todo standardize path with some state variable?
-        # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
 
-    # def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
-    #                    rename_chains: bool = False, entities: bool | list[Entity] | Structures = True, **kwargs):
-    #     """Process various types of Structure containers to update the Model with the corresponding information
-    #
-    #     Args:
-    #         pose_format: Whether to initialize Structure with residue numbering from 1 until the end
-    #         chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
-    #             instances to create the Model with
-    #         rename_chains: Whether to name each chain an incrementally new Alphabetical character
-    #         entities: Whether to create Entity instances from passed Structure container instances, or existing Entity
-    #             instances to create the Model with
-    #     Keyword Args:
-    #         entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
-    #             of entities. Names will take precedence over query_by_sequence if passed
-    #         query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
-    #             sequence. Only used if entity_names not provided
-    #     """
         # self.log.debug(f'{self._process_model.__name__} start')
 
         # If this function is extended, it is important to call clear on structure_containers before setting any more
@@ -3059,13 +3029,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         return ''.join(chain.reference_sequence for chain in self.chains)
 
-    def format_seqres(self, asu: bool = False, **kwargs) -> str:  # Todo same function in Entity, different default
+    def _format_seqres(self, asu: bool = False, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Args:
             asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
         Returns:
-            The PDB formatted SEQRES record
+            The .pdb formatted SEQRES record
         """
         if asu:
             structure_container = self.entities
@@ -3084,18 +3054,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         for line_number in range(1, 1 + math.ceil(len(formatted_sequence)/seq_res_len)))
 
     def format_header(self, **kwargs) -> str:
-        """Return the BIOMT and the SEQRES records based on the Model
+        """Return the BIOMT and the SEQRES records as a .pdb format header
 
         Returns:
-            The header with PDB file formatting
+            The header with .pdb file formatting
         """
         if isinstance(self.cryst_record, str):
             _header = self.cryst_record
         else:
             _header = ''
 
-        return super().format_header() + self.format_seqres(**kwargs) + _header
-        # return super().format_header() + self.format_biomt(**kwargs) + self.format_seqres(**kwargs) + _header
+        return super().format_header() + self._format_seqres(**kwargs) + _header
 
     def orient(self, symmetry: str = None):  # Similar function in Entity
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
@@ -3206,17 +3175,19 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         clean_orient_input_output()
 
     # Todo Make compatible with Structures
-    def mutate_residue(self, **kwargs) -> list[int] | list:
-        # residue: Residue = None, index: int = None, number: int = None, to: str = 'ALA',
+    def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'A', **kwargs) \
+            -> list[int] | list:
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
-        Keyword Args:
-            residue: Residue = None - A Residue object to mutate
-            index: int = None - A Residue index to select the Residue instance of interest
-            number: int = None - A Residue number to select the Residue instance of interest
-            to: str = 'ALA' - The type of amino acid to mutate to
+        Args:
+            residue: A Residue instance to mutate
+            index: A Residue index to select the Residue instance of interest
+            number: A Residue number to select the Residue instance of interest
+            to: The type of amino acid to mutate to
+        Returns:
+            The indices of the Atoms being removed from the Structure
         """
-        delete_indices = super().mutate_residue(**kwargs)  # residue=residue, index=index, number=number, to=to,
+        delete_indices = super().mutate_residue(residue=residue, index=index, number=number, to=to)
         if not delete_indices:  # Probably an empty list, there are no indices to delete
             return []
 
@@ -3261,18 +3232,19 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #          for structure in self.__getattribute__(structure_type):
     #              structure.reset_state()
 
-    def delete_residues(self, **kwargs) -> list[Residue] | list:
-        """Delete Residue instances from the Structure
+    def delete_residues(self, residues: Iterable[Residue] | None = None, indices: Iterable[int] | None = None,
+                        numbers: Container[int] | None = None, **kwargs) -> list[Residue] | list:
+        """Deletes Residue instances from the Structure
 
-        Keyword Args:
+        Args:
             residues: Residue instances to delete
             indices: Residue indices to select the Residue instances of interest
             numbers: Residue numbers to select the Residue instances of interest
         Returns:
-            Each Residue deleted
+            Each deleted Residue
         """
-        residues = super().delete_residues(**kwargs)  # residues=residue, numbers=number, indices=indices,
-        if not residues:  # Empty list, there are no indices to delete
+        residues = super().delete_residues(residues=residues, numbers=numbers, indices=indices)
+        if not residues:  # There are no Residue instances to delete
             return []
 
         # The routine below assumes the Residue instances are sorted in ascending order
@@ -3319,9 +3291,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         return residues
 
-    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None) -> Residue:  # Todo Entity,Structures
+    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None) -> Residue:
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
-        No structural alignment is performed!
+        No structural alignment is performed.
 
         Args:
             residue_type: Either the 1 or 3 letter amino acid code for the residue in question
@@ -3329,37 +3301,37 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             chain_id: The chain identifier to associate the new Residue with
         """
         new_residue = super().insert_residue_type(residue_type, index=index, chain_id=chain_id)
+        new_residue_atom_indices = new_residue.atom_indices
 
         # Must update other Structures indices
         for structure_type in self.structure_containers:
             structures = self.__getattribute__(structure_type)
             idx = 0
             # Iterate over Structures in each structure_container
+            structure: Structure
             for idx, structure in enumerate(structures, idx):
                 structure.reset_state()
-                # structure._reset_sequence()  # Performed in self.reset_state()
                 try:  # Update each Structures _residue_ and _atom_indices with additional indices
-                    structure._insert_indices(structure.residue_indices.index(index),
-                                              [index], dtype='residue')
-                    structure._insert_indices(structure.atom_indices.index(new_residue.start_index),
-                                              new_residue.atom_indices, dtype='atom')
+                    structure._insert_indices(structure.residue_indices.index(index), [index], dtype='residue')
+                    structure._insert_indices(
+                        structure.atom_indices.index(new_residue.start_index), new_residue_atom_indices, dtype='atom')
                     break  # Move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):
                     # This should happen if the index isn't in the Structure.*_indices of interest
                     # Edge case where the index is being appended to the c-terminus
                     if index - 1 == structure.residue_indices[-1] and new_residue.chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, [index], dtype='residue')
-                        structure._insert_indices(structure.number_of_atoms, new_residue.atom_indices, dtype='atom')
+                        structure._insert_indices(structure.number_of_atoms, new_residue_atom_indices, dtype='atom')
                         break  # Must move to the next container to update the indices by a set increment
             # For each subsequent structure in the structure container, update the indices with the last indices from
             # the prior structure
-            for prior_idx, structure in enumerate(structures[idx + 1:], idx):
-                structure._start_indices(at=structures[prior_idx].atom_indices[-1] + 1, dtype='atom')
-                structure._start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
+            prior_structure = structure
+            for structure in structures[idx + 1:]:
+                structure._start_indices(at=prior_structure.atom_indices[-1] + 1, dtype='atom')
+                structure._start_indices(at=prior_structure.residue_indices[-1] + 1, dtype='residue')
+                prior_structure = structure
 
-        # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
         self.reset_state()
-        # self._reset_sequence()  # Performed in self.reset_state()
 
         return new_residue
 
@@ -4584,11 +4556,6 @@ class SymmetricModel(Model):  # Models):
                 if entity.number_of_symmetry_mates != subunit_number:
                     self.make_oligomers(transformations=transformations)
                     break
-
-    # @property
-    # def chains(self) -> list[Entity]:
-    #     """Return all the Chain objects including symmetric chains"""
-    #     return [chain for entity in self.entities for chain in entity.chains]
 
     # Todo this is same as atom_indices_per_entity_symmetric
     # @property
@@ -6062,16 +6029,17 @@ class SymmetricModel(Model):  # Models):
             A new Model with the minimal set of Entity instances. Will also be symmetric
         """
         entities = self.find_contacting_asu(distance=distance, **kwargs)
-        found_chain_ids = []
-        for entity in entities:
-            if entity.chain_id in found_chain_ids:
-                kwargs['rename_chains'] = True
-                break
-            else:
-                found_chain_ids.append(entity.chain_id)
 
-        return type(self).from_entities(entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry,
-                                        biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
+        if len({entity.chain_id for entity in entities}) != len(entities):
+            rename = True
+        else:
+            rename = False
+
+        cls = type(self)
+        assert cls is Pose, f"Can't {self.get_contacting_asu.__name__} for the class={cls}. Only for Pose"
+        return cls.from_entities(
+            entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry, rename_chains=rename,
+            biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
     def set_contacting_asu(self, **kwargs):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
@@ -6118,7 +6086,8 @@ class SymmetricModel(Model):  # Models):
             self.coords = np.concatenate([entity.coords for entity in entities])
             del self._no_reset
             # If imperfect symmetry, adapting below may provide some benefit
-            # self._process_model(entities=entities, chains=False, **kwargs)
+            # Deprecated -> self._process_model(entities=entities, chains=False, **kwargs)
+            # This is the best place to start -> self.assign_residues_from_structures(entities)
 
     def make_oligomers(self, transformations: list[types.TransformationMapping] = None):
         """Generate oligomers for each Entity in the SymmetricModel
@@ -6329,9 +6298,10 @@ class Pose(SymmetricModel, Metrics):
         return cls(entities=entities, chains=False, **kwargs)
 
     def __init__(self, design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
-        # unused args
-        #           euler_lookup: EulerLookup = None,
-
+        """
+        Args:
+            design_selector: The specification for which Structure instances to include during calculations
+        """
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)

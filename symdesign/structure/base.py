@@ -853,16 +853,10 @@ and _residues
 
 
 class StructureBase(SymmetryMixin, ABC):
-    """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
-    of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
-    keyword arguments for all derived class construction calls to protect base object. Should always be the last class
-    in the method resolution order of derived classes
-
-    Args:
-        parent: If a Structure object created this Structure instance, that objects instance. Will share ownership of
-            the log and coords to and dependent Structures
-        log: If this is a parent Structure instance, the object that handles Structure object logging
-        coords: If this is a parent Structure instance, the Coords of that Structure
+    """StructureBase handles the Coords and Log instances as well as maintains atom_indices for each Structure.
+    Additionally. sorts through parent Structure and dependent Structure hierarchies during Structure subclass creation.
+    Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
+    in the method resolution order of derived classes.
     """
     _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
@@ -876,13 +870,22 @@ class StructureBase(SymmetryMixin, ABC):
     __parent: StructureBase | None
     state_attributes: set[str] = set()
 
-    def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
-                 , name: str = None, biological_assembly=None, cryst_record=None, entities=None, entity_info=None,
-                 entity_names=None, file_path=None, header=None, metadata=None, pose_format=None,
-                 query_by_sequence=True, rename_chains=None, resolution=None, reference_sequence=None, sequence=None,
-                 **kwargs):
+    def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True,
+                 coords: np.ndarray | Coords | list[list[float]] = None, name: str = None, biological_assembly=None,
+                 cryst_record=None, entities=None, entity_info=None, entity_names=None, file_path=None, header=None,
+                 metadata=None, pose_format=None, query_by_sequence=True, rename_chains=None, resolution=None,
+                 reference_sequence=None, sequence=None, **kwargs):
+        """
+        Args:
+            parent: If another Structure object created this Structure instance, pass the 'parent' instance. Will take
+                ownership over Structure containers (coords, atoms, residues) for dependent Structures
+            log: The Log or Logger instance, or the name for the logger to handle parent Structure logging.
+                None or False prevents logging while any True assignment enables it
+            coords: When setting up a parent Structure instance, the coordiantes of that Structure
+            name: The identifier for the Structure instance
+        """
         self._copier = False
-        self.name = name if name not in [None, False] else f'nameless_{self.__class__.__name__}'
+        self.name = name if name not in [None, False] else f'Unnamed_{self.__class__.__name__}'
         if parent:  # Initialize StructureBase from parent
             self._parent = parent
             self._parent_is_updating = False
@@ -910,7 +913,7 @@ class StructureBase(SymmetryMixin, ABC):
                 self._coords = Coords()  # null_coords
             elif isinstance(coords, Coords):
                 self._coords = coords
-            else:  # sets as None if coords wasn't passed and update later
+            else:  # Create a Coords instance. This assumes the dimensions are correct. Coords() handles if not
                 self._coords = Coords(coords)
 
         try:
@@ -1558,9 +1561,7 @@ atom_type_num = len(atom_order)
 
 
 class ContainsAtomsMixin(StructureBase, ABC):
-    # _atom_indices: list[int]
     _atoms: Atoms
-    # _coords: Coords
     _inverse_number_atoms: np.ndarray
     _indices_attributes: set[str] = {
         '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
@@ -1774,8 +1775,9 @@ class ContainsAtomsMixin(StructureBase, ABC):
             from_source: The source to set the coordinates from if they are missing
         """
         if coords is not None:
-            # Try to set the provided coords. This will handle issue where empty Coords class should be set
-            # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
+            # Try to set the provided coords. This will handle issue where empty
+            # Coords class should be set. Setting .coords through normal mechanism
+            # preserves subclasses requirement to handle symmetric coordinates.
             self.coords = np.concatenate(coords)
         if len(self._coords.coords) == 0:  # Check if Coords (_coords) hasn't been populated
             # If it hasn't, then coords weren't passed. Try to set from self.from_source. catch missing from_source
@@ -1830,10 +1832,10 @@ class ContainsAtomsMixin(StructureBase, ABC):
                 continue
 
     def format_header(self, **kwargs) -> str:
-        """Format any records desired in the Structure header
+        """Format any records as a .pdb format header
 
         Returns:
-            The header with PDB file formatting
+            The header with .pdb file formatting
         """
         # XXX should have the PDB code. Ex:
         # f'HEADER    VIRAL PROTEIN                           28-MAY-21   7OP2              \n'
@@ -2957,7 +2959,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                     other.__dict__[attr] = self.__dict__[attr].copy()
             except KeyError:  # '_residues' is not present and comes after _log, _coords, _atoms
                 pass
-            # other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
             # Remove the attribute spawn after other Structure containers are copied
             del self.spawn
         else:  # This Structure is a dependent, it's copy should be too
@@ -3201,14 +3202,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
     Polymer/Chain designation. This designation essentially means it contains Residue instances in a Residues object
-
-    Args:
-        atoms: The Atom instances which should constitute a new Structure instance
-        name:
-        residues: The Residue instances which should constitute a new Structure instance
-        residue_indices: The indices which specify the particular Residue instances that make this Structure instance.
-            Used with a parent to specify a subdivision of a larger Structure
-        parent: If a Structure is creating this Structure as a division of itself, pass the parent instance
     """
     # _atoms: Atoms | None
     _backbone_and_cb_indices: list[int]
@@ -3220,7 +3213,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
-    _contact_order: np.ndarry  # Todo ContainsResiduesMixin
+    _contact_order: np.ndarray  # Todo ContainsResiduesMixin
     _coords_indexed_residues: np.ndarray  # list[Residue]  # Todo ContainsResiduesMixin
     # _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
     _residues: Residues | None  # Todo ContainsResiduesMixin
@@ -3239,72 +3232,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
     state_attributes = ContainsAtomsMixin.state_attributes \
         | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
-
-    def __init__(self, atoms: list[Atom] | Atoms = None,
-                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None, file_path: AnyStr = None,
-                 biological_assembly: str | int = None, biomt: np.ndarray = None, biomt_header: str = None, **kwargs):
-        """ Todo Docstring
-
-        Args:
-            atoms:
-            residues:
-            residue_indices:
-            name:
-            file_path:
-            biomt:
-            biomt_header:
-            **kwargs:
-        """
-        """
-        kwargs passed to StructureBase
-        parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        """
-        super().__init__(atoms=atoms, **kwargs)
-        # self._atoms = None
-        # self._atom_indices = None
-        # self._coords = None
-        # self._coords_indexed_residues = None
-        # self._residues = None
-        # self._residue_indices = None
-        self.biological_assembly = biological_assembly
-        self.biomt = biomt  # numpy array of vectors with [x, y, z, tx], ...
-        self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
-        self.file_path = file_path
-        self.nucleotides_present = False
-        self.secondary_structure = None
-        self.sasa = None
-        self.structure_containers: list | list[str] = []
-
-        # if log is False:  # when explicitly passed as False, use the module logger
-        #     self._log = Log(logger)
-        # elif isinstance(log, Log):
-        #     self._log = log
-        # else:
-        #     self._log = Log(log)
-
-        parent = self.parent
-        if parent:  # We are setting up a dependent Structure
-            try:
-                residue_indices[0]
-            except TypeError:
-                if isinstance(self, Structures):  # Structures handles this itself
-                    return
-                raise stutils.ConstructionError(
-                    f"Argument 'residue_indices' must be provided when constructing dependent {self.__class__.__name__}"
-                    f' instance. Found state:\n{self.residues}')
-            # Must set this before setting _atom_indices
-            self._residue_indices = residue_indices
-            # Get the atom_indices from the provided residues
-            self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
-        # We are setting up a parent Structure
-        elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
-            self._assign_residues(residues, atoms=atoms)
-        elif self.atoms:
-            # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
-            self._create_residues()
-            self._set_coords_indexed()
-        else:  # set up an empty Structure or let subclass handle population
-            pass
 
     @classmethod
     def from_file(cls, file: AnyStr, **kwargs):
@@ -3354,6 +3281,80 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
         return cls(residues=residues, **kwargs)
 
+    def __init__(self, atoms: list[Atom] | Atoms = None,
+                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None, file_path: AnyStr = None,
+                 biological_assembly: str | int = None, biomt: np.ndarray = None, biomt_header: str = None, **kwargs):
+        """
+        Args:
+            atoms: The Atom instances which should constitute a new Structure instance
+            biological_assembly: The integer of the biological assembly (as indicated by PDB AssemblyID format)
+            biomt: A parsed array of transformations to recreate the molecules symmetry
+            biomt_header: The REMARK 350 formatted lines for printing the BIOMT record
+            file_path: The location on disk where the file was accessed
+            residues: The Residue instances which should constitute a new Structure instance
+            residue_indices: The indices which specify the particular Residue instances to make this Structure instance.
+                Used with a parent to specify a subdivision of a larger Structure
+        Keyword Args:
+            parent: StructureBase = None - If another Structure object created this Structure instance, pass the
+                'parent' instance. Will take ownership over Structure containers (coords, atoms, residues) for
+                dependent Structures
+            log: Log | Logger | bool = True - The Log or Logger instance, or the name for the logger to handle parent
+                Structure logging. None or False prevents logging while any True assignment enables it
+            coords: Coords | np.ndarry | list[list[float]] = None - When setting up a parent Structure instance, the
+                coordiantes of that Structure
+            name: str = None - The identifier for the Structure instance
+        """
+        """
+        kwargs passed to StructureBase
+        parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        """
+        super().__init__(atoms=atoms, **kwargs)
+        # self._atoms = None
+        # self._atom_indices = None
+        # self._coords = None
+        # self._coords_indexed_residues = None
+        # self._residues = None
+        # self._residue_indices = None
+        self.biological_assembly = biological_assembly
+        self.biomt = biomt  # numpy array of vectors with [x, y, z, tx], ...
+        self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
+        self.file_path = file_path
+        self.nucleotides_present = False
+        self.secondary_structure = None
+        self.sasa = None
+        self.structure_containers: list | list[str] = []
+
+        # if log is False:  # when explicitly passed as False, use the module logger
+        #     self._log = Log(logger)
+        # elif isinstance(log, Log):
+        #     self._log = log
+        # else:
+        #     self._log = Log(log)
+
+        parent = self.parent
+        if parent:  # Setting up a dependent Structure
+            try:
+                residue_indices[0]
+            except TypeError:
+                if isinstance(self, Structures):  # Structures handles this itself
+                    return
+                raise stutils.ConstructionError(
+                    f"Argument 'residue_indices' must be provided when constructing dependent {self.__class__.__name__}"
+                    f' instance. Found state:\n{self.residues}')
+            # Must set this before setting _atom_indices
+            self._residue_indices = residue_indices
+            # Get the atom_indices from the provided residues
+            self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
+        # Setting up a parent Structure
+        elif residues:  # assume the passed residues aren't bound to an existing Structure
+            self._assign_residues(residues, atoms=atoms)
+        elif self.atoms:
+            # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
+            self._create_residues()
+            self._set_coords_indexed()
+        else:  # Set up an empty Structure or let subclass handle population
+            pass
+
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
@@ -3388,7 +3389,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def fragment_db(self, fragment_db: fragment.db.FragmentDatabase):
         """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles"""
         if not isinstance(fragment_db, fragment.db.FragmentDatabase):
-            # Todo add fragment_length, sql kwargs
             self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
                            f'is not of the required type {fragment.db.FragmentDatabase.__name__}')
             fragment_db = fragment.db.fragment_factory.get(source=putils.biological_interfaces, token=fragment_db)
@@ -3443,7 +3443,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     @property
     def sequence(self) -> str:
         """Holds the Structure amino acid sequence"""
-        # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
         try:
             return self._sequence
         except AttributeError:
@@ -4466,20 +4465,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     # Todo ContainsResiduesMixin
     def delete_residues(self, residues: Iterable[Residue] = None, indices: Iterable[int] = None,
                         numbers: Container[int] = None, **kwargs) -> list[Residue] | list:
-        """Delete Residue instances from the Structure
+        """Deletes Residue instances from the Structure
 
         Args:
             residues: Residue instances to delete
             indices: Residue indices to select the Residue instances of interest
             numbers: Residue numbers to select the Residue instances of interest
         Returns:
-            For each Residue deleted, the indices of the Residue Atoms. i.e. [[0,1,2,....],[25,26,27,...] or
-                an empty list
+            Each deleted Residue
         """
         if indices is not None:
             residues = self.get_residues(indices=indices)
         elif numbers is not None:
-            # residue = self.residue(number, **kwargs)
             residues = self.get_residues(numbers=numbers)
 
         if residues is None:
@@ -4496,30 +4493,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self.parent.delete_residues(residues=residues)
 
         # Find the Residue, Atom indices to delete
-        # delete_indices_by_residue = []
         delete_indices = []
         for residue in residues:
             self.log.debug(f'Deleting {residue.type}{residue.number}')
             delete_indices.extend(residue.atom_indices)
-            # residue_atom_indices = residue.atom_indices
-            # delete_indices.extend(residue_atom_indices)
-            # delete_indices_by_residue.append(residue_atom_indices)
 
         if not delete_indices:
-            return []  # There are no indices
+            return []  # There are no indices for the Residue instances
         else:  # Find the Residue indices to delete
             residue_indices = [residue.index for residue in residues]
 
         # Remove indices from the Residue, and Structure atom_indices
-        # input(f'atom indices len {len(self._atom_indices)}')
         self._delete_indices(delete_indices, dtype='atom')
-        # input(f'atom indices len {len(self._atom_indices)}')
         self._delete_indices(residue_indices, dtype='residue')
-        # # Offset the indices
-        # for residue_idx, residue in zip(residue_indices, residues):
-        #     self._offset_indices(start_at=residue.start_index, offset=-residue.number_of_atoms, dtype='atom')
-        #     self._offset_indices(start_at=residue_idx, offset=-1, dtype='residue')
-
         # Re-index all succeeding Atom and Residue instance indices
         self._coords.delete(delete_indices)
         self._atoms.delete(delete_indices)
@@ -4532,7 +4518,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._set_coords_indexed()
         self.reset_state()
 
-        # return delete_indices_by_residue
         return residues
 
     # Todo ContainsResiduesMixin
@@ -4547,23 +4532,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             The newly inserted Residue object
         """
         if self.is_dependent():  # Call on the parent
+            self.log.debug(f"{self.insert_residue_type.__name__} can't be performed on a dependent Structure. "
+                           f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
+            # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
                 chain_id = self.chain_id
-            # self.log.warning(f"This {self.__class__.__name__} '{self.name}' isn't the owner of it's attributes and the "
-            #                  f"provided index, {index}, is assumed to be valid for it's parent "
-            #                  f"{self.parent.__class__.__name__} Structure")
             return self.parent.insert_residue_type(residue_type=residue_type, index=index, chain_id=chain_id)
-        #     parent = self.parent
-        #     residues = parent.residues
-        #     index_residues_to_coords = parent._set_coords_indexed
-        # else:
-        #     parent = self
-        #     residues = self.residues
-        #     index_residues_to_coords = self._set_coords_indexed
 
         self.log.debug(f'Inserting {residue_type} into index {index} of {self.name}')
 
-        # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
+        # Convert incoming amino acid to an index to select the stutils.reference_residue.
+        # protein_letters_alph1 has a matching index
         reference_index = \
             protein_letters_alph1.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))
         if reference_index == -1:
@@ -4574,7 +4553,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"{self.insert_residue_type.__name__} at index {index} < 0 isn't allowed")
 
         # Grab the reference atom coordinates and push into the atom list
-        new_residue: Residue = stutils.reference_residues[reference_index].copy()
+        new_residue = reference_residues[reference_index].copy()
 
         # Find the prior and next Residue, atom_start_index (starting atom in new Residue index)
         residues = self.residues
@@ -4680,17 +4659,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             new_residues: The Residue instances to insert
             chain_id: The chain identifier to associate the new Residue instances with
         Returns:
-            The newly inserted Residue instances
+            The inserted Residue instances
         """
         if not new_residues:
             return []
 
         if self.is_dependent():  # Call on the parent
+            self.log.debug(f"{self.insert_residues.__name__} can't be performed on a dependent Structure. "
+                           f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
+            # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
                 chain_id = self.chain_id
-            # self.log.warning(f"This {self.__class__.__name__} '{self.name}' isn't the owner of it's attributes and the "
-            #                  f"provided index, {index}, is assumed to be valid for it's parent "
-            #                  f"{self.parent.__class__.__name__} Structure")
             return self.parent.insert_residues(index, new_residues, chain_id=chain_id)
 
         # Make a copy of the Residue instances
@@ -4797,14 +4776,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.reset_state()
 
         return new_residues
-
-    # def get_structure_sequence(self):
-    #     """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
-    #
-    #     Returns:
-    #         (str): The amino acid sequence of the Structure Residues
-    #     """
-    #     return ''.join([protein_letters_3to1_extended.get(res.type, '-') for res in self.residues])
 
     def delete_termini(self, how: str = 'unstructured', termini: stutils.termini_literal = None):
         """Remove Residue instances from the Structure termini that are not helices
@@ -5590,10 +5561,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
 
     def format_header(self, **kwargs) -> str:  # Todo move to PDB/Model (parsed) and Entity (oligomer)?
-        """Return the BIOMT record based on the Structure
+        """Return the BIOMT record as a .pdb format header
 
         Returns:
-            The header with PDB file formatting
+            The header with .pdb file formatting
         """
         return super().format_header(**kwargs) + self.format_biomt(**kwargs)
 
@@ -6063,7 +6034,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             raise TypeError(
                 f"The type '{dtype.__class__.__name__}' isn't a string. To {self.set_b_factor_by_attribute.__name__}, "
-                'you must provide dtype as a string specifying a Residue attribute')
+                "you must provide 'dtype' as a string specifying a Residue attribute")
 
     def set_b_factor_data(self, values: Iterable[float]):  # Todo ContainsResiduesMixin
         """Set the b-factor entry for every Residue to a value from an array-like
@@ -6082,7 +6053,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             raise TypeError(
                 f"The type '{values.__class__.__name__}' isn't an Iterable. To {self.set_b_factor_data.__name__}, you "
-                'must provide the values as an Iterable of integer type with length = number_of_residues')
+                "must provide the 'values' as an Iterable of integer type with length = number_of_residues")
 
     def _copy_structure_containers(self):  # Todo what about Structures() use. change mechanism
         """Copy all member Structures that reside in Structure containers"""
@@ -6097,8 +6068,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # For any structure_containers that are specified by the class but not present in the instance, set the instance
         # container to the missing class_structure_container
-        missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
-        if missing_containers:
+        missing_class_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
+        if missing_class_containers:
             if len(self.structure_containers) == 1:
                 existing_structure_type = self.structure_containers[0]
                 if existing_structure_type == 'entities':
@@ -6106,7 +6077,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                         self.__setattr__(structure_type, existing_structure_type)
                 else:
                     self.log.debug(f'In {self._copy_structure_containers.__name__}: '
-                                   f'{self} is missing the container(s) {missing_containers}. Leaving empty')
+                                   f'{self} is missing the container(s) {missing_class_containers}. Leaving empty')
             else:
                 raise NotImplementedError(
                     "Can't set up structure_containers when there are more than 1 initialized and there are missing "
@@ -6546,7 +6517,7 @@ class Structures(Structure, UserList):
 
 # 0 indexed, 1 letter aa, alphabetically sorted at the origin
 try:
-    reference_residues = utils.unpickle(putils.reference_residues_pkl)
+    reference_residues: list[Residue] = utils.unpickle(putils.reference_residues_pkl)
 except (_pickle.UnpicklingError, ImportError, FileNotFoundError) as error:  # SyntaxError <- can't catch from 3.10
     # raise
     logger.error(''.join(traceback.format_exc()))

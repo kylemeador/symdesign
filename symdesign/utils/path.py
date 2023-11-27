@@ -123,21 +123,6 @@ pisa_db = os.path.join(database, 'pisaDB')
 # qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
 qs_bio = os.path.join(data_dir, 'QSbioHighConfidenceAssemblies.pkl')
 qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
-
-# TODO script this file creation ?
-#  qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
-#  response = requests.get(qsbio_data_url)
-#  with open(qsbio_file, 'wb') as output
-#      output.write(response.content)
-#  qsbio_df = pd.DataFrame(qsbio_file)
-#  or
-#  qsbio_df = pd.DataFrame(response.content)
-#  qsbio_df.groupby('QSBio Confidence', inplace=True)
-#  greater_than_high_df = qsbio_df[qsbio_df['QSBio Confidence'] in ['Very high', 'High']
-#  oligomeric_assemblies = greater_than_high_df.drop(qsbio_monomers, errors='ignore')
-#  for pdb_code in qs_bio:
-#      qs_bio[pdb_code] = set(int(ass_id) for ass_id in qs_bio[pdb_code])
-
 # Fragment Database
 fragment_db = os.path.join(database, 'fragment_db')
 biological_interfaces = 'biological_interfaces'
@@ -242,8 +227,6 @@ rosetta_main = rosetta_main if rosetta_main else 'main'  # Ensure not None
 rosetta_source = os.path.join(rosetta_main, 'source')
 rosetta_default_bin = os.path.join(rosetta_source, 'bin')
 make_symmdef = os.path.join(rosetta_source, 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
-# Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
-dalphaball = os.path.join(rosetta_source, 'external', 'DAlpahBall', 'DAlphaBall.gcc')
 # Rosetta Scripts and Misc Files'
 rosetta_scripts_dir = os.path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
@@ -260,7 +243,6 @@ symmetry_docs_url = 'https://github.com/kylemeador/symdesign/tree/main#symmetry'
 see_symmetry_documentation = f' See the documentation on symmetry: {symmetry_docs_url}'
 report_issue = f' Please report this at {git_issue_url}'
 
-# Todo place this is a config file or something similar
 logging_cfg = {
     'version': 1,
     'formatters': {

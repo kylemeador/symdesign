@@ -4,8 +4,9 @@ import os
 from collections import defaultdict
 from itertools import chain
 
-from symdesign.utils.path import rosetta_main, rosetta_extras, dalphaball, rosetta_scripts_dir
+from symdesign.utils.path import rosetta_main, rosetta_extras, rosetta_source, rosetta_scripts_dir
 
+dalphaball = os.path.join(rosetta_source, 'external', 'DAlpahBall', 'DAlphaBall.gcc')
 min_cores_per_job = 1  # Currently one for the MPI node, and 5 workers
 num_thread_per_process = 2
 current_energy_function = 'REF2015'

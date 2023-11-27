@@ -43,8 +43,6 @@ zero_offset = 1
 TQDM_BAR_FORMAT = '{l_bar}{bar}| {n_fmt}/{total_fmt} [elapsed: {elapsed} ~remaining: {remaining}]'
 
 
-# TODO decrease amount of work by saving each index array and reusing...
-#  such as stacking each j_index, guide_coords, rmsd, etc and pulling out by index
 def is_frag_type_same(frags1, frags2, dtype='ii'):
     frag1_type = f'{dtype[0]}_type'
     frag2_type = f'{dtype[1]}_type'
@@ -1948,7 +1946,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                               log=True if job.debug else None,
                               sym_entry=sym_entry, name='asu', fragment_db=job.fragment_db,  # entity_info=entity_info,
                               surrounding_uc=True, rename_chains=True, uc_dimensions=uc_dimensions)
-                              # surrounding_uc=job.output_surrounding_uc, rename_chains=True, uc_dimensions=uc_dimensions)
 
     # Ensure .metadata attribute is passed to each entity in the full assembly
     # This is crucial for sql usage

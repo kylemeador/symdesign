@@ -1185,8 +1185,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # Initialize the Pose using provided PDB numbering so that design_selectors are respected
             if entities:
                 self.structure_source = 'Database'
-                # Because entities were passed we should rename_chains if the chain_id's are the same
-                if len(set([entity.chain_id for entity in entities])) != len(entities):
+                # Chains should be renamed if the chain_id's are the same
+                if len({entity.chain_id for entity in entities}) != len(entities):
                     rename = True
                 else:
                     rename = False

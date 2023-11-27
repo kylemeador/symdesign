@@ -900,7 +900,6 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         pose_job.load_pose()
         number_of_entities = pose_job.number_of_entities
         number_of_tags, tag_index = solve_tags(number_of_entities, job.tag_entities)
-        # Todo do I need to modify chains?
         pose_job.pose.rename_chains()
         for design in _designs:
             file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
