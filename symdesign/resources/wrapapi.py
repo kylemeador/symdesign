@@ -143,7 +143,7 @@ argument
 #         #         if data:
 #         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
 #         #         else:
-#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+#         #             data = self.load_data(name, log=None)  # attempt to retrieve the new data
 #         #             if data:
 #         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
 #         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
@@ -175,7 +175,7 @@ argument
 #         #         if data:
 #         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
 #         #         else:
-#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+#         #             data = self.load_data(name, log=None)  # attempt to retrieve the new data
 #         #             if data:
 #         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
 #         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
@@ -380,19 +380,7 @@ class UniProtDataStore(DataStore):
         Returns:
             If the data is available, the object requested will be returned, else None
         """
-        if name is None:
-            return None
         data = super().retrieve_data(name=name)
-        #         data = getattr(self, name, None)
-        #         if data:
-        #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
-        #         else:
-        #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
-        #             if data:
-        #                 setattr(self, name, data)  # attempt to store the new data as an attribute
-        #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
-        #
-        #         return data
         if not data:
             response = query_uniprot(uniprot_id=name)
             if not response:

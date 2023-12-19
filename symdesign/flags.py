@@ -1168,13 +1168,13 @@ sample_number_kwargs = dict(type=int, default=10, metavar='INT',
                             help='How many times should the bending be performed?\nDefault=%(default)s')
 possible_termini = get_args(termini_literal)
 helix_bending_arguments = {
-    (direction.long,): dict(type=str.upper, required=True, choices=possible_termini, metavar='',
+    (direction.long,): dict(type=str.lower, metavar='', choices=possible_termini,  # required=True,
                             help='Which direction should the bending be applied?\n'
-                                 f"Choices=%(choices)s where 'c' implies residues c-terminal to\n"
-                                 f"{format_args(joint_residue_args)} will be bent"),
+                                 f"Choices=%(choices)s. Where 'c' would imply residues c-terminal\n"
+                                 f"to {format_args(joint_residue_args)} will be bent"),
     joint_residue_args: dict(type=int, metavar='INT', required=True,
-                             help='The chain where the bending is desired at'),
-    (joint_chain.long,): dict(required=True, help='The residue number to perform the bending at'),
+                             help='The residue number to perform the bending at'),
+    (joint_chain.long,): dict(required=True, help='The chain where the bending is desired at'),
     sample_number_args: sample_number_kwargs
 }
 # ---------------------------------------------------
@@ -1239,7 +1239,7 @@ align_component1_args = (*component1_args, f'--target')
 align_component2_args = (*component2_args, f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
-                        help=f'Path to component file, either directory or single file')
+                        help='Path to component file, either directory or single file')
 pdb_codes_args = ('-C1', pdb_code.long, f'--{pdb_code}s', f'--{pdb_code}1', f'--{pdb_code}s1')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
 query_pdb_codes_args = ('-Q', query_codes.long)

@@ -461,8 +461,9 @@ class TransformHasher:
         # For each of the translations, set in reference to the lower bound and divide by the bin widths to find the bin
         translation_bin_int = (translations - self.box_lower) // self.translation_bin_width
         if (translation_bin_int < 0).any():
-            raise ValueError(f'Found a value for the binned translation integers less than 0. The transform box for the'
-                             f" requested {self.__class__.__name__} can't properly handle the passed transformation")
+            raise ValueError(
+                'Found a value for the binned translation integers less than 0. The transform box for the'
+                f" requested {self.__class__.__name__} can't properly handle the passed transformation")
         rotation = scipy.spatial.transform.Rotation.from_matrix(rotations)
         # 'xyz' lowercase denotes the rotation is external
         euler_angles = rotation.as_euler('xyz', degrees=True)
@@ -473,9 +474,9 @@ class TransformHasher:
         # To be in the correct bins between 0,360, 0,180, 0,360
         # rotation_bin_int %= self.number_euler_bins
         # rotation_bin_int[:, self.index_with_360] %= self.number_euler_bins
-        logger.debug(f'euler_angles: {euler_angles[:3]}')
-        logger.debug(f'rotation_bin_int: {rotation_bin_int[:3]}')
-        logger.debug(f'translation_bin_int: {translation_bin_int[:3]}')
+        logger.debug(f'First 3 euler_angles:\n{euler_angles[:3]}')
+        logger.debug(f'First 3 rotation_bin_int:\n{rotation_bin_int[:3]}')
+        logger.debug(f'First 3 translation_bin_int:\n{translation_bin_int[:3]}')
 
         return np.concatenate((translation_bin_int.astype(int), rotation_bin_int.astype(int)), axis=1)
 

@@ -90,14 +90,19 @@ class DataStore:
                 self.glob_extension = extension
 
             if '.txt' in extension:  # '.txt' read the file and return the lines
-                self.load_file = read_file
-                self.save_file = write_list_to_file
+                load_file = read_file
+                save_file = write_list_to_file
             elif '.json' in extension:
-                self.load_file = utils.read_json
-                self.save_file = utils.write_json
+                load_file = utils.read_json
+                save_file = utils.write_json
             else:
-                self.load_file = load_file if load_file else not_implemented
-                self.save_file = save_file if save_file else not_implemented
+                if load_file is None:
+                    load_file = not_implemented
+                if save_file is None:
+                    save_file = not_implemented
+
+            self.load_file = load_file
+            self.save_file = save_file
 
     def make_path(self, condition: bool = True):
         """Make all required directories in specified path if it doesn't exist, and optional condition is True
@@ -157,7 +162,7 @@ class DataStore:
         self.__setattr__(name, data)
         self._save_data(data, name, **kwargs)
 
-    def retrieve_data(self, name: str = None) -> object | None:
+    def retrieve_data(self, name: str = None) -> Any | None:
         """Return the data requested by name. Otherwise, load into the Database from a specified location
 
         Args:
@@ -171,7 +176,7 @@ class DataStore:
         if data:
             self.log.debug(f'{name}{self.extension} was retrieved from {self.__class__.__name__}')
         else:
-            data = self._load_data(name, log=None)  # Attempt to retrieve the new data
+            data = self.load_data(name, log=None)  # Attempt to retrieve the new data
             if data:
                 self.__setattr__(name, data)  # Attempt to store the new data as an attribute
                 self.log.debug(f'The file {name}{self.extension} was loaded into the {self.__class__.__name__}')
@@ -190,15 +195,13 @@ class DataStore:
             The name of the saved data if there was one or the return from the Database insertion
         """
         if self.sql:
-            # dummy = True
             pass
-            # return None
         else:
             if data:
-                return self.save_file(data, self.path_to(name=name), **kwargs)  # Could also use self.retrieve_data()
+                return self.save_file(data, self.path_to(name=name), **kwargs)
         return None
 
-    def _load_data(self, name: str, **kwargs) -> Any | None:
+    def load_data(self, name: str, **kwargs) -> Any | None:
         """Return the data located in a particular entry specified by name
 
         Args:
@@ -224,11 +227,11 @@ class DataStore:
                 self.__setattr__(os.path.splitext(os.path.basename(file))[0], self.load_file(file))
 
 
-class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
+class Database:
     sources: list[DataStore]
 
     def __init__(self, sql=None, log: Logger = logger):
-        super().__init__()  # object
+        super().__init__()
         if sql:
             raise NotImplementedError('SQL set up has not been completed')
 
@@ -258,7 +261,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 f"There was no source named '{name}' found in the {self.__class__.__name__}. "
                 f'Possible sources are: {", ".join(self.__dict__)}')
 
-    def retrieve_data(self, source: str = None, name: str = None) -> object | None:
+    def retrieve_data(self, source: str = None, name: str = None) -> Any | None:
         """Return the data requested by name from the specified source. Otherwise, load into the Database from a
         specified location
 
@@ -268,8 +271,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         Returns:
             If the data is available, the object requested will be returned, else None
         """
-        data = self.source(source).retrieve_data(name)
-        return data
+        return self.source(source).retrieve_data(name)
 
     def retrieve_file(self, source: str = None, name: str = None) -> AnyStr | None:
         """Retrieve the file specified by the source and identifier name

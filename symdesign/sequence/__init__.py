@@ -218,8 +218,9 @@ def get_numeric_translation_table(alphabet_type: alphabet_types_literal) -> defa
         try:  # To see if we already have the alphabet, and return the defaultdict
             _type = alphabet_to_alphabet_type[alphabet_type]
         except KeyError:
-            raise KeyError(f"The alphabet '{alphabet_type}' isn't an allowed alphabet_type."
-                           f" See {', '.join(alphabet_types)}")
+            raise KeyError(
+                f"The alphabet '{alphabet_type}' isn't an allowed alphabet_type."
+                f" See {', '.join(alphabet_types)}")
             # raise ValueError(wrong_alphabet_type)
         logger.warning(f"{get_numeric_translation_table.__name__}: The alphabet_type '{alphabet_type}' "
                        "isn't viable. Attempting to create it")
@@ -476,7 +477,8 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         if isinstance(names, str):  # Not an iterable
             file_name = os.path.join(out_path, names)
         else:
-            raise ValueError(f'Must provide argument "file_name" or "names" as a str to {write_sequences.__name__}')
+            raise ValueError(
+                f"Must provide argument 'file_name' or 'names' as a str to {write_sequences.__name__}()")
 
     if csv:
         start, sep = '', ','
@@ -638,23 +640,24 @@ def optimize_protein_sequence(sequence: str, species: optimization_species_liter
         raise KeyError(
             f'Warning an invalid character was found in the protein sequence: {error}')
 
-    problem = DnaOptimizationProblem(sequence=dna_sequence, logger=None,  # max_random_iters=20000,
-                                     objectives=[CodonOptimize(species=species)],
-                                     # method='harmonize_rca')] <- useful for folding speed when original organism known
-                                     constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
-                                                  EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
-                                                  AvoidHairpins(stem_size=20, hairpin_window=48),  # efficient translate
-                                                  AvoidPattern('GGAGG', location=(1, seq_length, 1)),  # ribosome bind
-                                                  AvoidPattern('TAAGGAG', location=(1, seq_length, 1)),  # ribosome bind
-                                                  AvoidPattern('AAAAA', location=(1, seq_length, 0)),  # terminator
-                                                  # AvoidPattern('TTTTT', location=(1, seq_length, 1)),  # terminator
-                                                  AvoidPattern('GGGGGGGGGG', location=(1, seq_length, 0)),  # homopoly
-                                                  # AvoidPattern('CCCCCCCCCC', location=(1, seq_length)),  # homopoly
-                                                  UniquifyAllKmers(20),  # twist required
-                                                  AvoidRareCodons(0.08, species=species),
-                                                  EnforceTranslation(),
-                                                  # EnforceMeltingTemperature(mini=10,maxi=62,location=(1, seq_length)),
-                                                  ])
+    problem = DnaOptimizationProblem(
+        sequence=dna_sequence, logger=None,  # max_random_iters=20000,
+        objectives=[CodonOptimize(species=species)],
+        # method='harmonize_rca')] <- Useful for folding speed when original organism known
+        constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # Twist required
+                     EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # Twist required
+                     AvoidHairpins(stem_size=20, hairpin_window=48),  # Efficient translate
+                     AvoidPattern('GGAGG', location=(1, seq_length, 1)),  # Ribosome bind
+                     AvoidPattern('TAAGGAG', location=(1, seq_length, 1)),  # Ribosome bind
+                     AvoidPattern('AAAAA', location=(1, seq_length, 0)),  # Terminator
+                     # AvoidPattern('TTTTT', location=(1, seq_length, 1)),  # Terminator
+                     AvoidPattern('GGGGGGGGGG', location=(1, seq_length, 0)),  # Homopoly
+                     # AvoidPattern('CCCCCCCCCC', location=(1, seq_length)),  # Homopoly
+                     UniquifyAllKmers(20),  # Twist required
+                     AvoidRareCodons(0.08, species=species),
+                     EnforceTranslation(),
+                     # EnforceMeltingTemperature(mini=10,maxi=62,location=(1, seq_length)),
+                     ])
 
     # Solve constraints and solve in regard to the objective
     problem.max_random_iters = 20000

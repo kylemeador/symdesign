@@ -173,8 +173,8 @@ class PoseMetadata(Base):
     # Symmetry
     sym_entry_number = Column(Integer)
     symmetry = Column(String(8))  # Result
-    symmetry_dimension = Column(Integer)
     """The result of the SymEntry"""
+    symmetry_dimension = Column(Integer)
     # symmetry_groups = relationship('SymmetryGroup')
     sym_entry_specification = Column(String(100))  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
 

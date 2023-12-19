@@ -14,6 +14,7 @@ from logging import Logger
 from pathlib import Path
 from random import random
 from typing import Any, AnyStr, Container, Generator, IO, Iterable, Sequence
+from typing_extensions import assert_never
 
 import numpy as np
 import pandas as pd
@@ -68,10 +69,6 @@ def softmax(x: np.ndarray) -> np.ndarray:
     return input_exp / input_exp.sum(axis=-1, keepdims=True)
 
 
-def subdirectory(name):
-    return name[1:2]
-
-
 def get_matching_fragment_pairs_info(ghostfrag_frag_pairs:
                                      list[tuple[fragment.GhostFragment, fragment.Fragment, float]]) -> \
         list[fragment_info_type]:
@@ -92,97 +89,6 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs:
     logger.debug(f'Fragments for Entity2 found at indices: {[fragment["paired"] for fragment in fragment_matches]}')
 
     return fragment_matches
-
-
-def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
-    # Get interface fragment information
-    pdb1_residue_numbers, pdb2_residue_numbers = set(), set()
-    for pdb1_central_res_num, pdb2_central_res_num in interacting_pairs:
-        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
-                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
-        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
-                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
-
-        frag1_ca_count = 0
-        for atom in pdb1.all_atoms:
-            if atom.residue_number in pdb1_res_num_list:
-                if atom.is_ca():
-                    frag1_ca_count += 1
-
-        frag2_ca_count = 0
-        for atom in pdb2.all_atoms:
-            if atom.residue_number in pdb2_res_num_list:
-                if atom.is_ca():
-                    frag2_ca_count += 1
-
-        if frag1_ca_count == 5 and frag2_ca_count == 5:
-            pdb1_residue_numbers.add(pdb1_central_res_num)
-            pdb2_residue_numbers.add(pdb2_central_res_num)
-
-    return pdb1_residue_numbers, pdb2_residue_numbers
-
-
-def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
-    """Given two PDBs, return the unique chain and interacting residue lists"""
-    pdb1_cb_coords = pdb1.cb_coords
-    pdb1_cb_indices = pdb1.cb_indices
-    pdb2_cb_coords = pdb2.cb_coords
-    pdb2_cb_indices = pdb2.cb_indices
-
-    pdb1_cb_kdtree = BallTree(np.array(pdb1_cb_coords))
-
-    # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
-    query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
-
-    # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
-    pdb1_atoms = pdb1.atoms
-    pdb2_atoms = pdb2.atoms
-    interacting_pairs = []
-    for pdb2_query_index, pdb1_contacts in enumerate(query.tolist()):
-        pdb2_atom = pdb2_atoms[pdb2_cb_indices[pdb2_query_index]]
-        for pdb1_query_index in pdb1_contacts.tolist():
-            pdb1_atom = pdb1_atoms[pdb1_cb_indices[pdb1_query_index]]
-            interacting_pairs.append(((pdb1_atom.residue_number, pdb1_atom.chain_id),
-                                      (pdb2_atom.residue_number, pdb2_atom.chain_id)))
-
-
-def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
-    # Get interface fragment information
-    pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list = [], []
-    for pair in interacting_pairs:
-
-        pdb1_central_res_num = pair[0][0]
-        pdb1_central_chain_id = pair[0][1]
-        pdb2_central_res_num = pair[1][0]
-        pdb2_central_chain_id = pair[1][1]
-
-        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
-                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
-        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
-                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
-
-        frag1_ca_count = 0
-        for atom in pdb1.all_atoms:
-            if atom.chain_id == pdb1_central_chain_id:
-                if atom.residue_number in pdb1_res_num_list:
-                    if atom.is_ca():
-                        frag1_ca_count += 1
-
-        frag2_ca_count = 0
-        for atom in pdb2.all_atoms:
-            if atom.chain_id == pdb2_central_chain_id:
-                if atom.residue_number in pdb2_res_num_list:
-                    if atom.is_ca():
-                        frag2_ca_count += 1
-
-        if frag1_ca_count == 5 and frag2_ca_count == 5:
-            if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_central_chainid_resnum_unique_list:
-                pdb1_central_chainid_resnum_unique_list.append((pdb1_central_chain_id, pdb1_central_res_num))
-
-            if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_central_chainid_resnum_unique_list:
-                pdb2_central_chainid_resnum_unique_list.append((pdb2_central_chain_id, pdb2_central_res_num))
-
-    return pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list
 
 
 def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
@@ -467,8 +373,9 @@ class MultiModel:
             del self._model_iterator
             # delattr(self, '_model_iterator')
         except IndexError:  # Todo handle mismatched lengths, either passed or existing
-            raise IndexError('The added State contains fewer Structures than present in the MultiModel. Only pass a '
-                             f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
+            raise IndexError(
+                'The added State contains fewer Structures than present in the MultiModel. Only pass a '
+                f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
 
     def append(self, model: Model, independent: bool = False):
         """From a Structure with multiple states, incorporate the Model into the existing Model
@@ -869,7 +776,7 @@ class ContainsChainsMixin:
         return True
 
     def rename_chains(self, exclude_chains: Sequence = None):
-        """Renames chains using Structure.available_letters
+        """Renames each chain an incrementally new Alphabetical character using Structure.available_letters
 
         Args:
             exclude_chains: The chains which shouldn't be modified
@@ -2676,11 +2583,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         other = super().__copy__()
         # Mate Entity instances are a "parent", however, they are under the control of their captain instance
         if self._is_captain:  # If the copier is a captain
-            other._captain = None  # Initialize the copy as a captain i.e. _captain = None
+            other._captain = None  # Initialize the copy as a captain, i.e. _captain = None
             if self.is_dependent() and other.is_dependent():
-                # self.log.debug('is parent copy_structure_containers')
-                # A parent is making the copy. Update all structure_containers with new instance accordingly
-                # Update the structure_containers as this wasn't performed by Structure.copy()
+                # A parent initiated the copy and the structure_containers weren't copied in super().copy().
+                # They must be created new so copy here
                 other._copy_structure_containers()
         else:
             # If the .entity_spawn attribute is set, the copy was initiated by the captain,
@@ -4295,7 +4201,7 @@ class Models(UserList):  # (Model):
         Returns:
             The name of the written file if out_path is used
         """
-        logger.debug(f'Models is writing {self}')
+        logger.debug(f'Models is writing {repr(self)}')
 
         def models_write(handle):
             # self.models is populated
@@ -4579,7 +4485,6 @@ class SymmetricModel(Model):  # Models):
         try:
             return self._sym_entry
         except AttributeError:
-            # raise utils.SymmetryError('No symmetry entry was specified!')
             self._sym_entry = None
             return self._sym_entry
 
@@ -4736,7 +4641,6 @@ class SymmetricModel(Model):  # Models):
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
-        # self.coords = coords
         self.log.debug(f'Setting {self.__class__.__name__} coords')
         super(Structure, Structure).coords.fset(self, coords)
 
@@ -4842,7 +4746,7 @@ class SymmetricModel(Model):  # Models):
 
     @property
     def center_of_mass_symmetric_entities(self) -> list[list[np.ndarray]]:
-        """The center of mass points for each Entity instance in the symmetric system for each symmetry mate with shape
+        """The center of mass position for each Entity instance in the symmetric system for each symmetry mate with shape
         [(number_of_symmetry_mates, 3), ... number_of_entities]
         """
         # if self.symmetry:
@@ -4999,6 +4903,8 @@ class SymmetricModel(Model):  # Models):
                     uc_number = 27
                 elif self.dimension == 2:
                     uc_number = 9
+                else:
+                    assert_never(self.dimension)
                 # Set the number_of_symmetry_mates to account for the unit cell number
                 # This results in is_surrounding_uc() being True during return_symmetric_coords()
                 self._number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
@@ -5232,7 +5138,7 @@ class SymmetricModel(Model):  # Models):
         #                                                 1 + model_idx*number_of_atoms + entity_end])
         #             #                                             have to add 1 for slice ^
 
-    def get_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) ->\
+    def get_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) -> \
             list[int]:
         """From an ASU, find the symmetric models that immediately surround the ASU
 
@@ -5248,13 +5154,14 @@ class SymmetricModel(Model):  # Models):
             asu_query = self.assembly_tree.query_radius(self.coords[self.backbone_and_cb_indices], distance)
             # Combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
             interacting_models = (
-                np.array(list({asu_idx for asu_contacts in asu_query.tolist()
-                               for asu_idx in asu_contacts.tolist()})
-                         )
-                // len(asu_query)) + 1
+                                         np.array(list({asu_idx for asu_contacts in asu_query.tolist()
+                                                        for asu_idx in asu_contacts.tolist()})
+                                                  )
+                                         // len(asu_query)
+                                 ) + 1
             # The asu is missing from assembly_tree so add 1 to get the
-            # correct model index ^
-            interacting_models = sorted(set(interacting_models.tolist()))
+            # correct model indices ^
+            interacting_models = np.unique(interacting_models).tolist()
         else:
             # The furthest point from the asu COM + the max individual Entity radius
             distance = self.radius + max([entity.radius for entity in self.entities])
@@ -6054,6 +5961,9 @@ class SymmetricModel(Model):  # Models):
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
             self.log.debug(f'Setting the {self.__class__.__name__} to an ASU from a symmetric representation. '
                            "This method hasn't been thoroughly debugged")
+            # Essentially performs,
+            # self.assign_residues_from_structures(self.entities)
+            # however the containers are not updated.
             # Set base Structure attributes
             new_coords = []
             new_atoms = []
@@ -6062,9 +5972,6 @@ class SymmetricModel(Model):  # Models):
                 new_coords.append(entity.coords)
                 new_atoms.extend(entity.atoms)
                 new_residues.extend(entity.residues)
-
-            # number_of_atoms = len(new_atoms)
-            # number_of_residues = len(new_residues)
 
             self._coords = Coords(np.concatenate(new_coords))
             self._atom_indices = list(range(len(new_atoms)))
@@ -6475,23 +6382,27 @@ class Pose(SymmetricModel, Metrics):
             return self._interface_neighbor_residues
         except AttributeError:
             self._interface_neighbor_residues = []
-            residue: Residue
             for residue in self.interface_residues:
                 self._interface_neighbor_residues.extend(residue.get_neighbors())
 
             return self._interface_neighbor_residues
 
-        # This finds only those residues actively contributing to the interface
-        # self._interface_residues_only = set()
-        # for entity in self.pose.entities:
-        #     # entity.oligomer.get_sasa()
-        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
-        #     for residue in entity.oligomer.get_residues(self._interface_residues):
-        #         if residue.sasa > 0:
-        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-        #             self._interface_residues_only.add(residue)
-        # interface_residue_numbers = [residue.number for residue in self._interface_residues_only]
-        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(interface_residue_numbers)))}')
+    # def interface_residues_accessible(self) -> list[Residue]:
+    #     """Returns only those residues actively contributing to the interface"""
+    #     try:
+    #         return self._interface_residues_only
+    #     except AttributeError:
+    #         self._interface_residues_only = set()
+    #         for entity in self.pose.entities:
+    #             # entity.assembly.get_sasa()
+    #             # Must get_residues by number as the Residue instance will be different in entity_oligomer
+    #             for residue in entity.assembly.get_residues(self._interface_residues):
+    #                 if residue.sasa > 0:
+    #                     # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+    #                     self._interface_residues_only.add(residue)
+    #         # interface_residue_numbers = [residue.number for residue in self._interface_residues_only]
+    #         # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(interface_residue_numbers)))}')
+    #         return self._interface_residues_only
 
     @property
     def design_residues(self) -> list[Residue]:  # Todo make function to include interface_residues or not
@@ -7354,8 +7265,7 @@ class Pose(SymmetricModel, Metrics):
             contact_order_z.append(entity_residue_contact_order_z)
             # inverse_residue_contact_order_z.append(entity_residue_contact_order_z * -1)
             hydrophobic_collapse.append(entity.hydrophobic_collapse(**kwargs))
-            # Tod0 always use wild-type?
-            #  entity = resources.structure_db.refined.retrieve_data(name=entity.name))
+
             # Set the entity.msa which makes a copy and adjusts for any disordered residues
             # This method is more accurate as it uses full sequences from MSA. However,
             # more time-consuming and may not matter much
@@ -8656,12 +8566,11 @@ class Pose(SymmetricModel, Metrics):
         for entity in self.entities:  # self.active_entities:
             pose_secondary_structure += entity.secondary_structure
 
-        ss_sequence_indices, ss_type_sequence = [], []
         # Increment a secondary structure index which changes with every secondary structure transition
         # Simultaneously, map the secondary structure type to an array of pose length
         ss_increment_index = 0
-        ss_sequence_indices.append(ss_increment_index)
-        ss_type_sequence.append(pose_secondary_structure[0])
+        ss_sequence_indices = [ss_increment_index]
+        ss_type_sequence = [pose_secondary_structure[0]]
         for prior_ss_type, ss_type in zip(pose_secondary_structure[:-1], pose_secondary_structure[1:]):
             if prior_ss_type != ss_type:
                 ss_increment_index += 1

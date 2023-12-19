@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     # input files
     if args.directory:
-        args.files = utils.get_directory_file_paths(args.directory, extension='.pdb')
+        args.files = utils.get_directory_file_paths(args.directory, extension='.pdb*')
     # initialize PDB Objects
     models = [Model.from_file(file, log=logger) for file in args.files]
     model = Model.from_chains([chain for model in models for chain in model.chains],

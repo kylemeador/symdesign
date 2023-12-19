@@ -569,55 +569,8 @@ class SequenceProfile(ABC):
         try:
             return np.take_along_axis(profile_of_interest, self.sequence_numeric[:, None], axis=1).squeeze()
         except IndexError:  # The profile_of_interest and sequence are different sizes
-            raise IndexError(f'The profile length {len(profile_of_interest)} != '
-                             f'the number_of_residues {self.number_of_residues}')
-
-    # def add_profile(self, evolution: bool = True, fragments: bool | list[fragment_info_type] = True,
-    #                 null: bool = False, **kwargs):
-    #     """Add the evolutionary and fragment profiles onto the SequenceProfile
-    #
-    #     Args:
-    #         evolution: Whether to add evolutionary information to the sequence profile
-    #         fragments: Whether to add fragment information to the sequence profile. Can pass fragment instances as well
-    #         null: Whether to use a null profile (non-functional) as the sequence profile
-    #     Keyword Args:
-    #         alignment_type: alignment_types_literal = 'mapped' – Either 'mapped' or 'paired' indicating how the fragment
-    #             observations were generated relative to this Structure. Is it mapped to this Structure or was it paired
-    #             to it?
-    #         out_dir: AnyStr = os.getcwd() - Location where sequence files should be written
-    #         favor_fragments: bool = False - Whether to favor fragment profile in the lod score of the resulting profile
-    #             Currently this routine is only used for Rosetta designs where the fragments should be favored by a
-    #             particular weighting scheme. By default, the boltzmann weighting scheme is applied
-    #         boltzmann: bool = False - Whether to weight the fragment profile by a Boltzmann probability scaling using
-    #             the formula lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
-    #             If False, residues are weighted by the residue local maximum lod score in a linear fashion
-    #             All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
-    #     Sets:
-    #         self.profile (ProfileDict)
-    #     """
-    #     if null or (not evolution and not fragments):
-    #         self.profile = self.evolutionary_profile = self.create_null_profile()
-    #         self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
-    #                                         dtype='fragment')
-    #         return
-    #
-    #     if evolution:  # Add evolutionary information to the SequenceProfile
-    #         if not self.evolutionary_profile:
-    #             self.add_evolutionary_profile(**kwargs)
-    #     else:  # Set the evolutionary_profile to null
-    #         self.evolutionary_profile = self.create_null_profile()
-    #
-    #     if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
-    #         self.add_fragments_to_profile(fragments, **kwargs)
-    #         self.simplify_fragment_profile()
-    #     elif fragments:  # If was passed as True
-    #         if not self.alpha:
-    #             raise AttributeError(
-    #                 'Fragments were specified but have not been added to the SequenceProfile. '
-    #                 f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
-    #                 f' fragments and alignment_type to {self.add_profile.__name__}')
-    #
-    #     self.calculate_profile(**kwargs)
+            raise IndexError(
+                f'The profile length, {len(profile_of_interest)} != {self.number_of_residues}, the number_of_residues')
 
     def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
@@ -1296,32 +1249,10 @@ class SequenceProfile(ABC):
         if self.fragment_map is None:
             interior_keys = range(*self._fragment_db.fragment_range)
             self.fragment_map = [dict.fromkeys(interior_keys, set()) for _ in range(self.number_of_residues)]
-            # self.fragment_map = populate_design_dictionary(self.number_of_residues,
-            #                                                list(range(*self._fragment_db.fragment_range)),
-            #                                                zero_index=True, dtype='set')
-        # for fragment in fragments:
-        #     residue_index = fragment[alignment_type] - self.offset_index
-        #     for frag_idx in range(*self._fragment_db.fragment_range):  # lower_bound, upper_bound
-        #         self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
-        #                                                                       'cluster': fragment['cluster'],
-        #                                                                       'match': fragment['match']})
-        #
-        #     # As of 9/18/22 opting to preload this data
-        #     # # Ensure fragment information is retrieved from the fragment_db for the particular clusters
-        #     # retrieve_fragments = [fragment['cluster'] for residue_indices in self.fragment_map.values()
-        #     #                       for fragments in residue_indices.values() for fragment in fragments]
-        #     # self.fragment_db.load_cluster_info(ids=retrieve_fragments)
-
-        # if self._fragment_profile is None:
-        #     # self._fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
-        #     #                           for residue_index in range(self.number_of_residues)}
-        #     self._fragment_profile = [[set() for _ in range(self._fragment_db.fragment_length)]
-        #                               for _ in range(self.number_of_residues)]
 
         # Add frequency information to the fragment profile using parsed cluster information. Frequency information is
         # added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a
         # new observation is created for that fragment index.
-        # try:
         for fragment in fragments:
             # Offset the specified fragment index to the overall index in the Structure
             residue_index = fragment[alignment_type] - self.offset_index
@@ -1330,19 +1261,10 @@ class SequenceProfile(ABC):
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
             aa_freq = getattr(self._fragment_db.info[cluster], alignment_type)
             for frag_idx, frequencies in aa_freq.items():  # (lower_bound - upper_bound), [freqs]
-                # observation = dict(match=fragment['match'], **frequencies)
-                # frag_info_dict = {'source': alignment_type, 'cluster': cluster, 'match': match}
                 _frequencies = frequencies.copy()
                 _frag_info = FragObservation(source=alignment_type, cluster=cluster, match=match,
                                              weight=_frequencies.pop('weight'), frequencies=_frequencies)
                 self.fragment_map[residue_index + frag_idx][frag_idx].add(_frag_info)  # .append(frag_info_dict)
-                # self._fragment_profile[residue_index + frag_idx][idx].add(dict(**frequencies, match=match))
-        # except KeyError:
-        #     self.log.critical(f'KeyError at {residue_index + frag_idx} with {frag_idx}. Fragment info is {fragment}.'
-        #                       f'len(fragment_map)={len(self.fragment_map)} which are mapped to the index. '
-        #                       f'len(self._fragment_profile)={len(self._fragment_profile)}'
-        #                       f'offset_index={self.offset_index}')
-        #     raise RuntimeError('Need to fix this')
 
     def simplify_fragment_profile(self, evo_fill: bool = False, **kwargs):  # keep_extras: bool = True,
         """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
@@ -1407,13 +1329,6 @@ class SequenceProfile(ABC):
                             obs_x_match_weight = observation.weight * observation.match
                             scaled_obs_weight = obs_x_match_weight / total_obs_x_match_weight
                             for aa, frequency in observation.frequencies.items():
-                                # if aa not in ['stats', 'match']:
-                                # Multiply OBS and MATCH
-                                # modification_weight = obs_x_match_weight / total_obs_x_match_weight
-                                # modification_weight = ((obs_weight + match_weight) /  # WHEN SUMMING OBS and MATCH
-                                #                        (total_obs_weight + total_match_weight))
-                                # modification_weight = (obs_weight / total_obs_weight)
-                                # Add all occurrences to summed frequencies list
                                 observation_frequencies[aa] += frequency * scaled_obs_weight
 
                     # Add results to intermediate fragment_profile residue position index
@@ -1426,8 +1341,6 @@ class SequenceProfile(ABC):
                                    'info': 0.}
             if total_fragment_weight > 0:
                 residue_frequencies.update(**aa_counts_alph3)  # {'A': 0, 'R': 0, ...}  # NO -> 'stats': [0, 1]}
-                # residue_frequencies['count'] = total_fragment_observations
-                # residue_frequencies['weight'] = total_fragment_weight
                 for observation_frequencies in fragment_profile[residue_index]:
                     if observation_frequencies:  # Not an empty dict
                         # index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above

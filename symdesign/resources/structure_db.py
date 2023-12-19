@@ -137,7 +137,7 @@ def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.
         # Retrieve the proper files using PDB ID's
         structure_identifier_ = structure_identifier
         assembly_integer = entity_integer = None
-        splitter_iter = iter(('_', '-'))  # (entity, assembly))
+        splitter_iter = iter('_-')  # (entity, assembly))
         idx = count(-1)
         extra = None
         while len(structure_identifier_) != 4:
@@ -204,8 +204,8 @@ def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.
                 model = entity
                 model.file_path = file_path
             else:  # Couldn't find the specified EntityID
-                logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity "
-                               f"'{structure_identifier}'. The available Entity instances are "
+                logger.warning(f"For {structure_identifier}, couldn't locate the specified {Entity.__name__} "
+                               f"'{structure_identifier}'. The available {Entity.__name__} instances are "
                                f'{", ".join(entity.name for entity in model.entities)}')
                 continue
 
@@ -222,8 +222,7 @@ def query_qs_bio(entry_id: str) -> int:
     Returns:
         The integer of the corresponding PDB Assembly ID according to QSBio
     """
-    entry_id = entry_id.lower()
-    biological_assemblies = resources.query.pdb.qsbio_confirmed.get(entry_id)
+    biological_assemblies = resources.query.pdb.qsbio_confirmed.get(entry_id.lower())
     if biological_assemblies:
         # Get the first assembly in matching oligomers
         if len(biological_assemblies) != 1:
@@ -274,7 +273,7 @@ class StructureDatabase(Database):
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID/EntityID
         Returns:
             The tuple consisting of (
-                A map of the Model name to each Entity name in the Model,
+                A map of the entire Structure name to each contained Entity name,
                 A mapping of the UniprotID's to their ProteinMetadata instance for every Entity loaded
             )
         """
@@ -346,49 +345,49 @@ class StructureDatabase(Database):
 
         def report_non_viable_structures():
             if non_viable_structures:
-                non_str = ', '.join(non_viable_structures)
-                plural_str = f"s {non_str} weren't" if len(non_viable_structures) > 1 else f" {non_str} wasn't"
+                if len(non_viable_structures) > 1:
+                    non_str = ', '.join(non_viable_structures[:-1]) + f' and {non_viable_structures[-1]}'
+                    plural_str = f"s {non_str} weren't"
+                else:
+                    plural_str = f" {non_viable_structures} wasn't"
                 orient_logger.error(
-                    f'The Model{plural_str} able to be oriented properly')
+                    f'The Structure{plural_str} able to be oriented properly')
 
         def write_entities_and_asu(model: Model, assembly_integer: str):
             """Write the overall Model ASU, each Entity as an ASU and oligomer, and set the Model.file_path attribute
 
             Args:
-                model: The Model of interest being oriented
+                model: The Structure being oriented
                 assembly_integer: The integer representing the assembly number (provided from ".pdb1" type extensions)
             """
-            # Extract ASU from the Model, save .file_path attribute
-            model.file_path = os.path.join(self.oriented_asu.location,
-                                           f'{model.name}.pdb{assembly_integer}')
+            # Save .file_path attribute
+            model.file_path = os.path.join(self.oriented_asu.location, f'{model.name}.pdb{assembly_integer}')
             with open(model.file_path, 'w') as f:
                 f.write(model.format_header(asu=True))
-                # Write out each Entity in Model
+                # Write out each Entity in model to form the ASU
                 for entity in model.entities:
                     # Write each Entity to combined asu
                     entity.write(file_handle=f)
                     # Write each Entity to own file
-                    oligomer_path = os.path.join(self.oriented.location,
-                                                 f'{entity.name}.pdb{assembly_integer}')
                     entity.write(oligomer=True, out_path=oligomer_path)
+                    oligomer_path = os.path.join(self.oriented.location, f'{entity.name}.pdb{assembly_integer}')
                     # And asu
-                    asu_path = os.path.join(self.oriented_asu.location,
-                                            f'{entity.name}.pdb{assembly_integer}')
+                    asu_path = os.path.join(self.oriented_asu.location, f'{entity.name}.pdb{assembly_integer}')
                     # Set the Entity.file_path for ProteinMetadata
                     entity.file_path = entity.write(out_path=asu_path)
 
         # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
         #  consolidate their overlap
-        def orient_existing_file(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None):
+        def _orient_existing_files(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None) -> None:
             """Return the structure identifier for a file that is loaded and oriented
 
             Args:
-                files: The files to perform the orient protocol on
+                files: The files to orient in the canonical symmetry
+                resulting_symmetry: The symmetry to use during orient
                 sym_entry: The symmetry to use during orient protocol
             Returns:
-                Each of the oriented Model instances
+                None
             """
-            # all_structure = []
             for file in files:
                 # Load entities to solve multi-component orient problem
                 model = Pose.from_file(file)
@@ -413,14 +412,10 @@ class StructureDatabase(Database):
                     orient_logger.info(f'Oriented: {orient_file}')  # <- This isn't ASU
                     write_entities_and_asu(model, assembly_integer)
 
-                # model.symmetry = symmetry
-                # structure_identifiers_.append(model.name)
-                # all_structure.append(model)
-                # create_protein_metadata(model, sym_entry=sym_entry)
                 create_protein_metadata(model)
 
         if by_file:
-            orient_existing_file(structure_identifiers, resulting_symmetry, sym_entry)
+            _orient_existing_files(structure_identifiers, resulting_symmetry, sym_entry)
         else:  # Orienting the selected files and save
             # First, check if using crystalline symmetry and prevent loading of existing files
             if resulting_symmetry == CRYST:
@@ -501,16 +496,15 @@ class StructureDatabase(Database):
                         # pose.set_contacting_asu()
                         assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                         # Write out files for the orient database
-                        orient_file = os.path.join(self.oriented.location,
-                                                   f'{structure_identifier}.pdb{assembly_integer}')
+                        base_file_name = f'{structure_identifier}.pdb{assembly_integer}'
+                        orient_file = os.path.join(self.oriented.location, base_file_name)
 
                         if isinstance(pose, Entity):
                             # The symmetry attribute should be set from parsing, so oligomer=True will work
                             # and create_protein_metadata has access to .symmetry
                             pose.write(oligomer=True, out_path=orient_file)
                             # Write out ASU file
-                            asu_path = os.path.join(self.oriented_asu.location,
-                                                    f'{structure_identifier}.pdb{assembly_integer}')
+                            asu_path = os.path.join(self.oriented_asu.location, base_file_name)
                             # Set the Entity.file_path for ProteinMetadata
                             pose.file_path = pose.write(out_path=asu_path)
                         else:
@@ -813,7 +807,7 @@ class StructureDatabase(Database):
                         # Predict each
                         for idx, protein in enumerate(protein_data_to_loop_model):
                             entity_name = protein.entity_id
-                            # Model_source should be an oriented, asymmetric version of the protein file
+                            # .model_source should be a file containing an oriented, asymmetric version of the structure
                             entity = Entity.from_file(protein.model_source, metadata=protein)
 
                             # Using the protein.uniprot_entity.reference_sequence would be preferred, however, it should
@@ -871,10 +865,7 @@ class StructureDatabase(Database):
                                 structures_to_load = entity_structures.get('relaxed', [])
                             else:
                                 structures_to_load = entity_structures.get('unrelaxed', [])
-                            # model_kwargs = dict(name=entity_name, metadata=protein)
-                            # folded_entities = {model_name: Model.from_pdb_lines(
-                            #                    structure_.splitlines(), **model_kwargs)
-                            #                    for model_name, structure_ in structures_to_load.items()}
+
                             pose_kwargs = dict(name=entity_name, entity_info=protein.entity_info,
                                                symmetry=protein.symmetry_group)
                             folded_entities = {
@@ -885,7 +876,8 @@ class StructureDatabase(Database):
                                                 for model_name, scores in entity_scores.items()}
                                 for model_name, entity_ in folded_entities.items():
                                     entity_.set_b_factor_data(model_plddts[model_name])
-                            # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                            # Check for the rmsd between the backbone of the provided Entity Structure and
+                            # the Alphafold predicted Structure
                             # If the model were to be multimeric, then use this...
                             # if multimer:
                             #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
@@ -898,8 +890,8 @@ class StructureDatabase(Database):
                             min_rmsd = float('inf')
                             min_entity = None
                             for af_model_name, entity_ in folded_entities.items():
-                                rmsd, rot, tx = structure.coords.superposition3d(template_cb_coords,
-                                                                                 entity_.cb_coords[align_indices])
+                                rmsd, rot, tx = structure.coords.superposition3d(
+                                    template_cb_coords, entity_.cb_coords[align_indices])
                                 if rmsd < min_rmsd:
                                     min_rmsd = rmsd
                                     # Move the Alphafold model into the Pose reference frame

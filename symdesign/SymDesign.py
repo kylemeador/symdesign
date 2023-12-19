@@ -228,8 +228,8 @@ def load_poses_from_structure_and_entity_pairs(job: JobResources,
                 pose = Pose.from_entities(entities, name=structure_id)
             else:  # Just load the whole model based off of the name
                 # This is useful in the case when CRYST record is used in crystalline symmetries
-                whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented.location),
-                                                f'{structure_id}.pdb*')
+                whole_model_file = os.path.join(
+                    os.path.dirname(job.structure_db.oriented.location), f'{structure_id}.pdb*')
                 matching_files = glob(whole_model_file)
                 if matching_files:
                     if len(matching_files) > 1:
@@ -594,14 +594,14 @@ def main():
     #         flags.query_user_for_flags(mode=args.flags_module)
     # ---------------------------------------------------
     # elif args.residue_selector:  # Todo
-    #     def generate_sequence_template(pdb_file):
-    #         model = Model.from_file(pdb_file, entities=False)
-    #         sequence = SeqRecord(Seq(''.join(entity.sequence for entity in model.entities), 'Protein'), id=model.name)
+    #     def generate_sequence_template(file):
+    #         model = Pose.from_file(file)
+    #         sequence = SeqRecord(Seq(model.sequence), 'Protein'), id=model.name)
     #         sequence_mask = copy.copy(sequence)
     #         sequence_mask.id = 'residue_selector'
     #         sequences = [sequence, sequence_mask]
     #         raise NotImplementedError('This write_fasta call needs to have its keyword arguments refactored')
-    #         return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
+    #         return write_fasta(sequences, file_name=f'{model.name}_residue_selector_sequence')
     #
     #     if not args.single:
     #         raise utils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
@@ -1201,6 +1201,7 @@ def main():
                     with open(file) as f:
                         pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
 
+            pose_job: PoseJob
             warn = True
             for idx, pose_job in enumerate(pose_jobs):
                 if pose_job.id is None:  # Not loaded previously
@@ -1209,11 +1210,12 @@ def main():
                     #  where an Entity is composed of multiple Entity (Chain) instances
                     # Need to initialize the local database. Load this model to get required info
                     try:
-                        pose_job.load_initial_model()
+                        pose_job.load_initial_pose()
                     except utils.InputError as error:
                         logger.error(error)
                         remove_pose_jobs.append(idx)
                         continue
+
                     if job.specify_entities:
                         # Give the input new EntityID's
                         logger.info(f"Modifying identifiers for the input '{pose_job.name}'")
@@ -1223,7 +1225,7 @@ def main():
 
                         while True:
                             using_names = []
-                            for entity_idx, entity in enumerate(pose_job.initial_model.entities):
+                            for entity_idx, entity in enumerate(pose_job.initial_pose.entities):
                                 if use_map and not modify_map:
                                     specified_name = this_pose_entities[entity_idx].lower()
                                     if len(specified_name) == 4:
@@ -1255,7 +1257,7 @@ def main():
                                 else:
                                     modify_map = True
 
-                        for name, entity in zip(using_names, pose_job.initial_model.entities):
+                        for name, entity in zip(using_names, pose_job.initial_pose.entities):
                             if name != entity.name:
                                 entity.name = name
                                 # Explicitly clear old metadata
@@ -1265,7 +1267,7 @@ def main():
                                     logger.warning(f"There wasn't any information found from the PDB API for the "
                                                    f"name '{name}")
 
-                    for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
+                    for entity, symmetry in zip(pose_job.initial_pose.entities, symmetry_map):
                         try:
                             ''.join(entity.uniprot_ids)
                         except (TypeError, AttributeError):  # Uniprot_ids is (None,), Unable to retrieve .uniprot_ids
@@ -1349,9 +1351,10 @@ def main():
                         if _orient_outcome is not None:
                             # Some aspect of loading didn't work. This may be fine if the molecules are already oriented
                             if warn:
-                                logger.warning(f"Couldn't {pose_job.orient.__name__}. If the input is passed as an "
-                                               f"asymmetric unit, ensure that it is oriented in a canonical direction."
-                                               f"{putils.see_symmetry_documentation}")
+                                logger.warning(
+                                    f"Couldn't {pose_job.orient.__name__}() {repr(pose_job)}. If the input is passed as"
+                                    " an asymmetric unit, ensure that it is oriented in a canonical direction."
+                                    f"{putils.see_symmetry_documentation}")
                                 warn = False
 
                     pose_jobs_to_commit.append(pose_job)
@@ -1394,33 +1397,10 @@ def main():
 
                 # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
                 uniprot_entities = []
-                # all_protein_metadata = []
                 for protein_metadata in all_uniprot_id_to_prot_data.values():
-                    # all_protein_metadata.extend(protein_metadata)
                     for data in protein_metadata:
                         uniprot_entities.extend(data.uniprot_entities)
 
-                # # Populate all_structures to set up structure dependent resources
-                # all_structures = []
-                # # Orient entities, then load each entity to all_structures for further database processing
-                # for symmetry, entities in preprocess_entities_by_symmetry.items():
-                #     if not entities:  # Useful in a case where symmetry groups are the same or group is None
-                #         continue
-                #     # all_entities.extend(entities)
-                #     all_structures.extend(job.structure_db.orient_structures(
-                #         [entity.name for entity in entities], symmetry=symmetry))
-                #     # Todo orient Entity individually, which requires symmetric oligomer be made
-                #     #  This could be found from Pose._assign_pose_transformation() or new mechanism
-                #     #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry
-                #     #  job.structure_db.orient_entities(entities, symmetry=symmetry)
-                #
-                # # Indicate for the ProteinMetadata the characteristics of the Structure in the database
-                # for structure in all_structures:
-                #     for entity in structure.entities:
-                #         protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
-                #         # Importantly, we add oriented attribute to aid in any future processing
-                #         protein_metadata.model_source = entity.file_path
-                #
                 # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
                 session.add_all(uniprot_entities)
                 initialize_entities(job, uniprot_entities, [],  # all_uniprot_id_to_prot_data.values())
@@ -1432,7 +1412,7 @@ def main():
                     # Write new data to the database with correct ProteinMetadata and UniProtEntity entries
                     for pose_job in pose_jobs_to_commit:
                         entity_data = []
-                        for entity in pose_job.initial_model.entities:
+                        for entity in pose_job.initial_pose.entities:
                             for protein_metadata in all_uniprot_id_to_prot_data[entity.uniprot_ids]:
                                 if protein_metadata.entity_id == entity.entity_id:
                                     entity_data.append(sql.EntityData(meta=protein_metadata))

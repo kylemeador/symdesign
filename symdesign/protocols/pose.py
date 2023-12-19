@@ -183,8 +183,9 @@ class PoseDirectory:
         """
 
         Args:
-            directory:
-            output_modifier:
+            root_directory: The base of the directory tree that houses all project directories
+            project: The name of the project where the files should be stored in the root_directory
+            name: The name of the pose, which becomes the final dirname where all files are stored
         """
         self.info: dict = {}
         """Internal state info"""
@@ -245,41 +246,6 @@ class PoseDirectory:
         # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
         self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
         self.current_script = None
-        # try:
-        #     if self.initial:  # This is the first creation
-        #         if os.path.exists(self.serialized_info):
-        #             # This has been initialized without a database, gather existing state data
-        #             try:
-        #                 serial_info = unpickle(self.serialized_info)
-        #                 if not self.info:  # Empty dict
-        #                     self.info = serial_info
-        #                 else:
-        #                     serial_info.update(self.info)
-        #                     self.info = serial_info
-        #             except pickle.UnpicklingError as error:
-        #                 logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-        #                 raise error
-        #
-        #             # # Make a copy to check for changes to the current state
-        #             # self._info = self.info.copy()
-        #             raise NotImplementedError("Still working this out")
-        #             self.load_initial_model()
-        #             for entity in self.initial_model:
-        #                 self.entity_data.append(sql.EntityData(
-        #                     pose=self,
-        #                     meta=entity.metadata,
-        #                     metrics=entity.metrics,
-        #                     transform=EntityTransform(**transform)
-        #                 ))
-        #             # Todo
-        #             #  if self.job.db:
-        #             #      self.put_info_in_db()
-        # except AttributeError:  # Missing self.initial as this was loaded from SQL database
-        #     pass
-        # else:
-        #     self.pose_directory = os.path.join(os.getcwd(), 'temp')
-        #     raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
-        #                               f"Please solve the {self.__class__.__name__}.__init__() method")
 
         if self.job.output_directory:
             self.output_path = self.job.output_directory
@@ -426,15 +392,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # """The identifier which is created by a concatenation of the project, os.sep, and name"""
     # id: int  # DB
     # """The database row id for the 'pose_data' table"""
-    initial_model: Model | None
-    """Used if the pose structure has never been initialized previously"""
+    initial_pose: Pose | None
+    """Used if the Structure has never been initialized previously"""
     measure_evolution: bool | None
     measure_alignment: bool | None
     pose: Pose | None
     """Contains the Pose object"""
     protocol: str | None
     """The name of the currently utilized protocol for file naming and metric results"""
-    source_path: str | None
     # specific_designs_file_paths: list[AnyStr] = []
     # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
@@ -584,7 +549,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Design attributes
         # self.current_designs = []
         self.measure_evolution = self.measure_alignment = None
-        self.pose = self.initial_model = self.protocol = None
+        self.pose = self.initial_pose = self.protocol = None
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
         # Symmetry attributes
@@ -659,9 +624,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
         self.__init_from_db__()
-        if pose:  # This was passed and should be saved
-            self.initial_model = pose
-            self.initial_model.write(out_path=self.pose_path)
+        if pose is not None:  # It should be saved
+            self.initial_pose = pose
+            self.initial_pose.write(out_path=self.pose_path)
             self.source_path = self.pose_path
 
         # Save job variables to the state during initialization
@@ -691,7 +656,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     def clear_state(self):
         """Set the current instance structural and sequence attributes to None to remove excess memory"""
-        self.measure_evolution = self.measure_alignment = self.pose = self.initial_model = None
+        self.measure_evolution = self.measure_alignment = self.pose = self.initial_pose = None
 
     def use_specific_designs(self, designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                              **kwargs):
@@ -718,20 +683,20 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if directives:
             self.directives = directives
 
-    def load_initial_model(self):
+    def load_initial_pose(self):
         """Parse the Structure at the source_path attribute"""
         if self.pose:
-            self.initial_model = self.pose
-        elif self.initial_model is None:
+            self.initial_pose = self.pose
+        elif self.initial_pose is None:
             if self.source_path is None:
                 raise InputError(
-                    f"Couldn't {self.load_initial_model.__name__}() for {self.name} as there isn't a specified file")
-            self.initial_model = Model.from_file(self.source_path, log=self.log)
+                    f"Couldn't {self.load_initial_pose.__name__}() for {self.name} as there isn't a file specified")
+            self.initial_pose = Pose.from_file(self.source_path, log=self.log)
             # # Todo ensure that the chain names are renamed if they are imported a certain way
-            # if len(set([entity.chain_id for entity in self.initial_model.entities])) \
-            #         != self.initial_model.number_of_entities:
+            # if len(set([entity.chain_id for entity in self.initial_pose.entities])) \
+            #         != self.initial_pose.number_of_entities:
             #     rename = True
-            #     self.initial_model.rename_chains()
+            #     self.initial_pose.rename_chains()
             # # else:
             # #     rename = False
 
@@ -1102,51 +1067,23 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # if source_idx == 0:
         #     self.loop_modeled = True
 
-        # self.log.debug(f'{len(entities)} matching entities found')
         if len(entities) != len(self.entity_data):
             raise SymDesignException(
                 f'Expected {len(entities)} entities, but found {len(self.entity_data)}')
 
         return entities
-        # else:  # Todo not reachable. Consolidate this with above as far as iterative mechanism
-        #     out_dir = ''
-        #     if refined:  # prioritize the refined version
-        #         out_dir = self.job.refine_dir
-        #         for name in self.entity_names:
-        #             if not os.path.exists(glob(os.path.join(self.job.refine_dir, f'{name}*.pdb*'))[0]):
-        #                 oriented = True  # fall back to the oriented version
-        #                 self.log.debug('Couldn\'t find entities in the refined directory')
-        #                 break
-        #         self.refined = True if not oriented else False
-        #     if oriented:
-        #         out_dir = self.job.orient_dir
-        #         for name in self.entity_names:
-        #             if not os.path.exists(glob(os.path.join(self.job.refine_dir, f'{name}*.pdb*'))[0]):
-        #                 out_dir = self.pose_directory
-        #                 self.log.debug('Couldn\'t find entities in the oriented directory')
-        #
-        #     if not refined and not oriented:
-        #         out_dir = self.pose_directory
-        #
-        #     idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
-        #     oligomer_files = []
-        #     for idx, name in enumerate(self.entity_names, 1):
-        #         oligomer_files.extend(sorted(glob(os.path.join(out_dir, f'{name}*.pdb*'))))  # first * is PoseDirectoy
-        #     assert len(oligomer_files) == idx, \
-        #         f'Incorrect number of entities! Expected {idx}, {len(oligomer_files)} found. Matched files from ' \
-        #         f'"{os.path.join(out_dir, "*.pdb*")}":\n\t{oligomer_files}'
-        #
-        #     self.entities.clear()  # for every call we should reset the list
-        #     for file in oligomer_files:
-        #         self.entities.append(Model.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
-        #                                              log=self.log))
 
-    def format_error_for_log(self) -> None:  # , error: Type[Exception]):
-        """Handle any PoseJob particular processing of errors that should be captured in the log file.
+    def report_exception(self, context: str = None) -> None:
+        """Reports error traceback to the log file.
 
-        Currently reports error traceback
+        Args:
+            context: A string describing the function or situation where the error occurred.
         """
-        self.log.info(''.join(traceback.format_exc()))
+        if context is None:
+            msg = ''
+        else:
+            msg = f'{context} resulted in the exception:\n\n'
+        self.log.exception(msg)
 
     def format_see_log_msg(self) -> str:
         """Issue a standard informational message indicating the location of further error information"""
@@ -1167,7 +1104,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             return
         else:
             if entities is not None:
-                pass  # Use the entities as provided
+                self.structure_source = 'Protocol derived'
+                # Use the entities as provided
             elif self.source_path is None or not os.path.exists(self.source_path):
                 # In case a design was initialized without a file
                 self.log.info(f"No '.source_path' found. Fetching structure_source from "
@@ -1181,10 +1119,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 #  some small amount as this will ensure that files are refined and that loops are included...
                 # Collect the EntityTransform for these regardless of symmetry since the file will be coming from the
                 # oriented/origin position...
+                self.structure_source = 'Database'
 
             # Initialize the Pose using provided PDB numbering so that design_selectors are respected
             if entities:
-                self.structure_source = 'Database'
                 # Chains should be renamed if the chain_id's are the same
                 if len({entity.chain_id for entity in entities}) != len(entities):
                     rename = True
@@ -1192,11 +1130,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     rename = False
                 self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
                 self.pose.set_contacting_asu()
-            elif self.initial_model:
+            elif self.initial_pose:
                 # This is a fresh Model that was already loaded so reuse
-                # Careful, if processing has occurred to the initial_model, then this may be wrong!
-                self.pose = Pose.from_model(self.initial_model, name=self.name, **self.job_kwargs,
-                                            entity_info=self.initial_model.entity_info)
+                # Careful, if processing has occurred to the initial_pose, then this may be wrong!
+                self.pose = Pose.from_model(self.initial_pose, name=self.name, **self.job_kwargs,
+                                            entity_info=self.initial_pose.entity_info)
                 # Use entity_info from already parsed
                 self.structure_source = self.source_path
             else:
@@ -1449,21 +1387,21 @@ class PoseProtocol(PoseData):
         Args:
             to_pose_directory: Whether to write the file to the pose_directory or to another source
         """
-        if not self.initial_model:
-            self.load_initial_model()
+        if not self.initial_pose:
+            self.load_initial_pose()
 
         if self.symmetry:
-            self.initial_model.orient(symmetry=self.symmetry)
+            self.initial_pose.orient(symmetry=self.symmetry)
 
             if to_pose_directory:
                 out_path = self.assembly_path
             else:
                 putils.make_path(self.job.orient_dir)
-                out_path = os.path.join(self.job.orient_dir, f'{self.initial_model.name}.pdb')
+                out_path = os.path.join(self.job.orient_dir, f'{self.initial_pose.name}.pdb')
 
-            orient_file = self.initial_model.write(out_path=out_path)
+            orient_file = self.initial_pose.write(out_path=out_path)
             self.log.info(f'The oriented file was saved to {orient_file}')
-            for entity in self.initial_model.entities:
+            for entity in self.initial_pose.entities:
                 entity.remove_mate_chains()
 
             # # Load the pose and save the oriented pose
@@ -1908,7 +1846,6 @@ class PoseProtocol(PoseData):
             rmsds = []
             for af_model_name, model in models.items():
                 rmsd, rot, tx = superposition3d(template_cb_coords, model.cb_coords)
-                # rmsd, rot, tx = superposition3d(template_bb_cb_coords, model.backbone_and_cb_coords)
                 rmsds.append(rmsd)
                 if rmsd < min_rmsd:
                     min_rmsd = rmsd
@@ -1933,9 +1870,9 @@ class PoseProtocol(PoseData):
             """Using the PoseJob.pose instance, get coordinates compatible with AlphafoldInitialGuess
 
             Args:
-                sequence_:
-                assembly:
-                entity:
+                sequence_: The sequence to use as a template to generate the coordinates
+                assembly: Whether the coordinates should reflect the Pose Assembly
+                entity: If coordinates should come from a Pose Entity, which one?
             Returns:
                 The alphafold formatted sequence coords in a JAX array
             """

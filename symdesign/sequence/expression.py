@@ -155,7 +155,8 @@ def calculate_protein_isoelectric_point(sequence: Sequence[str | int], threshold
     # negative_last = abs(neg_charge) > abs(pos_charge)
     # neg_charge = pos_charge = negative_last = 0
     if threshold < 0:
-        raise ValueError(f"The argument 'threshold' can't be lower than 0. Got {threshold}")
+        raise ValueError(
+            f"The argument 'threshold' can't be lower than 0. Got {threshold}")
     remaining_charge = threshold + 1
     direction = 0
     count_ = count()
@@ -224,12 +225,13 @@ ext_coef_tyr = 1490
 
 def molecular_extinction_coefficient(sequence: Sequence[str | int]) -> tuple[float, float]:
     """Calculate the molecular extinction coefficient for an amino acid sequence using the formula
-    E(Prot) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp) + Numb(Cystine) * Ext(Cystine)
+    E(ProtOx) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp) + Numb(Cystine) * Ext(Cystine)
+    E(ProtRed) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp)
 
     Args:
         sequence: The sequence to measure
     Returns:
-        The pair of molecular extinction coefficients, first with all Cystine oxidized, then reduced
+        The pair of molecular extinction coefficients, first with all Cysteine oxidized, then reduced
     """
     seq_index = format_sequence_to_numeric(sequence)
     n_tyr = seq_index.count(tyr_index)
@@ -278,7 +280,7 @@ def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
         if pdb_code and chain:
             uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
             if uniprot_id is None:
-                logger.error(f"The pdb_code and chain combination '{pdb_code}_{chain}' found no valid identifiers")
+                logger.error(f"The 'pdb_code'.'chain' combination '{pdb_code}.{chain}' found no valid identifiers")
                 return matching_pdb_tags
     else:
         entity_ids = [entity_id]
@@ -288,35 +290,10 @@ def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
     elif entity_ids:
         pass
     else:
-        logger.error("One of 'uniprot_id' OR 'entity_id' OR 'pdb_code' AND 'chain' is required")
+        logger.error("One of 'uniprot_id' OR 'entity_id' OR 'pdb_code' and 'chain' is required")
         return matching_pdb_tags
     # From PDB API
     partner_sequences = [query.pdb.get_entity_reference_sequence(entity_id=entity_id) for entity_id in entity_ids]
-    # # from internal data storage
-    # if uniprot_id not in uniprot_pdb_d:
-    #     return {'name': None, 'seq': None}
-    #     # return AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(pdb_code), chain=chain,
-    #     #                                                  source='seqres')
-    #
-    # # {pdb: [{'A': 'MSGHHHHHHGKLKPNDLRI...'}, ...], ...}
-    # # pdb_chain_d = {}
-    # partner_sequences = []  # v in this dictionary 'all' gives PDB.Chain, 'unique' gives only PDB handle
-    # for matching_pdb_chain in uniprot_pdb_d[uniprot_id]['all']:
-    #     matching_pdb, chain = matching_pdb_chain.split('.')
-    #     # pdb_chain_d[matching_pdb] = chain  # This is essentially a set as duplicates are overwritten
-    # # # for matching_pdb, chain in pdb_chain_d.items():
-    # #     partner_pdb = Model.from_file(Pose.fetch_pdb_file(matching_pdb), log=None, entities=False)
-    # #     # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
-    # #     #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
-    # #     partner_sequences.append(partner_pdb.reference_sequence[chain])
-    #     # api_info = _get_entry_info(matching_pdb)
-    #     # chain_entity = {chain: entity_idx for entity_idx, chains in api_info.get('entity').items() for ch in chains}
-    #     partner_sequences.append(query.pdb.get_entity_reference_sequence(entry=matching_pdb, chain=chain))
-
-    # matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
-    # [[{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]
-    # matching_pdb_tags = list(iter_chain.from_iterable(find_expression_tags(sequence) for sequence in partner_sequences))
-    # reduce the iter of iterables for missing values. ^ can return empty lists
     for sequence in partner_sequences:
         matching_pdb_tags.extend(find_expression_tags(sequence, **kwargs))
 

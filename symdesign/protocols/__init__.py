@@ -651,15 +651,6 @@ def helix_bending(job: pose.PoseJob):
     Returns:
         Series containing summary metrics for all designs in the design directory
     """
-    # Main
-    # direction = sys.argv[1]
-    # pdbin_file = sys.argv[2]
-    # pdbout_pref = sys.argv[3]
-    # nres_joint = int(sys.argv[4])
-    # chain_to_bend = sys.argv[5]
-    # nsample = int(sys.argv[6])
-
-    # model_fixed = model.Model.from_file(pdbin_file)
     job.load_pose()
     if job.job.joint_chain:  # A chain designation was provided
         model_to_select = job.pose.chain(job.job.joint_chain)
@@ -679,17 +670,16 @@ def helix_bending(job: pose.PoseJob):
     for bent_idx, coords in enumerate(bent_coords, 1):
         job.pose.coords = coords
         # Check for clashes
-        if job.pose.is_clash(measure=job.design.clash_criteria,
-                             distance=job.design.clash_distance, silence_exceptions=True):
+        if job.pose.is_clash(measure=job.job.design.clash_criteria,
+                             distance=job.job.design.clash_distance, silence_exceptions=True):
             logger.info(f'Bend index {bent_idx} clashes')
             continue
-        if job.pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                job.pose.symmetric_assembly_is_clash(measure=job.design.clash_criteria,
-                                                     distance=job.design.clash_distance):
+        if job.pose.is_symmetric() and not job.job.design.ignore_symmetric_clashes and \
+                job.pose.symmetric_assembly_is_clash(measure=job.job.design.clash_criteria,
+                                                     distance=job.job.design.clash_distance):
             logger.info(f'Bend index {bent_idx} has symmetric clashes')
             continue
 
-        # Todo only write if specified, otherwise, return as new PoseJob
         trial_path = os.path.join(out_dir, f'{job.name}-bent{next(output_number)}.pdb')
         job.pose.write(out_path=trial_path)
 

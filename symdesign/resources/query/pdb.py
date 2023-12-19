@@ -25,13 +25,12 @@ UKB = 'UniProt'
 """The module level identifier for a UniProtID"""
 logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-qsbio_confirmed: Annotated[dict[str, list[int]],
-                           'PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence'\
-                           " of high or very high. Lowercase EntryID keys are mapped to a list of integer values"] = \
+qsbio_confirmed: Annotated[
+    dict[str, list[int]],
+    ("PDB EntryID (lowercase) mapped to biological assembly numbers for ID's with QSBio "
+     "confidence as high or very high")] = \
     utils.unpickle(putils.qs_bio)
-"""PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence of high or very high.
-Lowercase EntryID keys are mapped to a list of integer values
-"""
+"""PDB EntryID (lowercase) mapped to biological assembly numbers for ID's with QSBio confidence as high or very high"""
 
 # General Formatting
 user_input_format = f'\n{format_string.format("Option", "Description")}\n%s'
@@ -234,7 +233,7 @@ def query_pdb(query_: dict[Any] | str, json_formatted: bool = False) -> dict[str
         query_: The query formatted as a dictionary or a JSON string
         json_formatted: Whether the query is already formatted as a JSON string
     Returns:
-        The response formatted in JSON dictionary format or None if the query failed
+        The response formatted as a dictionary from the JSON format or None if the query failed
     """
     if json_formatted:
         formatted_query_ = query_
@@ -1614,10 +1613,22 @@ and_group_query = \
 general_query = "{%s,%s}"
 
 
-def nanohedra_building_blocks_query(symmetry: str, lower: int = None, upper: int = None,
-                                    thermophile: bool = False, groups: bool = False,
-                                    limit_by_groups: Iterable[str] = None,
-                                    search_by_groups: Iterable[str] = None) -> dict[Any] | None:
+def nanohedra_building_blocks_query(
+        symmetry: str, lower: int = None, upper: int = None, thermophile: bool = False, return_groups: bool = False,
+        limit_by_groups: Iterable[str] = None, search_by_groups: Iterable[str] = None) -> dict[Any] | None:
+    """Retrieve symmetric oligomers from the PDB to act as building blocks for nanohedra docking
+
+    Args:
+        symmetry: The symmetry to query for
+        lower: The low end to limit entity length
+        upper: The upper limit on entity length
+        thermophile: Whether to limit search to entries from thermophilic species
+        return_groups: Whether to return results as groupID's
+        limit_by_groups: Whether to limit the query, i.e. not return groupID's that are provided in this argument
+        search_by_groups: Search only for groupID's that are provided to this argument
+    Returns:
+        Matching EntityID's formatted as a dictionary from the JSON formatted response or None if the query failed
+    """
     groups_and_terminal = common_quality_filters \
         + ',' + format_symmetry_group(symmetry) \
         + ',' + format_length_group(lower, upper)
@@ -1636,7 +1647,7 @@ def nanohedra_building_blocks_query(symmetry: str, lower: int = None, upper: int
     formatted_query = json.loads(building_block_query)
 
     return query_pdb(generate_query(formatted_query, return_id='polymer_entity',
-                                    cluster_sequence=True, return_groups=groups, all_matching=True))
+                                    cluster_sequence=True, return_groups=return_groups, all_matching=True))
 
 
 assembly_author_defined = \
@@ -1653,9 +1664,18 @@ assembly_author_defined = \
     """
 
 
-def find_author_confirmed_assembly_from_entity_group(group_ids: Iterable[str], symmetry: str,
-                                                     lower: int = None, upper: int = None) \
-        -> dict[Any] | None:
+def find_author_confirmed_assembly_from_entity_group(
+        group_ids: Iterable[str], symmetry: str, lower: int = None, upper: int = None) -> dict[Any] | None:
+    """For specific groupID's, request all EntityID's that have an assembly confirmed by depositing authors from PDB API
+
+    Args:
+        group_ids: The groupID's to limit search to
+        symmetry: The symmetry to query for
+        lower: The low end to limit entity length
+        upper: The upper limit on entity length
+    Returns:
+        Matching AssemblyID's formatted as a dictionary from the JSON formatted response or None if the query failed
+    """
     groups_and_terminal = common_quality_filters \
         + ',' + format_symmetry_group(symmetry) \
         + ',' + format_length_group(lower, upper) \
@@ -1675,16 +1695,16 @@ class QueryParams:
     upper_length: int
 
 
-def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str, list[str]]) \
+def solve_author_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str, list[str]]) \
         -> tuple[list[str], list[str]]:
-    """From a map of Enity group ID to resolution sorted EntityIDs, solve for those EntityIDs that have an assembly
+    """From a map of Entity group ID's to resolution sorted EntityIDs, solve for those EntityIDs that have an assembly
 
     First search for QSbio confirmed assemblies, then search the PDB API for 'author_defined_assembly' and
     'author_and_software_defined_assembly'
 
     Args:
-        params:
-        grouped_entity_ids:
+        params: The parameter profile specified for the search procedure
+        grouped_entity_ids: A dictionary mapping groupID to EntryID's
     Returns:
         A tuple of the objects (
             The best EntityIDs according to incoming sorting and that pass the assembly test
@@ -1692,12 +1712,12 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
         )
     """
     # Check if the top thermophilic ids are actually bona-fide assemblies
-    top_entity_ids = []
+    top_entity_ids: list[str | None] = []
     # If they aren't, then solve by PDB API query
     solve_group_by_pdb = []
-    for group_id, ids_ in grouped_entity_ids.items():
-        group_assemblies = [qsbio_confirmed.get(id_) for id_ in ids_]
-        for id_, assembly in zip(ids_, group_assemblies):
+    for group_id, entity_ids in grouped_entity_ids.items():
+        group_assemblies = [qsbio_confirmed.get(id_[:4].lower()) for id_ in entity_ids]
+        for id_, assembly in zip(entity_ids, group_assemblies):
             if assembly is None:
                 continue
             else:
@@ -1709,15 +1729,18 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
             top_entity_ids.append(None)
 
     author_confirmed_assembly_result = \
-        find_author_confirmed_assembly_from_entity_group(solve_group_by_pdb, params.symmetry, params.lower_length,
-                                                         params.upper_length)
+        find_author_confirmed_assembly_from_entity_group(
+            solve_group_by_pdb, params.symmetry, params.lower_length, params.upper_length)
     if author_confirmed_assembly_result:
         author_confirmed_assembly_ids = parse_pdb_response_for_ids(author_confirmed_assembly_result)
     else:
         author_confirmed_assembly_ids = []
+
+    # Limit AssemblyID's to EntryID's
     author_confirmed_entry_ids = [id_[:4] for id_ in author_confirmed_assembly_ids]
     remove_group_ids = []
     remove_group_indices = []
+
     # For orphaned groups, find and fit author confirmed assemblies in their corresponding groups
     for group_idx, (top_id, group_id) in enumerate(zip(top_entity_ids, grouped_entity_ids.keys())):
         if top_id is None:
@@ -1728,9 +1751,7 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
             else:  # This still isn't solved. Remove from the pool
                 remove_group_ids.append(group_id)
                 remove_group_indices.append(group_idx)
-                # removed_group_id = thermophilic_group_ids.pop(group_idx)
-                # logger.debug(f"Removed group id as there isn't a matching QSbio or PDB author defined assembly:"
-                #              f' {removed_group_id}')
+
     for group_idx in reversed(remove_group_indices):
         top_entity_ids.pop(group_idx)
 

@@ -58,8 +58,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (SymDesignExcepti
                 return func(job, *args, **kwargs)
             except errors as error:
                 # Perform exception reporting using self.log
-                job.log.error(error)
-                job.format_error_for_log()
+                job.report_exception(context=func.__name__)
                 return ReportException(str(error))
         return wrapped
     return wrapper

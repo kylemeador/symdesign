@@ -3,14 +3,14 @@ import logging
 
 from symdesign import flags, utils
 from symdesign.resources.query.pdb import QueryParams, nanohedra_building_blocks_query, parse_pdb_response_for_ids, \
-    solve_confirmed_assemblies
+    solve_author_confirmed_assemblies
 
 logger = logging.getLogger(__name__)
 logger.setLevel(20)
 logger.addHandler(logging.StreamHandler())
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Query the PDB for symmetric oligomers\n')
+    parser = argparse.ArgumentParser(description="Retrieve EntryID's from the PDB\n")
     parser.add_argument(*flags.symmetry_args, required=True, type=str.upper,
                         help='What is the schoenflies symbol of the desired oligomeric\n'
                              "symmetry? For asymmetric, provide the argument as 'C1'")
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     # Grab the groups
     thermophilic_groups = \
         nanohedra_building_blocks_query(query_params.symmetry, query_params.lower_length, query_params.upper_length,
-                                        thermophile=True, groups=True)
+                                        thermophile=True, return_groups=True)
     if thermophilic_groups:
         thermophilic_group_ids = parse_pdb_response_for_ids(thermophilic_groups, groups=True)
         grouped_thermophilic_entity_ids = [parse_pdb_response_for_ids(group)
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     thermophilic_group_to_members = dict(zip(thermophilic_group_ids, grouped_thermophilic_entity_ids))
     logger.info('Starting thermo assembly limiting')
     top_thermophilic_entity_ids, remove_thermo_groups = \
-        solve_confirmed_assemblies(query_params, thermophilic_group_to_members)
+        solve_author_confirmed_assemblies(query_params, thermophilic_group_to_members)
     top_thermophilic_entity_ids = sorted(top_thermophilic_entity_ids)
     logger.info(f'Found the top thermophilic return ids: {top_thermophilic_entity_ids}')
     logger.info(f'Found the thermophilic group ids which have an unsolvable assembly: {remove_thermo_groups}')
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # Then use the identified groups to limit an additional search
     other_symmetry_groups = \
         nanohedra_building_blocks_query(query_params.symmetry, query_params.lower_length, query_params.upper_length,
-                                        groups=True, limit_by_groups=thermophilic_group_to_members.keys())
+                                        return_groups=True, limit_by_groups=thermophilic_group_to_members.keys())
     if other_symmetry_groups:
         other_symmetry_group_ids = parse_pdb_response_for_ids(other_symmetry_groups, groups=True)
         grouped_other_symmetry_entity_ids = \
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     other_symmetry_group_to_members = dict(zip(other_symmetry_group_ids, grouped_other_symmetry_entity_ids))
     top_other_symmetry_entity_ids, remove_other_groups = \
-        solve_confirmed_assemblies(query_params, other_symmetry_group_to_members)
+        solve_author_confirmed_assemblies(query_params, other_symmetry_group_to_members)
     top_other_symmetry_entity_ids = sorted(top_other_symmetry_entity_ids)
     logger.info(f'Found the top other return ids: {top_other_symmetry_entity_ids}')
     logger.info(f'Found other group ids which have an unsolvable assembly: {remove_other_groups}')

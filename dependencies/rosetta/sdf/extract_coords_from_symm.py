@@ -24,6 +24,12 @@ def coords_to_pdb(coords):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 4:
+        print(f"USAGE: python {__file__} "
+              "T32.sdf T32.pdb(in-rosetta-orientation) T32-canonical.pdb(in-canonical-orientation)\n\n"
+              "The files should have the same exact structure present and in the same order")
+        sys.exit(1)
+
     file = sys.argv[1]
     t32_rosetta_file = sys.argv[2]
     t32_orient_file = sys.argv[3]
@@ -36,26 +42,11 @@ if __name__ == '__main__':
             temp_coords = line.strip().replace('+', '').split()
             coords.append([list(map(float, temp_coords[-3].split(','))), list(map(float, temp_coords[-2].split(','))),
                            list(map(float, temp_coords[-1].split(',')))])
-    print(coords)
+    print(f"Found coords:\n{coords}")
     final_coords = np.array(coords)
     t32_rosetta = Model.from_file(t32_rosetta_file)
     t32_orient = Model.from_file(t32_orient_file)
     _, rot, tx = superposition3d(t32_orient.entities[0].cb_coords, t32_rosetta.entities[0].cb_coords)
     final_coords = np.matmul(final_coords, np.transpose(rot)) + tx
 
-    # with open(new_file, 'w') as f:
-    #     f.write('%s\n' % '\n'.join(' '.join(','.join(coord_triplet) for coord_triplet in coord_group) for coord_group in final_coords.tolist()))
     print('%s\n' % '\n'.join(' '.join(','.join(list(map(str, coord_triplet))) for coord_triplet in coord_group) for coord_group in final_coords.tolist()))
-    # final_coords = np.zeros((len(coords), 3))
-    # # final_coords = []
-    # for i in range(len(coords)):
-    #     internal_coords = []
-    #     for j in range(len(3)):
-    #         coord = coords[i][j].strip().strip('+').split(',')
-    #         # new = new.strip('+')
-    #         # coord = new.split(',')
-    #         # internal_coords.append(coord)
-    #         final_coords[i][j] = coord
-    # # final_coords.append(internal_coords)
-    # new_lines = coords_to_pdb(final_coords)
-
