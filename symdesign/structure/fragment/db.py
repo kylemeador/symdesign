@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
-from typing import Annotated, Literal, get_args, Type, Union, Iterable
+from typing import Annotated, Any, Literal, get_args, Iterable
 
 import numpy as np
 import scipy.spatial.transform
+from attr import frozen
 
 from . import info
 from symdesign import utils, structure
@@ -16,9 +17,29 @@ putils = utils.path
 logger = logging.getLogger(__name__)
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[str, ...] = get_args(alignment_types_literal)
-fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
-fragment_info_type = Type[dict[fragment_info_keys, Union[int, float, tuple[int, int, int]]]]
 RELOAD_DB = 123
+
+
+@frozen(auto_attribs=True)
+class FragmentInfo:
+    mapped: int
+    paired: int
+    match: float
+    cluster: tuple[int, int, int]
+
+
+@frozen(auto_attribs=True)
+class FragmentObservation:
+    source: str
+    cluster: tuple[int, int, int]
+    match: float
+    """The match of the entire fragment observation to the fragment cluster representative"""
+    weight: float
+    """The contribution of the FragObservation to atomic interactions from the entire fragment observation"""
+    frequencies: info.aa_weighted_counts_type
+
+    def __hash__(self):
+        return hash(self.source) * hash(self.cluster)
 
 
 class Representative:
@@ -135,7 +156,7 @@ class FragmentDatabase(info.FragmentInfo):
     #  the middle of these two ideas where the graph theory could take hold and a more useful scoring metric
     #  could emerge, also possibly with a differentiable equation I could relate pose transformations to
     #  favorable fragments found in the interface.
-    def calculate_match_metrics(self, fragment_matches: list[fragment_info_type]) -> dict:
+    def calculate_match_metrics(self, fragment_matches: list[FragmentInfo]) -> dict[str, Any]:
         """Return the various metrics calculated by overlapping fragments at the interface of two proteins
 
         Args:
@@ -172,8 +193,10 @@ class FragmentDatabase(info.FragmentInfo):
         #                               'paired': {'center': {'indices': set()}, 'total': {'indices': set()}},
         #                               'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
         for fragment in fragment_matches:
-            center_residx1, center_residx2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
-            i, j, k = fragment['cluster']
+            center_residx1 = fragment.mapped  # fragment['mapped']
+            center_residx2 = fragment.paired  # fragment['paired']
+            match_score = fragment.match  # fragment['match']
+            i, j, k = fragment.cluster  # fragment['cluster']
             fragment_i_index_count_d[i] += 1
             fragment_j_index_count_d[j] += 1
 
