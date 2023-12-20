@@ -8582,7 +8582,7 @@ class Pose(SymmetricModel, Metrics):
             self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
                                             dtype='fragment')
 
-    def get_fragment_observations(self, interface: bool = True) -> list[dict[str, str | int | float]] | list:
+    def get_fragment_observations(self, interface: bool = True) -> list[FragmentInfo] | list:
         """Return the fragment observations identified on the Pose for various types of tertiary structure interactions
 
         Args:
