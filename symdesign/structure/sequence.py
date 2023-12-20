@@ -1405,7 +1405,7 @@ class SequenceProfile(ABC):
             # Get the average contribution of each fragment type
             db_cluster_average = typical_fragment_weight_total / frag_count
             # Get the average fragment weight for this fragment_profile entry. Total weight/count
-            frag_weight_average = data.get('weight') / match_sum
+            frag_weight_average = data.get('weight') / count
 
             # Find the weight modifier which spans from 0 to 1
             if db_cluster_average > frag_weight_average:
