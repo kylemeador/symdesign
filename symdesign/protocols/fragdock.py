@@ -620,13 +620,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         #     _entity.metadata = entity.metadata
         models.append(model)
 
-    # Todo 2 figure out for single component
     model1: Model
     model2: Model
     model1, model2 = models
     del models
     logger.info(f'DOCKING {model1.name} TO {model2.name}')
-    #            f'\nOligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
 
     # Set up output mechanism
     entry_string = f'NanohedraEntry{sym_entry.number}'
@@ -678,7 +676,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # logger.debug('init_surf_guide_coords1: %s' % slice_variable_for_log(init_surf_guide_coords1))
     # logger.debug('init_surf_residue_indices1: %s' % slice_variable_for_log(init_surf_residue_indices1))
 
-    logger.info(f'Retrieved oligomer{idx}-{model1.name} surface fragments and guide coordinates took '
+    logger.info(f'Retrieved component{idx}-{model1.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags1_time_start:8f}s')
 
     #################################
@@ -705,7 +703,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     logger.debug(
         f'Found {len(init_surf_residue_indices2)} initial surface {idx} fragments with type: {initial_surf_type2}')
 
-    logger.info(f'Retrieved oligomer{idx}-{model2.name} surface fragments and guide coordinates took '
+    logger.info(f'Retrieved component{idx}-{model2.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags2_time_start:8f}s')
 
     # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
@@ -754,7 +752,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     logger.debug(f'Found {len(init_ghost_guide_coords1)} initial ghost {idx} fragments with type:'
                  f' {initial_surf_type2}')
 
-    logger.info(f'Retrieved oligomer{idx}-{model1.name} ghost fragments and guide coordinates '
+    logger.info(f'Retrieved component{idx}-{model1.name} ghost fragments and guide coordinates '
                 f'took {time.time() - get_complete_ghost_frags1_time_start:8f}s')
     #################################
     # Implemented for Todd to work on C1 instances
@@ -869,7 +867,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # logger.debug('init_ghost_residue_indices2: %s' % slice_variable_for_log(init_ghost_residue_indices2))
         # ghost2_residue_array = np.repeat(init_ghost_residue_indices2, len(init_surf_residue_indices1))
         # surface1_residue_array = np.tile(init_surf_residue_indices1, len(init_ghost_residue_indices2))
-        logger.info(f'Retrieved oligomer{idx}-{model2.name} ghost fragments and guide coordinates '
+        logger.info(f'Retrieved component{idx}-{model2.name} ghost fragments and guide coordinates '
                     f'took {time.time() - get_complete_ghost_frags2_time_start:8f}s')
 
     # logger.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords2.shape}')
@@ -1193,7 +1191,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     #  Majority of time is spent indexing the 6D euler overlap arrays which should be quite easy to speed up given
     #  understanding of different computational efficiencies at this check
     logger.info('Querying building blocks for initial fragment overlap')
-    # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
+    # Get rotated component1 ghost fragment, component2 surface fragment guide coodinate pairs in the same Euler space
     perturb_dof = job.dock.perturb_dof
     total_dof_combinations = rotations_to_perform1 * rotations_to_perform2
     progress_iter = iter(tqdm(range(total_dof_combinations), bar_format=TQDM_BAR_FORMAT))
@@ -1206,7 +1204,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             rotation_surf_euler_ints1 = stacked_surf_euler_int1[idx1]
         for idx2 in range(rotations_to_perform2):
             next(progress_iter)  # Updates progress bar
-            # Rotate oligomer2 surface and ghost fragment guide coordinates using rot_mat2 and set_mat2
+            # Rotate component2 surface and ghost fragment guide coordinates using rot_mat2 and set_mat2
             rot2_count = idx2%number_of_rotations2 + 1
             degen2_count = idx2//number_of_rotations2 + 1
             rot_mat2 = rotation_matrices2[idx2]

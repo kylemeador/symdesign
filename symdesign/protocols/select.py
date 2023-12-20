@@ -20,7 +20,7 @@ from symdesign import flags, metrics, utils
 from symdesign.resources import sql, config
 from symdesign.resources.job import job_resources_factory
 from symdesign.utils.query import input_string, boolean_choice, validate_input
-from symdesign.structure.model import Model
+from symdesign.structure.model import Pose
 from symdesign.sequence import constants, optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
 putils = utils.path
@@ -907,7 +907,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             if not file:
                 logger.error(f'No file found for {file_glob}')
                 continue
-            design_pose = Model.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
+            design_pose = Pose.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
             designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
 
             # Container of booleans whether each Entity has been tagged

@@ -1070,8 +1070,6 @@ def main():
                 print('\nNo docking pairs were located from your input. Please ensure that your flags are as intended.'
                       f'{putils.issue_submit_warning}\n')
                 sys.exit(1)
-            # Todo
-            #  This could be moved above Entity/Pose load as it's not necessary in that situation
             if job.distribute_work:
                 # Write all commands to a file and distribute a batched job
                 # The new command will be the same, but contain a pair of inputs
@@ -1484,7 +1482,6 @@ def main():
 
         if args.multi_processing:  # and not args.skip_master_db:
             logger.debug('Loading Database for multiprocessing fork')
-            # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
             job.structure_db.load_all_data()
             job.api_db.load_all_data()
 

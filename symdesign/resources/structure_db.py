@@ -258,7 +258,6 @@ class StructureDatabase(Database):
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
                                 load_file=structure.utils.parse_stride)
 
-        # Todo modify to only load the necessary structural files upon self.load_all_data() call
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
     def orient_structures(self, structure_identifiers: Iterable[str], sym_entry: SymEntry = None,
@@ -376,8 +375,6 @@ class StructureDatabase(Database):
                     # Set the Entity.file_path for ProteinMetadata
                     entity.file_path = entity.write(out_path=asu_path)
 
-        # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
-        #  consolidate their overlap
         def _orient_existing_files(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None) -> None:
             """Return the structure identifier for a file that is loaded and oriented
 
@@ -421,8 +418,6 @@ class StructureDatabase(Database):
             if resulting_symmetry == CRYST:
                 orient_asu_names = orient_names = model_names = []
             else:
-                # Todo transfer the writing process to a SQL database
-                #  as the use of files and database constitutes bad unit of work
                 orient_names = self.oriented.retrieve_names()
                 orient_asu_names = self.oriented_asu.retrieve_names()
                 model_names = self.models.retrieve_names()

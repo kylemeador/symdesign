@@ -920,7 +920,7 @@ class StructureBase(SymmetryBase, ABC):
             self._parent = parent
             self._parent_is_updating = False
         else:  # This is the parent
-            self.__parent = None  # Requries use of _StructureBase__parent attribute checks
+            self.__parent = None  # Requires use of _StructureBase__parent attribute checks
             self._dependent_is_updating = False
             # Initialize Log
             if log:
@@ -1070,7 +1070,6 @@ class StructureBase(SymmetryBase, ABC):
 
 class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
-    # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
     __coords: list[float]
     # _next_atom: Atom
     # _prev_atom: Atom
@@ -1577,7 +1576,7 @@ attribute basis with the intention to be reused
 """
 # These were pulled directly from alphafold and violates DRY
 # This is at the expense of working through import issues (they may not exist)
-# This mapping is used when we need to store atom data in a format that requires
+# This mapping is used to store atom data in a format that requires
 # fixed atom data size for every residue (e.g. a numpy array).
 atom_types = [
     'N', 'CA', 'C', 'CB', 'O', 'CG', 'CG1', 'CG2', 'OG', 'OG1', 'SG', 'CD',
@@ -4960,7 +4959,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Raises:
             ClashError if the Structure has an identified clash
         """
-        # Todo switch measure:
         if measure == 'backbone_and_cb':
             other = 'non-cb sidechain'
         elif measure == 'heavy':

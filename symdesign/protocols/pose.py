@@ -1147,7 +1147,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                    warn=not self.job.design.ignore_clashes)
             except ClashError:  # as error:
                 if self.job.design.ignore_pose_clashes:
-                    self.format_error_for_log()
+                    self.report_exception(context='Clash checking')
                     self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
                                      f"{self.format_see_log_msg()}")
                 else:
@@ -1380,7 +1380,7 @@ class PoseProtocol(PoseData):
         #                                    oligomeric_interfaces=self.job.oligomeric_interfaces)
 
     @handle_design_errors(errors=(SymDesignException,))
-    def orient(self, to_pose_directory: bool = True):
+    def orient(self, to_pose_directory: bool = True) -> None:
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         job.symmetry is used to specify the orientation
 
@@ -1404,8 +1404,8 @@ class PoseProtocol(PoseData):
             for entity in self.initial_pose.entities:
                 entity.remove_mate_chains()
 
-            # # Load the pose and save the oriented pose
-            # self.load_pose()
+            # Load the pose (required to save) then save the oriented version
+            self.load_pose()
             self.output_pose()
         else:
             raise SymmetryError(

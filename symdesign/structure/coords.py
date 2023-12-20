@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence, Iterable
+from typing import Sequence, Iterable, Iterator
 
 from numba import jit
 import numpy as np
@@ -71,10 +71,11 @@ class Coords:
             self.coords[indices] = new_coords
         except ValueError as error:
             # They are probably different lengths or another numpy indexing/setting issue
-            if len(self.coords) == 0:  # There are no coords, lets use set mechanism
-                self.coords = new_coords
+            if len(self.coords) == 0:  # There are no coords. Use the .set() mechanism
+                self.set(new_coords)
             else:
-                raise ValueError(f"The selected indices aren't the same shape as the 'new_coords': {error}")
+                raise ValueError(
+                    f"The selected indices aren't the same shape as the 'new_coords': {error}")
 
     def set(self, coords: np.ndarray | list[list[float]]):
         """Set self.coords to the provided coordinates
@@ -89,7 +90,7 @@ class Coords:
     def __len__(self) -> int:
         return len(self.coords)
 
-    def __iter__(self) -> list[float, float, float]:
+    def __iter__(self) -> Iterator[list[float, float, float]]:
         yield from self.coords.tolist()
 
     def __copy__(self) -> Coords:  # -> Self Todo python3.11
