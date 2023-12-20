@@ -5,7 +5,7 @@ import os
 import subprocess
 import time
 from abc import ABC
-from collections import UserList
+from collections import UserList, defaultdict
 from copy import deepcopy, copy
 from itertools import repeat, count
 from logging import Logger
@@ -19,7 +19,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from .fragment import info
-from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
+from .fragment.db import alignment_types_literal, alignment_types, FragmentInfo, FragmentObservation
 from symdesign import metrics, utils as sdutils
 from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, get_lod, \
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
@@ -393,17 +393,6 @@ class Profile(UserList):
 #         else:
 #             return np.array([[position_info[aa] for aa in alphabet]
 #                              for position_info in self.values()], dtype=np.float32)
-class FragObservation(NamedTuple):
-    source: str
-    cluster: tuple[int, int, int]
-    match: float
-    """The match of the entire fragment observation to the fragment cluster representative"""
-    weight: float
-    """The contribution of the FragObservation to atomic interactions from the entire fragment observation"""
-    frequencies: info.aa_weighted_counts_type
-
-    def __hash__(self):
-        return hash(self.source) * hash(self.cluster)
 
 
 class SequenceProfile(ABC):
@@ -424,8 +413,7 @@ class SequenceProfile(ABC):
     alpha: list[float]
     # alpha: dict[int, float]
     disorder: dict[int, dict[str, str]]
-    # fragment_map: dict[int, dict[int, set[fragment_info_type]]] | None
-    fragment_map: list[dict[int, set[FragObservation]]] | None
+    fragment_map: list[dict[int, set[FragmentObservation]]] | None
     """{1: {-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int], match=float, 
                  weight=float, frequencies=info.aa_weighted_counts_type), ...}, 
             -1: {}, ...},
@@ -1207,21 +1195,7 @@ class SequenceProfile(ABC):
 
         return write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
 
-    # def process_fragment_profile(self, **kwargs):
-    #     """From self.fragment_map, add the fragment profile to the SequenceProfile
-    #
-    #     Keyword Args:
-    #         keep_extras: bool = True - Whether to keep values for all that are missing data
-    #         evo_fill: bool = False - Whether to fill missing positions with evolutionary profile values
-    #         alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
-    #             0 means no use of fragments in the .profile, while 1 means only use fragments
-    #     Sets:
-    #         self.fragment_profile (ProfileDict)
-    #     """
-    #     self.simplify_fragment_profile(**kwargs)
-    #     # self._calculate_alpha(**kwargs)
-
-    def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
+    def add_fragments_to_profile(self, fragments: Iterable[FragmentInfo],
                                  alignment_type: alignment_types_literal, **kwargs):
         """Distribute fragment information to self.fragment_map. Zero-indexed residue array
 
@@ -1249,22 +1223,24 @@ class SequenceProfile(ABC):
         if self.fragment_map is None:
             interior_keys = range(*self._fragment_db.fragment_range)
             self.fragment_map = [dict.fromkeys(interior_keys, set()) for _ in range(self.number_of_residues)]
+            self.fragment_map = [defaultdict(set) for _ in range(self.number_of_residues)]
 
         # Add frequency information to the fragment profile using parsed cluster information. Frequency information is
         # added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a
         # new observation is created for that fragment index.
         for fragment in fragments:
             # Offset the specified fragment index to the overall index in the Structure
-            residue_index = fragment[alignment_type] - self.offset_index
-            cluster = fragment['cluster']
-            match = fragment['match']
+            fragment_index = getattr(fragment, alignment_type)
+            cluster = fragment.cluster
+            match = fragment.match
+            residue_index = fragment_index - self.offset_index
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
             aa_freq = getattr(self._fragment_db.info[cluster], alignment_type)
             for frag_idx, frequencies in aa_freq.items():  # (lower_bound - upper_bound), [freqs]
                 _frequencies = frequencies.copy()
-                _frag_info = FragObservation(source=alignment_type, cluster=cluster, match=match,
-                                             weight=_frequencies.pop('weight'), frequencies=_frequencies)
-                self.fragment_map[residue_index + frag_idx][frag_idx].add(_frag_info)  # .append(frag_info_dict)
+                _frag_info = FragmentObservation(source=alignment_type, cluster=cluster, match=match,
+                                                 weight=_frequencies.pop('weight'), frequencies=_frequencies)
+                self.fragment_map[residue_index + frag_idx][frag_idx].add(_frag_info)
 
     def simplify_fragment_profile(self, evo_fill: bool = False, **kwargs):  # keep_extras: bool = True,
         """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
@@ -1301,58 +1277,41 @@ class SequenceProfile(ABC):
         no_design = []
         fragment_profile = [[{} for _ in range(self._fragment_db.fragment_length)]
                             for _ in range(self.number_of_residues)]
-        indexed_observations: dict[int, set[FragObservation]]
+        indexed_observations: dict[int, set[FragmentObservation]]
         for residue_index, indexed_observations in enumerate(self.fragment_map):
-            total_fragment_observations = total_fragment_weight = 0
-            # for index, observations in enumerate(indexed_observations):
+            total_fragment_observations = total_fragment_weight_x_match = total_fragment_weight = 0
+
+            # Sum the weight for each fragment observation
             for index, observations in indexed_observations.items():
-                if observations:  # If not, will be an empty set
-                    # Sum the weight for each fragment observation
-                    total_obs_weight = total_obs_x_match_weight = 0.
-                    for observation in observations:
-                        total_fragment_observations += 1
-                        # observation_weight = observation['stats'][1]
-                        observation_weight = observation.weight
-                        total_obs_weight += observation_weight
-                        total_obs_x_match_weight += observation_weight * observation.match
+                for observation in observations:
+                    total_fragment_observations += 1
+                    observation_weight = observation.weight
+                    total_fragment_weight += observation_weight
+                    total_fragment_weight_x_match += observation_weight * observation.match
 
-                    # Combine all observations at each index
-                    # Check if weights are associated with observations. If not, side chain isn't significant
-                    observation_frequencies = {}
-                    if total_obs_weight > 0:
-                        observation_frequencies.update(**aa_counts_alph3)  # {'A': 0, RC': 0, ...}
-                        observation_frequencies['weight'] = total_obs_weight
-                        total_fragment_weight += total_obs_weight
-                        for observation in observations:
-                            # Use pop to access and simultaneously remove from observation for the iteration below
-                            # obs_x_match_weight = observation.pop('stats')[1] * observation.pop('match')
-                            obs_x_match_weight = observation.weight * observation.match
-                            scaled_obs_weight = obs_x_match_weight / total_obs_x_match_weight
-                            for aa, frequency in observation.frequencies.items():
-                                observation_frequencies[aa] += frequency * scaled_obs_weight
-
-                    # Add results to intermediate fragment_profile residue position index
-                    fragment_profile[residue_index][index] = observation_frequencies
-
-            # Combine all index observations into one residue frequency distribution
-            # Set stats over all residue indices and observations
+            # New style, consolidated
             residue_frequencies = {'count': total_fragment_observations,
                                    'weight': total_fragment_weight,
-                                   'info': 0.}
-            if total_fragment_weight > 0:
-                residue_frequencies.update(**aa_counts_alph3)  # {'A': 0, 'R': 0, ...}  # NO -> 'stats': [0, 1]}
-                for observation_frequencies in fragment_profile[residue_index]:
-                    if observation_frequencies:  # Not an empty dict
-                        # index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above
-                        scaled_frag_weight = observation_frequencies.pop('weight') / total_fragment_weight
+                                   'info': 0.,
+                                   'type': sequence[residue_index],
+                                   }
+            if total_fragment_weight_x_match > 0:
+                # Combine all amino acid frequency distributions for all observations at each index
+                residue_frequencies.update(**aa_counts_alph3)  # {'A': 0, 'R': 0, ...}
+                for index, observations in indexed_observations.items():
+                    for observation in observations:
+                        # Multiply weight associated with observations by the match of the observation, then
+                        # scale the observation weight by the total. If no weight, side chain isn't significant.
+                        scaled_frag_weight = observation.weight * observation.match / total_fragment_weight_x_match
                         # Add all occurrences to summed frequencies list
-                        for aa, frequency in observation_frequencies.items():
+                        for aa, frequency in observation.frequencies.items():
                             residue_frequencies[aa] += frequency * scaled_frag_weight
 
                 residue_frequencies['lod'] = get_lod(residue_frequencies, database_bkgnd_aa_freq)
-                residue_frequencies['type'] = sequence[residue_index]
             else:  # Add to list for removal from the profile
                 no_design.append(residue_index)
+                # {'A': 0, 'R': 0, ...}
+                residue_frequencies.update(lod=aa_nan_counts_alph3.copy(), **aa_nan_counts_alph3)
 
             # Add results to final fragment_profile residue position
             fragment_profile[residue_index] = residue_frequencies
@@ -1366,15 +1325,6 @@ class SequenceProfile(ABC):
             evolutionary_profile = self.evolutionary_profile
             for residue_index in no_design:
                 fragment_profile[residue_index] = evolutionary_profile.get(residue_index + zero_offset)
-        else:
-            # null_profile = self.create_null_profile(zero_index=True)
-            # for residue_index in no_design:
-            #     fragment_profile[residue_index] = null_profile[residue_index]  # blank_residue_entry
-            # Add blank entries where each value is np.nan
-            for residue_index in no_design:
-                new_entry = nan_profile_entry.copy()
-                new_entry['type'] = sequence[residue_index]
-                fragment_profile[residue_index] = new_entry
 
         # Format into fragment_profile Profile object
         self.fragment_profile = Profile(fragment_profile, dtype='fragment')
@@ -1424,7 +1374,7 @@ class SequenceProfile(ABC):
         fragment_stats = self._fragment_db.statistics
         # self.alpha.clear()  # Reset the data
         self.alpha = [0 for _ in self.residues]  # Reset the data
-        for entry, (data, fragment_map) in enumerate(zip(self.fragment_profile, self.fragment_map)):
+        for entry_idx, (data, fragment_map) in enumerate(zip(self.fragment_profile, self.fragment_map)):
             # Can't use the match count as the fragment index may have no useful residue information
             # Instead use number of fragments with SC interactions count from the frequency map
             frag_count = data.get('count', None)
@@ -1465,7 +1415,7 @@ class SequenceProfile(ABC):
                 weight_modifier = 1.
 
             # Modify alpha proportionally to match_modifier in addition to cluster average weight
-            self.alpha[entry] = self._alpha * match_modifier * weight_modifier
+            self.alpha[entry_idx] = self._alpha * match_modifier * weight_modifier
 
     def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
@@ -1506,13 +1456,13 @@ class SequenceProfile(ABC):
         # Combine fragment and evolutionary probability profile according to alpha parameter
         fragment_profile = self.fragment_profile
         # log_string = []
-        for entry, weight in enumerate(self.alpha):
+        for entry_idx, weight in enumerate(self.alpha):
             # Weight will be 0 if the fragment_profile is empty
             if weight:
                 # log_string.append(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight')
-                frag_profile_entry = fragment_profile[entry]
+                frag_profile_entry = fragment_profile[entry_idx]
                 inverse_weight = 1 - weight
-                _profile_entry = self.profile[entry + zero_offset]
+                _profile_entry = self.profile[entry_idx + zero_offset]
                 _profile_entry.update({aa: weight*frag_profile_entry[aa] + inverse_weight*_profile_entry[aa]
                                        for aa in protein_letters_alph3})
         # if log_string:

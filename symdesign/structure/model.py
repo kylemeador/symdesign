@@ -27,7 +27,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, SymmetryBase
 from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
-from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
+from .fragment.db import alignment_types, FragmentDatabase, FragmentInfo
 from .sequence import SequenceProfile, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
     sequence_to_one_hot
 from .utils import DesignError, SymmetryError, chain_id_generator, coords_type_literal, default_clash_criteria, \
@@ -67,28 +67,6 @@ def softmax(x: np.ndarray) -> np.ndarray:
     """
     input_exp = np.exp(x)
     return input_exp / input_exp.sum(axis=-1, keepdims=True)
-
-
-def get_matching_fragment_pairs_info(ghostfrag_frag_pairs:
-                                     list[tuple[fragment.GhostFragment, fragment.Fragment, float]]) -> \
-        list[fragment_info_type]:
-    """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
-    information
-
-    Args:
-        ghostfrag_frag_pairs: Observed ghost and surface fragment overlaps and their match score
-    Returns:
-        The formatted fragment information for each pair
-            {'mapped': int, 'paired': int, 'match': float, 'cluster': tuple(int, int, int)}
-    """
-    info_tuple = ('mapped', 'paired', 'match', 'cluster')
-    fragment_matches = [dict(zip(info_tuple, (ghost_frag.index, surf_frag.index, match_score, ghost_frag.ijk)))
-                        for ghost_frag, surf_frag, match_score in ghostfrag_frag_pairs]
-
-    logger.debug(f'Fragments for Entity1 found at indices: {[fragment["mapped"] for fragment in fragment_matches]}')
-    logger.debug(f'Fragments for Entity2 found at indices: {[fragment["paired"] for fragment in fragment_matches]}')
-
-    return fragment_matches
 
 
 def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
@@ -6136,7 +6114,7 @@ class Pose(SymmetricModel, Metrics):
     design_selector_indices: set[int]
     fragment_metrics: dict
     fragment_pairs: list[tuple[fragment.GhostFragment, fragment.Fragment, float]] | list
-    fragment_queries: dict[tuple[Entity, Entity], list[fragment_info_type]]
+    fragment_queries: dict[tuple[Entity, Entity], list[FragmentInfo] | list]
     ignore_clashes: bool
     # interface_design_residue_numbers: set[int]  # set[Residue]
     # interface_residue_numbers: set[int]
@@ -8197,7 +8175,7 @@ class Pose(SymmetricModel, Metrics):
             by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             distance: float = 8. - The distance to measure Residues across an interface
         Sets:
-            self.fragment_queries (dict[tuple[Entity, Entity], list[fragment_info_type]])
+            self.fragment_queries (dict[tuple[Entity, Entity], list[FragmentInfo]])
             self.fragment_pairs (list[tuple[GhostFragment, Fragment, float]])
         """
         if (entity1, entity2) in self.fragment_queries:  # Due to asymmetry in fragment generation, (2, 1) isn't checked
@@ -8294,7 +8272,8 @@ class Pose(SymmetricModel, Metrics):
         #
         # self.log.critical(f'Wrote debugging Fragments to: {debug_path}')
 
-        self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+        self.fragment_queries[(entity1, entity2)] = (
+            fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
         # Add newly found fragment pairs to the existing fragment observations
         self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
@@ -8609,8 +8588,7 @@ class Pose(SymmetricModel, Metrics):
         Args:
             interface: Whether to return fragment observations from only the Pose interface
         Returns:
-            The fragment observations formatted as [{'mapped': index (int), 'paired': index (int),
-                                                     'cluster': tuple(int, int, int), 'match': float}, ...]
+            The fragment observations
         """
         # Ensure fragments are generated if they aren't already
         if interface:
@@ -8630,7 +8608,7 @@ class Pose(SymmetricModel, Metrics):
         return observations
 
     # Todo Add all fragment instances (not just interface) to the metrics
-    def get_fragment_metrics(self, fragments: list[fragment_info_type] = None, total_interface: bool = True,
+    def get_fragment_metrics(self, fragments: list[FragmentInfo] = None, total_interface: bool = True,
                              by_interface: bool = False, by_entity: bool = False,
                              entity1: Structure = None, entity2: Structure = None, **kwargs) -> dict:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
@@ -9042,7 +9020,8 @@ class Pose(SymmetricModel, Metrics):
             search_start_time = time.time()
             ghostfrag_surfacefrag_pairs = entity.find_fragments(**kwargs)
             self.log.info(f'Internal fragment search took {time.time() - search_start_time:8f}s')
-            self.fragment_queries[(entity, entity)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+            self.fragment_queries[(entity, entity)] = (
+                fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
             # Add newly found fragment pairs to the existing fragment observations
             self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
