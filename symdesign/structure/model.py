@@ -1423,7 +1423,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return self._chains
 
     @property
-    def oligomer(self) -> Model:  # Todo list[Entity] | Structures:
+    def assembly(self) -> Model:
         """Access the oligomeric Structure which is a copy of the Entity plus any additional symmetric mate chains
 
         Returns:
@@ -1432,7 +1432,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._oligomer
         except AttributeError:
-            self.log.debug(f'Loading {self.name}.oligomer model upon first access')
+            self.log.debug(f'Loading {repr(self)}.assembly Model upon first access')
             self._oligomer = Model.from_chains(self.chains, entities=False, log=self.log)
             # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             return self._oligomer
@@ -1656,14 +1656,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                         for line_number in range(1, 1 + math.ceil(len(formatted_sequence) / seq_res_len)))
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-              oligomer: bool = False, **kwargs) -> AnyStr | None:
+              assembly: bool = False, **kwargs) -> AnyStr | None:
         """Write Entity Structure to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
-            oligomer: Whether to write the oligomeric form of the Entity
+            assembly: Whether to write the oligomeric form of the Entity
         Keyword Args:
             asu: bool = True - Whether to output SEQRES for the Entity ASU or the full oligomer
             chain_id: str = None - The chain ID to use
@@ -1675,7 +1675,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.log.debug(f'Entity is writing {self}')
 
         def entity_write(handle):
-            if oligomer:
+            if assembly:
                 kwargs.pop('atom_offset', None)
                 offset = 0
                 for chain in self.chains:
@@ -1689,8 +1689,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return None
 
         else:  # out_path always has default argument current working directory
-            # oligomer=True implies we want to write all chains, i.e. asu=False
-            _header = self.format_header(asu=not oligomer, **kwargs)
+            # assembly=True implies all chains will be written, so asu=False to write each SEQRES record
+            _header = self.format_header(asu=not assembly, **kwargs)
             if header is not None and isinstance(header, str):  # Used for cryst_record now...
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
@@ -1723,9 +1723,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # 'c_terminal_helix': self.is_termini_helical(termini='c'),
             # 'thermophile': thermophile
             # 'number_of_residues': self.number_of_residues,
-            'radius': self.oligomer.distance_from_reference(**kwargs),
-            'min_radius': self.oligomer.distance_from_reference(measure='min', **kwargs),
-            'max_radius': self.oligomer.distance_from_reference(measure='max', **kwargs),
+            'radius': self.assembly.distance_from_reference(**kwargs),
+            'min_radius': self.assembly.distance_from_reference(measure='min', **kwargs),
+            'max_radius': self.assembly.distance_from_reference(measure='max', **kwargs),
             'n_terminal_orientation': self.termini_proximity_from_reference(**kwargs),
             'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', **kwargs),
         }
@@ -1990,7 +1990,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         clean_orient_input_output()
         # Have to change residue numbering to PDB numbering
-        self.write(oligomer=True, out_path=str(orient_input), pdb_number=True)
+        self.write(assembly=True, out_path=str(orient_input), pdb_number=True)
 
         # Todo superposition3d -> quaternion
         p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -2179,7 +2179,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             sdf_mode = 'NCS'
 
         if not struct_file:
-            struct_file = self.write(oligomer=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
+            struct_file = self.write(assembly=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
 
         chains = [self.chain_ids[self.max_symmetry_chain_idx]]
         if self.is_dihedral():
@@ -3011,7 +3011,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         clean_orient_input_output()
         # Have to change residue numbering to PDB numbering
         if multicomponent:
-            self.entities[0].write(oligomer=True, out_path=str(orient_input), pdb_number=True)
+            self.entities[0].write(assembly=True, out_path=str(orient_input), pdb_number=True)
         else:
             self.write(out_path=str(orient_input), pdb_number=True)
 
@@ -4190,7 +4190,7 @@ class Models(UserList):  # (Model):
                         chain_id = next(available_chain_ids)
                         entity.write(file_handle=handle, chain_id=chain_id, **kwargs)
                         c_term_residue = entity.c_terminal_residue
-                        # Todo when used with oligomer=True, the c_term_residue is the first monomer residue...
+                        # Todo when used with assembly=True, the c_term_residue is the first monomer residue...
                         handle.write(f'TER   {c_term_residue.end_index + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{chain_id:1s}{c_term_residue.number:>4d}\n')
             else:
@@ -7569,9 +7569,9 @@ class Pose(SymmetricModel, Metrics):
         per_residue_data['sasa_relative_complex'] = [residue.relative_sasa for residue in assembly_asu_residues]
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         for entity in self.entities:
-            if not entity.oligomer.sasa:
-                entity.oligomer.get_sasa()
-            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
+            if not entity.assembly.sasa:
+                entity.assembly.get_sasa()
+            oligomer_asu_residues = entity.assembly.residues[:entity.number_of_residues]
             per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
@@ -7679,9 +7679,9 @@ class Pose(SymmetricModel, Metrics):
         per_residue_relative_sasa_complex = np.array([residue.relative_sasa for residue in assembly_asu_residues])
         per_residue_relative_sasa_unbound = []
         for entity in self.entities:
-            if not entity.oligomer.sasa:
-                entity.oligomer.get_sasa()
-            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
+            if not entity.assembly.sasa:
+                entity.assembly.get_sasa()
+            oligomer_asu_residues = entity.assembly.residues[:entity.number_of_residues]
             per_residue_relative_sasa_unbound.extend([residue.relative_sasa for residue in oligomer_asu_residues])
 
         per_residue_relative_sasa_unbound = np.array(per_residue_relative_sasa_unbound)
@@ -7701,9 +7701,9 @@ class Pose(SymmetricModel, Metrics):
         per_residue_sasa_complex = np.array([residue.sasa for residue in assembly_asu_residues])
         per_residue_sasa_unbound = []
         for entity in self.entities:
-            if not entity.oligomer.sasa:
-                entity.oligomer.get_sasa()
-            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
+            if not entity.assembly.sasa:
+                entity.assembly.get_sasa()
+            oligomer_asu_residues = entity.assembly.residues[:entity.number_of_residues]
             per_residue_sasa_unbound.extend([residue.sasa for residue in oligomer_asu_residues])
 
         per_residue_sasa_unbound = np.array(per_residue_sasa_unbound)
@@ -7730,9 +7730,9 @@ class Pose(SymmetricModel, Metrics):
         # Calculate sap for each Entity
         per_residue_sap_unbound = []
         for entity in self.entities:
-            entity.oligomer.spatial_aggregation_propensity_per_residue(distance=distance)
-            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
-            # per_residue_sap_unbound.extend(entity.oligomer.spatial_aggregation_propensity[:entity.number_of_residues])
+            entity.assembly.spatial_aggregation_propensity_per_residue(distance=distance)
+            oligomer_asu_residues = entity.assembly.residues[:entity.number_of_residues]
+            # per_residue_sap_unbound.extend(entity.assembly.spatial_aggregation_propensity[:entity.number_of_residues])
             per_residue_sap_unbound.extend([residue.spatial_aggregation_propensity
                                             for residue in oligomer_asu_residues])
 

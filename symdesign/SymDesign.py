@@ -948,7 +948,7 @@ def main():
         # Todo
         #  if job.output_oligomers:
         #      for entity in pose.entities:
-        #          entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
+        #          entity.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
         #  Which should be
         #      for model in pose.entities:
         #          model.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))

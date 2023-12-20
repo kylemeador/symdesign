@@ -1140,7 +1140,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         logger.debug(f'Creating Pose from entities: '
                                      f'{", ".join(repr(entity) for entity in all_entities)}')
                         pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera)
-                        # pose.entities[0].write(oligomer=True, out_path='DEBUG_oligomer.pdb')
+                        # pose.entities[0].write(assembly=True, out_path='DEBUG_oligomer.pdb')
                         # pose.write(out_path='DEBUG_POSE.pdb', increment_chains=True)
                         # pose.write(assembly=True, out_path='DEBUG_ASSEMBLY.pdb')  # , increment_chains=True)
 
@@ -1284,7 +1284,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 logger.warning('No unit cell dimensions applicable to the trajectory file.')
 
             trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
-                                    oligomer=True)
+                                    assembly=True)
         return pose_jobs
 
     with job.db.session(expire_on_commit=False) as session:

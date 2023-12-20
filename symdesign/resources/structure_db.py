@@ -368,8 +368,8 @@ class StructureDatabase(Database):
                     # Write each Entity to combined asu
                     entity.write(file_handle=f)
                     # Write each Entity to own file
-                    entity.write(oligomer=True, out_path=oligomer_path)
                     oligomer_path = os.path.join(self.oriented.location, f'{entity.name}.pdb{assembly_integer}')
+                    entity.write(assembly=True, out_path=oligomer_path)
                     # And asu
                     asu_path = os.path.join(self.oriented_asu.location, f'{entity.name}.pdb{assembly_integer}')
                     # Set the Entity.file_path for ProteinMetadata
@@ -495,9 +495,9 @@ class StructureDatabase(Database):
                         orient_file = os.path.join(self.oriented.location, base_file_name)
 
                         if isinstance(pose, Entity):
-                            # The symmetry attribute should be set from parsing, so oligomer=True will work
+                            # The symmetry attribute should be set from parsing, so assembly=True will work
                             # and create_protein_metadata has access to .symmetry
-                            pose.write(oligomer=True, out_path=orient_file)
+                            pose.write(assembly=True, out_path=orient_file)
                             # Write out ASU file
                             asu_path = os.path.join(self.oriented_asu.location, base_file_name)
                             # Set the Entity.file_path for ProteinMetadata
@@ -835,12 +835,12 @@ class StructureDatabase(Database):
                             # Attach evolutionary info to the entity
                             evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
 
-                            # After all sequence modifications, create the entity.oligomer
+                            # After all sequence modifications, create the entity.assembly
                             entity.make_oligomer(symmetry=protein.symmetry_group)
                             if entity.number_of_symmetry_mates > 1:
                                 af_symmetric = True
                                 model_runners = multimer_runners
-                                previous_position_coords = jnp.asarray(entity.oligomer.alphafold_coords)
+                                previous_position_coords = jnp.asarray(entity.assembly.alphafold_coords)
                             else:
                                 af_symmetric = False
                                 model_runners = monomer_runners
@@ -876,7 +876,7 @@ class StructureDatabase(Database):
                             # If the model were to be multimeric, then use this...
                             # if multimer:
                             #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
-                            #     Tod0 entity_backbone_and_cb_coords = entity.oligomer.cb_coords
+                            #     Tod0 entity_backbone_and_cb_coords = entity.assembly.cb_coords
 
                             # Only use the original indices to align
                             new_indices = list(source_gap_mutations.keys())

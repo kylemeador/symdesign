@@ -1245,14 +1245,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                     increment_chains=self.job.increment_chains,
                                     surrounding_uc=self.job.output_surrounding_uc)
                     self.log.info(f"Symmetric assembly written to: '{assembly_path}'")
-            if self.job.output_oligomers:  # Write out Entity.oligomer instances to the PoseJob
+            if self.job.output_oligomers:  # Write out Entity.assembly instances to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
                     if self.job.output_to_directory:
                         oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
                     else:
                         oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
                     if not os.path.exists(oligomer_path) or self.job.overwrite:
-                        entity.write(oligomer=True, out_path=oligomer_path)
+                        entity.write(assembly=True, out_path=oligomer_path)
                         self.log.info(f"Entity {entity.name} oligomer written to: '{oligomer_path}'")
 
         if self.job.output_entities:  # Write out Entity instances to the PoseJob
@@ -1333,7 +1333,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self.log.warning('No unit cell dimensions applicable to the trajectory file.')
 
                 trajectory_models.write(out_path=os.path.join(self.frags_path, 'all_frags.pdb'),
-                                        oligomer=True)
+                                        assembly=True)
 
                 ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
                 fragment.visuals.write_fragments_as_multimodel(ghost_frags,
@@ -1894,7 +1894,7 @@ class PoseProtocol(PoseData):
             if assembly:
                 af_coords = structure.assembly.alphafold_coords
             elif entity:
-                af_coords = structure.oligomer.alphafold_coords
+                af_coords = structure.assembly.alphafold_coords
             else:
                 af_coords = structure.alphafold_coords
 
@@ -1911,6 +1911,7 @@ class PoseProtocol(PoseData):
         # else:
         #     no_msa = False
         no_msa = True
+        debug_entities_and_oligomers = False
         # Ensure clashes aren't checked as these stop operation
         pose_kwargs = self.pose_kwargs.copy()
 
@@ -2006,15 +2007,16 @@ class PoseProtocol(PoseData):
                 # This would explicitly pass the transformation parameters which are correct for the PoseJob
                 # for entity in pose.entities:
                 #     entity.remove_mate_chains()
-                pose.make_oligomers(transformations=self.transformations)
-                pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
-                pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
-                for entity in pose.entities:
-                    entity.write(
-                        out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
-                    entity.write(oligomer=True,
-                                 out_path=os.path.join(self.designs_path,
-                                                       f'{pose.name}{entity.name}-oligomer-check.pdb'))
+                if debug_entities_and_oligomers:
+                    pose.make_oligomers(transformations=self.transformations)
+                    pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
+                    pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
+                    for entity in pose.entities:
+                        entity.write(
+                            out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
+                        entity.write(assembly=True,
+                                     out_path=os.path.join(self.designs_path,
+                                                           f'{pose.name}{entity.name}-oligomer-check.pdb'))
 
             # Using the 2-fold aware pose.interface_residues_by_interface
             interface_indices = tuple([residue.index for residue in residues]
@@ -2068,7 +2070,7 @@ class PoseProtocol(PoseData):
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 if run_multimer_system:  # Get the length
                     multimer_sequence_length = features['seq_length']
-                    entity_number_of_residues = entity.oligomer.number_of_residues
+                    entity_number_of_residues = entity.assembly.number_of_residues
                 else:
                     multimer_sequence_length = None
                     entity_number_of_residues = entity.number_of_residues
@@ -2084,7 +2086,7 @@ class PoseProtocol(PoseData):
                 # if run_multimer_system:
                 entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
                 # Todo
-                #  entity_backbone_and_cb_coords = entity.oligomer.cb_coords
+                #  entity_backbone_and_cb_coords = entity.assembly.cb_coords
                 # else:
                 #     entity_cb_coords = entity.cb_coords
 
@@ -3306,7 +3308,7 @@ class PoseProtocol(PoseData):
         # if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
         #     source_errat = []
         #     for idx, entity in enumerate(self.pose.entities):
-        #         _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #         _, oligomeric_errat = entity.assembly.errat(out_path=os.path.devnull)
         #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
         #     # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
         #     pose_source_errat = np.concatenate(source_errat)
@@ -4525,7 +4527,7 @@ class PoseProtocol(PoseData):
         #         # Replace 'errat_deviation' measurement with uncomplexed entities
         #         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
         #         # source_errat_accuracy.append(oligomer_errat_accuracy)
-        #         _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #         _, oligomeric_errat = entity.assembly.errat(out_path=os.path.devnull)
         #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
         #     # atomic_deviation[pose_name] = sum(source_errat_accuracy) / float(number_of_entities)
         #     pose_source_errat = np.concatenate(source_errat)

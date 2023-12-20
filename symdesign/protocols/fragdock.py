@@ -3763,7 +3763,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 logger.warning('No unit cell dimensions applicable to the trajectory file.')
 
             trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
-                                    oligomer=True)
+                                    assembly=True)
         return pose_jobs
 
     # Clean up, save data/output results
