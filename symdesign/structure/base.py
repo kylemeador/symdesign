@@ -888,7 +888,6 @@ class StructureBase(SymmetryBase, ABC):
     Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
     in the method resolution order of derived classes.
     """
-    _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
     _copier: bool
     """Whether the StructureBase is being copied by a Container object. If so, cut corners"""
@@ -1005,21 +1004,10 @@ class StructureBase(SymmetryBase, ABC):
             raise TypeError(
                 f"Can't set {Log.__class__.__name__} to {type(log).__name__}. Must be type logging.Logger")
 
-    @property  # Todo return StructureIndex
-    def atom_indices(self) -> list[int] | None:
-        """The Atoms/Coords indices which the StructureBase has access to"""
-        try:
-            return self._atom_indices
-        except AttributeError:
-            return None
-
     @property
-    def number_of_atoms(self) -> int:
-        """The number of atoms/coordinates in the StructureBase"""
-        try:
-            return len(self._atom_indices)
-        except TypeError:
-            return 0
+    @abc.abstractmethod
+    def atom_indices(self) -> list[int]:
+        """The Atoms/Coords indices which the StructureBase has access to"""
 
     @property
     def coords(self) -> np.ndarray:
@@ -1048,6 +1036,13 @@ class StructureBase(SymmetryBase, ABC):
         # and setting before removes dependent reference
         self._coords.replace(self._atom_indices, coords)
 
+    def detach_from_parent(self):
+        """Remove this instance from its parent, making it a parent in the process"""
+        # Set parent explicitly as None
+        self.__setattr__(parent_variable, None)
+        # Create a new, Coords instance detached from the parent
+        self._coords = Coords(self.coords)
+
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state
 
@@ -1058,6 +1053,99 @@ class StructureBase(SymmetryBase, ABC):
                 self.__delattr__(attr)
             except AttributeError:
                 continue
+
+        if self.is_symmetric():
+            self.reset_symmetry_state()
+
+    def translate(self, translation: list[float] | np.ndarray, **kwargs):
+        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
+        ensuring the underlying coords are not modified
+
+        Args:
+            translation: The first translation to apply, expected array shape (3,)
+        """
+        self.coords += translation
+
+    def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs):
+        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
+        underlying coords are not modified
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+        """
+        self.coords = np.matmul(self.coords, np.transpose(rotation))  # Allows a list to be passed
+        # self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
+
+    def transform(self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
+                  rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None,
+                  **kwargs):
+        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
+        transformed ensuring the underlying coords are not modified
+
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+        rotation, translation, rotation2, translation2
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
+        """
+        if rotation is not None:  # Required for np.ndarray or None checks
+            new_coords = np.matmul(self.coords, np.transpose(rotation))  # Allows list to be passed...
+            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
+        else:
+            new_coords = self.coords  # No need to copy as this is a view
+
+        if translation is not None:  # Required for np.ndarray or None checks
+            new_coords += translation
+
+        if rotation2 is not None:  # Required for np.ndarray or None checks
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # Allows list to be passed...
+            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
+
+        if translation2 is not None:  # Required for np.ndarray or None checks
+            new_coords += translation2
+
+        self.coords = new_coords
+
+    def get_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
+                             translation: list[float] | np.ndarray = None,
+                             rotation2: list[list[float]] | np.ndarray = None,
+                             translation2: list[float] | np.ndarray = None) -> StructureBase:
+        """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
+
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+        rotation, translation, rotation2, translation2
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
+        Returns:
+            A transformed copy of the original object
+        """
+        if rotation is not None:  # Required for np.ndarray or None checks
+            new_coords = np.matmul(self.coords, np.transpose(rotation))  # Allows list to be passed...
+            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
+        else:
+            new_coords = self.coords  # No need to copy as this is a view
+
+        if translation is not None:  # Required for np.ndarray or None checks
+            new_coords += translation
+
+        if rotation2 is not None:  # Required for np.ndarray or None checks
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # Allows list to be passed...
+            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
+
+        if translation2 is not None:  # Required for np.ndarray or None checks
+            new_coords += translation2
+
+        new_structure = self.copy()
+        new_structure.coords = new_coords
+
+        return new_structure
 
     def __copy__(self) -> StructureBase:  # Todo -> Self: in python 3.11
         cls = self.__class__
@@ -1135,11 +1223,8 @@ class Atom(StructureBase):
         #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
     def detach_from_parent(self):
-        """Remove the current instance from the parent that created it"""
-        # Set parent explicitly as None
-        self.__setattr__(parent_variable, None)
-        # Create a new, empty Coords instance
-        self._coords = Coords(self.coords)
+        """Remove this instance from its parent, making it a parent in the process"""
+        super().detach_from_parent()
         self.index = 0
         self.reset_state()
 
@@ -1150,7 +1235,7 @@ class Atom(StructureBase):
         return self._type
 
     @property
-    def _atom_indices(self) -> list[int]:
+    def atom_indices(self) -> list[int]:
         """The index of the Atom in the Atoms/Coords container"""
         return [self.index]
 
@@ -1175,7 +1260,7 @@ class Atom(StructureBase):
         try:
             # return self._coords.coords[self.index]
             # ^ this method is what is needed, but not in line with API. v call flatten() to return correct shape
-            return self._coords.coords[self._atom_indices].flatten()
+            return self._coords.coords[[self.index]].flatten()
         except (AttributeError, IndexError):
             # Possibly the Atom was set with keyword argument coords instead of Structure Coords
             # This shouldn't be used often as it will be quite slow... give warning?
@@ -1198,7 +1283,7 @@ class Atom(StructureBase):
     def x(self, x: float):
         """Set the value for the x coordinate"""
         try:
-            self._coords.replace(self._atom_indices, [x, self.coords[1], self.coords[2]])
+            self._coords.replace([self.index], [x, self.coords[1], self.coords[2]])
         except AttributeError:  # when _coords not used
             self.__coords = [x, self.coords[1], self.coords[2]]
 
@@ -1211,7 +1296,7 @@ class Atom(StructureBase):
     def y(self, y: float):
         """Set the value for the y coordinate"""
         try:
-            self._coords.replace(self._atom_indices, [self.coords[0], y, self.coords[2]])
+            self._coords.replace([self.index], [self.coords[0], y, self.coords[2]])
         except AttributeError:  # when _coords not used
             self.__coords = [self.coords[0], y, self.coords[2]]
 
@@ -1224,7 +1309,7 @@ class Atom(StructureBase):
     def z(self, z: float):
         """Set the value for the z coordinate"""
         try:
-            self._coords.replace(self._atom_indices, [self.coords[0], self.coords[1], z])
+            self._coords.replace([self.index], [self.coords[0], self.coords[1], z])
         except AttributeError:  # when _coords not used
             self.__coords = [self.coords[0], self.coords[1], z]
 
@@ -1611,9 +1696,103 @@ class ContainsAtomsMixin(StructureBase, ABC):
         return cls(atoms=atoms, **kwargs)
 
     def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
+        """
+        Args:
+            atoms: Atom instances to initialize the instance
+        """
         super().__init__(**kwargs)
         if atoms is not None:
             self._assign_atoms(atoms)
+
+    def get_base_containers(self) -> dict[str, Any]:
+        """Returns the instance structural containers as a dictionary with attribute as key and container as value"""
+        return dict(coords=self._coords, atoms=self._atoms)
+
+    def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):
+        """Assign Atom instances to the StructureBase, create Atoms object
+
+        Args:
+            atoms: The Atom instances to assign to the StructureBase
+            atoms_only: Whether Atom instances are being assigned on their own. Residues will be created if so.
+                If not, indicate False and use other StructureBase information such as Residue instances to complete set
+                up. When False, atoms won't become dependents of this instance until specifically called using
+                Atoms.set_attributes(_parent=self)
+        Keyword Args:
+            coords: numpy.ndarray = None - The coordinates to assign to the StructureBase.
+                Optional, will use a .coords attribute from Atoms container if not specified
+        Sets:
+            self._atom_indices (list[int])
+
+            self._atoms (Atoms)
+        """
+        # Set proper atoms attributes
+        self._atom_indices = list(range(len(atoms)))
+        if not isinstance(atoms, Atoms):  # Must create the Atoms object
+            atoms = Atoms(atoms)
+
+        if atoms.are_dependents():  # Copy Atoms object to set new attributes on each member Atom
+            atoms = atoms.copy()
+            atoms.reset_state()  # Clear runtime attributes
+        self._atoms = atoms
+        self.renumber_atoms()
+
+        if atoms_only:
+            self._populate_coords(**kwargs)  # Coords may be passed
+            # self._create_residues()
+            # Ensure that coordinate lengths match atoms
+            self._validate_coords()
+            # Update Atom instance attributes to ensure they are dependants of this instance
+            # Must do this after _populate_coords to ensure that coordinate info isn't overwritten
+            self._atoms.set_attributes(_parent=self)
+            # if not self.file_path:  # Assume this instance wasn't parsed and Atom indices are incorrect
+            self._atoms.reindex()
+            # self._set_coords_indexed()
+
+    def _populate_coords(self, coords: np.ndarray = None, from_source: structure_container_types = 'atoms'):
+        """Set up the coordinates, initializing them from_source coords if none are set
+
+        Only useful if the calling StructureBase is a parent, and coordinate initialization has yet to occur
+
+        Args:
+            coords: The coordinates to assign to the StructureBase. Will use from_source.coords if not specified
+            from_source: The source to set the coordinates from if they are missing
+        """
+        if coords is not None:
+            # Try to set the provided coords. This will handle issue where empty
+            # Coords class should be set. Setting .coords through normal mechanism
+            # preserves subclasses requirement to handle symmetric coordinates.
+            self.coords = np.concatenate(coords)
+
+        # Check if _coords (Coords) has been populated
+        if len(self._coords.coords) == 0:
+            # If it hasn't, then coords weren't passed.
+            # Try to set from self.from_source and catch missing 'from_source'.
+            try:  # Probably missing from_source. .coords is available in all structure_container_types...
+                source_coordinate_container = getattr(self, from_source)
+            except AttributeError:
+                raise AttributeError(
+                    f"'{from_source}' aren't available for the {repr(self)} instance")
+
+            try:
+                coords = np.concatenate([container.coords for container in source_coordinate_container])
+            except AttributeError:
+                raise AttributeError(
+                    f"Missing '.coords' attribute for the {repr(self)} container attribute '{from_source}'. "
+                    f"This isn't supposed to happen. Is '{from_source}' a Structure container?")
+            else:
+                if from_source == 'atoms':
+                    coords = coords.reshape(-1, 3)
+
+            self._coords.set(coords)
+
+    def _validate_coords(self):
+        """Ensure that the StructureBase coordinates are formatted correctly"""
+        # This is a crucial functionality for when making a valid new Structure
+        if self.number_of_atoms != len(self.coords):
+            # .number_of_atoms was typically just set by self._atom_indices
+            raise ValueError(
+                f'The number of Atoms, {self.number_of_atoms} != {len(self.coords)}, the number of Coords. Consider '
+                f"initializing {self.__class__.__name__} without explicitly passing coords if this wasn't expected")
 
     @property
     def atoms(self) -> list[Atom] | None:
@@ -1623,7 +1802,19 @@ class ContainsAtomsMixin(StructureBase, ABC):
         except AttributeError:  # When self._atoms isn't set or is None and doesn't have .atoms
             return None
 
-    # @property
+    @property
+    def atom_indices(self) -> list[int]:
+        """The Atoms/Coords indices which the StructureBase has access to"""
+        return self._atom_indices
+
+    @property
+    def number_of_atoms(self) -> int:
+        """The number of atoms/coordinates in the StructureBase"""
+        try:
+            return len(self._atom_indices)
+        except TypeError:
+            return 0
+
     def neighboring_atom_indices(self, distance: float = 8., **kwargs) -> list[int]:  # np.ndarray:
         """Return the Atom instances in the Structure
 
@@ -1754,85 +1945,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """Return a view of the Coords from the StructureBase with side chain atom coordinates"""
         return self._coords.coords[self.side_chain_indices]
 
-    def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):
-        """Assign Atom instances to the Structure, create Atoms object
-
-        Args:
-            atoms: The Atom instances to assign to the Structure
-            atoms_only: Whether Atom instances are being assigned on their own. Residues will be created if so.
-                If not, indicate False and use other Structure information such as Residue instances to complete set up.
-                When False, atoms won't become dependents of this instance until specifically called using
-                Atoms.set_attributes(_parent=self)
-        Keyword Args:
-            coords: (numpy.ndarray) = None - The coordinates to assign to the Structure.
-                Optional, will use a .coords attribute from Atoms container if not specified
-        Sets:
-            self._atom_indices (list[int])
-
-            self._atoms (Atoms)
-        """
-        # Set proper atoms attributes
-        self._atom_indices = list(range(len(atoms)))
-        if not isinstance(atoms, Atoms):  # Must create the Atoms object
-            atoms = Atoms(atoms)
-
-        if atoms.are_dependents():  # Copy Atoms object to set new attributes on each member Atom
-            atoms = atoms.copy()
-            atoms.reset_state()  # Clear runtime attributes
-        self._atoms = atoms
-        self.renumber_atoms()
-
-        if atoms_only:
-            self._populate_coords(**kwargs)  # Coords may be passed
-            # self._create_residues()
-            # Ensure that coordinate lengths match atoms
-            self._validate_coords()
-            # Update Atom instance attributes to ensure they are dependants of this instance
-            # Must do this after _populate_coords to ensure that coordinate info isn't overwritten
-            self._atoms.set_attributes(_parent=self)
-            # if not self.file_path:  # Assume this instance wasn't parsed and Atom indices are incorrect
-            self._atoms.reindex()
-            # self._set_coords_indexed()
-
-    def _populate_coords(self, coords: np.ndarray = None, from_source: structure_container_types = 'atoms'):
-        """Set up the coordinates, initializing them from_source coords if none are set
-
-        Only useful if the calling Structure is a parent, and coordinate initialization has yet to occur
-
-        Args:
-            coords: The coordinates to assign to the Structure. Will use from_source.coords if not specified
-            from_source: The source to set the coordinates from if they are missing
-        """
-        if coords is not None:
-            # Try to set the provided coords. This will handle issue where empty
-            # Coords class should be set. Setting .coords through normal mechanism
-            # preserves subclasses requirement to handle symmetric coordinates.
-            self.coords = np.concatenate(coords)
-        if len(self._coords.coords) == 0:  # Check if Coords (_coords) hasn't been populated
-            # If it hasn't, then coords weren't passed. Try to set from self.from_source. catch missing from_source
-            if from_source == 'atoms':
-                coords = np.concatenate([s.coords for s in getattr(self, from_source)]).reshape(-1, 3)
-            else:
-                coords = np.concatenate([s.coords for s in getattr(self, from_source)])
-            try:
-                self._coords.set(coords)
-            except AttributeError:
-                try:  # Probably missing from_source. .coords is available in all structure_container_types...
-                    getattr(self, from_source)
-                except AttributeError:
-                    raise AttributeError(f"{from_source} isn't set on the current {self.__class__.__name__} instance")
-                raise AttributeError(f'Missing .coords attribute on the current {self.__class__.__name__} '
-                                     f"instance.{from_source} attribute. This isn't supposed to happen! "
-                                     f'Congrats you broke a core feature! 0.15 bitcoin have been added to your wallet')
-
-    def _validate_coords(self):
-        """Ensure that the StructureBase coordinates are formatted correctly"""
-        # This is the functionality we care about most of the time when making a new Structure
-        if self.number_of_atoms != len(self.coords):  # .number_of_atoms typically just set by self._atom_indices
-            raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
-                             f'Consider initializing {self.__class__.__name__} without explicitly passing coords if '
-                             "this isn't expected")
-
     def renumber_atoms(self, at: int = 1):
         """Renumber all Atom objects sequentially starting with 1
 
@@ -1948,6 +2060,39 @@ class ContainsAtomsMixin(StructureBase, ABC):
         for atom in self.get_atoms(**kwargs):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
+
+    @property
+    def radius(self) -> float:
+        """The furthest point from the center of mass of the Structure"""
+        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
+
+    @property
+    def radius_of_gyration(self) -> float:
+        """The measurement of the implied radius (Angstroms) affecting how the Structure diffuses through solution
+
+        Satisfies the equation:
+            Rg = SQRT(SUM|i->N(Ri**2)/N)
+        Where:
+            - Ri is the radius of the point i from the center of mass point
+            - N is the total number of points
+        """
+        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
+
+    def distance_from_reference(self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs) \
+            -> float:
+        """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
+
+        Args:
+            reference: The reference where the point should be measured from. Default is origin
+            measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
+                numpy function to describe computed distance scalars
+        Returns:
+            The distance from the reference point to the furthest point
+        """
+        if reference is None:
+            reference = utils.symmetry.origin
+
+        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
 
 residue_attributes_literal = Literal[
@@ -2069,11 +2214,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
     def detach_from_parent(self):
-        """Remove the current instance from the parent that created it"""
-        # Set parent explicitly as None
-        self.__setattr__(parent_variable, None)
-        # Create a new, empty Coords instance
-        self._coords = Coords(self.coords)
+        """Remove this instance from its parent, making it a parent in the process"""
+        super().detach_from_parent()
         # Populate the Structure with its existing instances removed of any indexing
         self._assign_atoms(self.atoms)
         self.reset_state()
@@ -3372,11 +3514,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._residues = parent._residues
 
     def detach_from_parent(self):
-        """Remove the current instance from the parent that created it"""
-        # Set parent explicitly as None
-        self.__setattr__(parent_variable, None)
-        # Create a new, empty Coords instance
-        self._coords = Coords(self.coords)
+        """Remove this instance from its parent, making it a parent in the process"""
+        super().detach_from_parent()
         # Populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)
         self.reset_state()
@@ -3384,10 +3523,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     # Todo a separate call for each of ContainsAtomsMixin and ContainsResiduesMixin
     def get_base_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
-        # Todo ContainsResiduesMixin
         return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)
-        # Todo ContainsAtomsMixin
-        # return dict(coords=self._coords, atoms=self._atoms)
 
     @property
     def fragment_db(self) -> fragment.db.FragmentDatabase:
