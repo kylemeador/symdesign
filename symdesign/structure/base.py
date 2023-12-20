@@ -4426,23 +4426,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self.insert_residues(residue_index, add_residues, chain_id=residue.chain_id)
 
-    @property
-    def radius(self) -> float:
-        """The furthest point from the center of mass of the Structure"""
-        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
-
-    @property
-    def radius_of_gyration(self) -> float:
-        """The measurement of the implied radius (Angstroms) affecting how the Structure diffuses through solution
-
-        Satisfies the equation:
-            Rg = SQRT(SUM|i->N(Ri**2)/N)
-        Where:
-            - Ri is the radius of the point i from the center of mass point
-            - N is the total number of points
-        """
-        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
-
     def get_residue_atoms(self, numbers: Container[int] = None, **kwargs) -> list[Atom]:
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
 
@@ -4939,93 +4922,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             _delete_residues += residues[c_term_index:]
 
         self.delete_residues(_delete_residues)
-
-    def translate(self, translation: list[float] | np.ndarray, **kwargs):
-        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
-        ensuring the underlying coords are not modified
-
-        Args:
-            translation: The first translation to apply, expected array shape (3,)
-        """
-        self.coords = self.coords + translation
-
-    def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs):
-        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
-        underlying coords are not modified
-
-        Args:
-            rotation: The first rotation to apply, expected array shape (3, 3)
-        """
-        self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
-
-    def transform(self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
-                  rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None,
-                  **kwargs):
-        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
-        transformed ensuring the underlying coords are not modified
-
-        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
-        rotation, translation, rotation2, translation2
-
-        Args:
-            rotation: The first rotation to apply, expected array shape (3, 3)
-            translation: The first translation to apply, expected array shape (3,)
-            rotation2: The second rotation to apply, expected array shape (3, 3)
-            translation2: The second translation to apply, expected array shape (3,)
-        """
-        if rotation is not None:  # Required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
-        else:
-            new_coords = self.coords  # No need to copy as this is a view
-
-        if translation is not None:  # Required for np.ndarray or None checks
-            new_coords += translation
-
-        if rotation2 is not None:  # Required for np.ndarray or None checks
-            np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)
-
-        if translation2 is not None:  # Required for np.ndarray or None checks
-            new_coords += translation2
-
-        self.coords = new_coords
-
-    def get_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
-                             translation: list[float] | np.ndarray = None,
-                             rotation2: list[list[float]] | np.ndarray = None,
-                             translation2: list[float] | np.ndarray = None) -> Structure:
-        """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
-
-        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
-        rotation, translation, rotation2, translation2
-
-        Args:
-            rotation: The first rotation to apply, expected array shape (3, 3)
-            translation: The first translation to apply, expected array shape (3,)
-            rotation2: The second rotation to apply, expected array shape (3, 3)
-            translation2: The second translation to apply, expected array shape (3,)
-        Returns:
-            A transformed copy of the original object
-        """
-        if rotation is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, np.transpose(rotation))  # This allows list to be passed...
-            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))
-        else:
-            new_coords = self.coords  # No need to copy as this is a view
-
-        if translation is not None:  # required for np.ndarray or None checks
-            new_coords += np.array(translation)
-
-        if rotation2 is not None:  # required for np.ndarray or None checks
-            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # This allows list to be passed...
-            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)
-
-        if translation2 is not None:  # required for np.ndarray or None checks
-            new_coords += np.array(translation2)
-
-        new_structure = self.copy()
-        new_structure.coords = new_coords
-
-        return new_structure
 
     # Todo this should be a property keeping in line with Residue.local_density, however the arguments are important at
     #  this level... Need to reconcile the API for this
@@ -5606,22 +5502,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return 1  # Termini further from the reference
         else:
             return -1  # Termini closer to the reference
-
-    def distance_from_reference(self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs) \
-            -> float:
-        """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
-
-        Args:
-            reference: The reference where the point should be measured from. Default is origin
-            measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
-                numpy function to describe computed distance scalars
-        Returns:
-            The distance from the reference point to the furthest point
-        """
-        if reference is None:
-            reference = utils.symmetry.origin
-
-        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
     def get_atom_record(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
