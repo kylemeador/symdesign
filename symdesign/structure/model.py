@@ -25,7 +25,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from . import fragment
-from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal
+from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, SymmetryBase
 from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
@@ -951,7 +951,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     _max_symmetry_chain_idx: int | None
     mate_rotation_axes: list[dict[str, int | np.ndarray]] | list
     """Maps mate entities to their rotation matrix"""
-    # symmetry: str | None
     _uniprot_ids: tuple[str | None, ...]
     state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
     # | ContainsChainsMixin.state_attributes
@@ -1040,8 +1039,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Todo when capable of asymmetric symmetrization
                 #  self.chains.append(chain)
-            # Inherent to Entity type is a single sequence. Therefore, must be symmetric
-            self._number_of_symmetry_mates = len(additional_chains) + 1
+
+        self._number_of_symmetry_mates = len(self._chain_transforms) + 1
+        if self._number_of_symmetry_mates > 1:
+            # Inherent to Entity type is a single reference sequence. Therefore, must be symmetric
             if self.is_dihedral():
                 self.symmetry = f'D{int(self.number_of_symmetry_mates / 2)}'
             elif self.is_cyclic():
@@ -1052,9 +1053,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 except KeyError:
                     self.log.warning(f"Couldn't find a compatible symmetry for the Entity with "
                                      f"{self.number_of_symmetry_mates} chain copies")
-                    self.symmetry = None
-        else:
-            self.symmetry = None
+                    self.symmetry = "Unknown-symmetry"
 
         # reference_sequence must be set up after self.chains
         if metadata is None:
@@ -1356,17 +1355,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # def chain_ids(self, chain_ids: list[str]):
     #     self._chain_ids = chain_ids
 
-    @property  # Todo in SymmetricModel, exactly
-    def symmetry(self) -> str | None:
-        """The overall symmetric state, ie, the symmetry result"""
-        try:
-            return self._symmetry
-        except AttributeError:
-            return None
-
-    @symmetry.setter
+    @SymmetryBase.symmetry.setter
     def symmetry(self, symmetry: str | None):
-        self._symmetry = symmetry
+        super(StructureBase, StructureBase).symmetry.fset(self, symmetry)
         if symmetry and self.is_dependent():
             # Set the parent Structure.symmetric_dependents to the 'entities' container
             self.parent.symmetric_dependents = 'entities'
@@ -2580,6 +2571,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # Save, then remove the _captain attribute before the copy
         captain = self._captain
         del self._captain
+        try:
+            _oligomer = self._oligomer
+        except AttributeError:
+            _oligomer = None
+        else:
+            del self._oligomer
+
         other = super().__copy__()
         # Mate Entity instances are a "parent", however, they are under the control of their captain instance
         if self._is_captain:  # If the copier is a captain
@@ -2606,6 +2604,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         other._chains[0] = other
         # Reset the self state as before the copy. Reset _captain attribute on self
         self._captain = captain
+        if _oligomer is not None:
+            self._oligomer = _oligomer
 
         return other
 
@@ -4259,7 +4259,6 @@ class SymmetricModel(Model):  # Models):
     _oligomeric_model_indices: dict[Entity, list[int]]
     _point_group_symmetry: str
     _sym_entry: utils.SymEntry.SymEntry | None
-    _symmetry: str
     _symmetric_coords: Coords  # np.ndarray
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
@@ -4268,15 +4267,12 @@ class SymmetricModel(Model):  # Models):
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
     _expand_matrices: np.ndarray | list[list[float]] | None
     _expand_translations: np.ndarray | list[float] | None
-    state_attributes = Model.state_attributes \
-        | {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
-           '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
-           '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
-           '_symmetric_coords_split_by_entity'}
-    symmetry_state_attrs = [
-        '_symmetry', '_point_group_symmetry', '_dimension', '_cryst_record', '_number_of_symmetry_mates', 'uc_volume',
-        ]
-        # 'orthogonalization_matrix', 'deorthogonalization_matrix']
+    symmetry_state_attributes: set[str] = SymmetryBase.symmetry_state_attributes | {
+        '_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
+        '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models', '_chains',
+        '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
+        '_symmetric_coords_split_by_entity'
+    }
 
     @classmethod
     def from_assembly(cls, assembly: list[Structure], sym_entry: utils.SymEntry.SymEntry | int = None,
@@ -4391,52 +4387,52 @@ class SymmetricModel(Model):  # Models):
             # Since SymmetricModel is subclassed by Pose, ignore this error as self.symmetry can be explicitly False
             return
 
-        if operators is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
-            if isinstance(operators, tuple) and len(operators) == 2:
-                self.log.warning("Providing custom symmetry 'operators' may result in improper symmetric configuration."
-                                 ' Proceed with caution')
-                matrices, translations = operators
-                if not isinstance(matrices, np.ndarray):
-                    matrices = np.ndarray(matrices)
-
-                # Assume operators were provided in a standard orientation and transpose for subsequent efficiency
-                # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
-                if matrices.ndim == 3:
-                    self._expand_matrices = matrices.swapaxes(-2, -1)
-                else:
-                    raise SymmetryError(
-                        f"Expected 'operators' rotation matrices with 3 dimensions, not {matrices.ndim} dimensions. "
-                        "Ensure the passed rotation matrices have a shape of (N symmetry operations, 3, 3)"
-                    )
-                if not isinstance(translations, np.ndarray):
-                    translations = np.ndarray(translations)
-                if translations.ndim == 2:
-                    self._expand_translations = translations[:, None, :]
-                else:
-                    raise SymmetryError(
-                        f"Expected 'operators' translation vectors with 2 dimensions, not {translations.ndim} "
-                        "dimensions. Ensure the passed translations have a shape of (N symmetry operations, 3)"
-                    )
-            else:
-                # Todo
-                #  Parse from a single input of 3 row by 4 column style
-                #  OR
-                #  Parse from a sinlg input of 3 row by 3 column style, i.e. no translation from point groups
-                raise SymmetryError(
-                    f"The 'operators' form {repr(operators)} isn't supported. Must provide a tuple of "
-                    'array-like objects with the order (rotation matrices, translation vectors)')
-        else:
-            if self.dimension == 0:
-                # The _expand_matrices rotation matrices are pre-transposed to avoid repetitive operations
-                self._expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.symmetry]
-                # The _expand_matrices rotation matrices are pre-sliced to enable numpy operations
-                self._expand_translations = \
-                    np.tile(utils.symmetry.origin, (self.number_of_symmetry_mates, 1))[:, None, :]
-            else:
-                self._expand_matrices, self._expand_translations = \
-                    utils.symmetry.space_group_symmetry_operatorsT[self.symmetry]
-
         if self.is_symmetric():  # True if symmetry keyword args were passed
+            if operators is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
+                if isinstance(operators, tuple) and len(operators) == 2:
+                    self.log.warning("Providing custom symmetry 'operators' may result in improper symmetric "
+                                     'configuration. Proceed with caution')
+                    matrices, translations = operators
+                    if not isinstance(matrices, np.ndarray):
+                        matrices = np.ndarray(matrices)
+
+                    # Assume operators were provided in a standard orientation and transpose for subsequent efficiency
+                    # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
+                    if matrices.ndim == 3:
+                        self._expand_matrices = matrices.swapaxes(-2, -1)
+                    else:
+                        raise SymmetryError(
+                            f"Expected 'operators' rotation matrices with 3 dimensions, not {matrices.ndim} dimensions. "
+                            "Ensure the passed rotation matrices have a shape of (N symmetry operations, 3, 3)"
+                        )
+                    if not isinstance(translations, np.ndarray):
+                        translations = np.ndarray(translations)
+                    if translations.ndim == 2:
+                        self._expand_translations = translations[:, None, :]
+                    else:
+                        raise SymmetryError(
+                            f"Expected 'operators' translation vectors with 2 dimensions, not {translations.ndim} "
+                            "dimensions. Ensure the passed translations have a shape of (N symmetry operations, 3)"
+                        )
+                else:
+                    # Todo
+                    #  Parse from a single input of 3 row by 4 column style
+                    #  OR
+                    #  Parse from a sinlg input of 3 row by 3 column style, i.e. no translation from point groups
+                    raise SymmetryError(
+                        f"The 'operators' form {repr(operators)} isn't supported. Must provide a tuple of "
+                        'array-like objects with the order (rotation matrices, translation vectors)')
+            else:
+                if self.dimension == 0:
+                    # The _expand_matrices rotation matrices are pre-transposed to avoid repetitive operations
+                    self._expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.symmetry]
+                    # The _expand_matrices rotation matrices are pre-sliced to enable numpy operations
+                    self._expand_translations = \
+                        np.tile(utils.symmetry.origin, (self.number_of_symmetry_mates, 1))[:, None, :]
+                else:
+                    self._expand_matrices, self._expand_translations = \
+                        utils.symmetry.space_group_symmetry_operatorsT[self.symmetry]
+
             # Ensure the number of Entity instances matches the SymEntry groups
             if number_of_entities != self.sym_entry.number_of_groups:
                 n_groups = self.sym_entry.number_of_groups
@@ -4450,9 +4446,7 @@ class SymmetricModel(Model):  # Models):
                     f'{n_groups} {verb} expected based on the {repr(self.sym_entry)} specified'
                 )
 
-            # Ensure the Model is an asu
-            if number_of_entities != self.number_of_chains:
-                self.set_contacting_asu()
+            self.set_contacting_asu()
             if self.symmetric_coords is None:
                 self.log.debug('Generating symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
@@ -4490,58 +4484,25 @@ class SymmetricModel(Model):  # Models):
 
     @sym_entry.setter
     def sym_entry(self, sym_entry: utils.SymEntry.SymEntry | int):
+        if self.is_symmetric():
+            self.reset_symmetry_state()
+
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             self._sym_entry = sym_entry
         else:  # Try to convert
             self._sym_entry = utils.SymEntry.symmetry_factory.get(sym_entry)
 
-        for attribute in self.symmetry_state_attrs:
-            try:
-                delattr(self, attribute)
-            except AttributeError:
-                continue
-        self.symmetry = getattr(self.sym_entry, 'resulting_symmetry', None)
-        self.point_group_symmetry = getattr(self.sym_entry, 'point_group_symmetry', None)
-        self.dimension = getattr(self.sym_entry, 'dimension', None)
-
-    @property  # Todo in Entity, exactly
-    def symmetry(self) -> str | None:
-        """The overall symmetric state, ie, the symmetry result"""
-        try:
-            return self._symmetry
-        except AttributeError:
-            return None
-
-    @symmetry.setter
-    def symmetry(self, symmetry: str | None):
-        self._symmetry = symmetry
-        # Now, this is only done in the Entity class when a dependent becomes symmetry aware
-        # # Set the symmetric_dependents to the entities attribute
-        # self.symmetric_dependents = 'entities'
+        self.symmetry = getattr(self.sym_entry, 'resulting_symmetry')
 
     @property
     def point_group_symmetry(self) -> str | None:
         """The point group underlying the resulting SymEntry"""
-        try:
-            return self._point_group_symmetry
-        except AttributeError:
-            return None
-
-    @point_group_symmetry.setter
-    def point_group_symmetry(self, point_group_symmetry: str | None):
-        self._point_group_symmetry = point_group_symmetry
+        return getattr(self.sym_entry, 'point_group_symmetry', None)
 
     @property
     def dimension(self) -> int | None:
-        """The dimension of the symmetry from 0, 2, or 3"""
-        try:
-            return self._dimension
-        except AttributeError:
-            return None
-
-    @dimension.setter
-    def dimension(self, dimension: int | None):
-        self._dimension = dimension
+        """The dimension of the symmetry from None, 0, 2, or 3"""
+        return getattr(self.sym_entry, 'dimension', None)
 
     @property
     def uc_dimensions(self) -> tuple[float, float, float, float, float, float] | None:
@@ -5956,6 +5917,10 @@ class SymmetricModel(Model):  # Models):
         Sets:
             self: To a SymmetricModel with the minimal set of Entities containing the maximally touching configuration
         """
+        if not self.is_symmetric():
+            raise SymmetryError(
+                f"Couldn't {self.set_contacting_asu.__name__}() with the asymmetric {repr(self)}"
+            )
         # Check to see if the parsed Model is already represented symmetrically
         number_of_symmetry_mates = self.number_of_symmetry_mates
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
@@ -6073,6 +6038,7 @@ class SymmetricModel(Model):  # Models):
             #  **Calling should be grounds for re-orientation, at which point the symmetry operators are correct anyway
         else:
             super().orient(symmetry=symmetry)
+            self.set_symmetry(symmetry=symmetry)
 
     def format_biomt(self, **kwargs) -> str:
         """Return the SymmetricModel expand_matrices as a BIOMT record
@@ -6080,13 +6046,17 @@ class SymmetricModel(Model):  # Models):
         Returns:
             The BIOMT REMARK 350 with PDB file formatting
         """
-        if self.dimension == 0:
-            return '%s\n' % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
-                                      .format(v_idx, m_idx, *vec, 0.)  # Use 0. as placeholder for translation
-                                      for m_idx, mat in enumerate(self.expand_matrices.tolist(), 1)
-                                      for v_idx, vec in enumerate(mat, 1))
-        else:  # Todo write so that the oligomeric units are populated?
-            return ''
+        if self.is_symmetric():
+            if self.dimension == 0:
+                return '%s\n' % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
+                                          .format(v_idx, m_idx, *vec, 0.)  # Use 0. as placeholder for translation
+                                          for m_idx, mat in enumerate(self.expand_matrices.tolist(), 1)
+                                          for v_idx, vec in enumerate(mat, 1))
+            # Todo
+            #  write so that the oligomeric units are populated?
+            # else:
+            #     return ''
+        return ''
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
               assembly: bool = False, **kwargs) -> AnyStr | None:
@@ -6106,10 +6076,11 @@ class SymmetricModel(Model):  # Models):
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.debug(f'SymmetricModel is writing {self}')
+        self.log.debug(f'SymmetricModel is writing {repr(self)}')
+        is_symmetric = self.is_symmetric()
 
         def write_pose(handle):
-            if self.is_symmetric():
+            if is_symmetric:
                 # symmetric_model_write(outfile)
                 # def symmetric_model_write(handle):
                 if assembly:  # Will make assembly and use next logic steps to write them out
@@ -6134,8 +6105,8 @@ class SymmetricModel(Model):  # Models):
         if file_handle:
             write_pose(file_handle)
             return None
-        else:  # out_path always has default argument current working directory
-            _header = self.format_header(**kwargs)
+        else:  # out_path default argument is current working directory
+            _header = self.format_header(asu=is_symmetric and not assembly, **kwargs)
             if header is not None and isinstance(header, str):
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
@@ -9131,3 +9102,33 @@ class Pose(SymmetricModel, Metrics):
     #                    f'{self.coords == self.symmetric_coords[:self.number_of_atoms]}\n'
     #                    f'coords {np.array_str(self.coords[:2], precision=2)}\n'
     #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')
+
+    def __copy__(self) -> Pose:  # -> Self Todo python3.11
+        # self.log.debug('In Pose copy {repr(self)}')
+
+        # Save, then remove the _assembly_minimally_contacting attribute
+        try:
+            _assembly = self._assembly
+        except AttributeError:
+            _assembly = None
+        else:
+            del self._assembly
+
+        try:
+            _assembly_minimally_contacting = self._assembly_minimally_contacting
+        except AttributeError:
+            _assembly_minimally_contacting = None
+        else:
+            del self._assembly_minimally_contacting
+
+        other = super().__copy__()
+
+        # Reset the self state as before the copy. Reset _captain attribute on self
+        if _assembly_minimally_contacting is not None:
+            self._assembly_minimally_contacting = _assembly_minimally_contacting
+        if _assembly is not None:
+            self._assembly = _assembly
+
+        return other
+
+    copy = __copy__

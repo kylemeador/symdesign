@@ -801,28 +801,57 @@ class Log:
 null_struct_log = Log()
 
 
-class SymmetryMixin:
-    symmetry: str | None
-    _symmetric_dependents: str  # list[Structure] | list
+class SymmetryBase:
+    """Adds functionality for symmetric manipulation of Structure instances"""
+    _symmetry: str | None
+    _symmetric_dependents: str | None
     """The Structure container where dependent symmetric Structures are contained"""
+    symmetry_state_attributes: set[str] = set()  # {'_symmetry'}
 
     def __init__(self, **kwargs):
+        self._symmetry = self._symmetric_dependents = None
         super().__init__(**kwargs)
 
-    # @property
+    @property
+    def symmetry(self) -> str | None:
+        """The symmetry of the Structure described by its Schönflies notation"""
+        return self._symmetry
+
+    @symmetry.setter
+    def symmetry(self, symmetry: str | None):
+        try:
+            self._symmetry = symmetry.upper()
+        except AttributeError:  # Not a string
+            if symmetry is None:
+                self.reset_symmetry()
+            else:
+                raise ValueError(
+                    f"Can't set '.symmetry' with {type(symmetry).__name__}. Must be class 'str' or NoneType")
+        else:
+            if self._symmetry == 'C1':
+                self._symmetry = None
+
+    def reset_symmetry_state(self) -> None:
+        """Remove any state variable associated with the instance"""
+        for attribute in self.symmetry_state_attributes:
+            try:
+                delattr(self, attribute)
+            except AttributeError:
+                continue
+
     def is_symmetric(self) -> bool:
         """Query whether the Structure is symmetric. Returns True if self.symmetry is not None"""
-        try:
-            return self.symmetry is not None
-        except AttributeError:
-            return False
+        # try:
+        return self._symmetry is not None
+        # except AttributeError:
+        #     return False
 
     def has_symmetric_dependents(self) -> bool:
-        """Indicates True if the Structure has symmetric dependents"""
-        try:
-            return True if self._symmetric_dependents else False
-        except AttributeError:
-            return False
+        """Evaluates to True if the Structure has symmetrically dependent children"""
+        # try:
+        return True if self._symmetric_dependents else False
+        # except AttributeError:
+        #     return False
 
     @property
     def symmetric_dependents(self) -> list[Structure] | list:
@@ -830,14 +859,18 @@ class SymmetryMixin:
         return getattr(self, self._symmetric_dependents, [])
 
     @symmetric_dependents.setter
-    def symmetric_dependents(self, symmetric_dependents: str):
+    def symmetric_dependents(self, symmetric_dependents: str | None):
         """Set the attribute name where dependent Structure instances occupy"""
         try:
             # set() COULD BE USED WHEN MULTIPLE self._symmetric_dependents.add(symmetric_dependents.lower())
             self._symmetric_dependents = symmetric_dependents.lower()
-        except AttributeError:
-            raise ValueError(
-                f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. Must be a string")
+        except AttributeError:  # Not a string
+            if symmetric_dependents is None:
+                self.reset_symmetry()
+            else:
+                raise ValueError(
+                    f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
+                    f"Must be class 'str'")
 
 
 # parent Structure controls these attributes
@@ -849,7 +882,7 @@ and _residues
 """
 
 
-class StructureBase(SymmetryMixin, ABC):
+class StructureBase(SymmetryBase, ABC):
     """StructureBase handles the Coords and Log instances as well as maintains atom_indices for each Structure.
     Additionally. sorts through parent Structure and dependent Structure hierarchies during Structure subclass creation.
     Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
