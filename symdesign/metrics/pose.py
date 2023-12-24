@@ -1,10 +1,8 @@
 from collections import defaultdict
-from typing import Iterable, Callable
+from collections.abc import Callable, Iterable
 
 from symdesign.structure.fragment import GhostFragment, Fragment
 from symdesign.structure.fragment.db import FragmentDatabase, nanohedra_fragment_match_score
-# from symdesign.structure.model import Pose
-import symdesign.structure
 
 
 def get_center_match_scores(fragment_info: list[tuple[GhostFragment, Fragment, float]]):

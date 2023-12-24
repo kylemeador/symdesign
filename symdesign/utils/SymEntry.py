@@ -6,7 +6,8 @@ import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import AnyStr, Iterable, Literal, get_args
+from collections.abc import Iterable
+from typing import AnyStr, Literal, get_args
 
 import numpy as np
 

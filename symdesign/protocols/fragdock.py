@@ -4,10 +4,10 @@ import logging
 import math
 import os
 import time
-from warnings import catch_warnings, simplefilter
 from collections.abc import Iterable
 from itertools import repeat, count
 from math import prod
+from warnings import catch_warnings, simplefilter
 
 import numpy as np
 import pandas as pd
@@ -481,7 +481,7 @@ def check_tree_for_query_overlap(batch_slice: slice,
     return {'overlap_counts': overlap_counts}
 
 
-def get_check_tree_for_query_overlap_batch_length(coords: np.ndarry) -> int:
+def get_check_tree_for_query_overlap_batch_length(coords: np.ndarray) -> int:
     # guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
     # coords_multiplier = 2
     memory_constraint = utils.get_available_memory()
@@ -653,7 +653,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
-    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=job.fragment_db)
+    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=model1.fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     fragment_content1 = np.bincount([surf_frag.i_type for surf_frag in surf_frags1])
@@ -669,7 +669,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers1.shape}')
     # logger.debug(f'Found surface indices {idx} with shape {surf_i_indices1.shape}')
     logger.debug(f'Found {len(init_surf_frags1)} initial surface {idx} fragments with type: {initial_surf_type1}')
-    # logger.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
+    # logger.debug('Found component 2 fragment content: %s' % fragment_content2)
     # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
     # logger.debug('init_surf_residue_indices2: %s' % slice_variable_for_log(init_surf_residue_indices2))
@@ -684,7 +684,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
     surf_frags2 = \
-        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=job.fragment_db)
+        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=model2.fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in surf_frags2])
@@ -712,10 +712,10 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
     #################################
     # Get component 1 ghost fragments and associated data from complete fragment database
-    oligomer1_backbone_cb_tree = BallTree(model1.backbone_and_cb_coords)
+    component1_backbone_cb_tree = BallTree(model1.backbone_and_cb_coords)
     get_complete_ghost_frags1_time_start = time.time()
     ghost_frags_by_residue1 = \
-        [frag.get_ghost_fragments(clash_tree=oligomer1_backbone_cb_tree) for frag in surf_frags1]
+        [frag.get_ghost_fragments(clash_tree=component1_backbone_cb_tree) for frag in surf_frags1]
 
     complete_ghost_frags1: list[GhostFragment] = \
         [ghost for ghosts in ghost_frags_by_residue1 for ghost in ghosts]
@@ -1643,7 +1643,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     logger.info(f'Testing found transforms for ASU clashes')
     # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
     # with the model1 backbone and cb coordinates BinaryTree
-    ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree, clash_distance=clash_dist,
+    ball_tree_kwargs = dict(binarytree=component1_backbone_cb_tree, clash_distance=clash_dist,
                             rotation=_full_rotation2, translation=_full_int_tx2,
                             rotation2=set_mat2, translation2=full_ext_tx_sum,
                             rotation3=inv_setting1, translation3=full_int_tx_inv1,
@@ -1676,7 +1676,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with model1 ORIGINAL
     int_cb_and_frags_start = time.time()
-    # Transform the CB coords of oligomer 2 to each identified transformation
+    # Transform the CB coords of component 2 to each identified transformation
     # Transforming only surface frags has large speed benefits from not having to transform all ghosts
     inverse_transformed_model2_tiled_cb_coords = \
         transform_coordinate_sets(
@@ -1690,7 +1690,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, :],
             rotation2=full_inv_rotation1)
 
-    # Transform the surface guide coords of oligomer 2 to each identified transformation
+    # Transform the surface guide coords of component 2 to each identified transformation
     # Makes a shape (len(full_rotations), len(surf_guide_coords), 3, 3)
     inverse_transformed_surf_frags2_guide_coords = \
         transform_coordinate_sets(
@@ -1704,14 +1704,14 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, None, :],
             rotation2=full_inv_rotation1[:, None, :, :])
 
-    logger.info('Transformation of viable oligomer 2 CB atoms and surface fragments '
+    logger.info('Transformation of viable component 2 CB atoms and surface fragments '
                 f'(took {time.time() - int_cb_and_frags_start:8f}s)')
 
     del full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, full_ext_tx_sum
     del surf_guide_coords2
     # Use below instead of this until can Todo 3 vectorize asu_interface_residue_processing
     # asu_interface_residues = \
-    #     np.array([oligomer1_backbone_cb_tree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx],
+    #     np.array([component1_backbone_cb_tree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx],
     #                                                       cb_distance)
     #               for idx in range(len(inverse_transformed_model2_tiled_cb_coords))])
 
@@ -2284,7 +2284,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # nan_blank_data = list(repeat(np.nan, pose_length))
         # unbound_errat = []
         # for idx, entity in enumerate(pose.entities):
-        #     _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #     _, oligomeric_errat = entity.assembly.errat(out_path=os.path.devnull)
         #     unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
 
         torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
@@ -2877,7 +2877,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             # Check for ASU clashes again
             # Using the inverse transform of the model2 backbone and cb coordinates, check for clashes with the model1
             # backbone and cb coordinates BallTree
-            ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree, clash_distance=clash_dist,
+            ball_tree_kwargs = dict(binarytree=component1_backbone_cb_tree, clash_distance=clash_dist,
                                     rotation=full_rotation2, translation=full_int_tx2,
                                     rotation2=set_mat2, translation2=full_ext_tx_sum,
                                     rotation3=inv_setting1,

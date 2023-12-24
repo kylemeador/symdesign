@@ -6,11 +6,11 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
-from typing import AnyStr, Iterable, Literal, Sequence, get_args
+from collections.abc import Iterable, Sequence
+from typing import AnyStr, Literal, get_args
 
 from symdesign import flags
-from symdesign.utils import collect_designs, InputError, path as putils, pickle_object, unpickle
+from symdesign.utils import collect_designs, InputError, path as putils
 
 # Globals
 logger = logging.getLogger(__name__)

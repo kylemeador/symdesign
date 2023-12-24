@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import abc
 import logging
 import os
 import subprocess
 import time
 from abc import ABC
 from collections import UserList, defaultdict
+from collections.abc import Iterable, Sequence
 from copy import deepcopy, copy
 from itertools import repeat, count
 from logging import Logger
 from math import exp, floor
 from pathlib import Path
-from typing import Sequence, Any, Iterable, get_args, Literal, AnyStr, NamedTuple
+from typing import Any, AnyStr, get_args, Literal
 
 import numpy as np
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
@@ -47,12 +49,6 @@ nan_profile_entry = aa_nan_counts_alph3.copy()
 """{utils.profile_keys, repeat(numpy.nan))}"""
 nan_profile_entry.update({'lod': aa_nan_counts_alph3.copy(), 'info': 0., 'weight': 0.})  # 'type': residue_type,
 
-aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
-"""{protein_letters_alph1, repeat(0) | 'weight': 1}"""  # 'count': 0,
-aa_weighted_counts['weight'] = 1
-# aa_weighted_counts.update({'count': 0, 'weight': 1})
-# """{protein_letters_alph1, repeat(0) | 'stats'=(0, 1)}"""
-# aa_weighted_counts.update({'stats': (0, 1)})
 """The shape should be (number of residues, number of characters in the alphabet"""
 # 'uniclust30_2018_08'
 
@@ -414,30 +410,21 @@ class SequenceProfile(ABC):
     # alpha: dict[int, float]
     disorder: dict[int, dict[str, str]]
     fragment_map: list[dict[int, set[FragmentObservation]]] | None
-    """{1: {-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int], match=float, 
-                 weight=float, frequencies=info.aa_weighted_counts_type), ...}, 
+    """{1: {-2: {FragObservation(), ...}, 
             -1: {}, ...},
         2: {}, ...}
     Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
         (with fragment_length length) for that residue, where each index in the inner set can have multiple
         observations
     """
-    fragment_profile: Profile | None  # | ProfileDict
+    fragment_profile: Profile | None
     h_fields: np.ndarray | None
     j_couplings: np.ndarray | None
-    log: Logger
-    msa_file: AnyStr | None
     name: str
-    number_of_residues: int
-    profile: dict | ProfileDict
-    pssm_file: AnyStr | None
-    reference_sequence: str
-    residues: list['structure.base.Residue']
-    sequence: str
+    profile: ProfileDict | dict
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # self._fragment_db = None
+        super().__init__(**kwargs)  # SequenceProfile
         self._alpha = default_fragment_contribution
         self._evolutionary_profile = {}  # position specific scoring matrix
         self.alpha = []
@@ -448,35 +435,46 @@ class SequenceProfile(ABC):
         self.profile = {}  # design/structure specific scoring matrix
 
     @property
+    @abc.abstractmethod
+    def log(self) -> Logger:
+        """"""
+
+    @property
+    @abc.abstractmethod
+    def residues(self) -> list['structure.base.Residue']:
+        """"""
+
+    @property
+    @abc.abstractmethod
+    def number_of_residues(self) -> int:
+        """"""
+
+    @property
+    @abc.abstractmethod
+    def sequence(self) -> str:
+        """"""
+
+    @property
+    @abc.abstractmethod
+    def reference_sequence(self) -> str:
+        """"""
+
+    @property
     def evolutionary_profile(self) -> dict:
         """Access the evolutionary_profile"""
         return self._evolutionary_profile
 
     @evolutionary_profile.setter
-    def evolutionary_profile(self, evolutionary_profile: dict[int, profile]) -> dict:
+    def evolutionary_profile(self, evolutionary_profile: dict[int, profile]):
         """Set the evolutionary_profile"""
         self._evolutionary_profile = evolutionary_profile
         if not self._verify_evolutionary_profile():
             self._fit_evolutionary_profile_to_structure()
 
-        # # Check the profile and try to generate again if it is incorrect
-        # first = True
-        # while not self._verify_evolutionary_profile():
-        #     if first:
-        #         self.log.info(f'Generating a new profile for {self.name}')
-        #         self.add_evolutionary_profile(force=True, **kwargs)
-        #         first = False
-        #     else:
-        #         raise RuntimeError('evolutionary_profile generation got stuck')
-
     @property
     def offset_index(self) -> int:
         """Return the starting index for the SequenceProfile based on pose numbering of the residues. Zero-indexed"""
         return self.residues[0].index
-
-    # @offset_index.setter
-    # def offset_index(self, offset_index):
-    #     self._entity_offset = offset_index
 
     @property
     def msa(self) -> MultipleSequenceAlignment | None:
@@ -1207,8 +1205,7 @@ class SequenceProfile(ABC):
                 to this Structure. Is it mapped to this Structure or was it paired to it?
         Sets:
             self.fragment_map (list[list[dict[str, str | float]]]):
-                [{-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int],
-                                       match=float, weight=float, frequencies=info.aa_weighted_counts_type), ...},
+                [{-2: {FragObservation(), ...},
                   -1: {}, ...},
                  {}, ...]
                 Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
@@ -1338,8 +1335,7 @@ class SequenceProfile(ABC):
         Takes self.fragment_profile (Profile)
             [{'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, {...}, ...]
         self.fragment_map (list[list[dict[str, str | float]]]):
-            [{-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int],
-                                   match=float, weight=float, frequencies=info.aa_weighted_counts_type), ...},
+            [{-2: {FragObservation(), ...},
             -1: {}, ...},
             {}, ...]
             Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
@@ -1405,7 +1401,7 @@ class SequenceProfile(ABC):
             # Get the average contribution of each fragment type
             db_cluster_average = typical_fragment_weight_total / frag_count
             # Get the average fragment weight for this fragment_profile entry. Total weight/count
-            frag_weight_average = data.get('weight') / count
+            frag_weight_average = data.get('weight') / frag_count
 
             # Find the weight modifier which spans from 0 to 1
             if db_cluster_average > frag_weight_average:

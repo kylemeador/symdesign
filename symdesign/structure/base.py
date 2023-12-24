@@ -10,12 +10,13 @@ import time
 import traceback
 from abc import ABC
 from collections import UserList, defaultdict
+from collections.abc import Callable, Container, Iterable, Sequence, Collection
 from copy import copy
 from itertools import count, repeat
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr, Iterable
+from typing import Any, AnyStr, get_args, IO, Literal, Type, Union
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -294,9 +295,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     Returns:
         The dictionary containing all the parsed structural information
     """
-    # Todo figure out handling of header lines. Best way I see is to take out any seqres line indices (we add later)
-    #  and only like the head from any line before an ATOM record. The modification of any of the coordinates or Atoms
-    #  would cause the header information to be invalidated as it would then become a "SymDesign Model"
     if pdb_lines:
         # path, extension = None, None
         assembly: str | None = None
@@ -801,7 +799,7 @@ class Log:
 null_struct_log = Log()
 
 
-class SymmetryBase:
+class SymmetryBase(ABC):
     """Adds functionality for symmetric manipulation of Structure instances"""
     _symmetry: str | None
     _symmetric_dependents: str | None
@@ -810,7 +808,12 @@ class SymmetryBase:
 
     def __init__(self, **kwargs):
         self._symmetry = self._symmetric_dependents = None
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # SymmetryBase
+
+    @property
+    @abc.abstractmethod
+    def log(self) -> Logger:
+        """"""
 
     @property
     def symmetry(self) -> str | None:
@@ -823,7 +826,7 @@ class SymmetryBase:
             self._symmetry = symmetry.upper()
         except AttributeError:  # Not a string
             if symmetry is None:
-                self.reset_symmetry()
+                self.reset_symmetry_state()
             else:
                 raise ValueError(
                     f"Can't set '.symmetry' with {type(symmetry).__name__}. Must be class 'str' or NoneType")
@@ -833,6 +836,7 @@ class SymmetryBase:
 
     def reset_symmetry_state(self) -> None:
         """Remove any state variable associated with the instance"""
+        # self.log.debug(f"Removing symmetric attributes from {repr(self)}")
         for attribute in self.symmetry_state_attributes:
             try:
                 delattr(self, attribute)
@@ -841,17 +845,11 @@ class SymmetryBase:
 
     def is_symmetric(self) -> bool:
         """Query whether the Structure is symmetric. Returns True if self.symmetry is not None"""
-        # try:
         return self._symmetry is not None
-        # except AttributeError:
-        #     return False
 
     def has_symmetric_dependents(self) -> bool:
         """Evaluates to True if the Structure has symmetrically dependent children"""
-        # try:
         return True if self._symmetric_dependents else False
-        # except AttributeError:
-        #     return False
 
     @property
     def symmetric_dependents(self) -> list[Structure] | list:
@@ -866,7 +864,7 @@ class SymmetryBase:
             self._symmetric_dependents = symmetric_dependents.lower()
         except AttributeError:  # Not a string
             if symmetric_dependents is None:
-                self.reset_symmetry()
+                self.reset_symmetry_state()
             else:
                 raise ValueError(
                     f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
@@ -910,7 +908,7 @@ class StructureBase(SymmetryBase, ABC):
                 ownership over Structure containers (coords, atoms, residues) for dependent Structures
             log: The Log or Logger instance, or the name for the logger to handle parent Structure logging.
                 None or False prevents logging while any True assignment enables it
-            coords: When setting up a parent Structure instance, the coordiantes of that Structure
+            coords: When setting up a parent Structure instance, the coordinates of that Structure
             name: The identifier for the Structure instance
         """
         self._copier = False
@@ -946,7 +944,7 @@ class StructureBase(SymmetryBase, ABC):
                 self._coords = Coords(coords)
 
         try:
-            super().__init__(**kwargs)
+            super().__init__(**kwargs)  # StructureBase
         except TypeError:
             raise TypeError(
                 "The argument(s) passed to the StructureBase object weren't recognized and aren't "
@@ -964,33 +962,29 @@ class StructureBase(SymmetryBase, ABC):
     # Placeholder getter for _parent setter so that derived classes automatically set _log and _coords from _parent set
     @property
     def _parent(self) -> StructureBase | None:
-        """Set the 'parent' StructureBase of this instance"""
+        """The 'parent' StructureBase of this instance which is responsible for manipulation of Structure Containers"""
         return self.parent
 
     @_parent.setter
     def _parent(self, parent: StructureBase):
-        """Set the 'parent' StructureBase of this instance"""
-        # print('setting __parent')
+        """Set the 'parent' of this instance"""
         self.__parent = parent
-        # print('type(self)', type(self))
-        # print('id(self)', id(self))
-        # print('self.__parent is', self.__parent)
         self._log = parent._log
         self._coords = parent._coords
         # self._atoms = parent._atoms  # Todo make empty Atoms for StructureBase objects?
         # self._residues = parent._residues  # Todo make empty Residues for StructureBase objects?
 
     def is_dependent(self) -> bool:
-        """Is the StructureBase a dependent?"""
+        """Is this instance a dependent on a parent StructureBase?"""
         return self.__parent is not None
 
     def is_parent(self) -> bool:
-        """Is the StructureBase a parent?"""
+        """Is this instance a parent?"""
         return self.__parent is None
 
     @property
     def log(self) -> Logger:
-        """Access to the StructureBase Logger"""
+        """The StructureBase Logger"""
         return self._log.log
 
     @log.setter
@@ -1194,7 +1188,7 @@ class Atom(StructureBase):
                  coords: list[float] = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # Atom
         self.index = index
         self.number = number
         self._type = atom_type
@@ -1410,7 +1404,7 @@ class Atom(StructureBase):
     def __hash__(self) -> int:
         return hash(self._key)
 
-    def __copy__(self) -> Atom:  # -> Self: Todo python3.11
+    def __copy__(self) -> Atom:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
         other.__dict__.update(self.__dict__)
@@ -1547,7 +1541,7 @@ class Atoms:
             for key, value in kwargs.items():
                 setattr(struct, key, value)
 
-    def __copy__(self) -> Atoms:  # -> Self: Todo python3.11
+    def __copy__(self) -> Atoms:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
 
@@ -1700,9 +1694,25 @@ class ContainsAtomsMixin(StructureBase, ABC):
         Args:
             atoms: Atom instances to initialize the instance
         """
-        super().__init__(**kwargs)
         if atoms is not None:
             self._assign_atoms(atoms)
+        super().__init__(**kwargs)  # ContainsAtomsMixin
+
+    @StructureBase._parent.setter
+    def _parent(self, parent: StructureBase):
+        """Set the 'parent' StructureBase of this instance"""
+        # Have to call _StructureBase__parent to access this variable for some reason having to do with class
+        # print(f'Before setting parent: {self._atoms.atoms}')
+        # inheritance
+        super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
+        self._atoms = parent._atoms
+
+    def detach_from_parent(self):
+        """Remove this instance from its parent, making it a parent in the process"""
+        super().detach_from_parent()
+        # Populate the Structure with its existing instances removed of any indexing
+        self._assign_atoms(self.atoms)
+        self.reset_state()
 
     def get_base_containers(self) -> dict[str, Any]:
         """Returns the instance structural containers as a dictionary with attribute as key and container as value"""
@@ -1796,7 +1806,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
 
     @property
     def atoms(self) -> list[Atom] | None:
-        """Return the Atom instances in the Structure"""
+        """Return the Atom instances in the StructureBase"""
         try:
             return self._atoms.atoms[self._atom_indices].tolist()
         except AttributeError:  # When self._atoms isn't set or is None and doesn't have .atoms
@@ -1816,7 +1826,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
             return 0
 
     def neighboring_atom_indices(self, distance: float = 8., **kwargs) -> list[int]:  # np.ndarray:
-        """Return the Atom instances in the Structure
+        """Returns the Atom instances in the Structure
 
         Args:
             distance: The distance to measure neighbors by
@@ -1825,13 +1835,15 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """
         parent_coords = self._coords.coords
         atom_indices = self.atom_indices
-        # coords = self.coords
-        coords = parent_coords[atom_indices]
-        # Create a modified self_coords for the coordinates in the ContainsAtomsMixin
+
+        # Create a "self.coords" and modify only coordinates in the ContainsAtomsMixin instance
         modified_self_coords = parent_coords.copy()
-        modified_self_coords[atom_indices] = parent_coords.max(axis=0) + [1000, 1000, 1000]  # [-1000, 1000, 3000]
+        # Translate each self coordinate
+        modified_self_coords[atom_indices] = parent_coords.max(axis=0) + [1000, 1000, 1000]
         modified_coords_balltree = BallTree(modified_self_coords)
+
         # Query for neighbors of the self coordinates but excluding the self indices
+        coords = parent_coords[atom_indices]
         query = modified_coords_balltree.query_radius(coords, distance)
 
         return sorted({idx for contacts in query.tolist() for idx in contacts.tolist()})
@@ -1900,7 +1912,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
 
     @property
     def center_of_mass(self) -> np.ndarray:
-        """The center of mass for the StructureBase coordinates"""
+        """The center of mass for the Atom coordinates"""
         try:
             return np.matmul(self._inverse_number_atoms, self.coords)
         except AttributeError:
@@ -2031,20 +2043,18 @@ class ContainsAtomsMixin(StructureBase, ABC):
                 outfile.write(f'{self.get_atom_record(**kwargs)}\n')
             return out_path
 
-    def get_atoms(self, numbers: Container = None, pdb: bool = False, **kwargs) -> list[Atom]:
+    def get_atoms(self, numbers: Container = None, **kwargs) -> list[Atom]:
         """Retrieve Atom objects in Structure. Returns all by default. If a list of numbers is provided, the selected
         Atom numbers are returned
 
         Args:
             numbers: The Atom numbers of interest
-            pdb: Whether to search for numbers as they were parsed
         Returns:
             The requested Atom objects
         """
         if numbers is not None:
             if isinstance(numbers, Container):
-                number_source = 'number_pdb' if pdb else 'number'
-                return [atom for atom in self.atoms if getattr(atom, number_source) in numbers]
+                return [atom for atom in self.atoms if atom.number in numbers]
             else:
                 self.log.error(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning'
                                f' all Atom instances instead')
@@ -2106,8 +2116,7 @@ residue_attributes_literal = Literal[
 ]
 
 
-class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
-    # _atoms: Atoms
+class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     _ca_indices: list[int]
     _cb_indices: list[int]
     _bb_indices: list[int]
@@ -2162,9 +2171,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         # We are setting up a parent (independent) Residue
         elif atoms:  # is not None  # No parent passed, construct from atoms
             self._assign_atoms(atoms)
-            self.is_residue_valid()
-            # Structure._populate_coords(self)
-            # Structure._validate_coords(self)
             self._start_index = 0
             # Update Atom instance attributes to ensure they are dependants of this instance
             # Must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
@@ -2173,6 +2179,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             # self.renumber_atoms()
         else:  # Create an empty Residue
             self._atoms = Atoms()
+            self._ensure_valid_residue()
         self.delegate_atoms()
 
     @property
@@ -2181,75 +2188,48 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._index
         except AttributeError:
-            raise TypeError(f"{self.__class__.__name__} isn't a member of a Residues container and has no index")
+            raise TypeError(
+                f"{self.__class__.__name__} isn't a member of a Residues container and has no index")
 
     # @index.setter
     # def index(self, index):
     #     self._index = index
 
-    @StructureBase._parent.setter
-    def _parent(self, parent: StructureBase):
-        """Set the 'parent' StructureBase of this instance"""
-        # all of the below comments get at the issue of calling self.__parent here
-        # I think I have to call _StructureBase__parent to access this variable for some reason having to do with class
-        # inheritance
-
-        # # StructureBase._parent.fset(self, parent)
-        # print('type(parent)', type(parent))
-        # print('super(Residue, Residue)._parent', super(Residue, Residue)._parent)
-        # print('super(Residue, Residue)._parent.fset', super(Residue, Residue)._parent.fset)
-        # try:
-        #     print('self._log is', self._log)
-        # except AttributeError:
-        #     print('No log yet')
-        super(Residue, Residue)._parent.fset(self, parent)
-        # super()._parent.fset(self, parent)
-        # print('id(self)', id(self))
-        # print('self._log is', self._log)
-        # print('self._parent is', self._parent)
-        # print('self.is_dependent()', self.is_dependent())
-        # # print('self.__parent is', self.__parent)  # WTF doesn't this work?
-        # print('self.__dict__', self.__dict__)
-        self._atoms = parent._atoms
-        # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
-
-    def detach_from_parent(self):
-        """Remove this instance from its parent, making it a parent in the process"""
-        super().detach_from_parent()
-        # Populate the Structure with its existing instances removed of any indexing
-        self._assign_atoms(self.atoms)
-        self.reset_state()
-
-    def is_residue_valid(self) -> bool:
+    def _ensure_valid_residue(self) -> bool:
         """Returns True if the Residue is constructed properly, otherwise raises an error
 
         Raises:
             ValueError: If the Residue is set improperly
         """
-        remove_atom_indices, found_types = [], set()
-        atoms = self.atoms
-        current_residue_number, current_residue_type = atoms[0].residue_number, atoms[0].residue_type
-        for idx, atom in enumerate(atoms[1:], 1):
-            if atom.residue_number == current_residue_number and atom.residue_type == current_residue_type:
-                if atom.type not in found_types:
-                    found_types.add(atom.type)
+        try:
+            first_atom, *other_atoms = self.atoms
+        except ValueError:  # There are no Atom instances...
+            self.log.warning(f'Constructing {self.__class__.__name__} with no Atom instances')
+            return False
+
+        first_residue_number = first_atom.residue_number
+        first_residue_type = first_atom.residue_type
+        found_types = set()
+        for idx, atom in enumerate(other_atoms, 1):
+            if atom.residue_number == first_residue_number and atom.residue_type == first_residue_type:
+                atom_type = atom.type
+                if atom_type not in found_types:
+                    found_types.add(atom_type)
                 else:
-                    raise ValueError(f'{self.is_residue_valid.__name__}: The Atom type at index {idx} was already '
-                                     f'observed')
+                    raise ValueError(
+                        f'Invalid {self.__class__.__name__}. The Atom.type={atom_type} at index {idx} '
+                        'was already observed')
             else:
-                raise ValueError(f"{self.is_residue_valid.__name__}: The Atom at index {idx} doesn't have the "
-                                 f'same properties as all previous Atoms')
+                raise ValueError(
+                    f"Invalid {self.__class__.__name__}. The {repr(atom)} at index {idx} doesn't have the same "
+                    f'properties as prior Atom instances, such as {repr(first_atom)}')
 
         if protein_backbone_atom_types.difference(found_types):  # Todo Modify if building NucleotideResidue
-            raise ValueError(f"{self.is_residue_valid.__name__}: The provided Atoms don't contain the required "
-                             f'types ({", ".join(protein_backbone_atom_types)}) to build a {self.__class__.__name__}')
+            raise ValueError(
+                f"Invalid {self.__class__.__name__}. The provided Atom instances don't contain the required "
+                f"types, i.e. '{', '.join(protein_backbone_atom_types)}' for construction")
 
         return True
-
-    # @property
-    # def start_index(self) -> int:
-    #     """The first atomic index of the Residue"""
-    #     return self._start_index
 
     @ContainsAtomsMixin.start_index.setter
     def start_index(self, index: int):
@@ -2267,23 +2247,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def range(self) -> list[int]:
         """The range of indices corresponding to the Residue atoms"""
         return list(range(self.number_of_atoms))
-
-    # @property
-    # def atom_indices(self) -> list[int] | None:
-    #     """The indices which belong to the Residue Atoms in the parent Atoms/Coords container"""  # Todo separate __doc?
-    #     try:
-    #         return self._atom_indices
-    #     except AttributeError:
-    #         return None
-
-    # @atom_indices.setter
-    # def atom_indices(self, indices: list[int]):
-    #     """Set the Structure atom indices to a list of integers"""
-    #     self._atom_indices = indices
-    #     try:
-    #         self._start_index = indices[0]
-    #     except (TypeError, IndexError):
-    #         raise IndexError('The Residue wasn\'t passed any atom_indices which are required for initialization')
 
     def delegate_atoms(self):
         """Set the Residue atoms from a parent StructureBase"""
@@ -2361,11 +2324,11 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         self.backbone_and_cb_indices = self._bb_indices + cb_indices
         self.heavy_indices = self._bb_and_cb_indices + heavy_indices
         self.side_chain_indices = side_chain_indices
-        # if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
-        #     self.log.error('Residue %d has no CA atom!' % self.number)
+        # if not self.ca_index:  # This is likely a NH or a C=O so there isn't a full residue
+        #     self.log.error(f'{repr(self)} has no CA atom')
         #     # Todo this residue should be built out, but as of 6/28/22 it can only be deleted
-        #     self.ca_index = idx  # use the last found index as a rough guess
-        #     self.secondary_structure = 'C'  # just a placeholder since stride shouldn't work
+        #     self.ca_index = idx  # Use the last found index as a rough guess
+        #     self.secondary_structure = 'C'  # Just a placeholder since stride shouldn't work
 
     @property
     def type1(self) -> str:
@@ -2455,7 +2418,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return None
 
     @property
-    def n_coords(self) -> np.ndarry | None:
+    def n_coords(self) -> np.ndarray | None:
         """Return the amide N Atom coordinate"""
         try:
             return self._coords.coords[self._atom_indices[self._n_index]]
@@ -2491,7 +2454,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return None
 
     @property
-    def h_coords(self) -> np.ndarry | None:
+    def h_coords(self) -> np.ndarray | None:
         """Return the amide H Atom coordinate"""
         try:
             return self._coords.coords[self._atom_indices[self._h_index]]
@@ -2527,7 +2490,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return None
 
     @property
-    def ca_coords(self) -> np.ndarry | None:
+    def ca_coords(self) -> np.ndarray | None:
         """Return the CA Atom coordinate"""
         try:
             return self._coords.coords[self._atom_indices[self._ca_index]]
@@ -2563,7 +2526,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return None
 
     @property
-    def cb_coords(self) -> np.ndarry | None:
+    def cb_coords(self) -> np.ndarray | None:
         """Return the CB Atom coordinate"""
         try:
             return self._coords.coords[self._atom_indices[self._cb_index]]
@@ -2599,7 +2562,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return None
 
     @property
-    def c_coords(self) -> np.ndarry | None:
+    def c_coords(self) -> np.ndarray | None:
         """Return the carbonyl C Atom coordinate"""
         try:
             return self._coords.coords[self._atom_indices[self._c_index]]
@@ -2635,7 +2598,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return None
 
     @property
-    def o_coords(self) -> np.ndarry | None:
+    def o_coords(self) -> np.ndarray | None:
         """Return the carbonyl O Atom coords"""
         try:
             return self._coords.coords[self._atom_indices[self._o_index]]
@@ -2721,7 +2684,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             for idx in range(abs(number) - 1):
                 prior_residues.append(prior_residues[idx].prev_residue)
-        except AttributeError:  # We hit a termini
+        except AttributeError:  # Hit a termini, where prev_residue is None
             # logger.critical(f'Stopped at {idx}. with residues {prior_residues}. Popping the last')
             prior_residues.pop(idx)
         else:  # For the edge case where the last added residue is a termini, strip from results
@@ -2747,7 +2710,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             for idx in range(abs(number) - 1):
                 next_residues.append(next_residues[idx].next_residue)
-        except AttributeError:  # We hit a termini
+        except AttributeError:  # Hit a termini, where next_residue is None
             # logger.critical(f'Stopped at {idx}. with residues {next_residues}. Popping the last')
             next_residues.pop(idx)
         else:  # For the edge case where the last added residue is a termini, strip from results
@@ -2764,15 +2727,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         Returns:
             The Residue instances that are within the distance to this Residue
         """
-        # try:
-        #     return self._neighbors
-        # except AttributeError:
-        #     self._neighbors = self.get_residues_by_atom_indices(self.neighboring_atom_indices(**kwargs))
         try:
             return self.parent.get_residues_by_atom_indices(self.neighboring_atom_indices(distance=distance, **kwargs))
         except AttributeError:  # This Residue is the parent
             return [self]
-        #     return self._neighbors
 
     def _warn_missing_attribute(self, attribute_name: str, func: str = None) -> str:
         return f'Residue {self.number}{self.chain_id} has no ".{attribute_name}" attribute! Ensure you call ' \
@@ -2790,10 +2748,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.local_density()
                 return self._local_density
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.local_density.fget.__name__, 'local_density'))
-                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.local_density.__name__}" '
-                #                      f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
-                #                      f' Residue local density information')
+                raise AttributeError(
+                    self._warn_missing_attribute(Residue.local_density.fget.__name__, 'local_density'))
 
     @local_density.setter
     def local_density(self, local_density: float):
@@ -2809,11 +2765,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             # try:
             #     return self._secondary_structure
             # except AttributeError:
-            raise AttributeError(self._warn_missing_attribute(Residue.secondary_structure.fget.__name__,
-                                 'secondary_structure'))
-            # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
-            #                      'Ensure you set the "parent".secondary_structure before you '
-            #                      'request Residue.secondary_structure information')
+            raise AttributeError(
+                self._warn_missing_attribute(Residue.secondary_structure.fget.__name__,'secondary_structure'))
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code: str):
@@ -2849,10 +2802,9 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:  # let _segregate_sasa() call get_sasa() from the .parent if sasa is missing
                 self._sasa = self.sasa_apolar + self.sasa_polar
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.sasa.fget.__name__, 'get_sasa'))
-                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa.__name__}" attribute! '
-                #                      f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
-                #                      f'information')
+                raise AttributeError(
+                    self._warn_missing_attribute(Residue.sasa.fget.__name__, 'get_sasa'))
+
             return self._sasa
 
     @sasa.setter
@@ -2870,10 +2822,9 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.sasa_apolar.fget.__name__, 'get_sasa'))
-                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_apolar.__name__}" '
-                #                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                #                      f'Residue SASA information')
+                raise AttributeError(
+                    self._warn_missing_attribute(Residue.sasa_apolar.fget.__name__, 'get_sasa'))
+
             return self._sasa_apolar
 
     @sasa_apolar.setter
@@ -2891,10 +2842,9 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.sasa_polar.fget.__name__, 'get_sasa'))
-                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_polar.__name__}" '
-                #                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                #                      f'Residue SASA information')
+                raise AttributeError(
+                    self._warn_missing_attribute(Residue.sasa_polar.fget.__name__, 'get_sasa'))
+
             return self._sasa_polar
 
     @sasa_polar.setter
@@ -2917,8 +2867,9 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.spatial_aggregation_propensity_per_residue()
                 return self._sap
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.spatial_aggregation_propensity.fget.__name__,
-                                     'spatial_aggregation_propensity'))
+                raise AttributeError(
+                    self._warn_missing_attribute(Residue.spatial_aggregation_propensity.fget.__name__,
+                                                 'spatial_aggregation_propensity'))
 
     @spatial_aggregation_propensity.setter
     def spatial_aggregation_propensity(self, sap: float):
@@ -2934,7 +2885,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.contact_order_per_residue()
                 return self._contact_order
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.contact_order.fget.__name__, 'contact_order'))
+                raise AttributeError(
+                    self._warn_missing_attribute(Residue.contact_order.fget.__name__, 'contact_order'))
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
@@ -2943,7 +2895,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     # End state properties
 
     @property
-    def number_of_heavy_atoms(self) -> int:    # Todo ContainsAtomsMixin
+    def number_of_heavy_atoms(self) -> int:
         return len(self._heavy_indices)
 
     @property
@@ -3021,7 +2973,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             other: The other Residue to measure against
             dtype: The Atom type to perform the measurement with
         Returns:
-            The euclidean distance between the specified Atom type
+            The Euclidean distance between the specified Atom type
         """
         return np.linalg.norm(getattr(self, f'.{dtype}_coords') - getattr(other, f'.{dtype}_coords'))
 
@@ -3063,7 +3015,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         return f'{self.__str__(**kwargs)}\n'
 
     def __str__(self, chain_id: str = None, atom_offset: int = 0, **kwargs) -> str:
-        #         pdb: bool = False, type=None, number=None
+        #         type=None, number=None
         """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
         formatting
 
@@ -3083,7 +3035,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         #                     self.element, self.charge)
         # res_str = self.residue_string(**kwargs)
         res_str = format(self.type, '3s'), format(chain_id or self.chain_id, '>2s'), format(self.number, '4d')
-            # format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
         # Add 1 to make index one-indexed
         offset = 1 + atom_offset
         # Limit atom_index with atom_index_slice to keep ATOM record correct length v
@@ -3094,7 +3045,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def __hash__(self) -> int:
         return hash(self._key)
 
-    def __copy__(self) -> Residue:  # -> Self Todo python3.11
+    def __copy__(self) -> Residue:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
         other.__dict__.update(self.__dict__)
@@ -3159,9 +3110,9 @@ class Residues:
 
     def find_prev_and_next(self):
         """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
-        residues = self.residues
-        for residue, next_residue in zip(residues[:-1], residues[1:]):
-            residue.next_residue = next_residue
+        structs = self.residues
+        for struct, next_struct in zip(structs[:-1], structs[1:]):
+            struct.next_residue = next_struct
 
     def are_dependents(self) -> bool:
         """Check if any of the Residue instance are dependents on another Structure"""
@@ -3282,7 +3233,7 @@ class Residues:
     #         for key, value in kwargs.items():
     #             setattr(residue, key, value[idx])
 
-    def __copy__(self) -> Residues:  # -> Self Todo python3.11
+    def __copy__(self) -> Residues:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
         struct: Residue
@@ -3366,7 +3317,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     Polymer/Chain designation. This designation essentially means it contains Residue instances in a Residues object
     """
-    # _atoms: Atoms | None
+    ss_sequence_indices: list[int]
+    """Index which indicates the Residue membership to the secondary structure type element sequence"""
+    ss_type_sequence: list[str]
+    """The ordered secondary structure type sequence which contains one character/secondary structure element"""
     _backbone_and_cb_indices: list[int]
     _backbone_indices: list[int]
     _ca_indices: list[int]
@@ -3458,19 +3412,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue_indices: The indices which specify the particular Residue instances to make this Structure instance.
                 Used with a parent to specify a subdivision of a larger Structure
         Keyword Args:
+            atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
             parent: StructureBase = None - If another Structure object created this Structure instance, pass the
                 'parent' instance. Will take ownership over Structure containers (coords, atoms, residues) for
                 dependent Structures
             log: Log | Logger | bool = True - The Log or Logger instance, or the name for the logger to handle parent
                 Structure logging. None or False prevents logging while any True assignment enables it
-            coords: Coords | np.ndarry | list[list[float]] = None - When setting up a parent Structure instance, the
-                coordiantes of that Structure
+            coords: Coords | np.ndarray | list[list[float]] = None - When setting up a parent Structure instance, the
+                coordinates of that Structure
             name: str = None - The identifier for the Structure instance
         """
-        super().__init__(atoms=atoms, **kwargs)
-        # self._atoms = None
-        # self._atom_indices = None
-        # self._coords = None
+        super().__init__(**kwargs)  # ContainsResiduesMixin
         # self._coords_indexed_residues = None
         # self._residues = None
         # self._residue_indices = None
@@ -3497,8 +3449,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # Get the atom_indices from the provided residues
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         # Setting up a parent Structure
-        elif residues:  # assume the passed residues aren't bound to an existing Structure
-            self._assign_residues(residues, atoms=atoms)
+        elif residues:  # Assume the passed residues aren't bound to an existing Structure
+            self._assign_residues(residues)
         elif self.atoms:
             # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
             self._create_residues()
@@ -3509,13 +3461,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
-        super(Structure, Structure)._parent.fset(self, parent)
+        # super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
+        super(ContainsResiduesMixin, ContainsResiduesMixin)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
 
     def detach_from_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
-        super().detach_from_parent()
+        super(ContainsAtomsMixin, ContainsAtomsMixin).detach_from_parent(self)
         # Populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)
         self.reset_state()
@@ -3781,13 +3734,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
     #
     #     Returns:
-    #         (list[tuple[Residue, int]]): Indexed by the by the Residue position in the corresponding .coords attribute
+    #         (list[tuple[Residue, int]]): Indexed by the Residue position in the corresponding .coords attribute
     #     """
     #     try:
     #         return [(self._residues.residues[res_idx], res_atom_idx)
     #                 for res_idx, res_atom_idx in self._coords_indexed_residues[self._atom_indices].tolist()]
     #     except (AttributeError, TypeError):
-    #         raise AttributeError('The current Structure object "%s" doesn\'t "own" it\'s coordinates. The attribute '
+    #         raise AttributeError("The current Structure object doesn't own it's coordinates. The attribute "
     #                              '.coords_indexed_residues can only be accessed by the Structure object that owns these'
     #                              ' coordinates and therefore owns this Structure' % self.name)
     #
@@ -4194,22 +4147,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for idx, residue in enumerate(residues, at):
             residue.number = idx
 
-    def get_residues(self, numbers: Container[int] = None, indices: Iterable[int] = None, pdb: bool = False, **kwargs) \
-            -> list[Residue]:
+    def get_residues(self, numbers: Container[int] = None, indices: Iterable[int] = None, **kwargs) -> list[Residue]:
         """Retrieve Residue instances from the Structure. Returns all by default
 
         Args:
             numbers: Residue numbers of interest
             indices: Residue indices of interest for the Structure
-            pdb: Whether to search for numbers as they were parsed
         Returns:
             The requested Residue instances, sorted in the order they appear in the Structure
         """
         residues = self.residues
         if numbers is not None:
             if isinstance(numbers, Container):
-                number_source = 'number_pdb' if pdb else 'number'
-                residues = [residue for residue in residues if getattr(residue, number_source) in numbers]
+                residues = [residue for residue in residues if residue.number in numbers]
             else:
                 self.log.warning(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning '
                                  f'all Residue instances instead')
@@ -4263,7 +4213,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self._residue_indices = list(range(len(new_residues)))
         self._residues = Residues(new_residues)
-        # Set these attributes since this is a fresh Residues
+        # Set container dependent attributes since this is a fresh Residues instance
         self._residues.find_prev_and_next()
         self._residues.set_index()
 
@@ -4336,16 +4286,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     self._residue_indices = list(range(len(new_residues)))
     #     self._residues = Residues(new_residues)
 
-    def residue(self, residue_number: int, pdb: bool = False) -> Residue | None:
+    def residue(self, residue_number: int) -> Residue | None:
         """Retrieve the specified Residue
 
         Args:
             residue_number: The number of the Residue to search for
-            pdb: Whether the numbering is the parsed residue numbering or current
         """
-        number_source = 'number_pdb' if pdb else 'number'
         for residue in self.residues:
-            if getattr(residue, number_source) == residue_number:
+            if residue.number == residue_number:
                 return residue
 
     @property
@@ -4681,15 +4629,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     for residue in prev_residue.get_upstream() + [prev_residue]:
                         residue.number = residue.number - 1
 
-            new_residue.number = new_residue.number_pdb = tentative_number
+            new_residue.number = tentative_number
         elif prev_residue:
-            new_residue.number = new_residue.number_pdb = prev_residue.number + 1
+            new_residue.number = prev_residue.number + 1
         else:  # next_residue
             # This cautionary note may not apply anymore
             #  Subtracting one may not be enough if this insert_residue_type() is part of a set of inserts and all
             #  n-terminal insertions are being conducted before this next_residue. Clean this in the first check of
             #  this logic block
-            new_residue.number = new_residue.number_pdb = next_residue.number - 1
+            new_residue.number = next_residue.number - 1
 
         try:
             secondary_structure = self._secondary_structure
@@ -4812,11 +4760,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                         residue.number = residue.number - number_new_residues
             # Set the new numbers
             for residue, new_number in zip(new_residues, tentative_residue_numbers):
-                residue.number = residue.number_pdb = new_number
+                residue.number = new_number
         elif prev_residue:
             _prev_residue = prev_residue
             for residue in new_residues:
-                residue.number = residue.number_pdb = _prev_residue.number + 1
+                residue.number = _prev_residue.number + 1
                 _prev_residue = residue
         else:  # next_residue
             # This cautionary note may not apply to insert_residues(
@@ -4825,7 +4773,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             #  this logic block
             _prev_residue = next_residue
             for residue in reversed(new_residues):
-                residue.number = residue.number_pdb = _prev_residue.number - 1
+                residue.number = _prev_residue.number - 1
                 _prev_residue = residue
 
         # Reindex the coords/residues map

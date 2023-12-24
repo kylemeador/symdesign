@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Iterable, Callable
 import argparse
 import os
 import subprocess
 import sys
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import ipywidgets as widgets
 from IPython.core.display_functions import display

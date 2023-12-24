@@ -5,9 +5,10 @@ import math
 import operator
 import sys
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
 from itertools import repeat
 from json import loads
-from typing import AnyStr, Any, Sequence, Iterable, Mapping, Literal
+from typing import AnyStr, Any, Literal
 
 from numba import jit
 import numpy as np
@@ -1833,7 +1834,7 @@ hydrophobicity_scale = \
 hydrophobicity_scale_literal = Literal['expanded', 'standard']
 
 
-def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarry,
+def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
                                hydrophobicity: hydrophobicity_scale_literal = 'standard',
                                custom: dict[sequence.protein_letters_literal, int | float] = None,
                                alphabet_type: sequence.alphabet_types_literal = None,

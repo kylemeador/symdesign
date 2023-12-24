@@ -6,7 +6,8 @@ import logging
 import os
 import operator
 import sys
-from typing import Any, AnyStr, Callable, Literal, get_args, Sequence
+from collections.abc import Callable, Sequence
+from typing import Any, AnyStr, Literal, get_args
 
 import pandas as pd
 from psutil import cpu_count

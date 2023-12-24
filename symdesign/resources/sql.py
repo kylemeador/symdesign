@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Iterable
 from time import time
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd

@@ -14,8 +14,14 @@ source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
 old_weighted_counts_keys = Literal[sequence.protein_letters_literal, 'stats']
 old_aa_weighted_counts_type: dict[old_weighted_counts_keys, int | tuple[int, int]]
 # Todo add 'weight' instead of 'stats' (0, 1) during creation
-weighted_counts_keys = Literal[sequence.protein_letters_literal, 'weight']
-aa_weighted_counts_type: dict[weighted_counts_keys, int | float]
+#  weighted_counts_keys = Literal[sequence.protein_letters_literal, 'weight']
+#  aa_weighted_counts_type: dict[weighted_counts_keys, int | float]
+#  aa_weighted_counts: aa_weighted_counts_type = dict(zip(sequence.protein_letters_alph1, repeat(0.)))
+#  """{protein_letters_alph1, repeat(0) | 'weight': 1}"""  # 'count': 0,
+#  aa_weighted_counts['weight'] = 1
+#  # aa_weighted_counts.update({'count': 0, 'weight': 1})
+#  # """{protein_letters_alph1, repeat(0) | 'stats'=(0, 1)}"""
+#  # aa_weighted_counts.update({'stats': (0, 1)})
 
 
 class ClusterInfo:
@@ -67,8 +73,6 @@ class ClusterInfo:
 
 
 class FragmentInfo:
-    # info: dict[tuple[int, int, int], dict[source_literal, int | float | str | aa_weighted_counts_type]]
-    # info: dict[int, dict[int, dict[int, ClusterInfo]]]
     info: dict[tuple[int, int, int], ClusterInfo]
     fragment_length: int
     fragment_range: tuple[int, int]

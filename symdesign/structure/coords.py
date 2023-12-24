@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence, Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 
 from numba import jit
 import numpy as np
@@ -93,7 +93,7 @@ class Coords:
     def __iter__(self) -> Iterator[list[float, float, float]]:
         yield from self.coords.tolist()
 
-    def __copy__(self) -> Coords:  # -> Self Todo python3.11
+    def __copy__(self) -> Coords:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
         other.coords = self.coords.copy()

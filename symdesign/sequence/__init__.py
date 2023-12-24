@@ -4,10 +4,11 @@ import logging
 import os
 import subprocess
 from collections import defaultdict
+from collections.abc import Iterable, Iterator, Sequence
 from itertools import count
 from math import log2
 from pathlib import Path
-from typing import Sequence, AnyStr, Iterable, Literal, Any, TypedDict, get_args, Generator
+from typing import Any, AnyStr, get_args, Literal, TypedDict
 
 import numpy as np
 from Bio import AlignIO, SeqIO
@@ -1567,7 +1568,7 @@ class MultipleSequenceAlignment:
         return self.alignment.get_alignment_length()
 
     @property
-    def sequences(self) -> Generator[str, None, None]:
+    def sequences(self) -> Iterator[str]:
         """Iterate over the sequences present in the alignment"""
         for record in self.alignment:
             yield record.seq

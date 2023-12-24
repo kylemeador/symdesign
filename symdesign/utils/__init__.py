@@ -12,13 +12,14 @@ import subprocess
 import sys
 import time
 from collections import defaultdict
+from collections.abc import Callable, Generator, Iterable, Sequence
 from functools import reduce, wraps
 from glob import glob
 from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root as root_logger
 from operator import getitem
-from typing import Any, Callable, Iterable, AnyStr, Sequence, Iterator, Literal, Type, get_args
+from typing import Any, AnyStr, Literal, Type, get_args
 
 import numpy as np
 import psutil
@@ -28,7 +29,6 @@ from . import path as putils, query
 
 # Globals
 logger = logging.getLogger(__name__)
-# null_logger = logging.getLogger('null')
 np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
                       torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
 np_torch_float_types = (np.float16, np.float32, np.float64,
@@ -405,7 +405,7 @@ def remove_interior_keys(dictionary: dict, keys: Iterable, keep: bool = False) -
 
     Args:
         dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
-        keys: [key2, key10] Iterator of keys to be removed from dictionary
+        keys: Keys to be removed from dictionary, such as [key2, key10]
         keep: Whether to keep (True) or remove (False) specified keys
     Returns:
         {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
@@ -1131,7 +1131,8 @@ def get_program_root_directory(search_path: str = None) -> AnyStr | None:
     return root_directory
 
 
-def get_program_directories(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:
+def get_program_directories(base: str = None, projects: Iterable = None, singles: Iterable = None) \
+        -> Generator[AnyStr, None, None]:
     """Return the specific design directories from the specified hierarchy with the format
     /base(program_output)/Projects/project/design
     """
@@ -1205,13 +1206,13 @@ class PoseSpecification:
 
         # logger.debug(f'Total Design Directives: {self.directives}')
 
-    def get_directives(self) -> Iterator[tuple[str, list[str] | None, list[dict[int, str]] | None]]:
+    def get_directives(self) -> Generator[tuple[str, list[str] | None, list[dict[int, str]] | None], None, None]:
         """Retrieve the parsed PoseID, Design Name, and Mutation Directive information from a Specification file
 
         Returns:
-            An Iterator of tuples where each tuple contains the PoseID potentially followed by the corresponding
-                DesignID and design directives, if these were provided in the parsed file. If they weren't then None
-                will be returned
+            An generator of tuples where each tuple contains the PoseID, then if provided in the parsed file, the
+                corresponding DesignID and then design directives. If they aren't provided then None will be returned
+                for the DesignID and directives.
         """
         # Calculate whether there are multiple designs present per pose
         found_poses = defaultdict(list)

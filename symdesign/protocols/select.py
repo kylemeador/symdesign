@@ -4,9 +4,10 @@ import logging
 import os
 import shutil
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from glob import glob
 from itertools import repeat, count
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import select

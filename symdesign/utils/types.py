@@ -8,7 +8,7 @@ import numpy as np
 class TransformationMapping(TypedDict):
     # Todo ?
     #  transformation: tuple[rotation, translation]
-    rotation: Type[list[list[float]] | np.ndarry]
-    rotation2: Type[list[list[float]] | np.ndarry]
-    translation: Type[list[float] | np.ndarry]
-    translation2: Type[list[float] | np.ndarry]
+    rotation: Type[list[list[float]] | np.ndarray]
+    rotation2: Type[list[list[float]] | np.ndarray]
+    translation: Type[list[float] | np.ndarray]
+    translation2: Type[list[float] | np.ndarray]

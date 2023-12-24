@@ -5,10 +5,11 @@ import os
 import shutil
 import subprocess
 from collections import defaultdict
+from collections.abc import Iterable
 from glob import glob
 from itertools import count
 from pathlib import Path
-from typing import Iterable, Annotated, AnyStr
+from typing import Annotated, AnyStr
 
 import jax.numpy as jnp
 

@@ -5,7 +5,7 @@ import math
 import os
 import time
 from itertools import count
-from typing import Generator, Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 import numpy as np
 from sqlalchemy import select
@@ -243,7 +243,7 @@ def combine_modes(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
 
 
 def generate_bend_transformations(joint_residue: Residue, direction: termini_literal = None) \
-        -> Generator[types.TransformationMapping, None, None]:
+        -> Iterator[types.TransformationMapping]:
     """Generate transformations compatible with bending a helix at a Residue in that helix in either the 'n' or 'c'
     terminal direction
 
@@ -321,7 +321,7 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
 
 
 def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples: int = 1,
-         additional_entity_ids: Iterator[str] = None) -> list[np.ndarray]:
+         additional_entity_ids: Iterable[str] = None) -> list[np.ndarray]:
     """Bend a Pose at a helix specified by a Residue on the helix according to typical helix bending modes
 
     Args:

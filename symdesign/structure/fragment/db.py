@@ -11,12 +11,15 @@ from attr import frozen
 
 from . import info
 from symdesign import utils, structure
+from symdesign.sequence import protein_letters_literal
+
 putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
 alignment_types_literal = Literal['mapped', 'paired']
-alignment_types: tuple[str, ...] = get_args(alignment_types_literal)
+alignment_types: tuple[str, str] = get_args(alignment_types_literal)
+aa_frequencies_type: dict[protein_letters_literal, float]
 RELOAD_DB = 123
 
 
@@ -36,7 +39,7 @@ class FragmentObservation:
     """The match of the entire fragment observation to the fragment cluster representative"""
     weight: float
     """The contribution of the FragObservation to atomic interactions from the entire fragment observation"""
-    frequencies: info.aa_weighted_counts_type
+    frequencies: aa_frequencies_type
 
     def __hash__(self):
         return hash(self.source) * hash(self.cluster)
@@ -58,8 +61,7 @@ class Representative:
                 self.backbone_coords = struct.residues[representative_residue_idx].backbone_coords
                 break
         else:
-            raise ValueError(
-                f"Couldn't get the representative residue index upon initialization")
+            raise ValueError("Couldn't get the representative residue index upon initialization")
 
 
 class FragmentDatabase(info.FragmentInfo):

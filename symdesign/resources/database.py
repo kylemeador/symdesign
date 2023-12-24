@@ -4,7 +4,8 @@ import logging
 import os
 from glob import glob
 from logging import Logger
-from typing import Any, Callable, AnyStr
+from collections.abc import Callable
+from typing import Any, AnyStr
 
 from symdesign import utils, resources
 

@@ -4,10 +4,11 @@ import json
 import logging
 import os
 import time
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from json import dumps, load
-from typing import Annotated, Any, Iterable, Literal, get_args
+from typing import Annotated, Any, get_args, Literal
 
 import requests
 

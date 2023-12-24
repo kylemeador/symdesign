@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import abc
 import logging
 import os
 from abc import ABC
 from collections.abc import Iterable
 from itertools import repeat
-from logging import Logger
 from typing import IO, Sequence, AnyStr
 
 import numpy as np
@@ -28,7 +28,6 @@ class GhostFragment:
     Must support .chain_id, .number, .index, .rotation, .translation, and .transformation attributes
     """
     fragment_db: db.FragmentDatabase
-    # index: int
     i_type: int
     j_type: int
     k_type: int
@@ -43,7 +42,7 @@ class GhostFragment:
         self.k_type = k_type
         self.rmsd = ijk_rmsd
         self.aligned_fragment = aligned_fragment
-        # Assign both for API compatibility with Fragment
+        # Assign both attributes for API compatibility with Fragment
         self.fragment_db = self._fragment_db = aligned_fragment.fragment_db
 
     @property
@@ -107,7 +106,7 @@ class GhostFragment:
 
     @property
     def translation(self) -> np.ndarray:
-        """The rotation of the aligned Fragment from the Fragment Database"""
+        """The translation of the aligned Fragment from the Fragment Database"""
         return self.aligned_fragment.translation
 
     @property
@@ -115,7 +114,7 @@ class GhostFragment:
         """The transformation of the aligned Fragment from the Fragment Database
 
         Returns:
-            The rotation (3, 3), the translation (3,)
+            The rotation (3, 3) and the translation (3,)
         """
         return self.aligned_fragment.transformation
 
@@ -129,8 +128,8 @@ class GhostFragment:
 
         return self._representative.get_transformed_copy()
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) -> \
-            str | None:
+    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) \
+            -> str | None:
         """Write the GhostFragment to a file specified by out_path or with a passed file_handle
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
@@ -165,39 +164,24 @@ class Fragment(ABC):
     """Holds coordinates (currently backbone) that represent the fragment during spatial transformation"""
     _fragment_db: db.FragmentDatabase | None
     _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
-    chain_id: str
-    frag_lower_range: int
-    frag_upper_range: int
+    # frag_lower_range: int
+    # frag_upper_range: int
     ghost_fragments: list | list[GhostFragment] | None
-    # guide_coords: np.ndarray | None
     i_type: int | None
-    index: int
-    log: Logger
-    number: int
     rmsd_thresh: float = 0.75
     rotation: np.ndarray
     translation: np.ndarray
 
-    def __init__(self, fragment_type: int = None,
-                 # guide_coords: np.ndarray = None,
-                 # fragment_length: int = 5,
-                 fragment_db: db.FragmentDatabase = None,
-                 **kwargs):
+    def __init__(self, fragment_type: int = None, fragment_db: db.FragmentDatabase = None, **kwargs):
         self._fragment_coords = None
         self.ghost_fragments = None
         self.i_type = fragment_type
-        # self.guide_coords = guide_coords
         self.rotation = utils.symmetry.identity_matrix
         self.translation = utils.symmetry.origin
-        if fragment_db is None:  # Skip fragment_db.setter
-            self._fragment_db = None
-        else:
-            self._fragment_db = fragment_db
-            self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
-            self.fragment_length = fragment_db.fragment_length
+        self._fragment_db = fragment_db
 
-        super().__init__(**kwargs)
-        # may need FragmentBase to clean extras for proper method resolution order (MRO)
+        super().__init__(**kwargs)  # Fragment
+        # May need a FragmentBase to clean extra kwargs for proper method resolution order
 
     # These property getter and setter exist so that Residue instances can be initialized w/o FragmentDatabase
     # and then provided this argument upon fragment assignment
@@ -210,9 +194,6 @@ class Fragment(ABC):
     def fragment_db(self, fragment_db: db.FragmentDatabase):
         """Set the Fragment instances FragmentDatabase to assist with creation and manipulation"""
         self._fragment_db = fragment_db
-        if fragment_db is not None:
-            self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
-            self.fragment_length = fragment_db.fragment_length
 
     @property
     def frag_type(self) -> int | None:
@@ -234,37 +215,37 @@ class Fragment(ABC):
         return self.chain_id, self.number
 
     @property
+    @abc.abstractmethod
+    def chain_id(self) -> str:
+        """Return the Fragment identifiers that the Fragment was mapped to
+
+        Returns:
+            The aligned Residue.chain_id attribute
+        """
+
+    @property
+    @abc.abstractmethod
+    def number(self) -> int:
+        """Return the Fragment identifiers that the Fragment was mapped to
+
+        Returns:
+            The aligned Residue.number attribute
+        """
+
+    @property
+    @abc.abstractmethod
     def index(self) -> int:
         """Return the Fragment identifiers that the Fragment was mapped to
 
         Returns:
             The aligned Residue.index attribute
         """
-        return self.index
-
-    # @property
-    # def _fragment_coords(self) -> np.ndarray:
-    #     """Return the coordinates of the representative Residue of the mapped fragment"""
-    #     try:
-    #         # return self._representative_ca_coords
-    #         return self._representative_bb_coords
-    #     except AttributeError:
-    #         # self._representative_ca_coords = self._fragment_db.representatives[self.i_type].ca_coords
-    #         self._representative_bb_coords = self._fragment_db.representatives[self.i_type].backbone_coords
-    #         # return self._representative_ca_coords
-    #         return self._representative_bb_coords
-
-    # @_fragment_coords.setter
-    # def _fragment_coords(self, coords: np.ndarray):
-    #     # self._representative_ca_coords = coords
-    #     self._representative_bb_coords = coords
 
     @property
     def guide_coords(self) -> np.ndarray:
         """Return the guide coordinates of the mapped Fragment"""
         rotation, translation = self.transformation  # Updates the transformation on the fly
         return np.matmul(self._guide_coords, np.transpose(rotation)) + translation
-        # return np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
 
     # @guide_coords.setter
     # def guide_coords(self, coords: np.ndarray):
@@ -277,26 +258,21 @@ class Fragment(ABC):
         return self.rotation, self.translation
         # return dict(rotation=self.rotation, translation=self.translation)
 
-    # def get_center_of_mass(self):  # UNUSED
+    # def center_of_mass(self):  # UNUSED
     #     if self.guide_coords:
     #         return np.matmul([0.33333, 0.33333, 0.33333], self.guide_coords)
     #     else:
     #         return None
 
-    def find_ghost_fragments(self,
-                             # indexed_ghost_fragments: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
-                             clash_tree: BinaryTree = None, clash_dist: float = 2.1):
+    def find_ghost_fragments(self, clash_tree: BinaryTree = None, clash_dist: float = 2.1):
         """Find all the GhostFragments associated with the Fragment
 
         Args:
             clash_tree: Allows clash prevention during search. Typical use is the backbone and CB atoms of the
                 Structure that the Fragment is assigned
             clash_dist: The distance to check for backbone clashes
-        Returns:
-            The ghost fragments associated with the fragment
         """
-        ghost_i_type_arrays: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = \
-            self._fragment_db.indexed_ghosts.get(self.i_type, None)
+        ghost_i_type_arrays = self._fragment_db.indexed_ghosts.get(self.i_type, None)
         if ghost_i_type_arrays is None:
             self.ghost_fragments = []
             return
@@ -317,14 +293,14 @@ class Fragment(ABC):
             viable_indices = ~clashing_indices
 
         # self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
-        self.ghost_fragments = [GhostFragment(*info_) for info_ in zip(list(stacked_guide_coords[viable_indices]),
-                                                                       *zip(*ijk_types[viable_indices].tolist()),
-                                                                       rmsd_array[viable_indices].tolist(),
-                                                                       repeat(self))]
+        self.ghost_fragments = [
+            GhostFragment(*info_)
+            for info_ in zip(
+                list(stacked_guide_coords[viable_indices]), *zip(*ijk_types[viable_indices].tolist()),
+                rmsd_array[viable_indices].tolist(), repeat(self))
+        ]
 
-    def get_ghost_fragments(self,
-                            # indexed_ghost_fragments: dict,
-                            **kwargs) -> list | list[GhostFragment]:
+    def get_ghost_fragments(self, **kwargs) -> list | list[GhostFragment]:
         """Retrieve the GhostFragments associated with the Fragment. Will generate if none are available, otherwise,
         will return the already generated instances.
 
@@ -346,13 +322,13 @@ class Fragment(ABC):
             # This routine is necessary when the ghost_fragments are already generated on a residue,
             # but that residue is copied.
             # Todo Perhaps, this routine should be called by the copy function...
-            self.log.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
+            logger.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
             for ghost in self.ghost_fragments:
                 ghost.aligned_fragment = self
 
         return self.ghost_fragments
 
-    # def __copy__(self):  # -> Self # Todo python3.11
+    # def __copy__(self):  # Todo -> Self: in python 3.11
     #     other = self.__class__.__new__(self.__class__)
     #     other.__dict__ = copy(self.__dict__)
     #     other.__dict__['ghost_fragments'] = copy(self.ghost_fragments)
@@ -363,28 +339,36 @@ class MonoFragment(Fragment):
     """
     central_residue: 'structure.base.Residue'
 
-    def __init__(self, residues: Sequence['structure.base.Residue'],
-                 fragment_db: db.FragmentDatabase = None,
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.central_residue = residues[int(self.fragment_length/2)]
-        self.log = self.central_residue._log.log
+    def __init__(self, residues: Sequence['structure.base.Residue'], **kwargs):
+        """
+
+        Args:
+            residues: The Residue instances which comprise the MonoFragment
+            **kwargs:
+        """
+        super().__init__(**kwargs)  # MonoFragment
+
+        try:
+            fragment_length = self.fragment_db.fragment_length
+        except AttributeError:  # self.fragment_db is None
+            raise ValueError(
+                f"Can't construct {self.__class__.__name__} without passing 'fragment_db'")
 
         if not residues:
-            raise ValueError(f"Can't find {self.__class__.__name__} without passing residues with length "
-                             f'{self.fragment_length}')
-        elif fragment_db is None:
-            raise ValueError(f"Can't find {self.__class__.__name__} without passing fragment_db")
-        else:
-            try:
-                fragment_db.representatives
-            except AttributeError:
-                raise TypeError(f'The passed fragment_db is not of the required type "FragmentDatabase"')
+            raise ValueError(
+                f"Can't find {self.__class__.__name__} without passing {fragment_length} Residue instances")
+        self.central_residue = residues[int(fragment_length / 2)]
+
+        try:
+            fragment_representatives = self.fragment_db.representatives
+        except AttributeError:
+            raise TypeError(
+                f"The 'fragment_db' is not of the required type '{db.FragmentDatabase.__name__}'")
 
         fragment_ca_coords = np.array([residue.ca_coords for residue in residues])
         min_rmsd = float('inf')
 
-        for fragment_type, representative in fragment_db.representatives.items():
+        for fragment_type, representative in fragment_representatives.items():
             rmsd, rot, tx = superposition3d(fragment_ca_coords, representative.ca_coords)
             if rmsd <= self.rmsd_thresh and rmsd <= min_rmsd:
                 self.i_type = fragment_type
@@ -393,26 +377,26 @@ class MonoFragment(Fragment):
         if self.i_type:
             # self.guide_coords = \
             #     np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
-            self._fragment_coords = fragment_db.representatives[self.i_type].backbone_coords
+            self._fragment_coords = fragment_representatives[self.i_type].backbone_coords
 
     @property
-    def aligned_chain_and_residue(self) -> tuple[str, int]:
-        """Return the Fragment identifiers that the MonoFragment was mapped to
-
-        Returns:
-            aligned chain_id, aligned residue_number
-        """
-        return self.central_residue.chain_id, self.central_residue.number
-
-    @property
-    def chain(self) -> str:
-        """The Residue number"""
+    def chain_id(self) -> str:
+        """The Residue chainID"""
         return self.central_residue.chain_id
 
     @property
     def number(self) -> int:
         """The Residue number"""
         return self.central_residue.number
+
+    @property
+    def index(self) -> int:
+        """Return the Fragment identifiers that the Fragment was mapped to
+
+        Returns:
+            The aligned Residue.index attribute
+        """
+        return self.central_residue.index
 
     # Methods below make compatible with Pose symmetry operations
     @property
@@ -469,31 +453,12 @@ class ResidueFragment(Fragment, ABC):
     """Represent Fragment information for a single Residue"""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # ResidueFragment
 
-    # @property
-    # def frag_type(self) -> int | None:
-    #     """The secondary structure of the Fragment"""
-    #     return self.i_type
-    #
-    # @frag_type.setter
-    # def frag_type(self, frag_type: int):
-    #     """Set the secondary structure of the Fragment"""
-    #     self.i_type = frag_type
-
-    # @property
-    # def _fragment_coords(self) -> np.ndarray:
-    #     """Return the CA coordinates of the neighboring Residues which specify the ResidueFragment"""
-    #     # try:
-    #     #     return self._fragment_ca_coords
-    #     # except AttributeError:
-    #     return np.array([res.ca_coords for res in self.get_upstream(self.frag_lower_range)
-    #                      + [self] + self.get_downstream(self.frag_upper_range-1)])
-    #     #     return self._fragment_ca_coords
-
-    # @_fragment_coords.setter
-    # def _fragment_coords(self, coords: np.ndarray):
-    #     self._fragment_ca_coords = coords
+    @property
+    @abc.abstractmethod
+    def backbone_coords(self) -> np.ndarray:
+        """"""
 
     @property
     def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
@@ -508,19 +473,8 @@ class ResidueFragment(Fragment, ABC):
         # _, self.rotation, self.translation = \
         #     superposition3d(self.backbone_coords, self._fragment_coords)
         #     superposition3d(self._fragment_coords, self._fragment_coords)
-        self.rotation, self.translation = \
-            guide_superposition(self.backbone_coords, self._fragment_coords)
+        self.rotation, self.translation = guide_superposition(self.backbone_coords, self._fragment_coords)
         return self.rotation, self.translation
-        # return dict(rotation=self.rotation, translation=self.translation)
-
-    # @property
-    # def aligned_chain_and_residue(self) -> tuple[str, int]:
-    #     """Return the Fragment identifiers that the ResidueFragment was mapped to
-    #
-    #     Returns:
-    #         aligned chain_id, aligned residue_number
-    #     """
-    #     return self.chain_id, self.number
 
 
 def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[Fragment],
@@ -637,15 +591,14 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
     # central_frequencies=None,
     # ghost_residue: Residue = None, matched_residue: Residue = None,
 
-    # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
-    #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
+    # if not ghost_frag and not matched_frag and not overlap_error and not match_number:
+    #     raise DesignError(
+    #       f'{write_frag_match_info_file.__name__}: Missing required information')
 
     with open(os.path.join(out_path, utils.path.frag_text_file), 'a+') as out_info_file:
-        # if is_initial_match:
         if match_number == 1:
             out_info_file.write(f'DOCKED POSE ID: {pose_identifier}\n\n')
             out_info_file.write('***** ALL FRAGMENT MATCHES *****\n\n')
-            # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
         cluster_id = 'i{}_j{}_k{}'.format(*ghost_frag.ijk)
         out_info_file.write(f'MATCH {match_number}\n')
         out_info_file.write(f'z-val: {overlap_error}\n')
@@ -659,6 +612,3 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
         out_info_file.write(f'mean rmsd: {ghost_frag.rmsd}\n')
         out_info_file.write(f'aligned rep: int_frag_{cluster_id}_{match_number}.pdb\n')
         # out_info_file.write(f'central res pair freqs:\n{central_frequencies}\n\n')
-
-        # if is_initial_match:
-        #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")

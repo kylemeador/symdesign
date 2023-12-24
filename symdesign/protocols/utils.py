@@ -4,8 +4,9 @@ import functools
 import logging
 import os
 import traceback
+from collections.abc import Callable
 from subprocess import list2cmdline
-from typing import Callable, Type, Any
+from typing import Any, Type
 
 from symdesign import flags
 from symdesign.resources import distribute

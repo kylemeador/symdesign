@@ -9,8 +9,9 @@ import sys
 import time
 import traceback
 import warnings
+from collections.abc import Callable, Container, Iterable, Sequence
 from math import ceil
-from typing import Annotated, Iterable, Container, Literal, Type, Callable, Sequence, Any
+from typing import Annotated, Any, Literal, Type
 
 from Bio import BiopythonDeprecationWarning
 import jax.numpy as jnp

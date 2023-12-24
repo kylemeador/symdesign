@@ -3,9 +3,10 @@ from __future__ import annotations
 import csv
 import logging
 import os
+from collections.abc import Iterable
 from itertools import count, repeat, combinations
 from subprocess import list2cmdline, Popen
-from typing import Iterable, AnyStr
+from typing import AnyStr
 
 import numpy as np
 import pandas as pd

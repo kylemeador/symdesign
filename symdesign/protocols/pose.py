@@ -7,12 +7,13 @@ import shutil
 import traceback
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from glob import glob
 from itertools import combinations, repeat, count
 from math import sqrt
 from pathlib import Path
 from subprocess import Popen, list2cmdline
-from typing import Any, Iterable, AnyStr, Sequence
+from typing import Any, AnyStr
 
 from cycler import cycler
 import jax.numpy as jnp
