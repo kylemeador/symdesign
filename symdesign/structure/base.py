@@ -3343,9 +3343,121 @@ class ContainsResiduesMixin(StructureBase, ABC):
 chain_assignment_error = "Can't solve for the Residue chainID association automatically. If the new " \
                          'Residue is at a Structure termini in a multi-Structure, Structure container, ' \
                          "you must specify which Structure it belongs to by passing chain_id='ID'"
+# from types import EllipsisType
+ArrayIndexer = Type[Union[Sequence[int], Sequence[bool], slice, None]]  # EllipsisType python 3.10
+"""Where integers, slices `:`, ellipsis `...`, None and integer or boolean arrays are valid indices"""
 
+
+class StructureIndexMixin(ABC):
+    """"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)  # StructureIndexMixin
+
+    @abc.abstractmethod
+    def is_parent(self) -> bool:
+        """"""
+
+    def _start_indices(self, at: int = 0, dtype: atom_or_residue_literal = None):
+        """Modify Structure container indices by a set integer amount
+
+        Args:
+            at: The index to insert indices at
+            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
+        """
+        try:  # To get the indices through the public property
+            indices = self.__getattribute__(f'{dtype}_indices')
+        except AttributeError:
+            raise AttributeError(
+                f"The {dtype=} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                "of dtype are 'atom' or 'residue'")
+        offset = at - indices[0]
+        # Set the indices through the private attribute
+        self.__setattr__(f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
+
+    def _insert_indices(self, at: int, new_indices: list[int], dtype: atom_or_residue_literal = None):
+        """Modify Structure container indices by a set integer amount
+
+        Args:
+            at: The index to insert indices at
+            new_indices: The indices to insert
+            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
+        """
+        if new_indices is None:
+            return
+        try:
+            indices = self.__getattribute__(f'{dtype}_indices')
+        except AttributeError:
+            raise AttributeError(
+                f"The {dtype=} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                "of dtype are 'atom' or 'residue'")
+        number_new = len(new_indices)
+        self.__setattr__(f'_{dtype}_indices',
+                         indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
+
+    def _offset_indices(self, start_at: int = None, offset: int = None, dtype: atom_or_residue_literal = 'atom'):
+        """Reindex Structure 'dtype'_indices by an integer offset, starting with the 'start_at' index
+
+        Args:
+            start_at: The index to start reindexing at. Must be [0, 'inf']
+            offset: The integer to offset the index by. For negative offset, pass a negative value
+            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
+        """
+        try:
+            indices = self.__getattribute__(f'{dtype}_indices')
+        except AttributeError:
+            raise AttributeError(
+                f"The {dtype=} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                f"of dtype are 'atom' or 'residue'")
+        if start_at is not None:
+            try:
+                self.__setattr__(f'_{dtype}_indices',
+                                 indices[:start_at] + [idx + offset for idx in indices[start_at:]])
+                # self._atom_indices = \
+                #     self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
+            except TypeError:  # None is not valid
+                raise ValueError(
+                    f"offset value {offset} isn't valid. Must provide an integer when offsetting {dtype} indices using "
+                    "the argument 'start_at'")
+        elif self.is_parent():  # Just reset all the indices without regard for gaps
+            self.__setattr__(f'_{dtype}_indices', list(range(self.__getattribute__(f'number_of_{dtype}'))))
+            # self._atom_indices = list(range(self.number_of_atoms))
+        # This shouldn't be used for a Structure object who is dependent on another Structure
+        else:
+            raise ValueError(
+                f"{self._offset_indices.__name__}: Must include 'start_at' when offsetting {dtype} indices from a "
+                'dependent structure')
+
+    def _delete_indices(self, delete_indices: Iterable[int], dtype: atom_or_residue_literal = 'atom'):
+        """Remove the delete_indices from the Structure dtype_indices. Currently pops the indices len(delete_indices)
+        times which reindexes the remaining indices
 
 class Structure(ContainsAtomsMixin):  # Todo Polymer?
+        Args:
+            delete_indices: The indices to delete
+            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
+        """
+        if delete_indices is None:
+            return
+        try:
+            indices = self.__getattribute__(f'{dtype}_indices')
+        except AttributeError:
+            raise AttributeError(
+                f"The {dtype=} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                "of dtype are 'atom' or 'residue'")
+        try:
+            for _ in delete_indices:  # reversed(delete_indices):
+                indices.pop()  # idx)
+        except IndexError:  # Reached the last index with None remaining
+            self.log.debug(f'{self._delete_indices.__name__}: Reached the end of the {dtype}_indices, but requested '
+                           'more be deleted')
+            return
+            # raise IndexError(f"The index, {idx}, wasn't found in the {self.name}.{dtype}_indices")
+        except AttributeError:
+            raise AttributeError(
+                f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
+
+
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
@@ -3563,107 +3675,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"{len(sequence)} != {self.number_of_residues}, the number of residues"
             )
         self._sequence = sequence
-
-    # Todo StructureIndex
-    def _start_indices(self, at: int = 0, dtype: atom_or_residue_literal = None):
-        """Modify Structure container indices by a set integer amount
-
-        Args:
-            at: The index to insert indices at
-            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
-        """
-        try:  # To get the indices through the public property
-            indices = self.__getattribute__(f'{dtype}_indices')
-        except AttributeError:
-            raise AttributeError(
-                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
-                "of dtype are 'atom' or 'residue'")
-        offset = at - indices[0]
-        # Set the indices through the private attribute
-        self.__setattr__(f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
-
-    # Todo StructureIndex
-    def _insert_indices(self, at: int, new_indices: list[int], dtype: atom_or_residue_literal = None):
-        """Modify Structure container indices by a set integer amount
-
-        Args:
-            at: The index to insert indices at
-            new_indices: The indices to insert
-            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
-        """
-        if new_indices is None:
-            return
-        try:
-            indices = self.__getattribute__(f'{dtype}_indices')
-        except AttributeError:
-            raise AttributeError(
-                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
-                "of dtype are 'atom' or 'residue'")
-        number_new = len(new_indices)
-        self.__setattr__(f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
-
-    # Todo StructureIndex
-    def _offset_indices(self, start_at: int = None, offset: int = None, dtype: atom_or_residue_literal = 'atom'):
-        """Reindex Structure 'dtype'_indices by an integer offset, starting with the 'start_at' index
-
-        Args:
-            start_at: The index to start reindexing at. Must be [0, 'inf']
-            offset: The integer to offset the index by. For negative offset, pass a negative value
-            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
-        """
-        try:
-            indices = self.__getattribute__(f'{dtype}_indices')
-        except AttributeError:
-            raise AttributeError(
-                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
-                f"of dtype are 'atom' or 'residue'")
-        if start_at is not None:
-            try:
-                self.__setattr__(f'_{dtype}_indices',
-                                 indices[:start_at] + [idx + offset for idx in indices[start_at:]])
-                # self._atom_indices = \
-                #     self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
-            except TypeError:  # None is not valid
-                raise ValueError(
-                    f"offset value {offset} isn't valid. Must provide an integer when offsetting {dtype} indices using "
-                    "the argument 'start_at'")
-        elif self.is_parent():  # Just reset all the indices without regard for gaps
-            self.__setattr__(f'_{dtype}_indices', list(range(self.__getattribute__(f'number_of_{dtype}'))))
-            # self._atom_indices = list(range(self.number_of_atoms))
-        # This shouldn't be used for a Structure object who is dependent on another Structure
-        else:
-            raise ValueError(
-                f'{self._offset_indices.__name__}: Must include "start_at" when offsetting {dtype} indices from a '
-                'dependent structure')
-
-    # Todo StructureIndex
-    def _delete_indices(self, delete_indices: Iterable[int], dtype: atom_or_residue_literal = 'atom'):
-        """Remove the delete_indices from the Structure dtype_indices. Currently pops the indices len(delete_indices)
-        times which reindexes the remaining indices
-
-        Args:
-            delete_indices: The indices to delete
-            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
-        """
-        if delete_indices is None:
-            return
-        try:
-            indices = self.__getattribute__(f'{dtype}_indices')
-        except AttributeError:
-            raise AttributeError(
-                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
-                "of dtype are 'atom' or 'residue'")
-        try:
-            for _ in delete_indices:  # reversed(delete_indices):
-                indices.pop()  # idx)
-        except IndexError:  # Reached the last index with None remaining
-            self.log.debug(f'{self._delete_indices.__name__}: Reached the end of the {dtype}_indices, but requested '
-                           'more be deleted')
-            return
-            # raise IndexError(f"The index, {idx}, wasn't found in the {self.name}.{dtype}_indices")
-        except AttributeError:
-            raise AttributeError(
-                f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
 
     @property
     def residue_indices(self) -> list[int] | None:
@@ -4003,7 +4014,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             atom_indices.extend(residue.atom_indices)
         return atom_indices
 
-    def get_residues_by_atom_indices(self, atom_indices: Iterable[int]) -> list[Residue]:  # Todo ContainsResiduesMixin?
+    def get_residues_by_atom_indices(self, atom_indices: ArrayIndexer) -> list[Residue]:
         """Retrieve Residues in the Structure specified by Atom indices
 
         Args:
