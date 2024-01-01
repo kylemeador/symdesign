@@ -1689,14 +1689,30 @@ class ContainsAtomsMixin(StructureBase, ABC):
     def from_atoms(cls, atoms: list[Atom] | Atoms = None, **kwargs):
         return cls(atoms=atoms, **kwargs)
 
-    def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
+    def __init__(self, atoms: list[Atom] | Atoms = None, atom_indices: list[int] = None, **kwargs):
         """
         Args:
             atoms: Atom instances to initialize the instance
         """
-        if atoms is not None:
-            self._assign_atoms(atoms)
         super().__init__(**kwargs)  # ContainsAtomsMixin
+        if self.is_parent():
+            if atoms is not None:
+                self._assign_atoms(atoms)
+            else:  # Create an empty container
+                # try:
+                #     self._atoms
+                # except AttributeError:
+                self._atoms = Atoms()
+        elif atom_indices is not None:
+            try:
+                atom_indices[0]
+            except (TypeError, IndexError):
+                raise ValueError(
+                    f"The {self.__class__.__name__} wasn't passed 'atom_indices' which are required for initialization")
+
+            if not isinstance(atom_indices, list):
+                atom_indices = list(atom_indices)
+            self._atom_indices = atom_indices
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
@@ -1874,37 +1890,67 @@ class ContainsAtomsMixin(StructureBase, ABC):
     #     # Todo need to add the atoms to coords
 
     @property
-    def ca_atoms(self) -> list[Atom]:
-        """Return CA Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.ca_indices].tolist()
+    @abc.abstractmethod
+    def backbone_and_cb_indices(self) -> list[int]:
+        """The indices that index the StructureBase backbone and CB Atoms/Coords"""
 
     @property
-    def cb_atoms(self) -> list[Atom]:
-        """Return CB Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.cb_indices].tolist()
+    @abc.abstractmethod
+    def backbone_indices(self) -> list[int]:
+        """The indices that index the StructureBase backbone and CB Atoms/Coords"""
+
+    @property
+    @abc.abstractmethod
+    def ca_indices(self) -> list[int]:
+        """The indices that index the StructureBase CA Atoms/Coords"""
+
+    @property
+    @abc.abstractmethod
+    def cb_indices(self) -> list[int]:
+        """The indices that index the StructureBase CB Atoms/Coords"""
+
+    @property
+    @abc.abstractmethod
+    def heavy_indices(self) -> list[int]:
+        """The indices that index the StructureBase heavy (non-hydrogen) Atoms/Coords"""
+
+    @property
+    @abc.abstractmethod
+    def side_chain_indices(self) -> list[int]:
+        """The indices that index the StructureBase side-chain Atoms/Coords"""
 
     @property
     def backbone_atoms(self) -> list[Atom]:
-        """Return backbone Atom instances from the StructureBase"""
+        """Returns backbone Atom instances from the StructureBase"""
         return self._atoms.atoms[self.backbone_indices].tolist()
 
     @property
     def backbone_and_cb_atoms(self) -> list[Atom]:
-        """Return backbone and CB Atom instances from the StructureBase"""
+        """Returns backbone and CB Atom instances from the StructureBase"""
         return self._atoms.atoms[self.backbone_and_cb_indices].tolist()
 
     @property
+    def ca_atoms(self) -> list[Atom]:
+        """Returns CA Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.ca_indices].tolist()
+
+    @property
+    def cb_atoms(self) -> list[Atom]:
+        """Returns CB Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.cb_indices].tolist()
+
+    @property
     def heavy_atoms(self) -> list[Atom]:
-        """Return heavy Atom instances from the StructureBase"""
+        """Returns heavy Atom instances from the StructureBase"""
         return self._atoms.atoms[self.heavy_indices].tolist()
 
     @property
     def side_chain_atoms(self) -> list[Atom]:
-        """Return side chain Atom instances from the StructureBase"""
+        """Returns side chain Atom instances from the StructureBase"""
         return self._atoms.atoms[self.side_chain_indices].tolist()
 
     def atom(self, atom_number: int) -> Atom | None:
-        """Return the Atom specified by atom number if a matching Atom is found, otherwise None"""
+        """Returns the Atom specified by atom number if a matching Atom is found, otherwise None"""
         for atom in self.atoms:
             if atom.number == atom_number:
                 return atom
@@ -2154,32 +2200,18 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
            '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
     type: str
 
-    def __init__(self, atoms: list[Atoms] | Atoms = None, atom_indices: list[int] = None, **kwargs):
-        # kwargs passed to StructureBase
-        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        # kwargs passed to fragment.ResidueFragment -> Fragment
-        #          fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs):
+        """
 
-        parent = self.parent
-        if parent:  # We are setting up a dependent Residue
-            self._atom_indices = atom_indices
-            try:
-                self._start_index = atom_indices[0]
-            except (TypeError, IndexError):
-                raise ValueError("The Residue wasn't passed atom_indices which are required for initialization")
-        # We are setting up a parent (independent) Residue
-        elif atoms:  # is not None  # No parent passed, construct from atoms
-            self._assign_atoms(atoms)
-            self._start_index = 0
-            # Update Atom instance attributes to ensure they are dependants of this instance
-            # Must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
-            # self._atoms.set_attributes(_parent=self)
-            # self._atoms.reindex()
-            # self.renumber_atoms()
-        else:  # Create an empty Residue
-            self._atoms = Atoms()
+        Args:
+            **kwargs:
+        """
+        super().__init__(**kwargs)  # Residue
+        if self.is_parent():
+            # Setting up a parent (independent) Residue
             self._ensure_valid_residue()
+            self.start_index = 0
+
         self.delegate_atoms()
 
     @property
@@ -2236,7 +2268,6 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         """Set Residue atom_indices starting with atom_indices[0] as start_index. Creates remainder incrementally and
         updates individual Atom instance .index accordingly
         """
-        self._start_index = index
         self._atom_indices = list(range(index, index + self.number_of_atoms))
         for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
             atom.index = index
@@ -2279,34 +2310,34 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         #                     heavy_indices.append(idx)
         # except SyntaxError:  # python version not 3.10
         for idx, atom in enumerate(self.atoms):
-            if atom.type == 'N':
+            atom_type = atom.type
+            if atom_type == 'N':
                 self._n_index = idx
                 try:  # To see if the residue has a number attribute already
                     self.number
                 except AttributeError:  # This is the first set-up. Add information from the N atom
                     self.chain_id = atom.chain_id
                     self.number = atom.residue_number
-                    self.number_pdb = atom.pdb_residue_number
                     self.type = atom.residue_type
-            elif atom.type == 'CA':
+            elif atom_type == 'CA':
                 self._ca_index = idx
-            elif atom.type == 'CB':
+            elif atom_type == 'CB':
                 self._cb_index = idx
-            elif atom.type == 'C':
+            elif atom_type == 'C':
                 self._c_index = idx
-            elif atom.type == 'O':
+            elif atom_type == 'O':
                 self._o_index = idx
-            elif atom.type == 'H':  # 1H or H1
+            elif atom_type == 'H':  # 1H or H1
                 self._h_index = idx
-            # elif atom.type == 'OXT':
+            # elif atom_type == 'OXT':
             #     self._oxt_index = idx
-            # elif atom.type == 'H2':
+            # elif atom_type == 'H2':
             #     self._h2_index = idx
-            # elif atom.type == 'H3':
+            # elif atom_type == 'H3':
             #     self._h3_index = idx
             else:
                 side_chain_indices.append(idx)
-                if 'H' not in atom.type:
+                if 'H' not in atom_type:
                     heavy_indices.append(idx)
 
         # Construction ensures proper order for _bb_indices even if out of order
@@ -2733,7 +2764,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
             return [self]
 
     def _warn_missing_attribute(self, attribute_name: str, func: str = None) -> str:
-        return f'Residue {self.number}{self.chain_id} has no ".{attribute_name}" attribute! Ensure you call ' \
+        return f"{repr(self)} has no '.{attribute_name}' attribute. Ensure you call " \
                f'{func} before you request Residue {" ".join(attribute_name.split("_"))} information'
 
     # Below properties are considered part of the Residue state
@@ -2917,8 +2948,8 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
             for atom in self.atoms:
                 atom.b_factor = self.__getattribute__(dtype)
         except AttributeError:
-            raise AttributeError(f'The attribute {dtype} was not found in the Residue {self.number}{self.chain_id}. Are'
-                                 ' you sure this is the attribute you want?')
+            raise AttributeError(
+                f"The attribute {dtype} wasn't found in the {repr(self)}. Are you sure this is the attribute you want?")
         except TypeError:  # dtype isn't a string
             # raise TypeError(f'{type(dtype)} is not a string. To set b_factor, you must provide the dtype as a string')
             # try:
@@ -2995,7 +3026,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
 
     @property
     def _key(self) -> tuple[int, int, str]:
-        return self._index, self._start_index, self.type  # self.entity_id
+        return self._index, self.start_index, self.type  # self.entity_id
 
     def __eq__(self, other: Residue) -> bool:
         if isinstance(other, Residue):
@@ -3041,6 +3072,9 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         return '\n'.join(atom.__str__().format(format(atom_idx + offset, '5d')[atom_index_slice],
                                                *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*coord))
                          for atom, atom_idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
+
+    def __repr__(self) -> str:
+        return f'{Residue.__name__}({self.number}{self.chain_id})'
 
     def __hash__(self) -> int:
         return hash(self._key)
