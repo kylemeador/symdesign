@@ -3305,41 +3305,6 @@ class Residues:
         yield from self.residues.tolist()
 
 
-class ContainsResiduesMixin(StructureBase, ABC):
-    ss_sequence_indices: list[int]
-    """Index which indicates the Residue membership to the secondary structure type element sequence"""
-    ss_type_sequence: list[str]
-    """The ordered secondary structure type sequence which contains one character/secondary structure element"""
-
-    def __init__(self, kwargs):
-        raise NotImplementedError(f'{self.__class__.__name__} needs more work')
-        super().__init__(**kwargs)
-        self.ss_sequence_indices = []
-        self.ss_type_sequence = []
-
-    def calculate_secondary_structure(self):
-        """"""
-        self.__getattribute__(DEFAULT_SS_PROGRAM)()  # self.stride()
-        secondary_structure = self.secondary_structure
-
-        ss_sequence_indices, ss_type_sequence = [], []
-        # Increment a secondary structure index which changes with every secondary structure transition
-        # Simultaneously, map the secondary structure type to an array of pose length
-        ss_increment_index = 0
-        ss_sequence_indices.append(ss_increment_index)
-        ss_type_sequence.append(secondary_structure[0])
-        for prior_ss_type, ss_type in zip(secondary_structure[:-1], secondary_structure[1:]):
-            if prior_ss_type != ss_type:
-                ss_increment_index += 1
-                ss_type_sequence.append(ss_type)
-            ss_sequence_indices.append(ss_increment_index)
-
-        # Clear any information if it exists
-        self.ss_sequence_indices.clear(), self.ss_type_sequence.clear()
-        self.ss_sequence_indices.extend(ss_sequence_indices)
-        self.ss_type_sequence.extend(ss_type_sequence)
-
-
 chain_assignment_error = "Can't solve for the Residue chainID association automatically. If the new " \
                          'Residue is at a Structure termini in a multi-Structure, Structure container, ' \
                          "you must specify which Structure it belongs to by passing chain_id='ID'"
@@ -3432,7 +3397,6 @@ class StructureIndexMixin(ABC):
         """Remove the delete_indices from the Structure dtype_indices. Currently pops the indices len(delete_indices)
         times which reindexes the remaining indices
 
-class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Args:
             delete_indices: The indices to delete
             dtype: The type of indices to modify. Can be either 'atom' or 'residue'
@@ -3458,6 +3422,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
 
 
+class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
@@ -3544,16 +3509,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
         return cls(residues=residues, **kwargs)
 
-    def __init__(self, atoms: list[Atom] | Atoms = None,
-                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None, file_path: AnyStr = None,
-                 biological_assembly: str | int = None, biomt: np.ndarray = None, biomt_header: str = None, **kwargs):
+    def __init__(self, residues: list[Residue] | Residues = None, residue_indices: list[int] = None, **kwargs):
         """
         Args:
-            atoms: The Atom instances which should constitute a new Structure instance
-            biological_assembly: The integer of the biological assembly (as indicated by PDB AssemblyID format)
-            biomt: A parsed array of transformations to recreate the molecules symmetry
-            biomt_header: The REMARK 350 formatted lines for printing the BIOMT record
-            file_path: The location on disk where the file was accessed
             residues: The Residue instances which should constitute a new Structure instance
             residue_indices: The indices which specify the particular Residue instances to make this Structure instance.
                 Used with a parent to specify a subdivision of a larger Structure
@@ -3572,14 +3530,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # self._coords_indexed_residues = None
         # self._residues = None
         # self._residue_indices = None
-        self.biological_assembly = biological_assembly
-        self.biomt = biomt  # numpy array of vectors with [x, y, z, tx], ...
-        self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
-        self.file_path = file_path
-        self.nucleotides_present = False
-        self.secondary_structure = None
-        self.sasa = None
-        self.structure_containers: list | list[str] = []
+        # self.secondary_structure = None  # Todo ContainsResiduesMixin
+        self.nucleotides_present = False  # Todo ContainsResiduesMixin
+        self.sasa = None  # Todo ContainsResiduesMixin
+        self.ss_sequence_indices = []  # Todo ContainsResiduesMixin
+        self.ss_type_sequence = []  # Todo ContainsResiduesMixin
 
         if self.is_dependent():
             try:
@@ -3588,8 +3543,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 if isinstance(self, Structures):  # Structures handles this itself
                     return
                 raise stutils.ConstructionError(
-                    f"Argument 'residue_indices' must be provided when constructing dependent {self.__class__.__name__}"
-                    f' instance. Found state:\n{self.residues}')
+                    f"The {self.__class__.__name__} wasn't passed 'residue_indices' which are required for "
+                    f"initialization"
+                )
+
+            if not isinstance(residue_indices, list):
+                residue_indices = list(residue_indices)
             # Must set this before setting _atom_indices
             self._residue_indices = residue_indices
             # Get the atom_indices from the provided residues
@@ -3619,9 +3578,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._assign_residues(self.residues, atoms=self.atoms)
         self.reset_state()
 
-    # Todo a separate call for each of ContainsAtomsMixin and ContainsResiduesMixin
     def get_base_containers(self) -> dict[str, Any]:
-        """Return the instance structural containers as a dictionary with attribute as key and container as value"""
+        """Returns the instance structural containers as a dictionary with attribute as key and container as value"""
         return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)
 
     @property
@@ -3684,10 +3642,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         except AttributeError:
             return
 
-    # @residue_indices.setter
-    # def residue_indices(self, indices: list[int]):
-    #     self._residue_indices = indices  # np.array(indices)
-
     @property
     def residues(self) -> list[Residue] | None:
         """Return the Residue instances in the Structure"""
@@ -3695,15 +3649,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self._residues.residues[self._residue_indices].tolist()
         except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
             return
-        # Todo
-        #  try:
-        #      return self._r
-        #  except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
-        #     self._r = self._residues.residues[self._residue_indices].tolist()
-        #     return self._r
-        #
-        # Todo add ^ above in class attributes
-        #  self.state_attributes | set('_r')
 
     # @residues.setter
     # def residues(self, residues: Residues | list[Residue]):
@@ -3738,10 +3683,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             atoms = []
             for residue in residues:
                 atoms.extend(residue.atoms)
-        self._assign_atoms(atoms, atoms_only=False)  # No passing of kwargs as below _populate_coords() handles
+        self._assign_atoms(atoms, atoms_only=False)  # Not passing kwargs as _populate_coords() handles
         # Done below with _residues.reindex_atoms(), not necessary here
-        # if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
-        #     self._atoms.reindex()
+        # self._atoms.reindex()
 
         # Set proper residues attributes
         self._residue_indices = list(range(len(residues)))
@@ -3928,20 +3872,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     Returns:
     #         Index of the Atom position in the Residue for the index of the .coords attribute
     #     """
-    #     # try:
     #     if self.is_parent():
     #         return self._coords_indexed_residue_atoms[self._atom_indices].tolist()
     #     else:
     #         return self.parent._coords_indexed_residue_atoms[self._atom_indices].tolist()
-    #     # except (AttributeError, TypeError):
-    #     #     raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-    #     #                          f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
-    #     #                          f'object that owns these coordinates and therefore owns this Structure')
-
-    # @coords_indexed_residue_atoms.setter
-    # def coords_indexed_residue_atoms(self, indices: list[int]):
-    #     """Create a map of the coordinate indices to the Residue and Residue atom index"""
-    #     self._coords_indexed_residue_atoms = np.array(indices)
 
     @property
     def number_of_residues(self) -> int:
@@ -3976,13 +3910,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         coords_type = 'coords' if dtype == 'all' else f'{dtype}_coords'
         return np.concatenate([getattr(residue, coords_type) for residue in residues])
 
-    def _update_structure_container_attributes(self, **kwargs):
-        """Update attributes specified by keyword args for all Structure container members"""
-        for structure_type in self.structure_containers:
-            for structure in self.__getattribute__(structure_type):
-                for kwarg, value in kwargs.items():
-                    setattr(structure, kwarg, value)
-
     def set_residues_attributes(self, **kwargs):
         """Set attributes specified by key, value pairs for Residues in the Structure
 
@@ -4008,7 +3935,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Keyword Args:
             numbers: Container[int] = None - The Residue numbers of interest
         """
-        # return [atom.index for atom in self.get_residue_atoms(numbers=numbers, **kwargs)]
         atom_indices = []
         for residue in self.get_residues(**kwargs):
             atom_indices.extend(residue.atom_indices)
@@ -4028,69 +3954,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             all_residues = self.parent._coords_indexed_residues[atom_indices].tolist()
 
         return sorted(set(all_residues), key=lambda residue: residue.index)
-
-    # Todo
-    #  The functions below don't really serve a purpose... but this pseudocode would apply to similar code patterns
-    #  each of the below properties could be part of same __getitem__ function
-    #  ex:
-    #   def __getitem__(self, value):
-    #       THE CRUX OF PROBLEM IS HOW TO SEPARATE THESE GET FROM OTHER STRUCTURE GET
-    #       if value.startswith('coords_indexed_')
-    #       try:
-    #           return getattr(self, f'_coords_indexed{value}_indices')
-    #       except AttributeError:
-    #           test_indice = getattr(self, f'_coords_indexed{value}_indices')
-    #           setattr(self, f'_coords_indexed{value}_indices', [idx for idx, atom_idx in enumerate(self._atom_indices)
-    #                                                             if atom_idx in test_indices])
-    #           return getattr(self, f'_coords_indexed{value}_indices')
-    #
-    # @property
-    # def coords_indexed_backbone_indices(self) -> list[int]:
-    #     """Return backbone Atom indices from the Structure indexed to the Coords view"""
-    #     try:
-    #         return self._coords_indexed_backbone_indices
-    #     except AttributeError:
-    #         # for idx, (atom_idx, bb_idx) in enumerate(zip(self._atom_indices, self.backbone_indices)):
-    #         # backbone_indices = []
-    #         # for residue, res_atom_idx in self.coords_indexed_residues:
-    #         #     backbone_indices.extend(residue.backbone_indices)
-    #         test_indices = self.backbone_indices
-    #         self._coords_indexed_backbone_indices = \
-    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-    #     return self._coords_indexed_backbone_indices
-    #
-    # @property
-    # def coords_indexed_backbone_and_cb_indices(self) -> list[int]:
-    #     """Return backbone and CB Atom indices from the Structure indexed to the Coords view"""
-    #     try:
-    #         return self._coords_indexed_backbone_and_cb_indices
-    #     except AttributeError:
-    #         test_indices = self.backbone_and_cb_indices
-    #         self._coords_indexed_backbone_and_cb_indices = \
-    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-    #     return self._coords_indexed_backbone_and_cb_indices
-    #
-    # @property
-    # def coords_indexed_cb_indices(self) -> list[int]:
-    #     """Return CA Atom indices from the Structure indexed to the Coords view"""
-    #     try:
-    #         return self._coords_indexed_cb_indices
-    #     except AttributeError:
-    #         test_indices = self.cb_indices
-    #         self._coords_indexed_cb_indices = \
-    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-    #     return self._coords_indexed_cb_indices
-    #
-    # @property
-    # def coords_indexed_ca_indices(self) -> list[int]:
-    #     """Return CB Atom indices from the Structure indexed to the Coords view"""
-    #     try:
-    #         return self._coords_indexed_ca_indices
-    #     except AttributeError:
-    #         test_indices = self.ca_indices
-    #         self._coords_indexed_ca_indices = \
-    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-    #     return self._coords_indexed_ca_indices
 
     @property
     def backbone_indices(self) -> list[int]:
@@ -4188,8 +4051,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             index: The index to start the renumbering process
             at: The number to start renumbering at
         """
-        residues = self.residues[index:]
-        for idx, residue in enumerate(residues, at):
+        for idx, residue in enumerate(self.residues[index:], at):
             residue.number = idx
 
     def get_residues(self, numbers: Container[int] = None, indices: Iterable[int] = None, **kwargs) -> list[Residue]:
@@ -4270,7 +4132,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Todo remove bad atoms
         # self._atoms.remove()
 
-    # when alt_location parsing allowed, there may be some use to this, however above works without alt location
+    # When alt_location parsing performed, there may be some use to below implementation
     # def _create_residues(self):
     #     """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
     #     start_indices, residue_ranges = [], []
@@ -4340,6 +4202,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue
+        return None
 
     @property
     def n_terminal_residue(self) -> Residue:
@@ -4419,20 +4282,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self.insert_residues(residue_index, add_residues, chain_id=residue.chain_id)
 
-    def get_residue_atoms(self, numbers: Container[int] = None, **kwargs) -> list[Atom]:
+    def get_residue_atoms(self, **kwargs) -> list[Atom]:
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
 
-        Args:
-            numbers: The residue numbers to search for
+        Keyword Args:
+            numbers: Container[int] = None – Residue numbers of interest
+            indices: Iterable[int] = None – Residue indices of interest for the Structure
         Returns:
             The Atom instances belonging to the Residue instances
         """
         atoms = []
-        for residue in self.get_residues(numbers=numbers, **kwargs):
+        for residue in self.get_residues(**kwargs):
             atoms.extend(residue.atoms)
         return atoms
 
-    # Todo ContainsResiduesMixin
     def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'A', **kwargs) \
             -> list[int] | list:
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
@@ -4456,7 +4319,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue = self.residue(number)
 
         if residue is None:
-            raise ValueError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
+            raise ValueError(
+                f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
         elif self.is_dependent():
             # Ensure the mutation is done by the Structure parent to account for everything correctly
             return self.parent.mutate_residue(residue, to=to)
@@ -4468,7 +4332,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:
                 protein_letters_3to1_extended[to]
             except KeyError:
-                raise KeyError(f"The mutation type '{to}' isn't a viable residue type")
+                raise KeyError(
+                    f"The mutation type '{to}' isn't a viable Residue type")
 
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
@@ -4512,7 +4377,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return delete_indices
 
-    # Todo ContainsResiduesMixin
     def delete_residues(self, residues: Iterable[Residue] = None, indices: Iterable[int] = None,
                         numbers: Container[int] = None, **kwargs) -> list[Residue] | list:
         """Deletes Residue instances from the Structure
@@ -4570,7 +4434,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return residues
 
-    # Todo ContainsResiduesMixin
     def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None) -> Residue:
         """Insert a standard Residue type into the Structure at the origin. No structural alignment is performed!
 
@@ -4700,7 +4563,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return new_residue
 
-    # Todo ContainsResiduesMixin
     def insert_residues(self, index: int, new_residues: Iterable[Residue], chain_id: str = None) -> list[Residue]:
         """Insert Residue instances into the Structure at the origin. No structural alignment is performed!
 
@@ -5171,7 +5033,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 if line[seq_slice] == 'SEQ':  # Doesn't seem that this equality is sufficient ^
                     residues[if_idx].sasa = float(line[sasa_slice])
                     if_idx += 1
-        # Todo change to sasa property to call this automatically if AttributeError?
         try:
             self.sasa = sum([residue.sasa for residue in self.residues])
         except RecursionError:
@@ -5238,31 +5099,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return [residue for residue in self.residues if residue.relative_sasa < relative_sasa_thresh]
 
-    # def get_residue_surface_area(self, residue_number, probe_radius=2.2):
-    #     """Get the surface area for specified residues
-    #
-    #     Returns:
-    #         (float): Angstrom^2 of surface area
-    #     """
-    #     if not self.sasa:
-    #         self.get_sasa(probe_radius=probe_radius)
-    #
-    #     # return self.sasa[self.residues.index(residue_number)]
-    #     return self.sasa[self.residues.index(residue_number)]
-
-    def get_surface_area_residues(self, residues: list[Residue] = None, numbers: list[int] = None,
-                                  dtype: polarity_types_literal = 'polar', **kwargs) -> float:
+    def get_surface_area_residues(self, residues: list[Residue] = None, dtype: polarity_types_literal = 'polar',
+                                  **kwargs) -> float:
         """Get the surface area for specified residues
 
         Args:
-            residues: The Residues to sum
-            numbers: The Residue numbers to sum. Only used if residues is not provided
+            residues: The Residues to sum. If not provided, will be retrieved by `.get_residues()`
             dtype: The type of area to query. Can be 'polar' or 'apolar'
         Keyword Args:
-            pdb=False (bool): Whether to search for numbers as they were parsed
-            atom=True (bool): Whether the output should be generated for each atom.
+            atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
-            probe_radius=1.4 (float): The radius which surface area should be generated
+            probe_radius: float = 1.4 - The radius which surface area should be generated
+            numbers: Container[int] = None – Residue numbers of interest
+            indices: Iterable[int] = None – Residue indices of interest for the Structure
         Returns:
             Angstrom^2 of surface area
         """
@@ -5270,8 +5119,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self.get_sasa(**kwargs)
 
         if not residues:
-            residues = self.get_residues(numbers=numbers, **kwargs)
-        # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
+            residues = self.get_residues(**kwargs)
+
         return sum([getattr(residue, dtype) for residue in residues if residue.number in numbers])
 
     def errat(self, out_path: AnyStr = os.getcwd()) -> tuple[float, np.ndarray]:
@@ -5323,7 +5172,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
         except (IndexError, AttributeError, ValueError):  # ValueError when returning text instead of float
             self.log.warning(f'{self.name}: Failed to generate ERRAT measurement. Errat returned: {all_residue_scores}')
-            return 0., np.array([0. for _ in range(self.number_of_residues)])
+            return 0., np.array([0. for _ in range(number_of_residues)])
 
     def stride(self, to_file: AnyStr = None, **kwargs):
         """Use Stride to calculate the secondary structure of a PDB.
@@ -5380,7 +5229,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         out, err = p.communicate()
         struct_file = Path(current_struc_file)
         struct_file.unlink(missing_ok=True)
-        # self.log.critical(f'Stride file is at: {current_struc_file}')
+        # self.log.debug(f'Stride file is at: {current_struc_file}')
 
         if out:
             if to_file:
@@ -5390,11 +5239,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             self.log.warning(f'{self.name}: No secondary structure assignment found with Stride')
             return
-        # except:
-        #     stride_out = None
 
-        # if stride_out is not None:
-        #     lines = stride_out.split('\n')
         residue_idx = count()
         residues = self.residues
         for line in stride_output:
@@ -5416,11 +5261,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             termini: Either 'n' or 'c' should be specified
             window: The segment size to search
         Returns:
-            Whether the specified termini has a stretch of helical residues the length of the window (1) or not (0)
+            True if the specified terminus has a stretch of helical residues the length of the window
         """
-        # residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
-        # term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
-        # Strip any disorder from the termini, then use the window to compare against the secondary structure
+        # Strip "disorder" from the termini, then use the window to compare against the secondary structure
         search_window = window * 2
         if termini in 'Nn':
             term_window = self.secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)[:search_window]
@@ -5431,7 +5274,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"The termini value {termini} isn't allowed. Must indicate one of {get_args(stutils.termini_literal)}")
 
         if 'H' * window in term_window:
-            return True  # 1
+            return True
         else:
             return False  # 0
 
@@ -5469,13 +5312,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def termini_proximity_from_reference(self, termini: stutils.termini_literal = 'n',
                                          reference: np.ndarray = utils.symmetry.origin, **kwargs) -> float:
-        """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
+        """Finds the orientation of the termini from the origin (default) or from a reference point
 
         Args:
             termini: Either 'n' or 'c' should be specified
             reference: The reference where the point should be measured from
         Returns:
-            1 if the termini is further from the reference, -1 if the termini is closer to the reference
+            When compared to the reference, 1 if the termini is more than halfway from the center of the Structure and
+                -1 if the termini is less than halfway from the center of the Structure
         """
         if termini == 'n':
             residue_coords = self.residues[0].n_coords
@@ -5497,7 +5341,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return -1  # Termini closer to the reference
 
     def get_atom_record(self, **kwargs) -> str:
-        """Provide the Structure Atoms as a PDB file string
+        """Provides the Structure as a 'PDB' formatted string of Atom records
 
         Keyword Args:
             chain_id: str = None - The chain ID to use
@@ -5506,31 +5350,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             The archived .pdb formatted ATOM records for the Structure
         """
         return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
-
-    def format_header(self, **kwargs) -> str:  # Todo move to PDB/Model (parsed) and Entity (oligomer)?
-        """Return the BIOMT record as a .pdb format header
-
-        Returns:
-            The header with .pdb file formatting
-        """
-        return super().format_header(**kwargs) + self.format_biomt(**kwargs)
-
-    def format_biomt(self, **kwargs) -> str:  # Todo move to PDB/Model (parsed) and Entity (oligomer)?
-        """Return the BIOMT record for the Structure if there was one parsed
-
-        Returns:
-            The BIOMT REMARK 350 with PDB file formatting
-        """
-        if self.biomt_header != '':
-            return self.biomt_header
-        elif self.biomt is not None:
-            return '%s\n' \
-                % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
-                            .format(v_idx, m_idx, *vec)
-                            for m_idx, matrix in enumerate(self.biomt.tolist(), 1)
-                            for v_idx, vec in enumerate(matrix, 1))
-        else:
-            return self.biomt_header  # This is '' if not set
 
     def get_fragments(self, residues: list[Residue] = None, residue_numbers: list[int] = None,
                       fragment_db: fragment.db.FragmentDatabase = None, **kwargs) -> list[fragment.MonoFragment]:
@@ -5577,10 +5396,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     # Preferred method using Residue fragments
     def get_fragment_residues(self, residues: list[Residue] = None, residue_numbers: list[int] = None,
-                              # fragment_length: int = 5,
                               fragment_db: fragment.db.FragmentDatabase = None,
                               rmsd_thresh: float = fragment.Fragment.rmsd_thresh, **kwargs) -> list | list[Residue]:
-        """Assign a Fragment type to Residues in the Structure, as identified from a FragmentDatabase, then return them
+        """Assigns a Fragment type to Residue instances identified from a FragmentDatabase, and returns them
 
         Args:
             residues: The specific Residues to search for
@@ -5588,11 +5406,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             fragment_db: The FragmentDatabase with representative fragment types to query the Residue against
             rmsd_thresh: The threshold for which a rmsd should fail to produce a fragment match
         Sets:
-            Each Fragment Residue instance self.guide_coords, self.i_type, self.fragment_length
+            Each Fragment Residue instance self.guide_coords, self.i_type
         Returns:
             The Residue instances that match Fragment representatives from the Structure
         """
-        #            fragment_length: The length of the fragment observations used
         if fragment_db is None:
             raise ValueError("Can't assign fragments without passing 'fragment_db'")
         else:
@@ -5606,25 +5423,22 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if residue_numbers is not None:
             residues = self.get_residues(numbers=residue_numbers)
 
-        # get iterable of residues
+        # Get iterable of residues
         residues = self.residues if residues is None else residues
 
-        # Get neighboring ca coords on each side by retrieving flanking residues. If not fragment_length, we remove
+        # Get neighboring ca coords on each side by retrieving flanking residues. If not fragment_length, remove
         fragment_length = fragment_db.fragment_length
         frag_lower_range, frag_upper_range = fragment_db.fragment_range
 
         # Iterate over the residues in reverse to remove any indices that are missing and convert to coordinates
-        viable_residues, residues_ca_coords = [], []
-        # for idx, residue in zip(range(len(residues)-1, -1, -1), residues[::-1]):
+        viable_residues = []
+        residues_ca_coords = []
         for residue in residues:
             residue_set = \
                 residue.get_upstream(frag_lower_range) + [residue] + residue.get_downstream(frag_upper_range-1)
             if len(residue_set) == fragment_length:
                 residues_ca_coords.append([residue.ca_coords for residue in residue_set])
                 viable_residues.append(residue)
-            # else:
-            #     popped = residues.pop(idx)
-            #     print('Popping', idx, 'which was:', popped.number)
 
         residue_ca_coords = np.array(residues_ca_coords)
 
@@ -5638,13 +5452,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     residue.frag_type = fragment_type
                     min_rmsd = rmsd
-                    # min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
 
             if residue.frag_type:
-                # residue.guide_coords = \
-                #     np.matmul(fragment.Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
                 residue.fragment_db = fragment_db
-                # residue._fragment_coords = residue_ca_coord_set
                 residue._fragment_coords = fragment_db.representatives[residue.frag_type].backbone_coords
                 found_fragments.append(residue)
 
@@ -5664,20 +5474,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 a fragment match
             distance: float = 8.0 - The distance to query for neighboring fragments
             min_match_value: float = 2 - The minimum value which constitutes an acceptable fragment z_score
+            clash_coords: np.ndarray = None – The coordinates to use for checking for GhostFragment clashes
         Returns:
             The GhostFragment, Fragment pairs, along with their match score
         """
-        # fragments1: The Fragment instances that will be used to search for GhostFragment instances
-        # fragments2: The Fragment instances to pair against fragments1 GhostFragment instances
-        # clash_coords: The coordinates to use for checking for GhostFragment clashes
         if fragment_db is None:
             fragment_db = self.fragment_db
 
         fragment_time_start = time.time()
         frag_residues = self.get_fragment_residues(fragment_db=fragment_db, **kwargs)
         self.log.info(f'Found {len(frag_residues)} fragments on {self.name}')
-        # backbone_and_cb_coords = self.backbone_and_cb_coords
-        # coords_indexed_residues = self.coords_indexed_residues
+
         frag_residue_indices = [residue.index for residue in frag_residues]
         all_fragment_pairs = []
         for frag_residue in frag_residues:
@@ -5781,10 +5588,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for residue, contact_order in zip(residues, contact_order):
             residue.contact_order = contact_order
 
-    # distance of 6 angstroms between heavy atoms was used for 1998 contact order work,
+    # Distance of 6 angstroms between heavy atoms was used for 1998 contact order work,
     # subsequent residue wise contact order has focused on the Cb-Cb heuristic of 12 A
-    # KM thinks that an atom-atom based measure is more accurate, see below for alternative method
-    # The BallTree creation is the biggest time cost regardless
+    # KM thinks that an atom-atom based measure is more accurate, see below for alternative method.
+    # The BallTree creation is the biggest time cost regardless.
     def contact_order_per_residue(self, sequence_distance_cutoff: int = 2, distance: float = 6.) -> list[float]:
         """Calculate the contact order on a per-residue basis using calculated heavy atom contacts
 
@@ -5822,7 +5629,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return [residue.contact_order for residue in residues]
 
-    # # this method uses 12 A cb - cb heuristic
+    # # This method uses 12 A cb - cb heuristic
     # def contact_order_per_residue(self, sequence_distance_cutoff: int = 2, distance: float = 12.) -> list[float]:
     #     """Calculate the contact order on a per-residue basis using CB - CB contacts
     #
@@ -5860,50 +5667,41 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #
     #     return [residue.contact_order for residue in residues]
 
-    def format_resfile_from_directives(self, residue_directives, include=None, background=None, **kwargs):
+    def format_resfile_from_directives(self, residue_directives: dict[int | Residue, str],
+                                       include: dict[int | Residue, set[str]] = None,
+                                       background: dict[int | Residue, set[str]] = None, **kwargs) -> list[str]:
         """Format Residue mutational potentials given Residues/residue numbers and corresponding mutation directive.
         Optionally, include specific amino acids and limit to a specific background. Both dictionaries accessed by same
         keys as residue_directives
 
         Args:
-            residue_directives (dict[mapping[Residue | int],str]): {Residue object: 'mutational_directive', ...}
+            residue_directives: {Residue object: 'mutational_directive', ...}
+            include: Include a set of specific amino acids for each residue
+            background: The background amino acids to compare possibilities against
         Keyword Args:
-            include=None (dict[mapping[Residue | int],set[str]]):
-                Include a set of specific amino acids for each residue
-            background=None (dict[mapping[Residue | int],set[str]]):
-                The background amino acids to compare possibilities against
-            special=False (bool): Whether to include special residues
+            special: bool = False - Whether to include special residues
         Returns:
-            (list[str]): Formatted resfile lines for each Residue with a PIKAA and amino acid type string
+            For each Residue, returns the string formatted for a resfile with a 'PIKAA' and amino acid type string
         """
-        if not background:
+        if background is None:
             background = {}
-        if not include:
+        if include is None:
             include = {}
 
         res_file_lines = []
-        if isinstance(next(iter(residue_directives)), int):  # this isn't a residue object, instead residue numbers
-            for residue_number, directive in residue_directives.items():
-                residue = self.residue(residue_number)
-                allowed_aas = residue. \
-                    mutation_possibilities_from_directive(directive, background=background.get(residue_number),
-                                                          **kwargs)
-                allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
-                allowed_aas = allowed_aas.union(include.get(residue_number, {}))
-                res_file_lines.append(f'{residue.number} {residue.chain_id} PIKAA {"".join(sorted(allowed_aas))}')
-                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain_id,
-                #                                     'PIKAA %s' % ''.join(sorted(allowed_aas)) if len(allowed_aas) > 1
-                #                                     else 'NATAA'))
-        else:
-            for residue, directive in residue_directives.items():
-                allowed_aas = residue. \
-                    mutation_possibilities_from_directive(directive, background=background.get(residue), **kwargs)
-                allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
-                allowed_aas = allowed_aas.union(include.get(residue, {}))
-                res_file_lines.append(f'{residue.number} {residue.chain_id} PIKAA {"".join(sorted(allowed_aas))}')
-                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain_id,
-                #                                     'PIKAA %s' % ''.join(sorted(allowed_aas)) if len(allowed_aas) > 1
-                #                                     else 'NATAA'))
+        residues = self.residues
+        for residue_index, directive in residue_directives.items():
+            if isinstance(residue_index, Residue):
+                residue = residue_index
+                residue_index = residue.index
+            else:
+                residue = residues[residue_index]
+
+            allowed_aas = residue.mutation_possibilities_from_directive(
+                directive, background=background.get(residue_index), **kwargs)
+            allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
+            allowed_aas = allowed_aas.union(include.get(residue_index, {}))
+            res_file_lines.append(f'{residue.number} {residue.chain_id} PIKAA {"".join(sorted(allowed_aas))}')
 
         return res_file_lines
 
@@ -5966,6 +5764,61 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"The type '{values.__class__.__name__}' isn't an Iterable. To {self.set_b_factor_data.__name__}, you "
                 "must provide the 'values' as an Iterable of integer type with length = number_of_residues")
 
+
+class Structure(ContainsResiduesMixin):
+    biological_assembly: str | int | None
+    biomt: np.ndarray | None
+    biomt_header: str
+    file_path: AnyStr | None
+
+    def __init__(self, file_path: AnyStr = None, biological_assembly: str | int = None,
+                 biomt: np.ndarray = None, biomt_header: str = None, **kwargs):
+        """
+        Args:
+            biological_assembly: The integer of the biological assembly (as indicated by PDB AssemblyID format)
+            biomt: A parsed array of transformations to recreate the molecules symmetry
+            biomt_header: The REMARK 350 formatted lines for printing the BIOMT record
+            file_path: The location on disk where the file was accessed
+        """
+        self.biological_assembly = biological_assembly
+        self.biomt = biomt  # numpy array of vectors with [x, y, z, tx], ...
+        self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
+        self.file_path = file_path
+        self.structure_containers: list | list[str] = []
+        super().__init__(**kwargs)  # Structure
+
+    def format_header(self, **kwargs) -> str:
+        """Return the BIOMT record as a .pdb format header
+
+        Returns:
+            The header with .pdb file formatting
+        """
+        return super().format_header(**kwargs) + self.format_biomt(**kwargs)
+
+    def format_biomt(self, **kwargs) -> str:  # Todo move to PDB/Model (parsed) and Entity (oligomer)?
+        """Return the BIOMT record for the Structure if there was one parsed
+
+        Returns:
+            The BIOMT REMARK 350 with PDB file formatting
+        """
+        if self.biomt_header != '':
+            return self.biomt_header
+        elif self.biomt is not None:
+            return '%s\n' \
+                % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
+                            .format(v_idx, m_idx, *vec)
+                            for m_idx, matrix in enumerate(self.biomt.tolist(), 1)
+                            for v_idx, vec in enumerate(matrix, 1))
+        else:
+            return self.biomt_header  # This is '' if not set
+
+    def _update_structure_container_attributes(self, **kwargs):
+        """Update attributes specified by keyword args for all Structure container members"""
+        for structure_type in self.structure_containers:
+            for structure in self.__getattribute__(structure_type):
+                for kwarg, value in kwargs.items():
+                    setattr(structure, kwarg, value)
+
     def _copy_structure_containers(self):
         """Copy all member Structures that reside in Structure containers"""
         # self.log.debug('In Structure copy_structure_containers()')
@@ -5994,7 +5847,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     "Can't set up structure_containers when there are more than 1 initialized and there are missing "
                     f"'structure_containers'. Initialized={self.structure_containers}, Missing={missing_containers}")
 
-    def __copy__(self) -> Structure:  # -> Self Todo python3.11
+    def __copy__(self) -> Structure:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
 
@@ -6026,7 +5879,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:  # This Structure is a dependent
             try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
-            except AttributeError:  # Copy wasn't initiated by the parent, set this Structure as parent
+            except AttributeError:  # This copy was not initiated by the parent
                 other.detach_from_parent()
                 other.log.debug(f'The copied {repr(other)} is now a parent. It was a dependent previously')
                 other._copy_structure_containers()
