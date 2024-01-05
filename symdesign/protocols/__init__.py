@@ -409,7 +409,6 @@ def design(job: pose.PoseJob):
     # elif isinstance(job.fragment_observations, list):
     #     raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
     #                               f"entities")
-    #     job.pose.fragment_pairs = job.fragment_observations
     #     job.pose.calculate_fragment_profile(evo_fill=evo_fill)
     # elif os.path.exists(job.frag_file):
     #     job.retrieve_fragment_info_from_file()

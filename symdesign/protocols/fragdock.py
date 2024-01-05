@@ -1083,7 +1083,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     number_of_init_ghost = len(init_ghost_guide_coords1)
     number_of_init_surf = len(init_surf_guide_coords2)
     total_ghost_surf_combinations = number_of_init_ghost * number_of_init_surf
-    # fragment_pairs = []
     full_rotation1, full_rotation2 = [], []
     rotation_matrices1, rotation_matrices2 = rotation_matrices
     rotation_matrices_len1, rotation_matrices_len2 = len(rotation_matrices1), len(rotation_matrices2)
@@ -1431,37 +1430,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                          f'match{"es" if number_passing_shifts != 1 else ""} found '
                          f'(took {time.time() - euler_start:8f}s)')
 
-            # # Tod0 debug
-            # tx_param_list = []
-            # # init_pass_ghost_numbers = init_ghost_residue_indices1[possible_ghost_frag_indices]
-            # # init_pass_surf_numbers = init_surf_residue_indices2[possible_surf_frag_indices]
-            # for index in range(len(passing_ghost_coords)):
-            #     o = OptimalTxOLD(set_mat1, set_mat2, sym_entry.is_internal_tx1, sym_entry.is_internal_tx2,
-            #                      reference_rmsds[index],
-            #                      passing_ghost_coords[index], passing_surf_coords[index], sym_entry.external_dof)
-            #     o.solve_optimal_shift()
-            #     if o.get_zvalue() <= initial_z_value:
-            #         # logger.debug(f'overlap found at ghost/surf residue pair {init_pass_ghost_numbers[index]} | '
-            #         #              f'{init_pass_surf_numbers[index]}')
-            #         # fragment_pairs.append((init_pass_ghost_numbers[index], init_pass_surf_numbers[index],
-            #         #                        initial_ghost_frags1[possible_ghost_frag_indices[index]].guide_coords))
-            #         all_optimal_shifts = o.get_all_optimal_shifts()  # [OptimalExtDOFShifts, OptimalIntDOFShifts]
-            #         tx_param_list.append(all_optimal_shifts)
-            #
-            # logger.info(f'\t{len(tx_param_list) if tx_param_list else "No"} Initial Interface Fragment '
-            #             f'Matches Found')
-            # tx_param_list = np.array(tx_param_list)
-            # logger.debug(f'Equality of vectorized versus individual tx array: '
-            #              f'{np.all(tx_param_list == transform_passing_shifts)}')
-            # logger.debug(f'ALLCLOSE Equality of vectorized versus individual tx array: '
-            #              f'{np.allclose(tx_param_list, transform_passing_shifts)}')
-            # # check_forward_and_reverse(init_ghost_guide_coords1[possible_ghost_frag_indices],
-            # #                           [rot_mat1], stacked_internal_tx_vectors1,
-            # #                           init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]],
-            # #                           [rot_mat2], stacked_internal_tx_vectors2,
-            # #                           reference_rmsds)
-            # # Tod0 debug
-
     try:
         next(progress_iter)  # Updates progress bar
     except StopIteration:
@@ -1483,7 +1451,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         full_ext_tx1 = full_ext_tx2 = full_ext_tx_sum = full_optimal_ext_dof_shifts = None
         # full_optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
 
-    # fragment_pairs = np.array(fragment_pairs)
     if not full_rotation1:  # There were no successful transforms
         logger.warning(f'No optimal translations found. Terminating {building_blocks} docking')
         return []
@@ -2124,51 +2091,21 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     pose_length = pose.number_of_residues
     residue_indices = list(range(pose_length))
 
-    def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
-                              sorted_z_scores: np.ndarray = None):
+    def add_fragments_to_pose():
         """Add observed fragments to the Pose or generate new observations given the Pose state
 
         If no arguments are passed, the fragment observations will be generated new
         """
         # First, clear any pose information and force identification of the interface
-        # del pose._interface_residues
-        pose.interface_residues_by_interface = {}
+        pose._interface_residue_indices_by_interface = {}
         pose.find_and_split_interface(by_distance=True, distance=cb_distance)
 
         # # Next, set the interface fragment info for gathering of interface metrics
         # if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
         # Remove old fragments
-        pose.fragment_queries = {}
-        pose.fragment_pairs.clear()
+        pose._fragment_queries = {}
         # Query fragments
         pose.generate_interface_fragments()
-        # else:  # Process with provided data
-        #     # Return the indices sorted by z_value in ascending order, truncated at the number of passing
-        #     sorted_match_scores = match_score_from_z_value(sorted_z_scores)
-        #
-        #     # These are indexed outside this function
-        #     # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
-        #     # overlap_surf = passing_surf_indices[sorted_fragment_indices]
-        #
-        #     sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-        #     sorted_int_surffrags2: list[Residue] = [surf_frags2[idx] for idx in overlap_surf]
-        #     # For all matched interface fragments
-        #     # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
-        #     # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-        #     # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
-        #     # Number of unique interface mono fragments matched
-        #     # unique_frags_info1, unique_frags_info2 = set(), set()
-        #     # res_pair_freq_info_list = []
-        #     fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
-        #     frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
-        #     # pose.fragment_queries = {(model1, model2): frag_match_info}
-        #     fragment_metrics = pose.fragment_db.calculate_match_metrics(frag_match_info)
-        #     # Tod0 2 when able to take more than 2 Entity
-        #     #  The entity_tuple must contain the same Entity instances as in the Pose!
-        #     # entity_tuple = models_tuple
-        #     # These two pose attributes must be set
-        #     pose.fragment_queries = {entity_tuple: frag_match_info}
-        #     pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
     # Load evolutionary profiles of interest for optimization/analysis
     if job.use_evolution:
@@ -2218,7 +2155,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     #         update_pose_coords(idx)
     #
     #         # if number_perturbations_applied > 1:
-    #         add_fragments_to_pose()  # <- here generating fragments fresh
+    #         add_fragments_to_pose()
     #
     #         pose_metrics.append({score: function(pose) for score, function in pose_functions})
     #         per_residue_metrics.append({score: function(pose) for score, function in residue_functions})
@@ -2561,7 +2498,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             update_pose_coords(idx)
 
             # if number_perturbations_applied > 1:
-            add_fragments_to_pose()  # <- here generating fragments fresh
+            add_fragments_to_pose()
 
             # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
             for entity in pose.entities:
@@ -2587,7 +2524,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
             # Remove saved pose attributes from the prior iteration calculations
             pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
-            pose.fragment_metrics.clear()
             for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
                 try:
                     delattr(pose, attribute)
@@ -3025,13 +2961,16 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 total_dof_perturbed = sym_entry.total_dof
                 # Remake the optimal shifts given each of the passing ghost fragment/surface fragment pairs
                 optimal_ext_dof_shifts = np.zeros((number_of_transforms, 3), dtype=float)
+                pose_residues = pose.residues
                 for idx in range(number_of_transforms):
                     update_pose_coords(idx)
                     add_fragments_to_pose()
                     passing_ghost_coords = []
                     passing_surf_coords = []
                     reference_rmsds = []
-                    for ghost_frag, surf_frag, match_score in pose.fragment_pairs:
+                    for entity_pair, fragment_info in pose.fragment_queries_by_entity_pair:
+                        ghost_frag = pose_residues[fragment_info.paired]
+                        surf_frag = pose_residues[fragment_info.mapped]
                         passing_ghost_coords.append(ghost_frag.guide_coords)
                         passing_surf_coords.append(surf_frag.guide_coords)
                         reference_rmsds.append(ghost_frag.rmsd)
@@ -3661,7 +3600,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             update_pose_coords(idx)
 
             if job.output_fragments:
-                add_fragments_to_pose()  # <- here generating fragments fresh
+                add_fragments_to_pose()
             if job.output_trajectory:
                 # Todo
                 #  This should be move to before filtering incase the whole trajectory is desired

@@ -6135,9 +6135,6 @@ class Pose(SymmetricModel, Metrics):
     _metrics_table = sql.PoseMetrics
     _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
-    fragment_metrics: dict
-    fragment_pairs: list[tuple[fragment.GhostFragment, fragment.Fragment, float]] | list
-    fragment_queries: dict[tuple[Entity, Entity], list[FragmentInfo] | list]
     _design_selection_entity_names: set[str]
     _design_selector_atom_indices: set[int]
     _fragment_queries: dict[tuple[str, str], list[FragmentInfo] | list]
@@ -6167,9 +6164,6 @@ class Pose(SymmetricModel, Metrics):
         """Create a new Model from a container of Entity objects"""
         return cls(entities=entities, chains=False, **kwargs)
 
-        self.fragment_metrics = {}
-        self.fragment_pairs = []
-        self.fragment_queries = {}
     def __init__(self, **kwargs):
         """"""
         super().__init__(**kwargs)  # Pose
@@ -6179,6 +6173,7 @@ class Pose(SymmetricModel, Metrics):
         self._interface_residue_indices_by_entity_name_pair = {}
         self._interface_residue_indices_by_interface = {}
         self._interface_residue_indices_by_interface_unique = {}
+        self._fragment_queries = {}
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -8189,6 +8184,17 @@ class Pose(SymmetricModel, Metrics):
 
         return interface_counts.mean()
 
+    @property
+    def fragment_queries_by_entity_pair(self) -> dict[tuple[Entity, Entity], list[FragmentInfo]]:
+        """Returns the FragmentInfo present as the result of structural overlap between pairs of Entity instances"""
+        fragment_queries = {}
+        for (entity1_name, entity2_name), fragment_info in self._fragment_queries.items():
+            entity1 = self.entity(entity1_name)
+            entity2 = self.entity(entity2_name)
+            fragment_queries[(entity1, entity2)] = fragment_info
+
+        return fragment_queries
+
     def query_interface_for_fragments(self, entity1: Entity = None, entity2: Entity = None,
                                       oligomeric_interfaces: bool = False, **kwargs):
         """For all found interface residues in an Entity/Entity interface, search for corresponding fragment pairs
@@ -8201,10 +8207,10 @@ class Pose(SymmetricModel, Metrics):
             by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             distance: float = 8. - The distance to measure Residues across an interface
         Sets:
-            self.fragment_queries (dict[tuple[Entity, Entity], list[FragmentInfo]])
-            self.fragment_pairs (list[tuple[GhostFragment, Fragment, float]])
+            self._fragment_queries (dict[tuple[str, str], list[FragmentInfo]])
         """
-        if (entity1, entity2) in self.fragment_queries:  # Due to asymmetry in fragment generation, (2, 1) isn't checked
+        if (entity1, entity2) in self.fragment_queries_by_entity_pair:
+            # Due to asymmetry in fragment generation, (2, 1) isn't checked
             return
 
         # Todo
@@ -8226,7 +8232,7 @@ class Pose(SymmetricModel, Metrics):
         # non-oligomeric dimeric 2-fold
         if not residues1:  # or not residues2:
             self.log.debug(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
-            self.fragment_queries[(entity1, entity2)] = []
+            self._fragment_queries[(entity1.name, entity2.name)] = []
             return
 
         # residue_numbers1 = sorted(residue.number for residue in residues1)
@@ -8252,7 +8258,7 @@ class Pose(SymmetricModel, Metrics):
 
         if not frag_residues1 or not frag_residues2:
             self.log.info(f'No fragments found at the {entity1.name} | {entity2.name} interface')
-            self.fragment_queries[(entity1, entity2)] = []
+            self._fragment_queries[(entity1.name, entity2.name)] = []
             return
         else:
             self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface:\n\t'
@@ -8298,10 +8304,8 @@ class Pose(SymmetricModel, Metrics):
         #
         # self.log.critical(f'Wrote debugging Fragments to: {debug_path}')
 
-        self.fragment_queries[(entity1, entity2)] = (
+        self._fragment_queries[(entity1.name, entity2.name)] = (
             fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
-        # Add newly found fragment pairs to the existing fragment observations
-        self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
     @property
     def interface_fragment_residue_indices(self) -> list[int]:
@@ -8599,13 +8603,12 @@ class Pose(SymmetricModel, Metrics):
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         """
         #   keep_extras: bool = True - Whether to keep values for all that are missing data
-        for query_pair, fragment_info in self.fragment_queries.items():
+        for (entity1, entity2), fragment_info in self.fragment_queries_by_entity_pair.items():
             if fragment_info:
-                self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+                self.log.debug(f'Query Pair: {entity1.name}, {entity2.name}'
                                f'\n\tFragment Info:{fragment_info}')
-                for alignment_type, entity in zip(alignment_types, query_pair):
-                    entity.add_fragments_to_profile(fragments=fragment_info,
-                                                    alignment_type=alignment_type)
+                entity1.add_fragments_to_profile(fragments=fragment_info, alignment_type='mapped')
+                entity2.add_fragments_to_profile(fragments=fragment_info, alignment_type='paired')
 
         # The order of this and below could be switched by combining self.fragment_map too
         # Also, need to extract the entity.fragment_map to Pose to SequenceProfile.process_fragment_profile() ...
@@ -8648,21 +8651,31 @@ class Pose(SymmetricModel, Metrics):
         else:
             self.generate_fragments()
 
+        interface_residues_by_entity_pair = self.interface_residues_by_entity_pair
         observations = []
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: (int, int, int), match: score}, ...], ...}
-        for query_pair, fragment_matches in self.fragment_queries.items():
+        for entity_pair, fragment_info in self.fragment_queries_by_entity_pair.items():
             if interface:
-                if query_pair in self.interface_residues_by_entity_pair:
-                    observations.extend(fragment_matches)
-            else:
-                observations.extend(fragment_matches)
+                if entity_pair not in interface_residues_by_entity_pair:
+                    continue
+
+            observations.extend(fragment_info)
 
         return observations
 
     # Todo Add all fragment instances (not just interface) to the metrics
+    @property
+    def fragment_metrics_by_entity_pair(self) -> dict[tuple[Entity, Entity], dict[str, Any]]:
+        """Returns the metrics from structural overlapping Fragment observations between pairs of Entity instances"""
+        fragment_metrics = {}
+        for entity_pair, fragment_info in self.fragment_queries_by_entity_pair.items():
+            fragment_metrics[entity_pair] = self.fragment_db.calculate_match_metrics(fragment_info)
+
+        return fragment_metrics
+
     def get_fragment_metrics(self, fragments: list[FragmentInfo] = None, total_interface: bool = True,
                              by_interface: bool = False, by_entity: bool = False,
-                             entity1: Structure = None, entity2: Structure = None, **kwargs) -> dict:
+                             entity1: Structure = None, entity2: Structure = None, **kwargs) -> dict[str, Any]:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
 
         Uses data from self.fragment_queries unless fragments are passed
@@ -8702,18 +8715,16 @@ class Pose(SymmetricModel, Metrics):
         if fragments is not None:
             return self.fragment_db.format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))
 
-        # Populate self.fragment_metrics for repeat calculation efficiency
-        if not self.fragment_metrics:
-            for query_pair, fragment_matches in self.fragment_queries.items():
-                self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
+        fragment_metrics = self.fragment_metrics_by_entity_pair
 
         if by_interface:
+            fragment_queries = self.fragment_queries_by_entity_pair
             # Check for either orientation as the final interface score will be the same
-            if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
+            if (entity1, entity2) not in fragment_queries or (entity2, entity1) not in fragment_queries:
                 self.query_interface_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
 
             metric_d = deepcopy(fragment.metrics.fragment_metric_template)
-            for query_pair, _metrics in self.fragment_metrics.items():
+            for query_pair, _metrics in fragment_metrics.items():
                 # Check either orientation as the function query could vary from self.fragment_metrics
                 if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
                     if _metrics:
@@ -8723,7 +8734,7 @@ class Pose(SymmetricModel, Metrics):
                 self.log.warning(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
         elif by_entity:
             metric_d = {}
-            for query_pair, _metrics in self.fragment_metrics.items():
+            for query_pair, _metrics in fragment_metrics.items():
                 if not _metrics:
                     continue
                 for align_type, entity in zip(alignment_types, query_pair):
@@ -8761,7 +8772,7 @@ class Pose(SymmetricModel, Metrics):
 
         elif total_interface:  # For the entire interface
             metric_d = deepcopy(fragment.metrics.fragment_metric_template)
-            for query_pair, _metrics in self.fragment_metrics.items():
+            for query_pair, _metrics in fragment_metrics.items():
                 if not _metrics:
                     continue
                 metric_d['center_indices'].update(
@@ -9063,37 +9074,39 @@ class Pose(SymmetricModel, Metrics):
             search_start_time = time.time()
             ghostfrag_surfacefrag_pairs = entity.find_fragments(**kwargs)
             self.log.info(f'Internal fragment search took {time.time() - search_start_time:8f}s')
-            self.fragment_queries[(entity, entity)] = (
+            self._fragment_queries[(entity.name, entity.name)] = (
                 fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
-            # Add newly found fragment pairs to the existing fragment observations
-            self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
-    def write_fragment_pairs(self, ghost_mono_frag_pairs:
-                             list[tuple[fragment.GhostFragment, fragment.Fragment, float]] = None,
-                             out_path: AnyStr = os.getcwd()):
+    def write_fragment_pairs(self, out_path: AnyStr = os.getcwd()):
         """Write the fragments associated with the pose to disk
 
         Args:
-            ghost_mono_frag_pairs: Optional, the specified fragment pairs with associated match score
             out_path: The path to the directory to output files to
         """
         putils.make_path(out_path)
         frag_file = Path(out_path, putils.frag_text_file)
         frag_file.unlink(missing_ok=True)  # Ensure old file is removed before new write
 
-        if ghost_mono_frag_pairs is None:
-            ghost_mono_frag_pairs = self.fragment_pairs
+        match_count = count(1)
+        residues = self.residues
+        for entity_pair, fragment_info in self.fragment_queries_by_entity_pair.items():
+            for info in fragment_info:
+                ijk = info.cluster
+                # match_score = info.match
+                aligned_residue = residues[info.mapped]
+                fragment_model, _ = aligned_residue.fragment_db.paired_frags[ijk]
+                trnsfmd_fragment = fragment_model.get_transformed_copy(*aligned_residue.transformation)
 
-        ghost_frag: fragment.GhostFragment
-        surface_frag: fragment.Fragment
-        for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
-            i, j, k = ijk = ghost_frag.ijk
-            fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
-            trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
-            trnsfmd_fragment.write(out_path=os.path.join(out_path, f'{i}_{j}_{k}_fragment_match_{match_count}.pdb'))
-            fragment.write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
-                                                overlap_error=fragment.metrics.z_value_from_match_score(match_score),
-                                                match_number=match_count, out_path=out_path)
+        # for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
+        #     ijk = ghost_frag.ijk
+        #     fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
+        #     trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
+                trnsfmd_fragment.write(
+                    out_path=os.path.join(out_path, '{}_{}_{}_fragment_match_{}.pdb'.format(
+                        *ijk, next(match_count))))
+                # fragment.write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
+                #                                     overlap_error=fragment.metrics.z_value_from_match_score(match_score),
+                #                                     match_number=match_count, out_path=out_path)
 
     def debug_pose(self, out_dir: AnyStr = os.getcwd(), tag: str = None):
         """Write out all Structure objects for the Pose PDB"""

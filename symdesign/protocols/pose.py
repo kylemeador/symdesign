@@ -1272,8 +1272,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.output_fragments:
             # if not self.pose.fragment_pairs:
             #     self.pose.generate_interface_fragments()
-            if self.pose.fragment_pairs:
-                self.pose.write_fragment_pairs(out_path=self.frags_path)
+            self.pose.write_fragment_pairs(out_path=self.frags_path)
 
         if self.job.output_interface:
             interface_structure = self.pose.get_interface()
@@ -1338,10 +1337,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
                 trajectory_models.write(out_path=os.path.join(self.frags_path, 'all_frags.pdb'),
                                         assembly=True)
+                residues = self.pose.residues
+                ghost_frags = []
+                for entity_pair, fragment_info in self.pose.fragment_queries_by_entity_pair.items():
+                    for info in fragment_info:
+                        ijk = info.cluster
+                        # match_score = info.match
+                        aligned_residue = residues[info.mapped]
+                        fragment_model, _ = aligned_residue.fragment_db.paired_frags[ijk]
+                        ghost_frags.append(fragment_model.get_transformed_copy(*aligned_residue.transformation))
 
-                ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
-                fragment.visuals.write_fragments_as_multimodel(ghost_frags,
-                                                               os.path.join(self.frags_path, 'all_frags.pdb'))
+                fragment.visuals.write_fragments_as_multimodel(
+                    ghost_frags, os.path.join(self.frags_path, 'all_frags.pdb'))
                 # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
                 #     continue
             else:
@@ -3222,7 +3229,7 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         # self.identify_interface()
-        if not self.pose.fragment_queries:
+        if not self.pose.fragment_queries_by_entity_pair:
             self.generate_fragments(interface=True)
 
         def get_metrics():
@@ -3706,7 +3713,7 @@ class PoseProtocol(PoseData):
         # self.identify_interface()
 
         # Load fragment_profile into the analysis
-        if not self.pose.fragment_queries:
+        if not self.pose.fragment_queries_by_entity_pair:
             self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
@@ -4104,7 +4111,7 @@ class PoseProtocol(PoseData):
         # Load fragment_profile into the analysis
         # if self.job.design.term_constraint and not self.pose.fragment_queries:
         # if self.job.design.term_constraint:
-        if not self.pose.fragment_queries:
+        if not self.pose.fragment_queries_by_entity_pair:
             self.generate_fragments(interface=True)
         if not self.pose.fragment_profile:
             self.pose.calculate_fragment_profile()
@@ -4124,7 +4131,7 @@ class PoseProtocol(PoseData):
         self.pose.calculate_profile()
         profile_background['design'] = design_profile_array = pssm_as_array(self.pose.profile)
         batch_design_profile = np.tile(design_profile_array, (number_of_sequences, 1, 1))
-        if self.pose.fragment_queries:
+        if self.pose.fragment_queries_by_entity_pair:
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore', category=RuntimeWarning)
                 # np.log causes -inf at 0, so they are corrected to a 'large' number
@@ -4275,7 +4282,7 @@ class PoseProtocol(PoseData):
         # self.identify_interface()
 
         # Load fragment_profile into the analysis
-        if not self.pose.fragment_queries:
+        if not self.pose.fragment_queries_by_entity_pair:
             self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
