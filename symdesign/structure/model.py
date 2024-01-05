@@ -6152,9 +6152,11 @@ class Pose(SymmetricModel, Metrics):
     """The ordered secondary structure type sequence which contains one character/secondary structure element"""
     # state_attributes = SymmetricModel.state_attributes | \
     #     {'ss_sequence_indices', 'ss_type_sequence',  # These should be .clear()
-    #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
-    #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
-    #      'interface_residues_by_interface', 'interface_residues_by_interface_unique', 'split_interface_ss_elements'
+    #      'fragment_metrics', '_fragment_queries',
+    #      'interface_design_residue_numbers', 'interface_residue_numbers', 'split_interface_ss_elements'
+    #      # The below rely on indexing or getting during @property calls
+    #      'fragment_queries', '_interface_residue_indices_by_entity_name_pair',
+    #      '_interface_residue_indices_by_interface', '_interface_residue_indices_by_interface_unique',
     #      }
     class_structure_containers = {'entities'}
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
@@ -8663,7 +8665,6 @@ class Pose(SymmetricModel, Metrics):
 
         return observations
 
-    # Todo Add all fragment instances (not just interface) to the metrics
     @property
     def fragment_metrics_by_entity_pair(self) -> dict[tuple[Entity, Entity], dict[str, Any]]:
         """Returns the metrics from structural overlapping Fragment observations between pairs of Entity instances"""

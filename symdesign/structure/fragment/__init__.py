@@ -585,6 +585,28 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     #                 all_fragment_match[passing_overlaps_indices].tolist()))
 
 
+def create_fragment_info_from_pairs(
+    ghostfrag_frag_pairs: list[tuple[GhostFragment, Fragment, float]]
+) -> list[db.FragmentInfo]:
+    """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
+    information
+
+    Args:
+        ghostfrag_frag_pairs: Observed ghost and surface fragment overlaps and their match score
+    Returns:
+        The formatted fragment information for each pair
+            {'mapped': int, 'paired': int, 'match': float, 'cluster': tuple(int, int, int)}
+    """
+    fragment_matches = [db.FragmentInfo(mapped=ghost_frag.index, paired=surf_frag.index,
+                                        match=match_score, cluster=ghost_frag.ijk)
+                        for ghost_frag, surf_frag, match_score in ghostfrag_frag_pairs]
+
+    logger.debug(f'Fragments for Entity1 found at indices: {[frag.mapped for frag in fragment_matches]}')
+    logger.debug(f'Fragments for Entity2 found at indices: {[frag.paired for frag in fragment_matches]}')
+
+    return fragment_matches
+
+
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
                                overlap_error: float = None, match_number: int = None,
                                out_path: AnyStr = os.getcwd(), pose_identifier: str = None):

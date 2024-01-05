@@ -3486,7 +3486,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     # _coords_indexed_residue_atoms: np.ndarray  # list[int]
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
     state_attributes = ContainsAtomsMixin.state_attributes \
-        | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
+        | {'_sequence', '_helix_cb_indices', '_secondary_structure', '_coords_indexed_residues_'}
 
     @classmethod
     def from_file(cls, file: AnyStr, **kwargs):
