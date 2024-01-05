@@ -5911,7 +5911,6 @@ class SymmetricModel(Model):  # Models):
             self._atoms.set(new_atoms)
             self._residue_indices = list(range(len(new_residues)))
             self._residues.set(new_residues)
-            self._set_coords_indexed()
 
             # Remove extra chains by creating fresh
             self._create_chains()

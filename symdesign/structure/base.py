@@ -3442,8 +3442,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
     _contact_order: np.ndarray  # Todo ContainsResiduesMixin
-    _coords_indexed_residues: np.ndarray  # list[Residue]  # Todo ContainsResiduesMixin
-    # _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
     _residues: Residues | None  # Todo ContainsResiduesMixin
     _residue_indices: list[int] | None  # Todo ContainsResiduesMixin
     _sap: float  # Todo ContainsResiduesMixin
@@ -3457,6 +3455,8 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     secondary_structure: str | None  # Todo ContainsResiduesMixin
     sasa: float | None  # Todo ContainsResiduesMixin
     class_structure_containers = set()
+    _coords_indexed_residues_: np.ndarray  # Residues # list[Residue]
+    # _coords_indexed_residue_atoms: np.ndarray  # list[int]
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
     state_attributes = ContainsAtomsMixin.state_attributes \
         | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
@@ -3527,7 +3527,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             name: str = None - The identifier for the Structure instance
         """
         super().__init__(**kwargs)  # ContainsResiduesMixin
-        # self._coords_indexed_residues = None
+        # self._coords_indexed_residues_ = None
         # self._residues = None
         # self._residue_indices = None
         # self.secondary_structure = None  # Todo ContainsResiduesMixin
@@ -3559,7 +3559,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         elif self.atoms:
             # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
             self._create_residues()
-            self._set_coords_indexed()
         else:  # Set up an empty Structure or let subclass handle population
             pass
 
@@ -3713,30 +3712,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         self._residues.set_attributes(_parent=self)
         self._residues.find_prev_and_next()  # # Duplicate call with "residues = residues.copy()"
         self._residues.reindex()  # # Duplicates call .set_index with "residues = residues.copy()"
-        self._set_coords_indexed()
 
-    # def store_coordinate_index_residue_map(self):
-    #     self.coords_indexed_residues = [(residue, res_idx) for residue in self.residues for res_idx in residue.range]
-
-    # @property
-    # def coords_indexed_residues(self):
-    #     """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
-    #
-    #     Returns:
-    #         (list[tuple[Residue, int]]): Indexed by the Residue position in the corresponding .coords attribute
-    #     """
-    #     try:
-    #         return [(self._residues.residues[res_idx], res_atom_idx)
-    #                 for res_idx, res_atom_idx in self._coords_indexed_residues[self._atom_indices].tolist()]
-    #     except (AttributeError, TypeError):
-    #         raise AttributeError("The current Structure object doesn't own it's coordinates. The attribute "
-    #                              '.coords_indexed_residues can only be accessed by the Structure object that owns these'
-    #                              ' coordinates and therefore owns this Structure' % self.name)
-    #
-    # @coords_indexed_residues.setter
-    # def coords_indexed_residues(self, index_pairs):
-    #     """Create a map of the coordinate indices to the Residue and Residue atom index"""
-    #     self._coords_indexed_residues = np.array(index_pairs)
 
     # @property
     # def residue_indexed_atom_indices(self) -> list[list[int]]:
@@ -3751,21 +3727,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     #         raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
     #                              f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the Structure '
     #                              f'object that owns these coordinates and therefore owns this Structure')
-
-    # @residue_indexed_atom_indices.setter
-    # def residue_indexed_atom_indices(self, indices: list[list[int]]):
-    #     self._residue_indexed_atom_indices = indices
-
-    def _set_coords_indexed(self):
-        """Index the coordinates to the Residue they belong to and their associated atom_index"""
-        residues_atom_idx = [residue for residue in self.residues for res_atom_idx in residue.range]
-        self._coords_indexed_residues = np.array(residues_atom_idx)
-        # residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-        # self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
-        if len(self._coords_indexed_residues) != len(self._atom_indices):
-            raise ValueError(
-                f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
-                f'!= {len(self._atom_indices)}, the length of _atom_indices')
 
     @property
     def alphafold_atom_mask(self) -> np.ndarray:
@@ -3801,6 +3762,28 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         return self._af_coords
 
     @property
+    def _coords_indexed_residues(self) -> np.ndarray:  # Residues:
+        try:
+            return self._coords_indexed_residues_
+        except AttributeError:
+            # Index the coordinates to the Residue they belong to and their associated atom_index"""
+            if self.is_dependent():
+                raise stutils.DesignError(
+                    f"Couldn't access '_coords_indexed_residues' for a dependent {repr(self)}"
+                )
+            # residues_atom_idx = [(residue, atom_idx) for residue in self.residues for atom_idx in residue.range]
+            residues_by_atom = [residue for residue in self.residues for atom_idx in residue.range]
+            if len(residues_by_atom) != len(self._atom_indices):
+                raise ValueError(
+                    f'The length of _coords_indexed_residues {len(residues_by_atom)} '
+                    f'!= {len(self._atom_indices)}, the length of _atom_indices')
+            # self._coords_indexed_residues_ = Residues(residues_by_atom)
+            self._coords_indexed_residues_ = np.array(residues_by_atom)
+            # self._coords_indexed_residue_atoms_ = np.array(residues_atom_idx)
+
+            return self._coords_indexed_residues_
+
+    @property
     def coords_indexed_residues(self) -> list[Residue]:
         """Returns the Residue associated with each Coord in the Structure
 
@@ -3808,14 +3791,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             Each Residue which owns the corresponding index in the .atoms/.coords attribute
         """
         if self.is_parent():
-            return self._coords_indexed_residues[self._atom_indices].tolist()
+            _struct = self
         else:
-            return self.parent._coords_indexed_residues[self._atom_indices].tolist()
+            _struct = self.parent
 
-    # @coords_indexed_residues.setter
-    # def coords_indexed_residues(self, residues: list[Residue]):
-    #     """Create a map of the coordinate indices to the Residue"""
-    #     self._coords_indexed_residues = np.array(residues)
+        return _struct._coords_indexed_residues[self._atom_indices].tolist()
 
     @property
     def backbone_coords_indexed_residues(self) -> list[Residue]:
@@ -3825,9 +3805,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             Each Residue which owns the corresponding index in the .atoms/.coords attribute
         """
         if self.is_parent():
-            return self._coords_indexed_residues[self.backbone_indices].tolist()
+            _struct = self
         else:
-            return self.parent._coords_indexed_residues[self.backbone_indices].tolist()
+            _struct = self.parent
+
+        return _struct._coords_indexed_residues[self.backbone_indices].tolist()
 
     @property
     def backbone_and_cb_coords_indexed_residues(self) -> list[Residue]:
@@ -3837,9 +3819,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             Each Residue which owns the corresponding index in the .atoms/.coords attribute
         """
         if self.is_parent():
-            return self._coords_indexed_residues[self.backbone_and_cb_indices].tolist()
+            _struct = self
         else:
-            return self.parent._coords_indexed_residues[self.backbone_and_cb_indices].tolist()
+            _struct = self.parent
+
+        return _struct._coords_indexed_residues[self.backbone_and_cb_indices].tolist()
 
     @property
     def heavy_coords_indexed_residues(self) -> list[Residue]:
@@ -3849,9 +3833,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             Each Residue which owns the corresponding index in the .atoms/.coords attribute
         """
         if self.is_parent():
-            return self._coords_indexed_residues[self.heavy_indices].tolist()
+            _struct = self
         else:
-            return self.parent._coords_indexed_residues[self.heavy_indices].tolist()
+            _struct = self.parent
+
+        return _struct._coords_indexed_residues[self.heavy_indices].tolist()
 
     @property
     def side_chain_coords_indexed_residues(self) -> list[Residue]:
@@ -3861,9 +3847,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             Each Residue which owns the corresponding index in the .atoms/.coords attribute
         """
         if self.is_parent():
-            return self._coords_indexed_residues[self.side_chain_indices].tolist()
+            _struct = self
         else:
-            return self.parent._coords_indexed_residues[self.side_chain_indices].tolist()
+            _struct = self.parent
+
+        return _struct._coords_indexed_residues[self.side_chain_indices].tolist()
 
     # @property
     # def coords_indexed_residue_atoms(self) -> list[int]:
@@ -3949,10 +3937,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             The sorted, unique Residue instances corresponding to the provided atom_indices
         """
         if self.is_parent():
-            all_residues = self._coords_indexed_residues[atom_indices].tolist()
+            _struct = self
         else:
-            all_residues = self.parent._coords_indexed_residues[atom_indices].tolist()
+            _struct = self.parent
 
+        all_residues = _struct._coords_indexed_residues[atom_indices].tolist()
         return sorted(set(all_residues), key=lambda residue: residue.index)
 
     @property
@@ -4401,10 +4390,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             self.log.debug(f'{self.delete_residues.__name__}: No residues found')
             return []
         elif self.is_dependent():
+            _parent = self.parent
             self.log.debug(f"{self.delete_residues.__name__} can't be performed on a dependent Structure. "
-                           f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
+                           f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
-            return self.parent.delete_residues(residues=residues)
+            return _parent.delete_residues(residues=residues)
 
         # Find the Residue, Atom indices to delete
         delete_indices = []
@@ -4429,7 +4419,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         # Clear state variables for remaining Residue instances. Deleted Residues affected remaining attrs and indices
         self._residues.reset_state()
         # Reindex the coords/residues map
-        self._set_coords_indexed()
         self.reset_state()
 
         return residues
@@ -4445,12 +4434,13 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             The newly inserted Residue object
         """
         if self.is_dependent():  # Call on the parent
+            _parent = self.parent
             self.log.debug(f"{self.insert_residue_type.__name__} can't be performed on a dependent Structure. "
-                           f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
+                           f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
-                chain_id = self.chain_id
-            return self.parent.insert_residue_type(residue_type=residue_type, index=index, chain_id=chain_id)
+                chain_id = getattr(self, 'chain_id', None)
+            return _parent.insert_residue_type(residue_type=residue_type, index=index, chain_id=chain_id)
 
         self.log.debug(f'Inserting {residue_type} into index {index} of {self.name}')
 
@@ -4558,7 +4548,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
                 secondary_structure[:index] + DEFAULT_SS_COIL_IDENTIFIER + secondary_structure[index:]
 
         # Reindex the coords/residues map
-        self._set_coords_indexed()
         self.reset_state()
 
         return new_residue
@@ -4577,12 +4566,13 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             return []
 
         if self.is_dependent():  # Call on the parent
+            _parent = self.parent
             self.log.debug(f"{self.insert_residues.__name__} can't be performed on a dependent Structure. "
-                           f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
+                           f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
-                chain_id = self.chain_id
-            return self.parent.insert_residues(index, new_residues, chain_id=chain_id)
+                chain_id = getattr(self, 'chain_id', None)
+            return _parent.insert_residues(index, new_residues, chain_id=chain_id)
 
         # Make a copy of the Residue instances
         new_residues = [residue.copy() for residue in new_residues]
@@ -4684,7 +4674,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
                 _prev_residue = residue
 
         # Reindex the coords/residues map
-        self._set_coords_indexed()
         self.reset_state()
 
         return new_residues
@@ -5869,9 +5858,16 @@ class Structure(ContainsResiduesMixin):
             for attr in new_parent_attributes:
                 other.__dict__[attr] = self.__dict__[attr].copy()
             # # Todo comment out when Atom.__copy__ needed somewhere. Maybe used in Atoms.__copy__
+
+            skip_state_attrs = ['_coords_indexed_residues_']
+            for attr in skip_state_attrs:
+                try:
+                    delattr(other, attr)
+                except AttributeError:
+                    continue
+
             # other._atoms.set_attributes(_parent=other)
             # other._residues.set_attributes(_parent=other)
-            # self.log.warning(f'In Structure __copy__')
             other._copy_structure_containers()
             other._update_structure_container_attributes(_parent=other)
             # Remove the attribute spawn after other Structure containers are copied
