@@ -13,7 +13,7 @@ from copy import deepcopy
 from itertools import combinations_with_replacement, combinations, product, count
 from pathlib import Path
 from random import random
-from typing import Any, AnyStr, IO, Type, Union
+from typing import Any, AnyStr, IO, TypedDict, Union
 from typing_extensions import assert_never
 
 import numpy as np
@@ -6112,13 +6112,21 @@ class SymmetricModel(Model):  # Models):
     copy = __copy__
 
 
+StructureSpecification = dict[str, Union[set[int], set[str], set, None]]
+
+
+class PoseSpecification(TypedDict):
+    mask: StructureSpecification
+    required: StructureSpecification
+    selection: StructureSpecification
+
+
 # class Pose(SequenceProfile, SymmetricModel):
 class Pose(SymmetricModel, Metrics):
     """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
-    _active_entities: list[Entity]
     _interface_fragment_residue_indices: list[int]
     _design_residues: list[Residue]
     # Metrics class attributes
@@ -6127,18 +6135,10 @@ class Pose(SymmetricModel, Metrics):
     _metrics_table = sql.PoseMetrics
     _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
-    design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
-    design_selector_entities: set[Entity]
-    design_selector_indices: set[int]
     fragment_metrics: dict
     fragment_pairs: list[tuple[fragment.GhostFragment, fragment.Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[FragmentInfo] | list]
-    ignore_clashes: bool
-    # interface_design_residue_numbers: set[int]  # set[Residue]
-    # interface_residue_numbers: set[int]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
-    required_indices: set[int]
-    required_residues: list[Residue]
     interface_residues_by_interface: dict[int, list[Residue]]
     """Keeps the Residue instances grouped by membership to each side of the interface.
     Residues can be duplicated on each side when interface contains a 2-fold axis of symmetry
@@ -6149,6 +6149,9 @@ class Pose(SymmetricModel, Metrics):
     Residues are unique to one side of the interface
     Ex: {1: [Residue, ...], 2: [Residue, ...]}
     """
+    _design_selection_entity_names: set[str]
+    _design_selector_atom_indices: set[int]
+    _required_atom_indices: list[int]
     split_interface_ss_elements: dict[int, list[int]]
     """Stores the interface number mapped to an index corresponding to the secondary structure type 
     Ex: {1: [0, 0, 1, 2, ...] , 2: [9, 9, 9, 13, ...]]}
@@ -6171,18 +6174,7 @@ class Pose(SymmetricModel, Metrics):
         """Create a new Model from a container of Entity objects"""
         return cls(entities=entities, chains=False, **kwargs)
 
-    def __init__(self, design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
-        """
-        Args:
-            design_selector: The specification for which Structure instances to include during calculations
-        """
-        # Model init will handle Structure set up if a structure file is present
-        # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
-        super().__init__(**kwargs)
         # self.interface_fragment_residue_indices = []
-        self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
-        self.design_selector_entities = set()
-        self.design_selector_indices = set()
         self.fragment_metrics = {}
         self.fragment_pairs = []
         self.fragment_queries = {}
@@ -6190,15 +6182,17 @@ class Pose(SymmetricModel, Metrics):
         # self.interface_design_residue_numbers = set()
         # self.interface_residue_numbers = set()
         self.interface_residues_by_entity_pair = {}
-        self.required_indices = set()
-        self.required_residues = []
         self.interface_residues_by_interface = {}
         self.interface_residues_by_interface_unique = {}
+    def __init__(self, **kwargs):
+        """"""
+        super().__init__(**kwargs)  # Pose
+        self._design_selection_entity_names = {entity.name for entity in self.entities}
+        self._design_selector_atom_indices = set(self._atom_indices)
+        self._required_atom_indices = []
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
-
-        self.create_design_selector()  # **self.design_selector)
 
     def calculate_metrics(self, **kwargs) -> dict[str, Any]:
         """Calculate metrics for the instance
@@ -6310,11 +6304,7 @@ class Pose(SymmetricModel, Metrics):
     @property
     def active_entities(self) -> list[Entity]:
         """The Entity instances that are available for design calculations given a design selector"""
-        try:
-            return self._active_entities
-        except AttributeError:
-            self._active_entities = [entity for entity in self.entities if entity in self.design_selector_entities]
-            return self._active_entities
+        return [self.entity(name) for name in self._design_selection_entity_names]
 
     @property
     def interface_residues(self) -> list[Residue]:
@@ -6386,80 +6376,109 @@ class Pose(SymmetricModel, Metrics):
         """The Residue instances identified for design in the Pose. Includes interface_residues"""
         self._design_residues = list(residues)
 
-    def create_design_selector(self):
+    def apply_design_selector(self, selection: StructureSpecification = None, mask: StructureSpecification = None,
+                              required: StructureSpecification = None):
         """Set up a design selector for the Pose including selections, masks, and required Entities and Atoms
 
         Sets:
-            self.design_selector_entities (set[Entity])
-            self.design_selector_indices (set[int])
-            self.required_indices (set[int])
+            self._design_selection_entity_names set[str]
+            self._design_selector_atom_indices set[int]
+            self._required_atom_indices Sequence[int]
         """
-        def grab_indices(entities: set[str] = None, chains: set[str] = None, residues: set[int] = None,
-                         pdb_residues: set[int] = None, start_with_none: bool = False) -> tuple[set[Entity], set[int]]:
-            #              atoms: set[int] = None
-            """Parse the residue selector to a set of entities and a set of atom indices"""
-            if start_with_none:
-                entity_set = set()
-                atom_indices = set()
-                set_function = getattr(set, 'union')
-            else:  # start with all indices and include those of interest
-                entity_set = set(self.entities)
-                atom_indices = set(self._atom_indices)
-                set_function = getattr(set, 'intersection')
 
-            if entities:  # is not None:  # All of these could be a set() which is still empty, but not None
-                atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
-                                                                                    for entity in entities]))
-                entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
-            if chains:  # is not None:
-                # vv This is for the intersectional model
-                atom_indices = set_function(
-                    atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices for chain_id in chains]))
-                # atom_indices.union(iter_chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
-                #                                     for chain_id in chains))
-                # ^^ This is for the additive model
-                entity_set = set_function(
-                    entity_set, [self.chain(chain_id).entity for chain_id in chains])
-            if residues:  # is not None:
-                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues)))
-            if pdb_residues:  # is not None:
-                atom_indices = \
-                    set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues), pdb=True))
+        def grab_indices(entities: set[str] = None, chains: set[str] = None, residues: set[int] = None) \
+                -> tuple[set[str], set[int]]:
+            # atoms: set[int] = None
+            """Parses the residue selector to a set of entities and a set of atom indices
+
+            Args:
+                entities: The Entity identifiers to include in selection schemes
+                chains: The Chain identifiers to include in selection schemes
+                residues: The Residue identifiers to include in selection schemes
+            Returns:
+                A tuple with the names of Entity instances and the indices of the Atom/Coord instances that are parsed
+            """
+            # if start_with_none:
+            #     set_function = set.union
+            # else:  # Start with all indices and include those of interest
+            #     set_function = set.intersection
+
+            entity_atom_indices = []
+            entities_of_interest = []
+            # All selectors could be a set() or None.
+            if entities:
+                for entity_name in entities:
+                    entity = self.entity(entity_name)
+                    if entity is None:
+                        raise NameError(
+                            f"No entity named '{entity_name}'")
+                    entities_of_interest.append(entity)
+                    entity_atom_indices.extend(entity.atom_indices)
+
+            if chains:
+                for chain_id in chains:
+                    chain = self.chain(chain_id)
+                    if chain is None:
+                        raise NameError(
+                            f"No chain named '{chain_id}'")
+                    entities_of_interest.append(chain.entity)
+                    entity_atom_indices.extend(chain.atom_indices)
+
+            # vv This is for the additive model
+            # atom_indices.union(iter_chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+            #                                     for chain_id in chains))
+            # vv This is for the intersectional model
+            # atom_indices = set_function(atom_indices, entity_atom_indices)
+            # entity_set = set_function(entity_set, [ent.name for ent in entities_of_interest])
+            atom_indices = set(entity_atom_indices)
+            entity_set = {ent.name for ent in entities_of_interest}
+
+            if residues:
+                atom_indices = atom_indices.union(self.get_residue_atom_indices(numbers=residues))
+            # if pdb_residues:
+            #     atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=residues, pdb=True))
             # if atoms:
             #     atom_indices = set_function(atom_indices, [idx for idx in self._atom_indices if idx in atoms])
 
             return entity_set, atom_indices
 
-        selection = self.design_selector.get('selection')
         if selection:
-            self.log.debug(f'The design_selection includes: {selection}')
+            self.log.debug(f"The 'design_selector' {selection=}")
             entity_selection, atom_selection = grab_indices(**selection)
-        else:  # Use all the entities and indices
-            entity_selection, atom_selection = set(self.entities), set(self._atom_indices)
+        else:  # Use existing entities and indices
+            entity_selection = self._design_selection_entity_names
+            atom_selection = self._design_selector_atom_indices
 
-        mask = self.design_selector.get('mask')
         if mask:
-            self.log.debug(f'The design_mask includes: {mask}')
-            entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
+            self.log.debug(f"The 'design_selector' {mask=}")
+            entity_mask, atom_mask = grab_indices(**mask)  # , start_with_none=True)
         else:
-            entity_mask, atom_mask = set(), set()
+            entity_mask = set()
+            atom_mask = set()
 
-        self.design_selector_entities = entity_selection.difference(entity_mask)
-        self.design_selector_indices = atom_selection.difference(atom_mask)
+        entity_selection = entity_selection.difference(entity_mask)
+        atom_selection = atom_selection.difference(atom_mask)
 
-        required = self.design_selector.get('required')
         if required:
-            self.log.debug(f'The required_residues includes: {required}')
-            entity_required, self.required_indices = grab_indices(**required, start_with_none=True)
-            # Todo create a separate variable for required_entities?
-            self.design_selector_entities = self.design_selector_entities.union(entity_required)
-            if self.required_indices:  # Only if indices are specified should we grab them
-                self.required_residues = self.get_residues_by_atom_indices(atom_indices=list(self.required_indices))
+            self.log.debug(f"The 'design_selector' {required=}")
+            entity_required, required_atom_indices = grab_indices(**required)  # , start_with_none=True)
+            # Todo
+            #  create a separate variable for required_entities?
+            #  self._required_entities = entity_required
+            self._required_atom_indices = list(required_atom_indices)
         else:
-            entity_required, self.required_indices = set(), set()
+            entity_required = set()
+
+        self._design_selection_entity_names = entity_selection.union(entity_required)
+        self._design_selector_atom_indices = atom_selection.union(self._required_atom_indices)
 
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
-        self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
+        self.log.debug(f'Active Entities: {", ".join(name for name in self._design_selection_entity_names)}')
+
+    @property
+    def required_residues(self) -> list[Residue]:
+        """Returns the Residue instances that are required according to DesignSelector"""
+        return self.get_residues_by_atom_indices(self._required_atom_indices)
 
     def get_alphafold_features(self, symmetric: bool = False, multimer: bool = False, **kwargs) \
             -> af_pipeline.FeatureDict:
@@ -7936,10 +7955,10 @@ class Pose(SymmetricModel, Metrics):
         entity1_indices = entity1.cb_indices
         entity2_indices = entity2.cb_indices
 
-        if self.design_selector_indices:  # Subtract the masked atom indices from the entity indices
+        if self._design_selector_atom_indices:  # Subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
-            entity1_indices = list(set(entity1_indices).intersection(self.design_selector_indices))
-            entity2_indices = list(set(entity2_indices).intersection(self.design_selector_indices))
+            entity1_indices = list(set(entity1_indices).intersection(self._design_selector_atom_indices))
+            entity2_indices = list(set(entity2_indices).intersection(self._design_selector_atom_indices))
             self.log.debug('Applied design selection to interface identification. Number of indices before '
                            f'selection = {before}. Number after = {len(entity1_indices) + len(entity2_indices)}')
 
@@ -8333,17 +8352,19 @@ class Pose(SymmetricModel, Metrics):
             # Todo add to reset_state()/reset_pose()
             return
 
+        active_entities = self.active_entities
         self.log.debug('Find and split interface using active_entities: '
-                       f'{", ".join(entity.name for entity in self.active_entities)}')
-        if self.is_symmetric():
-            entity_combinations = combinations_with_replacement(self.active_entities, 2)
-        else:
-            entity_combinations = combinations(self.active_entities, 2)
+                       f'{", ".join(entity.name for entity in active_entities)}')
 
         if by_distance:
+            if self.is_symmetric():
+                entity_combinations = combinations_with_replacement(active_entities, 2)
+            else:
+                entity_combinations = combinations(active_entities, 2)
+
             entity_pair: tuple[Entity, Entity]
-            for entity_pair in entity_combinations:
                 self.interface_residues_by_entity_pair[entity_pair] = self.get_interface_residues(*entity_pair, **kwargs)
+            for entity1, entity2 in entity_combinations:
         else:
             self._find_interface_residues_by_buried_surface_area()
 

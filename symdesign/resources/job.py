@@ -19,14 +19,14 @@ from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from . import config, distribute, query, sql, structure_db, wrapapi
+from . import config, distribute, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
 from symdesign.utils import SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
-gb_divisior = 1e9  # 1000000000
+gb_divisior = 1_000_000_000
 
 
 def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
@@ -59,7 +59,7 @@ def generate_chain_mask(chains: str) -> set[str]:
     return set(utils.clean_comma_separated_string(chains))
 
 
-def process_design_selector_flags(
+def parse_design_selector_flags(
         # select_designable_residues_by_sequence: str = None,
         # select_designable_residues_by_pdb_number: str = None,
         # select_designable_residues_by_pose_number: str = None,
@@ -71,59 +71,76 @@ def process_design_selector_flags(
         # require_design_by_pdb_number: str = None,
         # require_design_by_pose_number: str = None,
         # require_design_by_chain: str = None,
+        design_entities: str = None,
         design_chains: str = None,
         design_residues: str = None,
-        mask_residues: str = None,
+        mask_entities: str = None,
         mask_chains: str = None,
-        require_residues: str = None,
+        mask_residues: str = None,
+        require_entities: str = None,
         require_chains: str = None,
-        **kwargs: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
+        require_residues: str = None,
+        **kwargs: dict[str, Any]) -> structure.model.PoseSpecification:
 
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     #  Pull mask_design_using_sequence out of flags
     # -------------------
-    entity_select, chain_select, residue_select, residue_pdb_select = set(), set(), set(), set()
     # if select_designable_residues_by_sequence is not None:
     #     residue_select = residue_select.union(generate_sequence_mask(select_designable_residues_by_sequence))
-
-    if design_residues is not None:
-        residue_pdb_select = residue_pdb_select.union(utils.format_index_string(design_residues))
-
     # if select_designable_residues_by_pose_number is not None:
     #     residue_select = residue_select.union(utils.format_index_string(select_designable_residues_by_pose_number))
 
+    if design_entities is not None:
+        entity_select = set(design_entities)
+    else:
+        entity_select = set()
+
+    if design_residues is not None:
+        residue_select = set(utils.format_index_string(design_residues))
+    else:
+        residue_select = set()
+
     if design_chains is not None:
-        chain_select = chain_select.union(generate_chain_mask(design_chains))
+        chain_select = set(generate_chain_mask(design_chains))
+    else:
+        chain_select = set()
     # -------------------
-    entity_mask, chain_mask, residue_mask, residue_pdb_mask = set(), set(), set(), set()
     # if mask_designable_residues_by_sequence is not None:
     #     residue_mask = residue_mask.union(generate_sequence_mask(mask_designable_residues_by_sequence))
+    if mask_entities is not None:
+        entity_mask = set(mask_entities)
+    else:
+        entity_mask = set()
 
     if mask_residues is not None:
-        residue_pdb_mask = residue_pdb_mask.union(utils.format_index_string(mask_residues))
-
-    # if mask_designable_residues_by_pose_number is not None:
-    #     residue_mask = residue_mask.union(utils.format_index_string(mask_designable_residues_by_pose_number))
+        residue_mask = set(utils.format_index_string(mask_residues))
+    else:
+        residue_mask = set()
 
     if mask_chains is not None:
-        chain_mask = chain_mask.union(generate_chain_mask(mask_chains))
+        chain_mask = set(generate_chain_mask(mask_chains))
+    else:
+        chain_mask = set()
     # -------------------
-    entity_req, chain_req, residues_req, residues_pdb_req = set(), set(), set(), set()
-    if require_residues is not None:
-        residues_pdb_req = residues_pdb_req.union(utils.format_index_string(require_residues))
+    if require_entities is not None:
+        entity_req = set(require_entities)
+    else:
+        entity_req = set()
 
-    # if require_design_by_pose_number is not None:
-    #     residues_req = residues_req.union(utils.format_index_string(require_design_by_pose_number))
+    if require_residues is not None:
+        residues_req = set(utils.format_index_string(require_residues))
+    else:
+        residues_req = set()
 
     if require_chains is not None:
-        chain_req = chain_req.union(generate_chain_mask(require_chains))
+        chain_req = set(generate_chain_mask(require_chains))
+    else:
+        chain_req = set()
 
-    return dict(selection=dict(entities=entity_select, chains=chain_select, residues=residue_select,
-                               pdb_residues=residue_pdb_select),
-                mask=dict(entities=entity_mask, chains=chain_mask, residues=residue_mask,
-                          pdb_residues=residue_pdb_mask),
-                required=dict(entities=entity_req, chains=chain_req, residues=residues_req,
-                              pdb_residues=residues_pdb_req))
+    return structure.model.PoseSpecification(
+        selection=dict(entities=entity_select, chains=chain_select, residues=residue_select),
+        mask=dict(entities=entity_mask, chains=chain_mask, residues=residue_mask),
+        required=dict(entities=entity_req, chains=chain_req, residues=residues_req))
 
 
 def format_args_for_namespace(args_: dict[str, Any], namespace: str, flags_: Iterable[str]) -> dict[str, Any]:
@@ -402,8 +419,7 @@ class JobResources:
         Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
         """
         # Process design_selector
-        self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
-            process_design_selector_flags(**kwargs)
+        self.design_selector: PoseSpecification = parse_design_selector_flags(**kwargs)
 
         self.update_metadata = kwargs.get(flags.update_metadata._)
         self.component1 = kwargs.get(flags.component1._)

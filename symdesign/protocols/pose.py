@@ -39,7 +39,7 @@ from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
 from symdesign.structure.coords import superposition3d
-from symdesign.structure.model import Pose, Models, Model, Entity
+from symdesign.structure.model import Pose, Models, Model, Entity, PoseSpecification
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 # import symdesign.third_party.alphafold.alphafold as af
@@ -379,7 +379,7 @@ class PoseDirectory:
 class PoseData(PoseDirectory, sql.PoseMetadata):
     _current_designs: list | list[sql.DesignData]
     """Hold DesignData that were specified/generated in the scope of this job"""
-    _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
+    _design_selector: PoseSpecification
     _directives: list[dict[int, str]]
     _sym_entry: SymEntry
     # _entity_names: list[str]
@@ -808,7 +808,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             return self._job_kwargs
         except AttributeError:
-            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
+            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log,
                                     fragment_db=self.job.fragment_db, pose_format=self.job.pose_format)
             return self._job_kwargs
 
@@ -851,7 +851,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #                             f'[{types.TransformationMapping.__name__}], not {type(transform).__name__}')
 
     @property
-    def design_selector(self) -> dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict:
+    def design_selector(self) -> PoseSpecification:
         """Provide the design_selector parameters for the design in question
 
         Returns:
@@ -1134,13 +1134,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             elif self.initial_pose:
                 # This is a fresh Model that was already loaded so reuse
                 # Careful, if processing has occurred to the initial_pose, then this may be wrong!
-                self.pose = Pose.from_model(self.initial_pose, name=self.name, **self.job_kwargs,
+                self.pose = Pose.from_model(self.initial_pose, name=self.name, **self.pose_kwargs,
                                             entity_info=self.initial_pose.entity_info)
                 # Use entity_info from already parsed
                 self.structure_source = self.source_path
             else:
                 self.structure_source = file if file else self.source_path
                 self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
+
+            if self.design_selector:
+                self.pose.apply_design_selector(**self.design_selector)
 
             try:
                 self.pose.is_clash(measure=self.job.design.clash_criteria,
