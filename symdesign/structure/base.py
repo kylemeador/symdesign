@@ -24,7 +24,7 @@ from sklearn.neighbors import BallTree
 from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
 from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, protein_letters_1to3, \
-    protein_letters_3to1_extended
+    protein_letters_3to1_extended, protein_letters3_alph1_literal
 from symdesign import utils
 from symdesign.metrics import default_sasa_burial_threshold
 from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
@@ -1152,7 +1152,7 @@ class StructureBase(SymmetryBase, ABC):
 
 class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
-    __coords: list[float]
+    _coords_: list[float]
     # _next_atom: Atom
     # _prev_atom: Atom
     _sasa: float
@@ -1163,7 +1163,6 @@ class Atom(StructureBase):
     alt_location: str | None
     residue_type: str | None
     chain_id: str | None
-    pdb_residue_number: int | None
     residue_number: int | None
     code_for_insertion: str | None
     occupancy: float | None
@@ -1186,8 +1185,28 @@ class Atom(StructureBase):
                  code_for_insertion: str = ' ', x: float = None, y: float = None, z: float = None,
                  occupancy: float = None, b_factor: float = None, element: str = None, charge: str = None,
                  coords: list[float] = None, **kwargs):
-        # kwargs passed to StructureBase
-        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        """
+
+        Args:
+            index: The zero-indexed number to describe this Atom instance's position in a StructureContainer
+            number: The integer number describing this Atom instances position in comparison to others instances
+            atom_type: The characters describing the classification of atom via membership to a molecule
+            alt_location: Whether the observation of the Atom has alternative evidences
+            residue_type: The characters describing the molecular unit to which this Atom belongs
+            chain_id: The identifier which signifies this Atom instances membership to a larger polymer
+            residue_number: The integer of the polymer that this Atom belongs too
+            code_for_insertion: Whether the Atom is included in a residue which is inserted according to a common
+                numbering scheme
+            x: The x axis value of the instances coordinate position, i.e., it's x coordinate
+            y: The y axis value of the instances coordinate position, i.e., it's y coordinate
+            z: The z axis value of the instances coordinate position, i.e., it's z coordinate
+            occupancy: The fraction of the time this Atom is observed in the experiment
+            b_factor: The thermal fluctuation for the Atom OR a value for which structural representation should account
+            element: The atomic symbol for the Atom
+            charge: The numeric value for the electronic charge of the Atom
+            coords: The set of values of the x, y, and z coordinate position
+            **kwargs:
+        """
         super().__init__(**kwargs)  # Atom
         self.index = index
         self.number = number
@@ -1196,15 +1215,14 @@ class Atom(StructureBase):
         self.alt_location = alt_location
         self.residue_type = residue_type
         self.chain_id = chain_id
-        self.pdb_residue_number = residue_number
-        self.residue_number = residue_number  # originally set the same as parsing
+        self.residue_number = residue_number
         self.code_for_insertion = code_for_insertion
         if coords is not None:
-            self.__coords = coords
+            self._coords_ = coords
         elif x is not None and y is not None and z is not None:
-            self.__coords = [x, y, z]
+            self._coords_ = [x, y, z]
         else:
-            self.__coords = []
+            self._coords_ = []
         self.occupancy = occupancy
         self.b_factor = b_factor
         self.element = element
@@ -1258,7 +1276,7 @@ class Atom(StructureBase):
         except (AttributeError, IndexError):
             # Possibly the Atom was set with keyword argument coords instead of Structure Coords
             # This shouldn't be used often as it will be quite slow... give warning?
-            return np.array(self.__coords)
+            return np.array(self._coords_)
             # Todo try something like
             #  return self.parent._collect_coords()
             #  This would grab all Atom coords and make them _coords (Coords)
@@ -1276,10 +1294,11 @@ class Atom(StructureBase):
     @x.setter
     def x(self, x: float):
         """Set the value for the x coordinate"""
+        _, y, z = self.coords
         try:
-            self._coords.replace([self.index], [x, self.coords[1], self.coords[2]])
-        except AttributeError:  # when _coords not used
-            self.__coords = [x, self.coords[1], self.coords[2]]
+            self._coords.replace([self.index], [x, y, z])
+        except AttributeError:  # When _coords not used
+            self._coords_ = [x, y, z]
 
     @property
     def y(self) -> float:
@@ -1289,10 +1308,11 @@ class Atom(StructureBase):
     @y.setter
     def y(self, y: float):
         """Set the value for the y coordinate"""
+        x, _, z = self.coords
         try:
-            self._coords.replace([self.index], [self.coords[0], y, self.coords[2]])
-        except AttributeError:  # when _coords not used
-            self.__coords = [self.coords[0], y, self.coords[2]]
+            self._coords.replace([self.index], [x, y, z])
+        except AttributeError:  # When _coords not used
+            self._coords_ = [x, y, z]
 
     @property
     def z(self) -> float:
@@ -1302,10 +1322,11 @@ class Atom(StructureBase):
     @z.setter
     def z(self, z: float):
         """Set the value for the z coordinate"""
+        x, y, _ = self.coords
         try:
-            self._coords.replace([self.index], [self.coords[0], self.coords[1], z])
-        except AttributeError:  # when _coords not used
-            self.__coords = [self.coords[0], self.coords[1], z]
+            self._coords.replace([self.index], [x, y, z])
+        except AttributeError:  # When _coords not used
+            self._coords_ = [x, y, z]
 
     def is_backbone_and_cb(self) -> bool:
         """Is the Atom is a backbone or CB Atom? Includes N, CA, C, O, and CB"""
@@ -1380,7 +1401,7 @@ class Atom(StructureBase):
                f'{x:8.3f}{y:8.3f}{z:8.3f}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
 
-    def __str__(self) -> str:  # type=None, number=None, pdb=False, chain_id=None, **kwargs
+    def __str__(self) -> str:
         """Represent Atom in PDB format"""
         # Use self.type_str to comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
@@ -1420,16 +1441,14 @@ class Atom(StructureBase):
                 pass
             # Remove the attribute spawn after other Structure containers are copied
             del self.spawn
-        else:  # This Structure is a dependent, it's copy should be too
-            try:
+        else:  # This Structure is a dependent
+            try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
-            except AttributeError:  # This copy was initiated by a Structure that is not the parent
+            except AttributeError:  # This copy was not initiated by the parent
                 if self._copier:  # Copy initiated by Atoms container
                     pass
                 else:
                     other.detach_from_parent()
-                    # other.log.debug(f'The copied {self.__class__.__name__} is being set as a parent. It was a '
-                    #                 'dependent previously')
 
         return other
 
@@ -1674,14 +1693,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
     _indices_attributes: set[str] = {
         '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
         '_side_chain_indices'}
-    backbone_and_cb_indices: list[int]
-    backbone_indices: list[int]
-    ca_indices: list[int]
-    cb_indices: list[int]
-    heavy_indices: list[int]
-    name: str
-    number_of_atoms: int
-    side_chain_indices: list[int]
     # These state_attributes are used by all subclasses
     state_attributes = StructureBase.state_attributes | _indices_attributes | {'_inverse_number_atoms'}
 
@@ -1772,7 +1783,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
             self._atoms.set_attributes(_parent=self)
             # if not self.file_path:  # Assume this instance wasn't parsed and Atom indices are incorrect
             self._atoms.reindex()
-            # self._set_coords_indexed()
 
     def _populate_coords(self, coords: np.ndarray = None, from_source: structure_container_types = 'atoms'):
         """Set up the coordinates, initializing them from_source coords if none are set
@@ -1895,9 +1905,17 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """The indices that index the StructureBase backbone and CB Atoms/Coords"""
 
     @property
+    def number_of_backbone_and_cb_atoms(self) -> int:
+        return len(self._backbone_and_cb_indices)
+
+    @property
     @abc.abstractmethod
     def backbone_indices(self) -> list[int]:
         """The indices that index the StructureBase backbone and CB Atoms/Coords"""
+
+    @property
+    def number_of_backbone_atoms(self) -> int:
+        return len(self._backbone_indices)
 
     @property
     @abc.abstractmethod
@@ -1905,9 +1923,17 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """The indices that index the StructureBase CA Atoms/Coords"""
 
     @property
+    def number_of_ca_atoms(self) -> int:
+        return len(self._ca_indices)
+
+    @property
     @abc.abstractmethod
     def cb_indices(self) -> list[int]:
         """The indices that index the StructureBase CB Atoms/Coords"""
+
+    @property
+    def number_of_cb_atoms(self) -> int:
+        return len(self._cb_indices)
 
     @property
     @abc.abstractmethod
@@ -1915,9 +1941,17 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """The indices that index the StructureBase heavy (non-hydrogen) Atoms/Coords"""
 
     @property
+    def number_of_heavy_atoms(self) -> int:
+        return len(self._heavy_indices)
+
+    @property
     @abc.abstractmethod
     def side_chain_indices(self) -> list[int]:
         """The indices that index the StructureBase side-chain Atoms/Coords"""
+
+    @property
+    def number_of_side_chain_atoms(self) -> int:
+        return len(self._side_chain_indices)
 
     @property
     def backbone_atoms(self) -> list[Atom]:
@@ -2174,7 +2208,6 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     _backbone_and_cb_indices: list[int]
     _heavy_indices: list[int]
     _side_chain_indices: list[int]
-    _start_index: int
     _c_index: int
     _ca_index: int
     _cb_index: int
@@ -2924,11 +2957,6 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         self._contact_order = contact_order
 
     # End state properties
-
-    @property
-    def number_of_heavy_atoms(self) -> int:
-        return len(self._heavy_indices)
-
     @property
     def b_factor(self) -> float:
         try:
@@ -2960,8 +2988,9 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
             #                     f'dtype as a string specifying a Residue attribute OR an integer with length = '
             #                     f'Residue.number_of_atoms')
 
-    def mutation_possibilities_from_directive(self, directive: directives = None, background: set[str] = None,
-                                              special: bool = False, **kwargs) -> set[str]:
+    def mutation_possibilities_from_directive(
+        self, directive: directives = None, background: set[str] = None, special: bool = False, **kwargs
+    ) -> set[protein_letters3_alph1_literal] | set:
         """Select mutational possibilities for each Residue based on the Residue and a directive
 
         Args:
@@ -3109,16 +3138,14 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
                 pass
             # Remove the attribute spawn after other Structure containers are copied
             del self.spawn
-        else:  # This Structure is a dependent, it's copy should be too
-            try:
+        else:  # This Structure is a dependent
+            try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
-            except AttributeError:  # This copy was initiated by a Structure that is not the parent
+            except AttributeError:  # This copy was not initiated by the parent
                 if self._copier:  # Copy initiated by Residues container
                     pass
                 else:
                     other.detach_from_parent()
-                    # other.log.debug(f'The copied {self.__class__.__name__} is being set as a parent. It was a '
-                    #                 'dependent previously')
 
         return other
 
@@ -3189,7 +3216,7 @@ class Residues:
                     prior_struct = struct
             except IndexError:
                 raise IndexError(
-                    f'{self.reindex.__name__}: Starting index is outside of the allowable indices in the '
+                    f'{self.reindex_atoms.__name__}: Starting index is outside of the allowable indices in the '
                     f'{self.__class__.__name__} instance')
         else:  # When start_at is 0 or less
             if start_at < 0:
@@ -5857,7 +5884,6 @@ class Structure(ContainsResiduesMixin):
             other.__dict__[parent_variable] = self.__dict__[parent_variable]
             for attr in new_parent_attributes:
                 other.__dict__[attr] = self.__dict__[attr].copy()
-            # # Todo comment out when Atom.__copy__ needed somewhere. Maybe used in Atoms.__copy__
 
             skip_state_attrs = ['_coords_indexed_residues_']
             for attr in skip_state_attrs:

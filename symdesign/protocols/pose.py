@@ -581,7 +581,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             handler = level = 2  # To a file
             propagate = no_log_name = True
         else:  # Log to the __main__ file logger
-            log_path = None  # Todo figure this out...
+            log_path = None
             handler = level = 2  # To a file
             propagate = no_log_name = False
 
@@ -1484,8 +1484,8 @@ class PoseProtocol(PoseData):
 
         # Assign any additional designable residues
         if self.pose.required_residues:
-            variables.extend([('required_residues',
-                               ','.join(f'{res.number}{res.chain_id}' for res in self.pose.required_residues))])
+            variables.extend(
+                [('required_residues', ','.join(f'{res.number}{res.chain_id}' for res in self.pose.required_residues))])
         else:  # Get an out-of-bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
 
@@ -1997,11 +1997,10 @@ class PoseProtocol(PoseData):
             for idx, (design_data, pose) in enumerate(zip(sequences.keys(), asu_design_structures)):
                 design_data.structure_path = \
                     pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
-                design_data.protocols.append(sql.DesignProtocol(design_id=design_data.id,
-                                                                job_id=self.job.id,
-                                                                protocol=self.protocol,
-                                                                alphafold_model=model_names[idx],
-                                                                file=design_data.structure_path))
+                design_data.protocols.append(
+                    sql.DesignProtocol(design_id=design_data.id, job_id=self.job.id, protocol=self.protocol,
+                                       alphafold_model=model_names[idx], file=design_data.structure_path)
+                )
                 # # This corrects the oligomeric specification for each Entity
                 # # by using the inherent _assign_pose_transformation()
                 # pose.make_oligomers()
@@ -2056,12 +2055,13 @@ class PoseProtocol(PoseData):
             # The folding_scores will all be the length of the gene Entity, not oligomer
             # entity_scores_by_design = {design: [] for design in sequences}
             # Sort the entity instances by their length to improve compile time.
+            entities = self.pose.entities
             # The only compile should be the first prediction
             entity_number_of_residues = [(entity.number_of_residues, idx)
                                          for idx, entity in enumerate(self.pose.entities)]
             entity_idx_sorted_residue_number_highest_to_lowest = \
                 [idx for _, idx in sorted(entity_number_of_residues, key=lambda pair: pair[0], reverse=True)]
-            sorted_entities_and_data = [(self.pose.entities[idx], self.entity_data[idx])
+            sorted_entities_and_data = [(entities[idx], self.entity_data[idx])
                                         for idx in entity_idx_sorted_residue_number_highest_to_lowest]
             entity_structure_by_design = {design: [] for design in sequences}
             entity_design_dfs = []
@@ -2077,12 +2077,6 @@ class PoseProtocol(PoseData):
                     entity_number_of_residues = entity.number_of_residues
 
                 logger.debug(f'Found oligomer with length: {entity_number_of_residues}')
-                # If not an oligomer, then .oligomer/.chains should just pass the single entity
-                # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
-                # logger.debug(f'Found oligomer_atom_positions for "prev_pose" with shape: '
-                #                       '{model_features["prev_pos"].shape}')
-                # logger.critical(f'Found oligomeric atom_positions[0] with values: '
-                #                          f'{model_features["prev_pos"][0].tolist()}')
 
                 # if run_multimer_system:
                 entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
@@ -2091,7 +2085,6 @@ class PoseProtocol(PoseData):
                 # else:
                 #     entity_cb_coords = entity.cb_coords
 
-                # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
                 entity_interface_residues = \
                     self.pose.get_interface_residues(entity1=entity, entity2=entity,
                                                      distance=self.job.interface_distance, oligomeric_interfaces=True)
@@ -2108,8 +2101,9 @@ class PoseProtocol(PoseData):
                     sequence = sequence[entity_slice]
                     this_seq_features = \
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                    logger.debug(f'Found this_seq_features:\n\t%s'
-                                          % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                    logger.debug(f'Found this_seq_features:\n\t'
+                                 '%s' % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                    # If not an oligomer, then get_prev_pos_coords() will just use the entity
                     model_features = {'prev_pos': get_prev_pos_coords(sequence, entity=entity_name)}
                     logger.info(f'Predicting Design {design.name} Entity {entity_name} structure')
                     entity_structures, entity_scores = \
@@ -2142,13 +2136,13 @@ class PoseProtocol(PoseData):
                     if minimum_model is None:
                         raise DesignError(
                             f"Couldn't find the Entity {entity.name} model with the minimal rmsd for Design {design}")
-                    else:
-                        # Put Entity Model into a directory in pose/designs/pose-design_id/entity.name.pdb
-                        out_dir = os.path.join(self.designs_path, f'{design.name}')
-                        putils.make_path(out_dir)
-                        path = os.path.join(out_dir, f'{entity.name}-{minimum_model}-{type_str}relaxed.pdb')
-                        minimum_entity = design_models[minimum_model]
-                        minimum_entity.write(out_path=path)
+
+                    # Put Entity Model into a directory in pose/designs/pose-design_id/entity.name.pdb
+                    out_dir = os.path.join(self.designs_path, f'{design.name}')
+                    putils.make_path(out_dir)
+                    path = os.path.join(out_dir, f'{entity.name}-{minimum_model}-{type_str}relaxed.pdb')
+                    minimum_entity = design_models[minimum_model]
+                    minimum_entity.write(out_path=path)
                     # Append each Entity result to the full return
                     entity_structure_by_design[design].append(minimum_entity)
                     # Average all models scores to get the ensemble of the predictions
@@ -3444,9 +3438,6 @@ class PoseProtocol(PoseData):
             # Check if this interface is 2-fold symetric. If so, the interface_indices2 will be empty
             if not interface_indices2:
                 interface_indices2 = interface_indices1
-            # # Using the 2-fold aware pose.interface_residues_by_interface
-            # interface_indices = [[residue.index for residue in residues]
-            #                      for number, residues in self.pose.interface_residues_by_interface.items()]
         else:
             interface_indices1 = interface_indices2 = slice(None)
 

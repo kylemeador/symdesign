@@ -1071,14 +1071,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
             # Set coords with new coords
             super(Structure, Structure).coords.fset(self, coords)
-            try:
-                if self.parent.is_symmetric() and not self._parent_is_updating:
-                    self.parent._dependent_is_updating = True
+            if self.is_dependent():
+                _parent = self.parent
+                if _parent.is_symmetric() and not self._parent_is_updating:
+                    _parent._dependent_is_updating = True
                     # Update the parent coords accordingly which propagates symmetric updates
-                    self.parent.coords = self.parent.coords
-                    self.parent._dependent_is_updating = False
-            except AttributeError:  # No parent
-                pass
+                    _parent.coords = _parent.coords
+                    _parent._dependent_is_updating = False
 
             # Find the transformation from the old coordinates to the new
             current_ca_coords = self.ca_coords
@@ -2181,8 +2180,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if self.is_dihedral():
             chains.append(self.find_dihedral_chain().chain_id)
 
-        sdf_cmd = ['perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
-            + chains
+        sdf_cmd = [
+            'perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'
+        ] + chains
         self.log.info(f'Creating symmetry definition file: {subprocess.list2cmdline(sdf_cmd)}')
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -2540,7 +2540,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         #             "Can't set up structure_containers when there are more than 1 initialized and there are missing "
         #             f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
 
-    def __copy__(self) -> Entity:  # -> Self Todo python3.11
+    def __copy__(self) -> Entity:  # Todo -> Self: in python 3.11
         # self.log.debug('In Entity copy')
         # Save, then remove the _captain attribute before the copy
         captain = self._captain
@@ -2616,19 +2616,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
-    # api_entry: dict[str, dict[Any] | float] | None
-    biological_assembly: str | int | None
     cryst_record: str | None
     # dbref: dict[str, dict[str, str]]
-    design: bool
     entities: list[Entity] | Structures | bool | None
     entity_info: dict[str, dict[dict | list | str]] | dict
-    # file_path: AnyStr | None
     header: list
     resolution: float | None
-    # _reference_sequence: dict[str, str]
-    # space_group: str | None
-    # uc_dimensions: list[float] | None
     class_structure_containers = {'chains', 'entities'}
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
@@ -2693,8 +2686,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 dependent Structures
             log: Log | Logger | bool = True - The Log or Logger instance, or the name for the logger to handle parent
                 Structure logging. None or False prevents logging while any True assignment enables it
-            coords: Coords | np.ndarry | list[list[float]] = None - When setting up a parent Structure instance, the
-                coordiantes of that Structure
+            coords: Coords | np.ndarray | list[list[float]] = None - When setting up a parent Structure instance, the
+                coordinates of that Structure
             name: str = None - The identifier for the Structure instance
         """
 
@@ -2702,8 +2695,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """Ensure only one of the allowed arguments is used during class construction"""
         if model:
             if isinstance(model, Structure):
-                using_structures = True
-                super().__init__(**model.get_base_containers(), **kwargs)
+                model_kwargs = model.get_base_containers()
+                for key, value in model_kwargs.items():
+                    if key in kwargs:
+                        self.log.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
+                                         f"overwrites the '{key}' argument from the 'model'")
+                new_model_kwargs = {**model_kwargs, **kwargs}
+                super().__init__(**new_model_kwargs)
             else:
                 raise NotImplementedError(
                     f"Setting {self.__class__.__name__} with model={type(model).__name__} isn't supported")
@@ -2815,11 +2813,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # After structure containers are created, initialize fragment_db so the db is available to container
         self.fragment_db = fragment_db
 
-        # if metadata and isinstance(metadata, PDB):
+        # if metadata and isinstance(metadata, Model):
         #     self.copy_metadata(metadata)
         if not self.atoms:
             raise ValueError(
-                f"{self.__class__.__name__} received no valid Structure instances"
+                f"{self.__class__.__name__} received no valid {StructureBase.__name__} instances"
             )
 
     @Structure.fragment_db.setter
@@ -4278,7 +4276,8 @@ class SymmetricModel(Model):  # Models):
                           transformations=transformations, surrounding_uc=surrounding_uc)
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                     uc_dimensions: list[float] = None, operators: np.ndarray | list = None,
+                     uc_dimensions: list[float] = None,
+                     operators: tuple[np.ndarray | list[list[float]], np.ndarray | list[float]] | np.ndarray = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      crystal: bool = False, cryst_record: str = None, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry

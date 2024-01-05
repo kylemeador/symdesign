@@ -282,7 +282,8 @@ class Profile(UserList):
             if self.lods:
                 data_source = self.lods
             else:
-                raise ValueError(f"There aren't any values available for {self.__class__.__name__}.lods")
+                raise ValueError(
+                    f"There aren't any values available for {self.__class__.__name__}.lods")
         else:
             data_source = self
 
@@ -310,7 +311,8 @@ class Profile(UserList):
             data = [[position_info[aa] for aa in protein_letters_alph3] for position_info in self]
 
         # Find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
-        if isinstance(self.lods[0]['A'], float):
+        lods = self.lods
+        if isinstance(lods[0]['A'], float):
             separation1 = " " * 4
         else:
             separation1 = " " * 3
@@ -332,7 +334,7 @@ class Profile(UserList):
             f.write(f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}'
                     f'{separation1}{(" " * 3).join(protein_letters_alph3)}\n')
             for residue_number, (entry, lod, _type, info, weight) in enumerate(
-                    zip(data, self.lods, self.types, self.info, self.weights), 1):
+                    zip(data, lods, self.types, self.info, self.weights), 1):
                 if isinstance(lod['A'], float):  # relevant for favor_fragment
                     lod_string = \
                         ' '.join(f'{lod[aa]:>4.2f}' for aa in protein_letters_alph3) + ' '

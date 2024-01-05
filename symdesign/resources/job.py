@@ -396,7 +396,7 @@ class JobResources:
             self.low = self.high = None
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
-        self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
+        self.background_profile: str = kwargs.get(flags.background_profile._)
         """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
         background profile. 
         Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
