@@ -6138,20 +6138,13 @@ class Pose(SymmetricModel, Metrics):
     fragment_metrics: dict
     fragment_pairs: list[tuple[fragment.GhostFragment, fragment.Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[FragmentInfo] | list]
-    interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
-    interface_residues_by_interface: dict[int, list[Residue]]
-    """Keeps the Residue instances grouped by membership to each side of the interface.
-    Residues can be duplicated on each side when interface contains a 2-fold axis of symmetry
-    Ex: {1: [Residue, ...], 2: [Residue, ...]}
-    """
-    interface_residues_by_interface_unique: dict[int, list[Residue]]
-    """Keeps the Residue instances grouped by membership to each side of the interface.
-    Residues are unique to one side of the interface
-    Ex: {1: [Residue, ...], 2: [Residue, ...]}
-    """
     _design_selection_entity_names: set[str]
     _design_selector_atom_indices: set[int]
+    _fragment_queries: dict[tuple[str, str], list[FragmentInfo] | list]
+    _interface_residue_indices_by_entity_name_pair: dict[tuple[str, str], tuple[list[int], list[int]]]
     _required_atom_indices: list[int]
+    _interface_residue_indices_by_interface: dict[int, list[int]]
+    _interface_residue_indices_by_interface_unique: dict[int, list[int]]
     split_interface_ss_elements: dict[int, list[int]]
     """Stores the interface number mapped to an index corresponding to the secondary structure type 
     Ex: {1: [0, 0, 1, 2, ...] , 2: [9, 9, 9, 13, ...]]}
@@ -6174,22 +6167,18 @@ class Pose(SymmetricModel, Metrics):
         """Create a new Model from a container of Entity objects"""
         return cls(entities=entities, chains=False, **kwargs)
 
-        # self.interface_fragment_residue_indices = []
         self.fragment_metrics = {}
         self.fragment_pairs = []
         self.fragment_queries = {}
-        # self.ignore_clashes = ignore_clashes
-        # self.interface_design_residue_numbers = set()
-        # self.interface_residue_numbers = set()
-        self.interface_residues_by_entity_pair = {}
-        self.interface_residues_by_interface = {}
-        self.interface_residues_by_interface_unique = {}
     def __init__(self, **kwargs):
         """"""
         super().__init__(**kwargs)  # Pose
         self._design_selection_entity_names = {entity.name for entity in self.entities}
         self._design_selector_atom_indices = set(self._atom_indices)
         self._required_atom_indices = []
+        self._interface_residue_indices_by_entity_name_pair = {}
+        self._interface_residue_indices_by_interface = {}
+        self._interface_residue_indices_by_interface_unique = {}
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -6309,28 +6298,33 @@ class Pose(SymmetricModel, Metrics):
     @property
     def interface_residues(self) -> list[Residue]:
         """The Residue instances identified in interfaces in the Pose sorted based on index.
-        Residue instances may be buried depending on interface distance
+        Residue instances may be completely buried depending on interface distance
         """
-        try:
-            return self._interface_residues
-        except AttributeError:
-            if not self.interface_residues_by_interface:
-                # raise AttributeError(
-                #     f"Couldn't find '.interface_residues' as they haven't been generated yet. Call "
-                #     f"{self.__class__.__name__}.{self.find_and_split_interface.__name__}() before accessing "
-                #     "'.interface_residues'"
-                # )
-                self.find_and_split_interface()
+        # try:
+        #     return self._interface_residues
+        # except AttributeError:
+        if not self._interface_residue_indices_by_interface:
+            self.find_and_split_interface()
 
-            _interface_residues = []
-            for number, residues in self.interface_residues_by_interface_unique.items():
-                _interface_residues.extend(residues)
-            self._interface_residues = sorted(_interface_residues, key=lambda residue: residue.index)
-            # for entity_pair, residues_by_entity in self.interface_residues_by_entity_pair.items():
-            #     for residues in residues_by_entity:
-            #         _interface_residues.extend(residues)
-            # self._interface_residues = sorted(set(_interface_residues), key=lambda residue: residue.index)
-            return self._interface_residues
+        _interface_residues = []
+        for number, residues in self.interface_residues_by_interface_unique.items():
+            _interface_residues.extend(residues)
+        _interface_residues = sorted(_interface_residues, key=lambda residue: residue.index)
+
+        return _interface_residues
+
+    @property
+    def interface_residues_by_entity_pair(self) -> dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]:
+        """The Residue instances identified between pairs of Entity instances"""
+        residues = self.residues
+        interface_residues_by_entity_pair = {}
+        for (name1, name2), (indices1, indices2) in self._interface_residue_indices_by_entity_name_pair.items():
+            interface_residues_by_entity_pair[(self.entity(name1), self.entity(name2))] = (
+                [residues[ridx] for ridx in indices1],
+                [residues[ridx] for ridx in indices2],
+            )
+
+        return interface_residues_by_entity_pair
 
     @property
     def interface_neighbor_residues(self) -> list[Residue]:
@@ -7580,8 +7574,9 @@ class Pose(SymmetricModel, Metrics):
                               f'\n\t{entity2.name} found residue numbers: '
                               f'{", ".join(str(r.number) for r in entity2_residues)}')
 
-                self.interface_residues_by_entity_pair[(entities[entity_idx], entities[query_idx])] = \
-                    (entity1_residues, entity2_residues)
+                self._interface_residue_indices_by_entity_name_pair[(entity1.name, entity2.name)] = (
+                    [r.index for r in entity1_residues],
+                    [r.index for r in entity2_residues])
 
     def per_residue_interface_surface_area(self) -> dict[str, list[float]]:
         """Return per-residue metrics for the interface surface area
@@ -8111,15 +8106,11 @@ class Pose(SymmetricModel, Metrics):
             residue_distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
-            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
+            self._interface_residues_by_entity_pair (dict[tuple[str, str], tuple[list[int], list[int]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
         Returns:
             The Atom indices for the interface
         """
-        # if residue_distance is not None:
-        #     # Force interface residue identification using residue distance
-        #     self.interface_residues_by_entity_pair[(entity1, entity2)] = \
-        #         self.get_interface_residues(entity1=entity1, entity2=entity2, distance=residue_distance, **kwargs)
         try:
             residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
         except KeyError:  # When interface_residues haven't been set
@@ -8339,14 +8330,14 @@ class Pose(SymmetricModel, Metrics):
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
-            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
+            self._interface_residues_by_entity_pair (dict[tuple[str, str], tuple[list[int], list[int]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
-            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances separated by
+            self._interface_residues_by_interface (dict[int, list[int]]): Residue instances separated by
                 interface topology
-            self.interface_residues_by_interface_unique (dict[int, list[Residue]]): Residue instances separated by
+            self._interface_residues_by_interface_unique (dict[int, list[int]]): Residue instances separated by
                 interface topology removing any dimeric duplicates
         """
-        if self.interface_residues_by_interface:
+        if self._interface_residue_indices_by_interface:
             self.log.debug("Interface residues weren't set as they're already set. If they've been changed, the "
                            "attribute 'interface_residues_by_interface' should be reset")
             # Todo add to reset_state()/reset_pose()
@@ -8363,8 +8354,12 @@ class Pose(SymmetricModel, Metrics):
                 entity_combinations = combinations(active_entities, 2)
 
             entity_pair: tuple[Entity, Entity]
-                self.interface_residues_by_entity_pair[entity_pair] = self.get_interface_residues(*entity_pair, **kwargs)
             for entity1, entity2 in entity_combinations:
+                residues1, residues2 = self.get_interface_residues(entity1, entity2, **kwargs)
+                self._interface_residue_indices_by_entity_name_pair[(entity1.name, entity2.name)] = (
+                    [res.index for res in residues1],
+                    [res.index for res in residues2]
+                )
         else:
             self._find_interface_residues_by_buried_surface_area()
 
@@ -8375,9 +8370,9 @@ class Pose(SymmetricModel, Metrics):
         If an interface can't be composed into two distinct groups, raise DesignError
 
         Sets:
-            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances separated by
+            self._interface_residues_by_interface (dict[int, list[int]]): Residue instances separated by
                 interface topology
-            self.interface_residues_by_interface_unique (dict[int, list[Residue]]): Residue instances separated by
+            self._interface_residues_by_interface_unique (dict[int, list[int]]): Residue instances separated by
                 interface topology removing any dimeric duplicates
         """
         first_side, second_side = 0, 1
@@ -8389,10 +8384,7 @@ class Pose(SymmetricModel, Metrics):
         """Set to True if the interface side (1 or 2) contains self-symmetric contacts"""
         symmetric_dimer = {entity: False for entity in self.entities}
         terminate = False
-        # self.log.debug('Pose contains interface residues: %s' % self.interface_residues_by_entity_pair)
-        for entity_pair, entity_residues in self.interface_residues_by_entity_pair.items():
-            entity1, entity2 = entity_pair
-            residues1, residues2 = entity_residues
+        for (entity1, entity2), (residues1, residues2) in self.interface_residues_by_entity_pair.items():
             # if not entity_residues:
             if not residues1:  # No residues were found at this interface
                 continue
@@ -8493,9 +8485,8 @@ class Pose(SymmetricModel, Metrics):
             return
 
         for interface_number, entity_residues in enumerate((first_interface_side, second_interface_side), 1):
-            all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
-            self.interface_residues_by_interface[interface_number] = \
-                sorted(set(all_residues), key=lambda residue: residue.index)
+            _residue_indices = [residue.index for _, residues in entity_residues.items() for residue in residues]
+            self._interface_residue_indices_by_interface[interface_number] = sorted(set(_residue_indices))
 
         if any(symmetric_dimer.values()):
             # For each entity, find the maximum residue observations on each interface side
@@ -8521,21 +8512,46 @@ class Pose(SymmetricModel, Metrics):
 
             # Perform the sort as without dimeric constraints
             for interface_number, entity_residues in enumerate((first_interface_side, second_interface_side), 1):
-                all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
-                self.interface_residues_by_interface_unique[interface_number] = \
-                    sorted(set(all_residues), key=lambda residue: residue.index)
+                _residue_indices = [residue.index for _, residues in entity_residues.items() for residue in residues]
+                self._interface_residue_indices_by_interface_unique[interface_number] = sorted(set(_residue_indices))
 
-            self.log.debug('The unique interface (no dimeric duplication) is split as:'
-                           '\n\tInterface 1: %s\n\tInterface 2: %s'
-                           % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
-                                   for residues in self.interface_residues_by_interface_unique.values()))
         else:  # Just make a copy of the internal list... Avoids unforeseen issues if these are ever modified
-            self.interface_residues_by_interface_unique = \
-                {number: residues.copy() for number, residues in self.interface_residues_by_interface.items()}
+            self._interface_residue_indices_by_interface_unique = \
+                {number: residue_indices.copy()
+                 for number, residue_indices in self._interface_residue_indices_by_interface.items()}
 
-        self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
-                       % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
-                               for residues in self.interface_residues_by_interface.values()))
+    @property
+    def interface_residues_by_interface_unique(self) -> dict[int, list[Residue]]:
+        """Keeps the Residue instances grouped by membership to each side of the interface.
+        Residues are unique to one side of the interface
+            Ex: {1: [Residue, ...], 2: [Residue, ...]}
+        """
+        interface_residues_by_interface_unique = {}
+        residues = self.residues
+        for number, residue_indices in self._interface_residue_indices_by_interface_unique.items():
+            interface_residues_by_interface_unique[number] = [residues[idx] for idx in residue_indices]
+
+        # self.log.debug('The unique interface (no dimeric duplication) is split as:'
+        #                '\n\tInterface 1: %s\n\tInterface 2: %s'
+        #                % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
+        #                        for residues in interface_residues_by_interface_unique.values()))
+        return interface_residues_by_interface_unique
+
+    @property
+    def interface_residues_by_interface(self) -> dict[int, list[Residue]]:
+        """Keeps the Residue instances grouped by membership to each side of the interface.
+        Residues can be duplicated on each side when interface contains a 2-fold axis of symmetry
+            Ex: {1: [Residue, ...], 2: [Residue, ...]}
+        """
+        interface_residues_by_interface = {}
+        residues = self.residues
+        for number, residue_indices in self._interface_residue_indices_by_interface.items():
+            interface_residues_by_interface[number] = [residues[idx] for idx in residue_indices]
+
+        # self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
+        #                % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
+        #                        for residues in self.interface_residues_by_interface.values()))
+        return interface_residues_by_interface
 
     def calculate_secondary_structure(self):
         """Curate the secondary structure topology for each Entity
@@ -8569,9 +8585,8 @@ class Pose(SymmetricModel, Metrics):
         self.ss_sequence_indices.extend(ss_sequence_indices)
         self.ss_type_sequence.extend(ss_type_sequence)
 
-        # for number, residues in self.interface_residues_by_interface.items():
-        for number, residues in self.interface_residues_by_interface_unique.items():
-            self.split_interface_ss_elements[number] = [ss_sequence_indices[residue.index] for residue in residues]
+        for number, residue_indices in self._interface_residue_indices_by_interface_unique.items():
+            self.split_interface_ss_elements[number] = [ss_sequence_indices[idx] for idx in residue_indices]
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
         self.secondary_structure = pose_secondary_structure
 
@@ -9020,7 +9035,7 @@ class Pose(SymmetricModel, Metrics):
             by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             distance: float = 8. - The distance to measure Residues across an interface
         """
-        if not self.interface_residues_by_entity_pair:
+        if not self._interface_residue_indices_by_interface:
             self.find_and_split_interface(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
         if self.is_symmetric():
