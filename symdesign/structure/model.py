@@ -531,13 +531,13 @@ class State(Structures):
     # @property
     # def residues(self):  # Todo Residues iteration
     #     try:
-    #         return self._residues.residues.tolist()
+    #         return self._residues
     #     except AttributeError:
     #         residues = []
     #         for structure in self.structures:
     #             residues.extend(structure.residues)
     #         self._residues = Residues(residues)
-    #         return self._residues.residues.tolist()
+    #         return self._residues
     #
     # @property
     # def number_of_residues(self):

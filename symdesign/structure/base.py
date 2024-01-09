@@ -10,13 +10,13 @@ import time
 import traceback
 from abc import ABC
 from collections import UserList, defaultdict
-from collections.abc import Callable, Container, Iterable, Sequence, Collection
+from collections.abc import Callable, Container, Iterable, Sequence, Collection, Generator
 from copy import copy
 from itertools import count, repeat
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import Any, AnyStr, get_args, IO, Literal, Type, Union
+from typing import Any, AnyStr, Generic, get_args, IO, Literal, Type, TypeVar, Union
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -1514,32 +1514,140 @@ class Atom(StructureBase):
 
     copy = __copy__  # Overwrites to use this instance __copy__
 
+_StructType = TypeVar('_StructType')
 
-class Atoms:
-    atoms: np.ndarray
 
-    def __init__(self, atoms: list[Atom] | np.ndarray = None):
-        if atoms is None:
-            self.atoms = np.array([])
-        elif not isinstance(atoms, (np.ndarray, list)):
-            raise TypeError(
-                f"Can't initialize {self.__class__.__name__} with {type(atoms).__name__}. Type must be a "
-                f'numpy.ndarray or list[{Atom.__name__}]')
-        else:
-            self.atoms = np.array(atoms, dtype=np.object_)
-    #     self.find_prev_and_next()
-    #
-    # def find_prev_and_next(self):
-    #     """Set prev_atom and next_atom attributes for each Atom. One inherently sets the other in Atom"""
-    #     for next_idx, atom in enumerate(self.atoms[:-1], 1):
-    #         atom.next_atom = self.atoms[next_idx]
+class StructureBaseContainer(Generic[_StructType]):
+
+    def __init__(self, structs: Sequence[StructureBase] | np.ndarray = None):
+        """
+
+        Args:
+            structs: The StructureBase instances to store. Should be a homogeneous Sequence
+        """
+        if structs is None:
+            structs = []
+        elif not isinstance(structs, (np.ndarray, list)):
+            structs = list(structs)
+            # raise TypeError(
+            #     f"Can't initialize {self.__class__.__name__} with {type(structs).__name__}. Type must be a "
+            #     f'numpy.ndarray or list[{StructureBase.__name__}]')
+
+        self.structs = np.array(structs, dtype=np.object_)
 
     def are_dependents(self) -> bool:
-        """Check if any of the Atom instance are dependents on another Structure"""
+        """Check if any of the Residue instance are dependents on another Structure"""
         for struct in self:
             if struct.is_dependent():
                 return True
         return False
+
+    def append(self, new_structures: list[_StructType] | np.ndarray):
+        """Append additional StructureBase instances to the StructureBaseContainer
+
+        Args:
+            new_structures: The Structure instances to append
+        Sets:
+            self.structs = numpy.concatenate((self.residues, new_structures))
+        """
+        self.structs = np.concatenate((self.structs, new_structures))
+
+    def delete(self, indices: Sequence[int]):
+        """Delete StructureBase instances from the StructureBaseContainer
+
+        Args:
+            indices: The indices to delete
+        Sets:
+            self.structs = numpy.delete(self.structs, indices)
+        """
+        self.structs = np.delete(self.structs, indices)
+
+    def insert(self, at: int, new_structures: list[_StructType] | np.ndarray):
+        """Insert StructureBase instances into the StructureBaseContainer
+
+        Args:
+            at: The index to perform the insert at
+            new_structures: The Structure instances to insert
+        """
+        self.structs = np.concatenate((
+            self.structs[:at],
+            new_structures if isinstance(new_structures, Iterable) else [new_structures],
+            self.structs[at:]
+        ))
+
+    def set(self, new_structures: list[_StructType] | np.ndarray):
+        """Set the StructureBaseContainer with new StructureBase instances
+
+        Args:
+            new_structures: The new instances which should make up the container
+        Sets:
+            self.structs = numpy.array(new_instances)
+        """
+        self.structs = np.array(new_structures)
+        self.reindex()
+
+    @property
+    @abc.abstractmethod
+    def reindex(self):
+        """"""
+
+    def reset_state(self):
+        """Remove any attributes from the Structure instances that are part of the current state
+
+        This is useful for transfer of ownership, or changes in the state that need to be overwritten
+        """
+        for struct in self:
+            struct.reset_state()
+
+    def set_attributes(self, **kwargs):
+        """Set Structure attributes passed by keyword to their corresponding value"""
+        for struct in self:
+            for key, value in kwargs.items():
+                setattr(struct, key, value)
+
+    # def set_attribute_from_array(self, **kwargs):  # UNUSED
+    #     """For each Residue, set the attribute passed by keyword to the attribute corresponding to the Residue index in
+    #     a provided array
+    #
+    #     Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
+    #     """
+    #     for idx, residue in enumerate(self):
+    #         for key, value in kwargs.items():
+    #             setattr(residue, key, value[idx])
+
+    def __copy__(self) -> StructureBaseContainer:  # Todo -> Self: in python 3.11
+        cls = self.__class__
+        other = cls.__new__(cls)
+
+        other_structs = [None for _ in range(len(self))]
+        for idx, struct in enumerate(self):
+            # Set an attribute to indicate the struct shouldn't be "detached"
+            # since a Structure owns this Structures instance
+            struct._copier = True
+            other_structs[idx] = new_struct = struct.copy()
+            new_struct._copier = struct._copier = False
+
+        other.structs = np.array(other_structs, dtype=np.object_)
+
+        return other
+
+    copy = __copy__  # Overwrites to use this instance __copy__
+
+    def __getitem__(self, item: ArrayIndexer) -> _StructType | list[_StructType]:  # StructureBaseContainer[_StructType]:
+        items = self.structs[item]
+        if isinstance(item, int):
+            return items
+        else:  # Convert numpy to list
+            return items.tolist()
+
+    def __len__(self) -> int:
+        return len(self.structs)
+
+    def __iter__(self) -> Generator[_StructType, None, None]:
+        yield from self.structs.tolist()
+
+
+class Atoms(StructureBaseContainer):
 
     def reindex(self, start_at: int = 0):
         """Set each Atom instance index according to incremental Atoms/Coords index
@@ -1564,87 +1672,10 @@ class Atoms:
             for idx, struct in enumerate(self, start_at):
                 struct.index = idx
 
-    def append(self, new_structures: list[Atom] | np.ndarray):  # Todo StructureContainer ready
-        """Append additional Structure instances into the StructureContainer
-
-        Args:
-            new_structures: The Atom instances to include into Atoms
-        Sets:
-            self.atoms = numpy.concatenate((self.atoms, new_structures))
-        """
-        self.atoms = np.concatenate((self.atoms, new_structures))
-
-    def delete(self, indices: Sequence[int]):  # Todo StructureContainer ready
-        """Delete Structure instances from the StructureContainer
-
-        Args:
-            indices: The indices to delete from the StructureContainer array
-        Sets:
-            self.atoms = numpy.delete(self.atoms, indices)
-        """
-        self.atoms = np.delete(self.atoms, indices)
-
-    def insert(self, at: int, new_structures: list[Atom] | np.ndarray):  # Todo StructureContainer ready
-        """Insert Structure instances into the StructureContainer
-
-        Args:
-            at: The index to perform the insert at
-            new_structures: The Structure instances to insert
-        """
-        self.atoms = np.concatenate(
-            (self.atoms[:at], new_structures if isinstance(new_structures, Iterable) else [new_structures],
-             self.atoms[at:]))
-
-    def set(self, new_structures: list[Atom] | np.ndarray):  # Todo StructureContainer ready
-        """Set the StructureContainer with new Structure instances
-
-        Args:
-            new_structures: The new instances which should make up the container
-        Sets:
-            self.atoms = numpy.array(new_instances)
-        """
-        self.atoms = np.array(new_structures)
-        self.reindex()
-
-    def reset_state(self):  # Todo StructureContainer ready
-        """Remove any attributes from the Structure instances that are part of the current Structure state
-
-        This is useful for transfer of ownership, or changes in the state that need to be overwritten
-        """
-        for struct in self:
-            struct.reset_state()
-
-    def set_attributes(self, **kwargs):  # Todo StructureContainer ready
-        """Set Structure attributes passed by keyword to their corresponding value"""
-        for struct in self:
-            for key, value in kwargs.items():
-                setattr(struct, key, value)
-
     def __copy__(self) -> Atoms:  # Todo -> Self: in python 3.11
-        cls = self.__class__
-        other = cls.__new__(cls)
+        return super().__copy__()
 
-        # Copy all Atom instances
-        struct: Atom
-        other_structs = [None for _ in range(len(self))]
-        for idx, struct in enumerate(self):
-            # Set an attribute to indicate the struct shouldn't be "detached"
-            # since this container owns each Structure instance
-            struct._copier = True
-            other_structs[idx] = new_struct = struct.copy()
-            new_struct._copier = struct._copier = False
-
-        other.atoms = np.array(other_structs, dtype=np.object_)
-
-        return other
-
-    copy = __copy__  # Overwrites to use this instance __copy__  # Todo Refactor StructureContainer ready
-
-    def __len__(self) -> int:
-        return len(self.atoms)
-
-    def __iter__(self) -> Atom:
-        yield from self.atoms.tolist()
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 # Define a ideal, 15 residue alpha helix
@@ -1891,7 +1922,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
     def atoms(self) -> list[Atom] | None:
         """Return the Atom instances in the StructureBase"""
         try:
-            return self._atoms.atoms[self._atom_indices].tolist()
+            return self._atoms[self._atom_indices]
         except AttributeError:  # When self._atoms isn't set or is None and doesn't have .atoms
             return None
 
@@ -2013,32 +2044,32 @@ class ContainsAtomsMixin(StructureBase, ABC):
     @property
     def backbone_atoms(self) -> list[Atom]:
         """Returns backbone Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.backbone_indices].tolist()
+        return self._atoms[self.backbone_indices]
 
     @property
     def backbone_and_cb_atoms(self) -> list[Atom]:
         """Returns backbone and CB Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.backbone_and_cb_indices].tolist()
+        return self._atoms[self.backbone_and_cb_indices]
 
     @property
     def ca_atoms(self) -> list[Atom]:
         """Returns CA Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.ca_indices].tolist()
+        return self._atoms[self.ca_indices]
 
     @property
     def cb_atoms(self) -> list[Atom]:
         """Returns CB Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.cb_indices].tolist()
+        return self._atoms[self.cb_indices]
 
     @property
     def heavy_atoms(self) -> list[Atom]:
         """Returns heavy Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.heavy_indices].tolist()
+        return self._atoms[self.heavy_indices]
 
     @property
     def side_chain_atoms(self) -> list[Atom]:
         """Returns side chain Atom instances from the StructureBase"""
-        return self._atoms.atoms[self.side_chain_indices].tolist()
+        return self._atoms[self.side_chain_indices]
 
     def atom(self, atom_number: int) -> Atom | None:
         """Returns the Atom specified by atom number if a matching Atom is found, otherwise None"""
@@ -2317,7 +2348,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         updates individual Atom instance .index accordingly
         """
         self._atom_indices = list(range(index, index + self.number_of_atoms))
-        for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
+        for atom, index in zip(self._atoms[self._atom_indices], self._atom_indices):
             atom.index = index
         # Clear all the indices attributes for this Residue
         self.reset_indices()
@@ -2491,7 +2522,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     def n(self) -> Atom | None:
         """Return the amide N Atom object"""
         try:
-            return self._atoms.atoms[self._atom_indices[self._n_index]]
+            return self._atoms[self._atom_indices[self._n_index]]
         except AttributeError:
             return None
 
@@ -2527,7 +2558,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     def h(self) -> Atom | None:
         """Return the amide H Atom object"""
         try:
-            return self._atoms.atoms[self._atom_indices[self._h_index]]
+            return self._atoms[self._atom_indices[self._h_index]]
         except AttributeError:
             return None
 
@@ -2563,7 +2594,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     def ca(self) -> Atom | None:
         """Return the CA Atom object"""
         try:
-            return self._atoms.atoms[self._atom_indices[self._ca_index]]
+            return self._atoms[self._atom_indices[self._ca_index]]
         except AttributeError:
             return None
 
@@ -2599,7 +2630,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     def cb(self) -> Atom | None:
         """Return the CB Atom object"""
         try:
-            return self._atoms.atoms[self._atom_indices[self._cb_index]]
+            return self._atoms[self._atom_indices[self._cb_index]]
         except AttributeError:
             return None
 
@@ -2635,7 +2666,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     def c(self) -> Atom | None:
         """Return the carbonyl C Atom object"""
         try:
-            return self._atoms.atoms[self._atom_indices[self._c_index]]
+            return self._atoms[self._atom_indices[self._c_index]]
         except AttributeError:
             return None
 
@@ -2671,7 +2702,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     def o(self) -> Atom | None:
         """Return the carbonyl O Atom object"""
         try:
-            return self._atoms.atoms[self._atom_indices[self._o_index]]
+            return self._atoms[self._atom_indices[self._o_index]]
         except AttributeError:
             return None
 
@@ -3166,35 +3197,13 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     copy = __copy__  # Overwrites to use this instance __copy__
 
 
-class Residues:
-    residues: np.ndarray
-
-    def __init__(self, residues: list[Residue] | np.ndarray = None):
-        if residues is None:
-            self.residues = np.array([])
-        elif not isinstance(residues, (np.ndarray, list)):
-            raise TypeError(
-                f"Can't initialize {self.__class__.__name__} with {type(residues).__name__}. Type must be a "
-                f'numpy.ndarray or list of {Residue.__name__} instances')
-        else:
-            self.residues = np.array(residues, dtype=np.object_)
-
-        # Can't set these here since doesn't always make Residue copies
-        # self.set_index()
-        # self.find_prev_and_next()
+class Residues(StructureBaseContainer):
 
     def find_prev_and_next(self):
         """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
-        structs = self.residues
+        structs = self.structs
         for struct, next_struct in zip(structs[:-1], structs[1:]):
             struct.next_residue = next_struct
-
-    def are_dependents(self) -> bool:
-        """Check if any of the Residue instance are dependents on another Structure"""
-        for struct in self:
-            if struct.is_dependent():
-                return True
-        return False
 
     def reindex(self, start_at: int = 0):
         """Index the Residue instances and their corresponding Atom/Coords indices according to their position
@@ -3211,8 +3220,8 @@ class Residues:
         Args:
             start_at: The Residue index to start reindexing at
         """
-        for idx, residue in enumerate(self.residues[start_at:].tolist(), start_at):
-            residue._index = idx
+        for idx, struct in enumerate(self.structs[start_at:].tolist(), start_at):
+            struct._index = idx
 
     def reindex_atoms(self, start_at: int = 0):
         """Index the Residue instances Atoms/Coords indices according to incremental Atoms/Coords index. Responsible
@@ -3242,108 +3251,14 @@ class Residues:
                 struct.start_index = prior_struct.end_index + 1
                 prior_struct = struct
 
-    def append(self, new_structures: list[Residue] | np.ndarray):  # Todo StructureContainer ready
-        """Append additional Structure instances into the StructureContainer
-
-        Args:
-            new_structures: The Structure instances to append
-        Sets:
-            self.residues = numpy.concatenate((self.residues, new_structures))
-        """
-        self.residues = np.concatenate((self.residues, new_structures))
-
-    def delete(self, indices: Sequence[int]):  # Todo StructureContainer ready
-        """Delete Structure instances from the StructureContainer
-
-        Args:
-            indices: The indices to delete from the StructureContainer array
-        Sets:
-            self.residues = numpy.delete(self.residues, indices)
-        """
-        self.residues = np.delete(self.residues, indices)
-
-    def insert(self, at: int, new_structures: list[Residue] | np.ndarray):  # Todo StructureContainer ready
-        """Insert Structure instances into the StructureContainer
-
-        Args:
-            at: The index to perform the insert at
-            new_structures: The Structure instances to insert
-        """
-        self.residues = np.concatenate(
-            (self.residues[:at], new_structures if isinstance(new_structures, Iterable) else [new_structures],
-             self.residues[at:]))
-
-    def set(self, new_structures: list[Residue] | np.ndarray):  # Todo StructureContainer ready
-        """Set the StructureContainer with new Structure instances
-
-        Args:
-            new_structures: The new instances which should make up the container
-        Sets:
-            self.residues = numpy.array(new_instances)
-        """
-        self.residues = np.array(new_structures)
-        self.reindex()
-
-    def reset_state(self):  # Todo StructureContainer ready
-        """Remove any attributes from the Structure instances that are part of the current Structure state
-
-        This is useful for transfer of ownership, or changes in the state that need to be overwritten
-        """
-        for struct in self:
-            struct.reset_state()
-
-    def set_attributes(self, **kwargs):  # Todo StructureContainer ready
-        """Set Structure attributes passed by keyword to their corresponding value"""
-        for struct in self:
-            for key, value in kwargs.items():
-                setattr(struct, key, value)
-
-    # def set_attribute_from_array(self, **kwargs):  # UNUSED
-    #     """For each Residue, set the attribute passed by keyword to the attribute corresponding to the Residue index in
-    #     a provided array
-    #
-    #     Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
-    #     """
-    #     for idx, residue in enumerate(self):
-    #         for key, value in kwargs.items():
-    #             setattr(residue, key, value[idx])
-
     def __copy__(self) -> Residues:  # Todo -> Self: in python 3.11
-        cls = self.__class__
-        other = cls.__new__(cls)
-        struct: Residue
-        # other.residues = self.residues.copy()
-        # for idx, residue in enumerate(other.residues):
-        #     # Set an attribute to indicate the residue shouldn't be "detached"
-        #     # since a Structure owns this Residues instance
-        #     residue._copier = True
-        #     other.residues[idx] = new_residue = residue.copy()
-        #     new_residue._copier = residue._copier = False
-        #     # other.residues[idx] = new_residue
-
-        other_structs = [None for _ in range(len(self))]
-        for idx, struct in enumerate(self):
-            # Set an attribute to indicate the struct shouldn't be "detached"
-            # since a Structure owns this Structures instance
-            struct._copier = True
-            other_structs[idx] = new_struct = struct.copy()
-            new_struct._copier = struct._copier = False
-
-        other.residues = np.array(other_structs, dtype=np.object_)
-
-        # Todo, these were removed as current caller of Residues.__copy__ typically calls both of them
         # other.find_prev_and_next()
+        other = super().__copy__()
         # other.set_index()
 
         return other
 
-    copy = __copy__  # Overwrites to use this instance __copy__  # Todo Refactor StructureContainer ready
-
-    def __len__(self) -> int:  # Todo Refactor
-        return len(self.residues)
-
-    def __iter__(self) -> Residue:  # Todo Refactor
-        yield from self.residues.tolist()
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 chain_assignment_error = "Can't solve for the Residue chainID association automatically. If the new " \
@@ -3685,7 +3600,7 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     def residues(self) -> list[Residue] | None:
         """Return the Residue instances in the Structure"""
         try:
-            return self._residues.residues[self._residue_indices].tolist()
+            return self._residues[self._residue_indices]
         except AttributeError:  # When self._residues isn't set
             return None
 
@@ -6054,25 +5969,25 @@ class Structures(Structure, UserList):
     # def atoms(self):
     #     """Return a view of the Atoms from the Structures"""
     #     try:
-    #         return self._atoms.atoms.tolist()
+    #         return self._atoms
     #     except AttributeError:  # if not set by parent, try to set from each individual structure
     #         atoms = []
     #         # for structure in self.structures:
     #         for structure in self:
     #             atoms.extend(structure.atoms)
     #         self._atoms = Atoms(atoms)
-    #         return self._atoms.atoms.tolist()
+    #         return self._atoms
     #
     # @property
     # def residues(self):
     #     try:
-    #         return self._residues.residues.tolist()
+    #         return self._residues
     #     except AttributeError:  # if not set by parent, try to set from each individual structure
     #         residues = []
     #         for structure in self:
     #             residues.extend(structure.residues)
     #         self._residues = Residues(residues)
-    #         return self._residues.residues.tolist()
+    #         return self._residues
 
     # the use of Structure methods for coords_indexed_residue* should work well
     # @property
