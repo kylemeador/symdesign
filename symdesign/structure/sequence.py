@@ -81,7 +81,8 @@ def sequence_to_one_hot(sequence: Sequence[str], translation_table: dict[str, in
         from symdesign import sequence as _seq
         embedding = getattr(_seq, f'numerical_translation_alph{alphabet_order}_bytes') \
             if translation_table is None else translation_table
-        raise ValueError(f"Couldn't produce a proper one-hot encoding for the provided sequence embedding: {embedding}")
+        raise ValueError(
+            f"Couldn't produce a proper one-hot encoding for the provided sequence embedding: {embedding}")
     return one_hot
 
 
@@ -107,7 +108,8 @@ def sequence_to_numeric(sequence: Sequence[str], translation_table: dict[str, in
             raise NotImplementedError('Need to make the "numerical_translation_alph3_bytes" table')
             return np.vectorize(numerical_translation_alph3_bytes.__getitem__)(_array)
         else:
-            raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
+            raise ValueError(
+                f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
 def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: dict[str, int] = None,
@@ -394,10 +396,7 @@ class Profile(UserList):
 
 
 class SequenceProfile(ABC):
-    """Contains the sequence information for a Structure. Should always be subclassed by a Structure object.
-    Currently, Chain, Entity, Model and Pose contain the necessary .reference_sequence property.
-    Any Structure object with a .reference_sequence attribute could be used however
-    """
+    """Contains the sequence information for a ContainsResidues."""
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
     _evolutionary_profile: dict | ProfileDict
@@ -407,10 +406,7 @@ class SequenceProfile(ABC):
     _msa: MultipleSequenceAlignment | None
     _sequence_array: np.ndarray
     _sequence_numeric: np.ndarray
-    a3m_file: AnyStr | None
     alpha: list[float]
-    # alpha: dict[int, float]
-    disorder: dict[int, dict[str, str]]
     fragment_map: list[dict[int, set[FragmentObservation]]] | None
     """{1: {-2: {FragObservation(), ...}, 
             -1: {}, ...},
@@ -561,7 +557,7 @@ class SequenceProfile(ABC):
                 f'The profile length, {len(profile_of_interest)} != {self.number_of_residues}, the number_of_residues')
 
     def _verify_evolutionary_profile(self) -> bool:
-        """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
+        """Returns True if the evolutionary_profile and ContainsResidues sequences are equivalent"""
         evolutionary_profile_len = len(self._evolutionary_profile)
         if self.number_of_residues != evolutionary_profile_len:
             self.log.debug(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
@@ -712,8 +708,8 @@ class SequenceProfile(ABC):
         return {entry: _profile_entry.copy() for entry in entry_numbers}
 
     def _fit_evolutionary_profile_to_structure(self):
-        """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
-        sequence, removing information for residues not present in the Structure
+        """From an evolutionary profile generated according to a reference sequence, align the profile to the Residue
+        sequence, removing profile information for Residue instances that are absent
 
         Sets:
             self.evolutionary_profile (ProfileDict)
@@ -806,7 +802,8 @@ class SequenceProfile(ABC):
         self._evolutionary_profile = structure_evolutionary_profile
 
     def _fit_msa_to_structure(self):
-        """From a multiple sequence alignment to the reference sequence, align the profile to the Structure sequence.
+        """From a multiple sequence alignment to the reference sequence, align the profile to the Residue sequence.
+
         Removes the view of all data not present in the structure
 
         Sets:
@@ -1067,8 +1064,8 @@ class SequenceProfile(ABC):
                 # except FileNotFoundError:
                 #     raise DesignError(f'Ensure that you have set up the .msa for this {self.__class__.__name__}. To '
                 #                       'do this, '
-                #                       f'either link to the Master Database, call {msa_generation_function}, or pass '
-                #                       f'the location of a multiple sequence alignment. '
+                #                       f'either link to the Master Database, call {GeneEntity.hhblits.__name__}, '
+                #                       'or pass the location of a multiple sequence alignment. '
                 #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
             msa = self.msa
             # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
@@ -1204,7 +1201,7 @@ class SequenceProfile(ABC):
                 [{'mapped': residue_index1 (int), 'paired': residue_index2 (int), 'cluster': tuple(int, int, int),
                   'match': match_score (float)}]
             alignment_type: Either 'mapped' or 'paired' indicating how the fragment observation was generated relative
-                to this Structure. Is it mapped to this Structure or was it paired to it?
+                to this GeneEntity. Are the fragments mapped to the ContainsResidues or was it paired to it?
         Sets:
             self.fragment_map (list[list[dict[str, str | float]]]):
                 [{-2: {FragObservation(), ...},
@@ -1228,7 +1225,7 @@ class SequenceProfile(ABC):
         # added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a
         # new observation is created for that fragment index.
         for fragment in fragments:
-            # Offset the specified fragment index to the overall index in the Structure
+            # Offset the specified fragment index to the overall index in the ContainsStructures
             fragment_index = getattr(fragment, alignment_type)
             cluster = fragment.cluster
             match = fragment.match
@@ -1607,41 +1604,6 @@ class SequenceProfile(ABC):
 dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 
 
-def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int') \
-        -> dict[int, dict[int | str, Any]]:
-    """Return a dictionary with n elements, each integer key containing another dictionary with the items in
-    alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is 0 (integer).
-    dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
-
-    Args:
-        n: number of entries in the dictionary
-        alphabet: alphabet of interest
-        zero_index: If True, return the dictionary with zero indexing
-        dtype: The type of object present in the interior dictionary
-    Returns:
-        N length, one indexed dictionary with entry number keys
-            ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
-    """
-    offset = 0 if zero_index else zero_offset
-
-    # Todo python 3.10
-    #  match dtype:
-    #       case 'int':
-    #       ...
-    if dtype == 'int':
-        dtype = int
-    elif dtype == 'dict':
-        dtype = dict
-    elif dtype == 'list':
-        dtype = list
-    elif dtype == 'set':
-        dtype = set
-    elif dtype == 'float':
-        dtype = float
-
-    return {entry: dict.fromkeys(alphabet, dtype()) for entry in range(offset, n + offset)}
-
-
 def format_frequencies(frequency_list: list, flip: bool = False) -> dict[str, dict[str, float]]:
     """Format list of paired frequency data into parsable paired format
 
@@ -1668,30 +1630,7 @@ def format_frequencies(frequency_list: list, flip: bool = False) -> dict[str, di
     return freq_d
 
 
-# def residue_interaction_graph(pdb, distance=8, gly_ca=True):
-#     """Create a atom tree using CB atoms from two PDB's
-#
-#     Args:
-#         pdb (PDB): First PDB to query against
-#     Keyword Args:
-#         distance=8 (int): The distance to query in Angstroms
-#         gly_ca=True (bool): Whether glycine CA should be included in the tree
-#     Returns:
-#         query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
-#     """
-#     # Get CB Atom Coordinates including CA coordinates for Gly residues
-#     coords = np.array(pdb.extract_cb_coords(InclGlyCA=gly_ca))
-#
-#     # Construct CB Tree for PDB1
-#     pdb1_tree = BallTree(coords)
-#
-#     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
-#     query = pdb1_tree.query_radius(coords, distance)
-#
-#     return query
-
-
-def overlap_consensus(issm, aa_set):
+def overlap_consensus(issm, aa_set):  # UNUSED
     """Find the overlap constrained consensus sequence
 
     Args:
@@ -1712,7 +1651,7 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-def get_cluster_dicts(db=putils.biological_interfaces, id_list=None):  # TODO Rename
+def get_cluster_dicts(db: str = putils.biological_interfaces, id_list: list[str] = None) -> dict[str, dict]:
     """Generate an interface specific scoring matrix from the fragment library
 
     Args:
@@ -1740,7 +1679,7 @@ def get_cluster_dicts(db=putils.biological_interfaces, id_list=None):  # TODO Re
     return cluster_dict
 
 
-def return_cluster_id_string(cluster_rep, index_number=3):
+def return_cluster_id_string(cluster_rep: str, index_number: int = 3) -> str:
     while len(cluster_rep) < 3:
         cluster_rep += '0'
     if len(cluster_rep.split('_')) != 3:
@@ -1788,25 +1727,7 @@ def fragment_overlap(residues, interaction_graph, freq_map):
     return overlap
 
 
-def populate_design_dict(n, alph, counts=False):
-    """Return a dictionary with n elements and alph subelements.
-
-    Args:
-        n (int): number of residues in a design
-        alph (iter): alphabet of interest
-    Keyword Args:
-        counts=False (bool): If true include an integer placeholder for counting
-     Returns:
-         (dict): {0: {alph1: {}, alph2: {}, ...}, 1: {}, ...}
-            Custom length, 0 indexed dictionary with residue number keys
-     """
-    if counts:
-        return {residue: {i: 0 for i in alph} for residue in range(n)}
-    else:
-        return {residue: {i: dict() for i in alph} for residue in range(n)}
-
-
-def offset_index(dictionary, to_zero=False):
+def offset_index(dictionary: dict[int, Any], to_zero: bool = False) -> dict[int, dict]:
     """Modify the index of a sequence dictionary. Default is to one-indexed. to_zero=True gives zero-indexed"""
     if to_zero:
         return {residue - zero_offset: dictionary[residue] for residue in dictionary}
@@ -1814,7 +1735,9 @@ def offset_index(dictionary, to_zero=False):
         return {residue + zero_offset: dictionary[residue] for residue in dictionary}
 
 
-def residue_object_to_number(residue_dict):  # TODO DEPRECIATE
+def residue_object_to_number(
+    residue_dict: dict[str, Iterable['structure.base.Residue']]
+) -> dict[str, list[tuple[int, ...]]]:
     """Convert sets of PDB.Residue objects to residue numbers
 
     Args:
@@ -2158,7 +2081,6 @@ def clean_gaped_columns(alignment_dict, correct_index):  # UNUSED
 msa_supported_types_literal = Literal['fasta', 'stockholm']
 msa_supported_types: tuple[msa_supported_types_literal, ...] = get_args(msa_supported_types_literal)
 msa_format_extension = dict(zip(msa_supported_types, ('.fasta', '.sto')))
-msa_generation_function = SequenceProfile.hhblits.__name__
 
 
 def msa_to_prob_distribution(alignment):

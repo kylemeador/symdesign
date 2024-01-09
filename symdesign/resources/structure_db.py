@@ -121,7 +121,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
 
 def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.getcwd(), asu: bool = False) \
         -> list[Pose | Entity]:
-    """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a Structure for each identifier
+    """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a ContainsEntities for each identifier
 
     Defaults to fetching the biological assembly file, prioritizing the assemblies as predicted very high/high from
     QSBio, then using the first assembly if QSBio is missing
@@ -131,9 +131,9 @@ def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.
         out_dir: The directory to write downloaded files to
         asu: Whether to get the asymmetric unit from the PDB instead of the biological assembly
     Returns:
-        The requested Model/Entity instances
+        The requested Pose/Entity instances
     """
-    all_models = []
+    all_structures = []
     for structure_identifier in structure_identifiers:
         # Retrieve the proper files using PDB ID's
         structure_identifier_ = structure_identifier
@@ -194,25 +194,25 @@ def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.
 
         # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
         file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-        model = Pose.from_file(file_path, name=file_name)
+        pose = Pose.from_file(file_path, name=file_name)
         if entity_integer is not None:
-            # Replace Structure from fetched file with the Entity Structure
+            # Replace the Pose from fetched file with the Entity
             # structure_identifier is formatted the exact same as the desired EntityID
-            entity = model.entity(structure_identifier)
+            entity = pose.entity(structure_identifier)
             if entity:
                 # Set the file_path attribute on the Entity
-                file_path = model.file_path
-                model = entity
-                model.file_path = file_path
+                file_path = pose.file_path
+                pose = entity
+                pose.file_path = file_path
             else:  # Couldn't find the specified EntityID
                 logger.warning(f"For {structure_identifier}, couldn't locate the specified {Entity.__name__} "
                                f"'{structure_identifier}'. The available {Entity.__name__} instances are "
-                               f'{", ".join(entity.name for entity in model.entities)}')
+                               f'{", ".join(entity.name for entity in pose.entities)}')
                 continue
 
-        all_models.append(model)
+        all_structures.append(pose)
 
-    return all_models
+    return all_structures
 
 
 def query_qs_bio(entry_id: str) -> int:
@@ -273,7 +273,7 @@ class StructureDatabase(Database):
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID/EntityID
         Returns:
             The tuple consisting of (
-                A map of the entire Structure name to each contained Entity name,
+                A map of the entire Pose name to each contained Entity name,
                 A mapping of the UniprotID's to their ProteinMetadata instance for every Entity loaded
             )
         """
@@ -309,11 +309,11 @@ class StructureDatabase(Database):
         uniprot_id_to_protein_metadata: dict[tuple[str, ...], list[sql.ProteinMetadata]] = defaultdict(list)
         non_viable_structures = []
 
-        def create_protein_metadata(model: Model | Entity):
-            """From a Structure instance, extract the unique metadata to identify the entities involved
+        def create_protein_metadata(model: ContainsEntities):
+            """From a ContainsEntities instance, extract the unique metadata to identify the entities involved
 
             Args:
-                model: The Structure instances to initialize to ProteinMetadata
+                model: The Entity instances to initialize to ProteinMetadata
             """
             for entity in model.entities:
                 protein_metadata = sql.ProteinMetadata(
@@ -351,13 +351,13 @@ class StructureDatabase(Database):
                 else:
                     plural_str = f" {non_viable_structures} wasn't"
                 orient_logger.error(
-                    f'The Structure{plural_str} able to be oriented properly')
+                    f'The structure{plural_str} able to be oriented properly')
 
-        def write_entities_and_asu(model: Model, assembly_integer: str):
-            """Write the overall Model ASU, each Entity as an ASU and oligomer, and set the Model.file_path attribute
+        def write_entities_and_asu(model: ContainsEntities, assembly_integer: str):
+            """Write the overall ASU, each Entity as an ASU and oligomer, and sets the model.file_path attribute
 
             Args:
-                model: The Structure being oriented
+                model: The ContainsEntities instance being oriented
                 assembly_integer: The integer representing the assembly number (provided from ".pdb1" type extensions)
             """
             # Save .file_path attribute
@@ -388,29 +388,28 @@ class StructureDatabase(Database):
             """
             for file in files:
                 # Load entities to solve multi-component orient problem
-                model = Pose.from_file(file)
+                pose = Pose.from_file(file)
                 if resulting_symmetry == CRYST:
-                    model.set_symmetry(sym_entry=sym_entry)
-                    model.file_path = model.write(out_path=self.models.path_to(name=model.name))
+                    pose.set_symmetry(sym_entry=sym_entry)
+                    pose.file_path = pose.write(out_path=self.models.path_to(name=pose.name))
                     # Set each Entity.file_path
-                    for entity in model.entities:
+                    for entity in pose.entities:
                         entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
                 else:
                     try:
-                        model.orient(symmetry=resulting_symmetry)
+                        pose.orient(symmetry=resulting_symmetry)
                     except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                         orient_logger.error(str(error))
                         non_viable_structures.append(file)
                         continue
-                    model.set_symmetry(sym_entry=sym_entry)
-                    assembly_integer = '' if model.biological_assembly is None else model.biological_assembly
-                    orient_file = os.path.join(self.oriented.location,
-                                               f'{model.name}.pdb{assembly_integer}')
-                    model.write(out_path=orient_file)
+                    pose.set_symmetry(sym_entry=sym_entry)
+                    assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
+                    orient_file = os.path.join(self.oriented.location, f'{pose.name}.pdb{assembly_integer}')
+                    pose.write(out_path=orient_file)
                     orient_logger.info(f'Oriented: {orient_file}')  # <- This isn't ASU
-                    write_entities_and_asu(model, assembly_integer)
+                    write_entities_and_asu(pose, assembly_integer)
 
-                create_protein_metadata(model)
+                create_protein_metadata(pose)
 
         if by_file:
             _orient_existing_files(structure_identifiers, resulting_symmetry, sym_entry)
@@ -481,7 +480,7 @@ class StructureDatabase(Database):
                         for entity in pose.entities:
                             entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
                     else:
-                        try:  # Orient the Structure
+                        try:  # Orient the Pose
                             pose.orient(symmetry=resulting_symmetry)
                         except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                             orient_logger.error(str(error))
@@ -514,14 +513,14 @@ class StructureDatabase(Database):
         report_non_viable_structures()
         return structure_identifier_tuples, uniprot_id_to_protein_metadata
 
-    # def preprocess_structures_for_design(self, structures: list[structure.base.Structure],
+    # def preprocess_structures_for_design(self, structures: list[structure.base.ContainsResidues],
     #                                      script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
     #         tuple[list, bool, bool]:
-    #     """Assess whether Structure objects require any processing prior to design calculations.
+    #     """Assesses whether StructureBase objects require any processing prior to design calculations.
     #     Processing includes relaxation "refine" into the energy function and/or modeling missing segments "loop model"
     #
     #     Args:
-    #         structures: An iterable of Structure objects of interest with the following attributes:
+    #         structures: An iterable of StructureBase objects of interest with the following attributes:
     #             file_path, symmetry, name, make_loop_file(), make_blueprint_file()
     #         script_out_path: Where should Entity processing commands be written?
     #         batch_commands: Whether commands should be made for batch submission
@@ -530,8 +529,6 @@ class StructureDatabase(Database):
     #         occurred (True) or if files are not reported as having this modeling yet
     #     """
     #     # and loop_modeled (True)
-    #     # Todo
-    #     #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
     #     self.refined.make_path()
     #     refine_names = self.refined.retrieve_names()
     #     refine_dir = self.refined.location
@@ -711,7 +708,7 @@ class StructureDatabase(Database):
 
     def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata], script_out_path: AnyStr = os.getcwd(),
                                        batch_commands: bool = False) -> list[str] | list:
-        """Assess whether Structure objects require any processing prior to design calculations.
+        """Assess whether structural data requires any processing prior to design calculations.
         Processing includes relaxation "refine" into the energy function and/or modeling missing segments "loop model"
 
         Args:
@@ -820,12 +817,12 @@ class StructureDatabase(Database):
                             logger.debug(f'Found the clean_reference_sequence:\n{clean_reference_sequence}')
                             source_gap_mutations = generate_mutations(clean_reference_sequence, entity.sequence,
                                                                       zero_index=True, only_gaps=True)
-                            # Format the Structure to have the proper sequence to predict loops/disorder
+                            # Format the Pose to have the proper sequence to predict loops/disorder
                             logger.debug(f'Found the source_gap_mutations: {source_gap_mutations}')
                             for residue_index, mutation in source_gap_mutations.items():
                                 # residue_index is zero indexed
                                 new_aa_type = mutation['from']
-                                # What happens if entity.sequence (i.e. the Structure) has resolved tag density?
+                                # What happens if Entity has resolved tag density?
                                 #  mutation_index: {'from': '-', 'to: LETTER}}
                                 if new_aa_type == '-':
                                     # This could be removed from the structure but that seems implicitly bad
@@ -872,8 +869,8 @@ class StructureDatabase(Database):
                                                 for model_name, scores in entity_scores.items()}
                                 for model_name, entity_ in folded_entities.items():
                                     entity_.set_b_factor_data(model_plddts[model_name])
-                            # Check for the rmsd between the backbone of the provided Entity Structure and
-                            # the Alphafold predicted Structure
+                            # Check for the rmsd between the backbone of the provided Entity and
+                            # the Alphafold prediction
                             # If the model were to be multimeric, then use this...
                             # if multimer:
                             #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
@@ -930,8 +927,7 @@ class StructureDatabase(Database):
                         # Make a new directory for each structure
                         structure_out_path = os.path.join(full_model_dir, protein_data.name)
                         putils.make_path(structure_out_path)
-                        # Todo is renumbering required?
-                        structure_ = Model.from_file(protein_data.model_source)
+                        structure_ = Pose.from_file(protein_data.model_source)
                         structure_.renumber_residues()
                         structure_loop_file = structure_.make_loop_file(out_path=full_model_dir)
                         if not structure_loop_file:  # No loops found, copy input file to the full model

@@ -27,12 +27,12 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 from . import fragment
 from .base import Atom, Atoms, Residue, Residues, Structure, Structures, StructureBase, atom_or_residue_literal, \
     SymmetryBase
-from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
+from .coordinates import Coordinates, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import alignment_types, FragmentDatabase, FragmentInfo
 from .sequence import SequenceProfile, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
     sequence_to_one_hot
-from .utils import DesignError, SymmetryError, chain_id_generator, coords_type_literal, default_clash_criteria, \
-    default_clash_distance
+from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, DesignError, \
+    default_clash_distance, SymmetryError
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
@@ -112,17 +112,20 @@ def parse_cryst_record(cryst_record: str) -> tuple[list[float], str]:
     return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
 
 
-class Metrics(abc.ABC):
+class MetricsMixin(abc.ABC):
     """Perform Metric evaluation for derived classes
 
-    Subclasses of Metrics must have implement the method calculate_metrics which can accept any arguments and
-    returns dict[str, Any]
+    Subclasses of Metrics must implement _metrics_table property and calculate_metrics() method
     """
     _df: pd.Series
     _metrics: _metrics_table
     # _metrics_table: sql.Base
     _metrics_d: dict[str, Any]
     state_attributes: set[str] = {'_df', '_metrics', '_metrics_d'}
+
+    @abc.abstractmethod
+    def calculate_metrics(self, **kwargs) -> dict[str, Any]:
+        """Perform Metric calculation for the Entity in question"""
 
     @property
     @abc.abstractmethod
@@ -156,13 +159,9 @@ class Metrics(abc.ABC):
             self._df = pd.Series(self._metrics_)
         return self._df
 
-    @abc.abstractmethod
-    def calculate_metrics(self, **kwargs) -> dict[str, Any]:
-        """Perform Metric calculation for the Structure in question"""
-
     def clear_metrics(self) -> None:
-        """Clear all Metrics.state_attributes for the Structure in question"""
-        for attr in Metrics.state_attributes:
+        """Clear all Metrics.state_attributes for the Entity in question"""
+        for attr in MetricsMixin.state_attributes:
             try:
                 self.__delattr__(attr)
             except AttributeError:
@@ -171,8 +170,8 @@ class Metrics(abc.ABC):
 
 class MultiModel:
     """Class for working with iterables of State objects of macromolecular polymers (proteins for now). Each State
-    container comprises Structure object(s) which can also be accessed as a unique Model by slicing the Structure across
-    each individual State instance.
+    container comprises ContainsResidues instance(s) which can also be accessed as a unique Model by slicing the
+    MultiModel across each individual State instance.
 
     A more convenient way to think about this scenario is the following table:
      _______________________________________________________________
@@ -182,20 +181,20 @@ class MultiModel:
     | Model2   1   - Protein2_1, Protein2_2, ...         Protein2_N |
     | Model3   2   - DNA1_1,     DNA1_2,     ...         DNA1_N     |
 
-    self.models holds each of the individual Structure instances which are involved in the MultiModel. As of now,
-    no checks are made whether the identity of these are the same across States
+    self.models holds each of the individual ContainsResidues instances which are involved in the MultiModel.
+    As of now, no checks are made whether the identity of these are the same across States
     """
 
     @classmethod
     def from_model(cls, model, **kwargs):
-        """Construct a MultiModel from a Structure object container with or without multiple states
+        """Construct a MultiModel from a Model instance with or without multiple states
         Ex: [Structure1_State1, Structure1_State2, ...]
         """
         return cls(model=model, **kwargs)
 
     @classmethod
-    def from_models(cls, models, independent=False, **kwargs):
-        """Construct a MultiModel from an iterable of Structure object containers with or without multiple states
+    def from_models(cls, models: Sequence[Model], independent: bool = False, **kwargs):
+        """Construct a MultiModel from ContainsStructures with or without multiple states
         Ex: [Model[Structure1_State1, Structure1_State2, ...], Model[Structure2_State1, ...]]
 
         Keyword Args:
@@ -205,7 +204,7 @@ class MultiModel:
 
     @classmethod
     def from_state(cls, state, **kwargs):
-        """Construct a MultiModel from a Structure object container, representing a single Structural state.
+        """Construct a MultiModel from a sequence of ContainsStructures, representing a single Structural state.
         For instance, one trajectory in a sequence design with multiple polymers or a SymmetricModel
         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
         """
@@ -213,8 +212,8 @@ class MultiModel:
 
     @classmethod
     def from_states(cls, states, independent=False, **kwargs):
-        """Construct a MultiModel from an iterable of Structure object containers, each representing a different state
-        of the Structures. For instance, multiple trajectories in a sequence design
+        """Construct a MultiModel from a sequence of ContainsStructures, each representing a different state
+        of the structure. For instance, multiple trajectories in a sequence design
         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
 
         Keyword Args:
@@ -225,14 +224,14 @@ class MultiModel:
     dependents: set
     # _model_iterator: Iterator
     models: list[Model]
-    """In a 2x2 table of Structures, we can think of models as the rows. These could be different Structure instances 
-    from one another entirely. These is no current mechanism to enforce this, for now just a convenience feature to store multiple related
-    Structues.
+    """In a 2x2 table of Structures, the models are the rows. These could be different Model instances 
+    from one another entirely. These is no current mechanism to enforce this, for now just a convenience 
+    feature to store multiple related Model instances.
     """
     states: list[list[State]]
-    """In a 2x2 table of Structures, we can think of states as the columns. These "should" be the same model across each 
+    """In a 2x2 table of Structures, the states are the columns. These "should" be the same Model across each 
     state in the collection of states. These is no current mechanism to enforce this, for now just a convenience feature
-    to store multiple Structure instances that are related by some common feature.
+    to store multiple related Model instances that are related by some common feature.
     """
 
     def __init__(self, model: Model = None, models: list[Model] | Structures = None, state=None, states=None,
@@ -278,7 +277,7 @@ class MultiModel:
             self.models = [[structure] for structure in state.structures]
             # self.structures = [[structure] for structure in state.structures]
         elif isinstance(states, (list, Structures)):
-            # Modify loop order by separating Structure objects in same state to individual Entity containers
+            # Modify loop order by separating Model objects in same state to individual Entity containers
             self.states = states
             self.models = [[state[model_idx] for state in states] for model_idx in range(len(states[0].entities))]
             # self.models = [state.structures for state in states]
@@ -357,7 +356,7 @@ class MultiModel:
                 f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
 
     def append(self, model: Model, independent: bool = False):
-        """From a Structure with multiple states, incorporate the Model into the existing Model
+        """From a multiple state Model, add a Model to the end of an existing MultiModel
 
         Sets:
             self.states
@@ -445,7 +444,7 @@ class MultiModel:
 
 
 class State(Structures):
-    """A collection of Structure objects comprising one distinct configuration"""
+    """A collection of Model objects comprising one distinct configuration"""
     # def __init__(self, structures=None, **kwargs):  # log=None,
     #     super().__init__(**kwargs)
     #     # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
@@ -457,7 +456,7 @@ class State(Structures):
     #     #     self.log = logger
     #
     #     if isinstance(structures, list):
-    #         if all([True if isinstance(structure, Structure) else False for structure in structures]):
+    #         if all([True if isinstance(structure, Model) else False for structure in structures]):
     #             self.structures = structures
     #             # self.data = structures
     #         else:
@@ -562,15 +561,6 @@ class State(Structures):
     #             [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
     #         return self._coords_indexed_residue_atoms
     #
-    # # @property  # SAME implementation in Structure
-    # # def center_of_mass(self):
-    # #     """The center of mass for the model Structure, either an asu, or other pdb
-    # #
-    # #     Returns:
-    # #         (numpy.ndarray)
-    # #     """
-    # #     return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
-    #
     # @property
     # def backbone_indices(self):
     #     try:
@@ -616,9 +606,9 @@ class State(Structures):
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
         Keyword Args:
-            out_path: The location where the Structure object should be written to disk
-            file_handle: Used to write Structure details to an open FileObject
-            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            out_path: The location where the State should be written to disk
+            file_handle: Used to write to an open FileObject
+            increment_chains: Whether to write each Chain with a new chain name, otherwise write as a new Model
         Returns:
             The name of the written file if out_path is used
         """
@@ -826,14 +816,22 @@ class Chain(Structure, SequenceProfile):
     _reference_sequence: str
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
-        super().__init__(name=name if name else chain_id, **kwargs)
+        """
+
+        Args:
+            chain_id: The name of the Chain identifier to use for this instance
+            name: The name of the Chain identifier to use for this instance. Typically used by Entity subclasses.
+            as_mate: Whether the instance should be controlled by a captain (True), or be a dependent
+        """
+        kwargs['name'] = name = name if name else chain_id
+        super().__init__(**kwargs)  # Chain
         # Only if this instance is a Chain, set residues_attributes as in chain_id.setter
-        if type(self) == Chain and chain_id is not None:
-            self.set_residues_attributes(chain_id=chain_id)
-            self._chain_id = chain_id
+        if type(self) is Chain and name is not None:
+            self.set_residues_attributes(chain_id=name)
+            self._chain_id = name
 
         if as_mate:
-            self.detach_from_parent()
+            self.make_parent()
 
     @property
     def chain_id(self) -> str:
@@ -1070,12 +1068,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             prior_ca_coords = self.ca_coords.copy()
 
             # Set coords with new coords
-            super(Structure, Structure).coords.fset(self, coords)
+            super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
             if self.is_dependent():
                 _parent = self.parent
                 if _parent.is_symmetric() and not self._parent_is_updating:
                     _parent._dependent_is_updating = True
-                    # Update the parent coords accordingly which propagates symmetric updates
+                    # Update the parent which propagates symmetric updates
                     _parent.coords = _parent.coords
                     _parent._dependent_is_updating = False
 
@@ -1105,13 +1103,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 chain.coords = np.matmul(coords, np.transpose(rot)) + tx
                 # self.log.debug(f'Setting coords on mate chain {chain.chain_id}')
         else:  # Accept the new coords
-            super(Structure, Structure).coords.fset(self, coords)
 
     def clear_api_data(self):
         """Remove any state information associated with the Entity from the PDB API"""
         del self._reference_sequence
         self.uniprot_ids = (None,)
         self.thermophilicity = None
+            super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
 
     def retrieve_api_metadata(self):
         """Try to set attributes about the Entity from PDB API query information
@@ -1332,7 +1330,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     def symmetry(self, symmetry: str | None):
         super(StructureBase, StructureBase).symmetry.fset(self, symmetry)
         if symmetry and self.is_dependent():
-            # Set the parent Structure.symmetric_dependents to the 'entities' container
+            # Set the parent StructureBase.symmetric_dependents to the 'entities' container
             self.parent.symmetric_dependents = 'entities'
 
     @property
@@ -1447,7 +1445,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Args:
             captain: The Entity to designate as the instance's captain Entity
         """
-        # self.log.debug(f'Designating Entity mate')
+        # self.log.debug(f'Designating Entity as mate')
         self._captain = captain
         self._is_captain = False
         self.chain_ids = [captain.chain_id]  # Set for a length of 1, using the captain.chain_id
@@ -1609,11 +1607,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         new_structure = self.copy()
         new_structure._make_mate(self)
-        # _make_mate executes the following:
-        #  self._captain = self
-        #  self._is_captain = False
-        #  self._chain_ids = [self.chain_id]
-        #  self._chain_transforms.clear()
         new_structure.coords = new_coords
 
         return new_structure
@@ -1677,7 +1670,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
             else:
-                super(Structure, Structure).write(self, file_handle=handle, **kwargs)
+                super(ContainsResidues, ContainsResidues).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
             entity_write(file_handle)
@@ -1696,15 +1689,19 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return out_path
 
     def calculate_metrics(self, **kwargs) -> dict[str, Any]:
+        """"""
+        self.log.warning(f"{self.calculate_metrics.__name__} doesn't calculate anything yet...")
+        return {
+            # 'symmetry_group': self.symmetry if self.is_symmetric() else 'asymmetric',
+        }
+
+    def calculate_spatial_orientation_metrics(self, reference: np.ndarray = utils.symmetry.origin) -> dict[str, Any]:
         """Calculate metrics for the instance
 
-        Keyword Args:
-            reference: np.ndarray = utils.symmetry.origin - The reference where the point should be measured from
-            measure: str = 'mean' - The measurement to take with respect to the reference. Could be 'mean', 'min',
-                'max', or any numpy function to describe computed distance scalars
+        Args:
+            reference: The reference where the point should be measured from
         Returns:
-            {'number_of_residues'
-             'radius'
+            {'radius'
              'min_radius'
              'max_radius'
              'n_terminal_orientation'
@@ -1712,17 +1709,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             }
         """
         return {
-            # 'symmetry_group': self.symmetry if self.is_symmetric() else 'asymmetric',
-            # 'name': self.name,
-            # 'n_terminal_helix': self.is_termini_helical(),
-            # 'c_terminal_helix': self.is_termini_helical(termini='c'),
-            # 'thermophile': thermophile
-            # 'number_of_residues': self.number_of_residues,
-            'radius': self.assembly.distance_from_reference(**kwargs),
-            'min_radius': self.assembly.distance_from_reference(measure='min', **kwargs),
-            'max_radius': self.assembly.distance_from_reference(measure='max', **kwargs),
-            'n_terminal_orientation': self.termini_proximity_from_reference(**kwargs),
-            'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', **kwargs),
+            'radius': self.assembly.distance_from_reference(reference=reference),
+            'min_radius': self.assembly.distance_from_reference(measure='min', reference=reference),
+            'max_radius': self.assembly.distance_from_reference(measure='max', reference=reference),
+            'n_terminal_orientation': self.termini_proximity_from_reference(reference=reference),
+            'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', reference=reference),
         }
 
     def get_alphafold_template_features(self, symmetric: bool = False, heteromer: bool = False, **kwargs) \
@@ -2491,7 +2482,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # Todo
     #  - This is also useful when there are symmetric_dependents such as Pose.models... extend
     #  - This may need to be removed if Entity.class_structure_attributes is changed as it resets the parent
-    #    Entity._chains during: get_transformed_mate() -> Entity.copy() -> .detach_from_parent() -> reset_state()
+    #    Entity._chains during: get_transformed_mate() -> Entity.copy() -> .make_parent() -> reset_state()
     def reset_state(self):
         """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
 
@@ -2504,13 +2495,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
-        # As this was causing error with keeping mate chains, mates, just return
+        # As this causes error in keeping mate chains, mates, just return
         return
-        # The below code mirrors the _update_structure_container_attributes() from Structure, minus the [1:] slice
-        # for structure_type in self.structure_containers:
-        #     for structure in self.__getattribute__(structure_type)[1:]:  # only operate on [1:] since index 0 is self
-        #         for kwarg, value in kwargs.items():
-        #             setattr(structure, kwarg, value)
 
     def _copy_structure_containers(self):
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
@@ -2526,19 +2512,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 new_structures[idx] = new_structure
             # Set the copied and updated structure container
             self.__setattr__(structure_type, new_structures)
-        # # For any structure_containers that are specified by the class but not present in the instance, set the instance
-        # # container to the missing class_structure_container
-        # missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
-        # if missing_containers:
-        #     self.log.critical(f"Entity: This hasn't been debugged. missing_containers={missing_containers}")
-        #     if len(self.structure_containers) == 1:
-        #         existing_structure_type = self.structure_containers[0]
-        #         for structure_type in missing_containers:
-        #             self.__setattr__(structure_type, existing_structure_type)
-        #     else:
-        #         raise NotImplementedError(
-        #             "Can't set up structure_containers when there are more than 1 initialized and there are missing "
-        #             f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
 
     def __copy__(self) -> Entity:  # Todo -> Self: in python 3.11
         # self.log.debug('In Entity copy')
@@ -2589,15 +2562,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # def _key(self) -> tuple[str, int, ...]:
     #     return self.name, *self._residue_indices
 
-    def __eq__(self, other: Structure) -> bool:
+    def __eq__(self, other: StructureBase) -> bool:
         if isinstance(other, Entity):
             # The first is True if this is a mate, the second is True if this is a captain
-            same_entity = id(self._captain) == id(other) or id(other._captain) == id(self)
-        else:
-            same_entity = False
-
-        if isinstance(other, Structure):
-            return same_entity or self._key == other._key
+            return id(self._captain) == id(other) or id(other._captain) == id(self) or self._key == other._key
+        elif isinstance(other, StructureBase):
+            return self._key == other._key
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
@@ -2669,17 +2639,18 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 of entities. Names will take precedence over query_by_sequence if passed
             query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
                 sequence. Only used if entity_names not provided
-            -*Passed to Structure*-
+            -*Passed to ContainsAtomsMixin*-
             atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
             biological_assembly: str | int = None - The integer of the biological assembly
                 (as indicated by PDB AssemblyID format)
             biomt: np.ndarray = None - A parsed array of transformations to recreate the molecules symmetry
             biomt_header: str = None - The REMARK 350 formatted lines for printing the BIOMT record
             file_path: AnyStr = None: The location on disk where the file was accessed
-            residues: list[Residue] | Residues = None - The Residue instances which should constitute a new Structure
+            -*Passed to ContainsResidues*-
+            residues: list[Residue] | Residues = None - The Residue instances which should constitute a new
                 instance
             residue_indices: list[int] = None - The indices which specify the particular Residue instances to make this
-                Structure instance. Used with a parent to specify a subdivision of a larger Structure
+                ContainsResidues instance. Used with a parent to specify a subdivision of a larger structure
             -*Passed to StructureBase*-
             parent: StructureBase = None - If another Structure object created this Structure instance, pass the
                 'parent' instance. Will take ownership over Structure containers (coords, atoms, residues) for
@@ -2694,7 +2665,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         using_structures = False
         """Ensure only one of the allowed arguments is used during class construction"""
         if model:
-            if isinstance(model, Structure):
+            if isinstance(model, ContainsResidues):
                 model_kwargs = model.get_base_containers()
                 for key, value in model_kwargs.items():
                     if key in kwargs:
@@ -2706,7 +2677,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 raise NotImplementedError(
                     f"Setting {self.__class__.__name__} with model={type(model).__name__} isn't supported")
         else:
-            super().__init__(**kwargs)
 
         self.api_entry = None
         """
@@ -2757,6 +2727,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.chain_ids.extend([chain.chain_id for chain in self.chains])
             else:  # Create Chain instances from Residues
                 self._create_chains()
+            super().__init__(**kwargs)  # Model
 
             if rename_chains or not self.are_chains_pdb_compatible():
                 self.rename_chains()
@@ -2820,7 +2791,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 f"{self.__class__.__name__} received no valid {StructureBase.__name__} instances"
             )
 
-    @Structure.fragment_db.setter
+    @ContainsResidues.fragment_db.setter
     def fragment_db(self, fragment_db: FragmentDatabase):
         """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles.
         Sets fragment_db for each dependent in 'structure_containers' attribute
@@ -3181,7 +3152,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             structures = self.__getattribute__(structure_type)
             idx = 0
             # Iterate over Structures in each structure_container
-            structure: Structure
+            structure: Chain
             for idx, structure in enumerate(structures, idx):
                 structure.reset_state()
                 try:  # Update each Structures _residue_ and _atom_indices with additional indices
@@ -3190,7 +3161,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         structure.atom_indices.index(new_residue.start_index), new_residue_atom_indices, dtype='atom')
                     break  # Move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):
-                    # This should happen if the index isn't in the Structure.*_indices of interest
+                    # This should happen if the index isn't in the StructureBase.*_indices of interest
                     # Edge case where the index is being appended to the c-terminus
                     if index - 1 == structure.residue_indices[-1] and new_residue.chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, [index], dtype='residue')
@@ -3242,7 +3213,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                               new_residue_atom_indices, dtype='atom')
                     break  # Move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):
-                    # This should happen if the index isn't in the Structure.*_indices of interest
+                    # This should happen if the index isn't in the StructureBase.*_indices of interest
                     # Edge case where the index is being appended to the c-terminus
                     if index - 1 == structure.residue_indices[-1] and new_residues_chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, new_residue_indices, dtype='residue')
@@ -4571,15 +4542,15 @@ class SymmetricModel(Model):  # Models):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         self.log.debug(f'Setting {self.__class__.__name__} coords')
-        super(Structure, Structure).coords.fset(self, coords)
-
         if self.is_symmetric():  # Set the symmetric coords according to the ASU
+        super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
+
             self.log.debug(f'Updating symmetric coords')
             self.generate_symmetric_coords(surrounding_uc=self.is_surrounding_uc())
 
         # Delete any saved attributes from the SymmetricModel (or Model)
         try:  # To see if setting doesn't require attribute reset in the case this instance is performing .coords set
-            self._no_reset  # This is only set in Pose now
+            self._no_reset
         except AttributeError:
             # self.log.debug(f'Resetting {self.__class__.__name__} state_attributes')
             self.reset_state()
@@ -4675,8 +4646,8 @@ class SymmetricModel(Model):  # Models):
 
     @property
     def center_of_mass_symmetric_entities(self) -> list[list[np.ndarray]]:
-        """The center of mass position for each Entity instance in the symmetric system for each symmetry mate with shape
-        [(number_of_symmetry_mates, 3), ... number_of_entities]
+        """The center of mass position for each Entity instance in the symmetric system for each symmetry mate with
+        shape [(number_of_symmetry_mates, 3), ... number_of_entities]
         """
         # if self.symmetry:
         # self._center_of_mass_symmetric_entities = []
@@ -4716,8 +4687,11 @@ class SymmetricModel(Model):  # Models):
             self._assembly_minimally_contacting = self._generate_assembly(minimal=minimal)
             return self._assembly_minimally_contacting
 
-    # Todo reconcile mechanism with Entity.oligomer
-    def _generate_assembly_models(self, minimal: bool = False, surrounding_uc: bool = False, **kwargs) -> Models:
+    # Todo
+    #  reconcile mechanism with Entity.oligomer
+    def _generate_assembly_models(
+            self, minimal: bool | int | None = False, surrounding_uc: bool = False, **kwargs  # <- Collect excess kwargs
+    ) -> Models:
         """Create a group of Model copies for a specified number of the symmetry mates
 
         Args:
@@ -5966,9 +5940,9 @@ class SymmetricModel(Model):  # Models):
             if warn:
                 self.log.warning(
                     f"{self.name}: Found {clashes[0]} clashing sites. Pose isn't a viable symmetric assembly")
-            return True  # clash
+            return True  # Clash
         else:
-            return False  # no clash
+            return False  # No clash
 
     @property
     def assembly_tree(self) -> BinaryTree:
@@ -6082,7 +6056,7 @@ class SymmetricModel(Model):  # Models):
             return out_path
 
     def __copy__(self) -> SymmetricModel:  # Todo -> Self: in python 3.11
-        # self.log.debug('In Pose copy {repr(self)}')
+        # self.log.debug('In SymmetricModel copy {repr(self)}')
 
         # Save, then remove the _assembly attributes
         try:
@@ -6122,7 +6096,7 @@ class PoseSpecification(TypedDict):
 
 
 # class Pose(SequenceProfile, SymmetricModel):
-class Pose(SymmetricModel, Metrics):
+class Pose(SymmetricModel, MetricsMixin):
     """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
@@ -6137,7 +6111,7 @@ class Pose(SymmetricModel, Metrics):
     _interface_residues: list[Residue]
     _design_selection_entity_names: set[str]
     _design_selector_atom_indices: set[int]
-    _fragment_queries: dict[tuple[str, str], list[FragmentInfo] | list]
+    _fragment_info_by_entity_pair: dict[tuple[str, str], list[FragmentInfo] | list]
     _interface_residue_indices_by_entity_name_pair: dict[tuple[str, str], tuple[list[int], list[int]]]
     _required_atom_indices: list[int]
     _interface_residue_indices_by_interface: dict[int, list[int]]
@@ -6155,7 +6129,7 @@ class Pose(SymmetricModel, Metrics):
     #      'fragment_metrics', '_fragment_queries',
     #      'interface_design_residue_numbers', 'interface_residue_numbers', 'split_interface_ss_elements'
     #      # The below rely on indexing or getting during @property calls
-    #      'fragment_queries', '_interface_residue_indices_by_entity_name_pair',
+    #      '_fragment_info_by_entity_pair', '_interface_residue_indices_by_entity_name_pair',
     #      '_interface_residue_indices_by_interface', '_interface_residue_indices_by_interface_unique',
     #      }
     class_structure_containers = {'entities'}
@@ -6175,7 +6149,7 @@ class Pose(SymmetricModel, Metrics):
         self._interface_residue_indices_by_entity_name_pair = {}
         self._interface_residue_indices_by_interface = {}
         self._interface_residue_indices_by_interface_unique = {}
-        self._fragment_queries = {}
+        self._fragment_info_by_entity_pair = {}
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -6222,8 +6196,8 @@ class Pose(SymmetricModel, Metrics):
         entity_metrics = []
         reference_com = self.center_of_mass_symmetric
         for entity in self.entities:
-            # # _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics(reference=reference_com))
-            _entity_metrics = entity.calculate_metrics(reference=reference_com)
+            # _entity_metrics = entity.calculate_metrics()
+            _entity_metrics = entity.calculate_spatial_orientation_metrics(reference=reference_com)
 
             if _entity_metrics['min_radius'] < minimum_radius:
                 minimum_radius = _entity_metrics['min_radius']
@@ -7767,8 +7741,8 @@ class Pose(SymmetricModel, Metrics):
 
         return per_residue_sap
 
-    def get_interface(self, distance: float = 8.) -> Structure:
-        """Provide a view of the Pose interface by generating a Structure containing only interface Residues
+    def get_interface(self, distance: float = 8.) -> Model:
+        """Provide a view of the Pose interface by generating a Model containing only interface Residues
 
         Args:
             distance: The distance across the interface to query for Residue contacts
@@ -7791,7 +7765,7 @@ class Pose(SymmetricModel, Metrics):
         #         #     symmetric_residues.extend(residues1)
         #         # residues1_coords = np.concatenate([residue.coords for residue in residues1])
         #         # # Add the number of symmetric observed structures to a single new Structure
-        #         # symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
+        #         # symmetric_residue_structure = Chain.from_residues(residues=symmetric_residues)
         #         # # symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
         #         # symmetric_residue_structure.replace_coords(self.return_symmetric_coords(residues1_coords))
         #         # # use a single instance of the residue coords to perform a distance query against symmetric coords
@@ -7809,7 +7783,7 @@ class Pose(SymmetricModel, Metrics):
         #         interface_core_coords.extend([residue.cb_coords for residue in residues2])
         #         interface_residues.extend(residues1), interface_residues.extend(residues2)
 
-        # return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
+        # return Chain.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
         # interface_symmetry_mates = self.return_symmetric_copies(interface_asu_structure)
         # interface_coords = interface_asu_structure.coords
         # interface_cb_indices = interface_asu_structure.cb_indices
@@ -8154,8 +8128,8 @@ class Pose(SymmetricModel, Metrics):
 
         Args:
             distance: The cutoff distance with which Atoms should be included in local density
+            atom_distance: The distance to measure contacts between atoms. By default, uses default_atom_count_distance
         Keyword Args:
-            atom_distance: float = default_atom_count_distance -  The distance to measure contacts between atoms
             residue_distance: float = 8. - The distance to residue contacts in the interface. Uses the default if None
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Returns:
@@ -8190,15 +8164,15 @@ class Pose(SymmetricModel, Metrics):
     def fragment_queries_by_entity_pair(self) -> dict[tuple[Entity, Entity], list[FragmentInfo]]:
         """Returns the FragmentInfo present as the result of structural overlap between pairs of Entity instances"""
         fragment_queries = {}
-        for (entity1_name, entity2_name), fragment_info in self._fragment_queries.items():
+        for (entity1_name, entity2_name), fragment_info in self._fragment_info_by_entity_pair.items():
             entity1 = self.entity(entity1_name)
             entity2 = self.entity(entity2_name)
             fragment_queries[(entity1, entity2)] = fragment_info
 
         return fragment_queries
 
-    def query_interface_for_fragments(self, entity1: Entity = None, entity2: Entity = None,
-                                      oligomeric_interfaces: bool = False, **kwargs):
+    def query_entity_pair_for_fragments(self, entity1: Entity = None, entity2: Entity = None,
+                                        oligomeric_interfaces: bool = False, **kwargs):
         """For all found interface residues in an Entity/Entity interface, search for corresponding fragment pairs
 
         Args:
@@ -8234,25 +8208,14 @@ class Pose(SymmetricModel, Metrics):
         # non-oligomeric dimeric 2-fold
         if not residues1:  # or not residues2:
             self.log.debug(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
-            self._fragment_queries[(entity1.name, entity2.name)] = []
+            self._fragment_info_by_entity_pair[(entity1.name, entity2.name)] = []
             return
 
-        # residue_numbers1 = sorted(residue.number for residue in residues1)
-        # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1,
-        #                                        fragment_db=self.fragment_db)
-        frag_residues1 = \
-            entity1.get_fragment_residues(residues=residues1, fragment_db=self.fragment_db)
+        frag_residues1 = entity1.get_fragment_residues(residues=residues1, fragment_db=self.fragment_db)
         if not residues2:  # entity1 == entity2 and not residues2:
-            # residues1 = set(residues1 + residues2)
-            # residues2 = residues1
             frag_residues2 = frag_residues1.copy()
-            # residue_numbers2 = residue_numbers1
         else:
-            # residue_numbers2 = sorted(residue.number for residue in residues2)
-            # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2,
-            #                                        fragment_db=self.fragment_db)
-            frag_residues2 = \
-                entity2.get_fragment_residues(residues=residues2, fragment_db=self.fragment_db)
+            frag_residues2 = entity2.get_fragment_residues(residues=residues2, fragment_db=self.fragment_db)
 
         # self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
         #                f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
@@ -8260,7 +8223,7 @@ class Pose(SymmetricModel, Metrics):
 
         if not frag_residues1 or not frag_residues2:
             self.log.info(f'No fragments found at the {entity1.name} | {entity2.name} interface')
-            self._fragment_queries[(entity1.name, entity2.name)] = []
+            self._fragment_info_by_entity_pair[(entity1.name, entity2.name)] = []
             return
         else:
             self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface:\n\t'
@@ -8273,7 +8236,7 @@ class Pose(SymmetricModel, Metrics):
             # Even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             skip_models = []
             if entity1 == entity2:
-                if oligomeric_interfaces:  # We want intra-oligomeric contacts
+                if oligomeric_interfaces:  # Intra-oligomeric contacts are desired
                     self.log.info(f'Including oligomeric models: '
                                   f'{", ".join(map(str, self.oligomeric_model_indices.get(entity1)))}')
                 # If querying nascent interfaces, we don't want interactions with the intra-oligomeric contacts
@@ -8306,7 +8269,7 @@ class Pose(SymmetricModel, Metrics):
         #
         # self.log.critical(f'Wrote debugging Fragments to: {debug_path}')
 
-        self._fragment_queries[(entity1.name, entity2.name)] = (
+        self._fragment_info_by_entity_pair[(entity1.name, entity2.name)] = (
             fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
 
     @property
@@ -8596,7 +8559,7 @@ class Pose(SymmetricModel, Metrics):
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
         self.secondary_structure = pose_secondary_structure
 
-    def calculate_fragment_profile(self, **kwargs):  # Todo move to Model
+    def calculate_fragment_profile(self, **kwargs):
         """Take the fragment_profile from each member Entity and combine
 
         Keyword Args:
@@ -8620,8 +8583,8 @@ class Pose(SymmetricModel, Metrics):
                 entity.simplify_fragment_profile(**kwargs)
                 fragments_available = True
             else:
-                entity.fragment_profile = Profile(list(entity.create_null_profile(nan=True, zero_index=True).values()),
-                                                  dtype='fragment')
+                entity.fragment_profile = Profile(
+                    list(entity.create_null_profile(nan=True, zero_index=True).values()), dtype='fragment')
         if fragments_available:
             # # This assumes all values are present. What if they are not?
             # self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
@@ -8636,8 +8599,8 @@ class Pose(SymmetricModel, Metrics):
             self._alpha = entity._alpha  # Logic enforces entity is always referenced here
         else:
             self.alpha = [0 for _ in self.residues]  # Reset the data
-            self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
-                                            dtype='fragment')
+            self.fragment_profile = Profile(
+                list(self.create_null_profile(nan=True, zero_index=True).values()), dtype='fragment')
 
     def get_fragment_observations(self, interface: bool = True) -> list[FragmentInfo] | list:
         """Return the fragment observations identified on the Pose for various types of tertiary structure interactions
@@ -8722,7 +8685,7 @@ class Pose(SymmetricModel, Metrics):
             fragment_queries = self.fragment_queries_by_entity_pair
             # Check for either orientation as the final interface score will be the same
             if (entity1, entity2) not in fragment_queries or (entity2, entity1) not in fragment_queries:
-                self.query_interface_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
+                self.query_entity_pair_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
 
             metric_d = deepcopy(fragment.metrics.fragment_metric_template)
             for query_pair, _metrics in fragment_metrics.items():
@@ -9059,7 +9022,7 @@ class Pose(SymmetricModel, Metrics):
         for entity_pair in entity_combinations:
             self.log.debug(f'Querying Entity pair: {", ".join(entity.name for entity in entity_pair)} '
                            f'for interface fragments')
-            self.query_interface_for_fragments(*entity_pair, oligomeric_interfaces=oligomeric_interfaces, **kwargs)
+            self.query_entity_pair_for_fragments(*entity_pair, oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
     def generate_fragments(self, **kwargs):
         """Generate fragments pairs between every possible Residue instance in the Pose
@@ -9075,7 +9038,7 @@ class Pose(SymmetricModel, Metrics):
             search_start_time = time.time()
             ghostfrag_surfacefrag_pairs = entity.find_fragments(**kwargs)
             self.log.info(f'Internal fragment search took {time.time() - search_start_time:8f}s')
-            self._fragment_queries[(entity.name, entity.name)] = (
+            self._fragment_info_by_entity_pair[(entity.name, entity.name)] = (
                 fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
 
     def write_fragment_pairs(self, out_path: AnyStr = os.getcwd()):
@@ -9130,10 +9093,3 @@ class Pose(SymmetricModel, Metrics):
         self.log.critical(f'Wrote debugging Pose to: {debug_path}')
         self.write(assembly=True, out_path=assembly_debug_path)
         self.log.critical(f'Wrote debugging Pose assembly to: {assembly_debug_path}')
-
-    # def report_symmetric_coords(self, func_name: str):
-    #     """Debug the symmetric coords for equality across instances"""
-    #     self.log.debug(f'In {func_name}, coords and symmetric_coords (ASU) equal: '
-    #                    f'{self.coords == self.symmetric_coords[:self.number_of_atoms]}\n'
-    #                    f'coords {np.array_str(self.coords[:2], precision=2)}\n'
-    #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')

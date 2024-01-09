@@ -21,7 +21,7 @@ from typing import Any, AnyStr, get_args, IO, Literal, Type, Union
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from .coords import Coords, superposition3d
+from .coordinates import Coordinates, superposition3d
 from . import fragment, utils as stutils
 from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, protein_letters_1to3, \
     protein_letters_3to1_extended, protein_letters3_alph1_literal
@@ -158,6 +158,8 @@ def unknown_index():
 
 
 polarity_types_literal = Literal['apolar', 'polar']
+sasa_types_literal = Literal['total', polarity_types_literal]
+sasa_types: tuple[polarity_types_literal, ...] = get_args(sasa_types_literal)
 polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
 # Todo add nucleotide polarities to this table. The atom types are located above. Polarities in freesasa-2.0.config
 atomic_polarity_table = {  # apolar = 0, polar = 1
@@ -283,8 +285,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
         dict[str, Any]:
     """Reads .pdb file and returns structural information pertaining to parsed file
 
-    By default, returns the coordinates as a separate numpy.ndarray which is parsed directly by Structure. This will be
-    associated with each Atom however, separate parsing is done for efficiency. To include coordinate info with the
+    By default, returns the coordinates as a separate numpy.ndarray which is parsed directly by StructureBase. This will
+    be associated with each Atom however, separate parsing is done for efficiency. To include coordinate info with the
     individual Atom instances, pass separate_coords=False. (Not recommended)
 
     Args:
@@ -330,7 +332,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     coords: list[list[float]] = []
     cryst_record: str = None
     dbref: dict[str, dict[str, str]] = {}
-    entity_info: dict[str, dict[dict | list | str]] = {}
+    entity_info: dict[str, dict[str, dict | list | str]] = {}
     header: list = []
     resolution: float | None = None
     seq_res_lines: list[str] = []
@@ -401,10 +403,10 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
                 # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
                 try:
                     _, _, biomt_indicator, operation_number, x, y, z, tx = line.split()
-                except ValueError:  # not enough values to unpack
+                except ValueError:  # Not enough values to unpack
                     continue
                 if biomt_indicator == 'BIOMT':
-                    if operation_number != current_operation:  # we reached a new transformation matrix
+                    if operation_number != current_operation:  # Reached a new transformation matrix
                         current_operation = operation_number
                         biomt.append([])
                     # Add the transformation to the current matrix
@@ -431,7 +433,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
         elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
             header.append(line.strip())
             # entity number (starting from 1) = {'chains' : {A, B, C}}
-            # entity_info[entity] = \
             entity_info[f'{name}_{entity}'] = \
                 {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
             entity = None
@@ -474,10 +475,11 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     parsed_info = \
         dict(atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)]
              if separate_coords else
-             # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
-             [Atom(number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
-                   chain_id=chain_id, residue_number=residue_number, code_for_insertion=code_for_insertion,
-                   coords=coords[idx], occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
+             # Initialize with individual coords. Not sure why anyone would do this, but include for compatibility
+             [Atom(number=int(number), atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
+                   chain_id=chain_id, residue_number=int(residue_number), code_for_insertion=code_for_insertion,
+                   coords=coords[idx], occupancy=float(occupancy), b_factor=float(b_factor), element=element,
+                   charge=charge)
               for idx, (number, atom_type, alt_location, residue_type, chain_id, residue_number, code_for_insertion,
                         occupancy, b_factor, element, charge)
               in enumerate(temp_info)],
@@ -488,7 +490,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
              cryst_record=cryst_record,
              entity_info=entity_info,
              header=header,
-             # multimodel=multimodel,
              name=name,
              resolution=resolution,
              reference_sequence=reference_sequence,
@@ -501,8 +502,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
 def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
     """Reads .cif file and returns structural information pertaining to parsed file
 
-    By default, returns the coordinates as a separate numpy.ndarray which is parsed directly by Structure. This will be
-    associated with each Atom however, separate parsing is done for efficiency. To include coordinate info with the
+    By default, returns the coordinates as a separate numpy.ndarray which is parsed directly by StructureBase. This will
+    be associated with each Atom however, separate parsing is done for efficiency. To include coordinate info with the
     individual Atom instances, pass separate_coords=False. (Not recommended)
 
     Args:
@@ -760,8 +761,7 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
     formatted_info = dict(
         atoms=atoms,
         biological_assembly=assembly,
-        biomt=biomt,  # go to Structure
-        # biomt_header=biomt_header,  # go to Structure
+        biomt=biomt,
         coords=coords,
         # coords=coords if separate_coords else None,
         cryst_record=cryst_record,
@@ -804,16 +804,11 @@ class SymmetryBase(ABC):
     _symmetry: str | None
     _symmetric_dependents: str | None
     """The Structure container where dependent symmetric Structures are contained"""
-    symmetry_state_attributes: set[str] = set()  # {'_symmetry'}
+    symmetry_state_attributes: set[str] = set()
 
     def __init__(self, **kwargs):
         self._symmetry = self._symmetric_dependents = None
         super().__init__(**kwargs)  # SymmetryBase
-
-    @property
-    @abc.abstractmethod
-    def log(self) -> Logger:
-        """"""
 
     @property
     def symmetry(self) -> str | None:
@@ -829,7 +824,7 @@ class SymmetryBase(ABC):
                 self.reset_symmetry_state()
             else:
                 raise ValueError(
-                    f"Can't set '.symmetry' with {type(symmetry).__name__}. Must be class 'str' or NoneType")
+                    f"Can't set '.symmetry' with {type(symmetry).__name__}. Must be 'str' or NoneType")
         else:
             if self._symmetry == 'C1':
                 self._symmetry = None
@@ -852,7 +847,7 @@ class SymmetryBase(ABC):
         return True if self._symmetric_dependents else False
 
     @property
-    def symmetric_dependents(self) -> list[Structure] | list:
+    def symmetric_dependents(self) -> list[StructureBase] | list:
         """Access the symmetrically dependent Structure instances"""
         return getattr(self, self._symmetric_dependents, [])
 
@@ -874,20 +869,20 @@ class SymmetryBase(ABC):
 # parent Structure controls these attributes
 parent_variable = '_StructureBase__parent'
 new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
-parent_attributes = (parent_variable,) + new_parent_attributes
+parent_attributes = (parent_variable, *new_parent_attributes)
 """Holds all the attributes which the parent StructureBase controls including _parent, _coords, _log, _atoms, 
 and _residues
 """
 
 
 class StructureBase(SymmetryBase, ABC):
-    """StructureBase handles the Coords and Log instances as well as maintains atom_indices for each Structure.
+    """StructureBase manipulates the Coords and Log instances as well as the atom_indices for a StructureBase.
     Additionally. sorts through parent Structure and dependent Structure hierarchies during Structure subclass creation.
     Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
     in the method resolution order of derived classes.
     """
-    _coords: Coords
     _copier: bool
+    _coords: Coordinates
     """Whether the StructureBase is being copied by a Container object. If so, cut corners"""
     _dependent_is_updating: bool
     """Whether the StructureBase.coords are being updated by a dependent. If so, cut corners"""
@@ -898,10 +893,10 @@ class StructureBase(SymmetryBase, ABC):
     state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True,
-                 coords: np.ndarray | Coords | list[list[float]] = None, name: str = None, biological_assembly=None,
                  cryst_record=None, entities=None, entity_info=None, entity_names=None, file_path=None, header=None,
                  metadata=None, pose_format=None, query_by_sequence=True, rename_chains=None, resolution=None,
                  reference_sequence=None, sequence=None, **kwargs):
+                 coords: np.ndarray | Coordinates | list[list[float]] = None, name: str = None,
         """
         Args:
             parent: If another Structure object created this Structure instance, pass the 'parent' instance. Will take
@@ -937,11 +932,11 @@ class StructureBase(SymmetryBase, ABC):
             # Initialize Coords
             if coords is None:  # Check this first
                 # Most init occurs from Atom instances that are their own parent until another StructureBase adopts them
-                self._coords = Coords()  # null_coords
-            elif isinstance(coords, Coords):
+                self._coords = Coordinates()  # null_coords
+            elif isinstance(coords, Coordinates):
                 self._coords = coords
             else:  # Create a Coords instance. This assumes the dimensions are correct. Coords() handles if not
-                self._coords = Coords(coords)
+                self._coords = Coordinates(coords)
 
         try:
             super().__init__(**kwargs)  # StructureBase
@@ -959,11 +954,11 @@ class StructureBase(SymmetryBase, ABC):
         #     self.__parent = None
         #     return self.__parent
 
-    # Placeholder getter for _parent setter so that derived classes automatically set _log and _coords from _parent set
+    # This getter is a placeholder so that _parent set automatically handles _log and _coords set in derived classes
     @property
-    def _parent(self) -> StructureBase | None:
-        """The 'parent' StructureBase of this instance which is responsible for manipulation of Structure Containers"""
-        return self.parent
+    def _parent(self):
+        """The 'parent' StructureBase of this instance. _parent should only be set"""
+        raise NotImplementedError('_parent should only be set')
 
     @_parent.setter
     def _parent(self, parent: StructureBase):
@@ -1030,12 +1025,12 @@ class StructureBase(SymmetryBase, ABC):
         # and setting before removes dependent reference
         self._coords.replace(self._atom_indices, coords)
 
-    def detach_from_parent(self):
+    def make_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
         # Set parent explicitly as None
         self.__setattr__(parent_variable, None)
         # Create a new, Coords instance detached from the parent
-        self._coords = Coords(self.coords)
+        self._coords = Coordinates(self.coords)
 
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state
@@ -1051,7 +1046,46 @@ class StructureBase(SymmetryBase, ABC):
         if self.is_symmetric():
             self.reset_symmetry_state()
 
-    def translate(self, translation: list[float] | np.ndarray, **kwargs):
+    @property
+    @abc.abstractmethod
+    def center_of_mass(self) -> np.ndarray:
+        """"""
+
+    @property
+    def radius(self) -> float:
+        """The furthest point from the center of mass of the Structure"""
+        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
+
+    @property
+    def radius_of_gyration(self) -> float:
+        """The measurement of the implied radius (Angstroms) affecting how the Structure diffuses through solution
+
+        Satisfies the equation:
+            Rg = SQRT(SUM|i->N(Ri**2)/N)
+        Where:
+            - Ri is the radius of the point i from the center of mass point
+            - N is the total number of points
+        """
+        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
+
+    def distance_from_reference(
+        self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs
+    ) -> float:
+        """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
+
+        Args:
+            reference: The reference where the point should be measured from. Default is origin
+            measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
+                numpy function to describe computed distance scalars
+        Returns:
+            The distance from the reference point to the furthest point
+        """
+        if reference is None:
+            reference = utils.symmetry.origin
+
+        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
+
+    def translate(self, translation: list[float] | np.ndarray, **kwargs) -> None:
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
         ensuring the underlying coords are not modified
 
@@ -1060,7 +1094,7 @@ class StructureBase(SymmetryBase, ABC):
         """
         self.coords += translation
 
-    def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs):
+    def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs) -> None:
         """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
         underlying coords are not modified
 
@@ -1070,9 +1104,10 @@ class StructureBase(SymmetryBase, ABC):
         self.coords = np.matmul(self.coords, np.transpose(rotation))  # Allows a list to be passed
         # self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
 
-    def transform(self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
-                  rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None,
-                  **kwargs):
+    def transform(
+        self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
+        rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None, **kwargs
+    ) -> None:
         """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
         transformed ensuring the underlying coords are not modified
 
@@ -1103,10 +1138,10 @@ class StructureBase(SymmetryBase, ABC):
 
         self.coords = new_coords
 
-    def get_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
-                             translation: list[float] | np.ndarray = None,
-                             rotation2: list[list[float]] | np.ndarray = None,
-                             translation2: list[float] | np.ndarray = None) -> StructureBase:
+    def get_transformed_copy(
+        self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
+        rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None
+    ) -> StructureBase:
         """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
 
         Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
@@ -1148,6 +1183,28 @@ class StructureBase(SymmetryBase, ABC):
         return other
 
     copy = __copy__  # Overwrites to use this instance __copy__
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.name})'
+
+    # Todo
+    #  self.atom_indices isn't long term sustainable...
+    @property
+    def _key(self) -> tuple[str, int, ...]:
+        return self.name, *self.atom_indices
+
+    def __eq__(self, other: StructureBase) -> bool:
+        if isinstance(other, StructureBase):
+            return self._key == other._key
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
+
+    # Must define __hash__ in all subclasses that define an __eq__
+    def __hash__(self) -> int:
+        return hash(self._key)
 
 
 class Atom(StructureBase):
@@ -1234,9 +1291,9 @@ class Atom(StructureBase):
         #     self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
         #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
-    def detach_from_parent(self):
+    def make_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
-        super().detach_from_parent()
+        super().make_parent()
         self.index = 0
         self.reset_state()
 
@@ -1426,6 +1483,9 @@ class Atom(StructureBase):
         return hash(self._key)
 
     def __copy__(self) -> Atom:  # Todo -> Self: in python 3.11
+    def __repr__(self) -> str:
+        return f'{Atom.__name__}({self._type} at {self.coords.tolist()})'
+
         cls = self.__class__
         other = cls.__new__(cls)
         other.__dict__.update(self.__dict__)
@@ -1728,15 +1788,13 @@ class ContainsAtomsMixin(StructureBase, ABC):
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
-        # Have to call _StructureBase__parent to access this variable for some reason having to do with class
-        # print(f'Before setting parent: {self._atoms.atoms}')
-        # inheritance
+        # Had to call _StructureBase__parent to access this variable given issue with inheritance
         super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
         self._atoms = parent._atoms
 
-    def detach_from_parent(self):
+    def make_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
-        super().detach_from_parent()
+        super().make_parent()
         # Populate the Structure with its existing instances removed of any indexing
         self._assign_atoms(self.atoms)
         self.reset_state()
@@ -1750,9 +1808,8 @@ class ContainsAtomsMixin(StructureBase, ABC):
 
         Args:
             atoms: The Atom instances to assign to the StructureBase
-            atoms_only: Whether Atom instances are being assigned on their own. Residues will be created if so.
-                If not, indicate False and use other StructureBase information such as Residue instances to complete set
-                up. When False, atoms won't become dependents of this instance until specifically called using
+            atoms_only: Whether Atom instances are being assigned on their own.
+                If False, atoms won't become dependents of this instance until specifically called using
                 Atoms.set_attributes(_parent=self)
         Keyword Args:
             coords: numpy.ndarray = None - The coordinates to assign to the StructureBase.
@@ -2000,12 +2057,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
             self._inverse_number_atoms = np.full(number_of_atoms, 1 / number_of_atoms)
             return np.matmul(self._inverse_number_atoms, self.coords)
 
-        # try:
-        #     return self._center_of_mass
-        # except AttributeError:
-        #     self.find_center_of_mass()
-        #     return self._center_of_mass
-
     @property
     def backbone_coords(self) -> np.ndarray:
         """Return a view of the Coords from the StructureBase with backbone atom coordinates"""
@@ -2124,8 +2175,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
             return out_path
 
     def get_atoms(self, numbers: Container = None, **kwargs) -> list[Atom]:
-        """Retrieve Atom objects in Structure. Returns all by default. If a list of numbers is provided, the selected
-        Atom numbers are returned
+        """Retrieves Atom instances. Returns all by default unless a list of numbers is specified
 
         Args:
             numbers: The Atom numbers of interest
@@ -2150,39 +2200,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
         for atom in self.get_atoms(**kwargs):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
-
-    @property
-    def radius(self) -> float:
-        """The furthest point from the center of mass of the Structure"""
-        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
-
-    @property
-    def radius_of_gyration(self) -> float:
-        """The measurement of the implied radius (Angstroms) affecting how the Structure diffuses through solution
-
-        Satisfies the equation:
-            Rg = SQRT(SUM|i->N(Ri**2)/N)
-        Where:
-            - Ri is the radius of the point i from the center of mass point
-            - N is the total number of points
-        """
-        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
-
-    def distance_from_reference(self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs) \
-            -> float:
-        """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
-
-        Args:
-            reference: The reference where the point should be measured from. Default is origin
-            measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
-                numpy function to describe computed distance scalars
-        Returns:
-            The distance from the reference point to the furthest point
-        """
-        if reference is None:
-            reference = utils.symmetry.origin
-
-        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
 
 residue_attributes_literal = Literal[
@@ -2224,9 +2241,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     _sasa_polar: float
     _secondary_structure: str
     chain_id: str
-    # coords: Coords
     number: int
-    number_pdb: int
     state_attributes = ContainsAtomsMixin.state_attributes \
         | {'_contact_order', '_local_density',
            '_next_residue', '_prev_residue',
@@ -2325,7 +2340,6 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         #                 except AttributeError:  # This is the first set up. Add information from the N atom
         #                     self.chain_id = atom.chain_id
         #                     self.number = atom.residue_number
-        #                     self.number_pdb = atom.pdb_residue_number
         #                     self.type = atom.residue_type
         #             case 'CA':
         #                 self._ca_index = idx
@@ -3449,7 +3463,7 @@ class StructureIndexMixin(ABC):
                 f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
 
 
-class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
+class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
@@ -3468,20 +3482,19 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
-    _contact_order: np.ndarray  # Todo ContainsResiduesMixin
-    _residues: Residues | None  # Todo ContainsResiduesMixin
-    _residue_indices: list[int] | None  # Todo ContainsResiduesMixin
-    _sap: float  # Todo ContainsResiduesMixin
-    _secondary_structure: str  # Todo ContainsResiduesMixin
-    _sequence: str  # Todo ContainsResiduesMixin
     biomt: np.ndarray | None
     biomt_header: str
     file_path: AnyStr | None
-    name: str
     nucleotides_present: bool
-    secondary_structure: str | None  # Todo ContainsResiduesMixin
-    sasa: float | None  # Todo ContainsResiduesMixin
     class_structure_containers = set()
+    _contact_order: np.ndarray
+    _residues: Residues | None
+    _residue_indices: list[int] | None
+    _sap: np.ndarray
+    _secondary_structure: str
+    _sequence: str
+    secondary_structure: str | None
+    sasa: float | None
     _coords_indexed_residues_: np.ndarray  # Residues # list[Residue]
     # _coords_indexed_residue_atoms: np.ndarray  # list[int]
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
@@ -3553,15 +3566,15 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
                 coordinates of that Structure
             name: str = None - The identifier for the Structure instance
         """
-        super().__init__(**kwargs)  # ContainsResiduesMixin
+        super().__init__(**kwargs)  # ContainsResidues
         # self._coords_indexed_residues_ = None
         # self._residues = None
         # self._residue_indices = None
-        # self.secondary_structure = None  # Todo ContainsResiduesMixin
-        self.nucleotides_present = False  # Todo ContainsResiduesMixin
-        self.sasa = None  # Todo ContainsResiduesMixin
-        self.ss_sequence_indices = []  # Todo ContainsResiduesMixin
-        self.ss_type_sequence = []  # Todo ContainsResiduesMixin
+        # self.secondary_structure = None
+        self.nucleotides_present = False
+        self.sasa = None
+        self.ss_sequence_indices = []
+        self.ss_type_sequence = []
 
         if self.is_dependent():
             try:
@@ -3593,13 +3606,13 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
         # super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
-        super(ContainsResiduesMixin, ContainsResiduesMixin)._parent.fset(self, parent)
+        super(ContainsResidues, ContainsResidues)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
 
-    def detach_from_parent(self):
+    def make_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
-        super(ContainsAtomsMixin, ContainsAtomsMixin).detach_from_parent(self)
+        super(ContainsAtomsMixin, ContainsAtomsMixin).make_parent(self)
         # Populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)
         self.reset_state()
@@ -3673,8 +3686,8 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         """Return the Residue instances in the Structure"""
         try:
             return self._residues.residues[self._residue_indices].tolist()
-        except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
-            return
+        except AttributeError:  # When self._residues isn't set
+            return None
 
     # @residues.setter
     # def residues(self, residues: Residues | list[Residue]):
@@ -3686,16 +3699,16 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     #         self._residues = Residues(residues)
 
     def _assign_residues(self, residues: Residues | list[Residue], atoms: Atoms | list[Atom] = None, **kwargs):
-        """Assign Residue instances to the Structure, create Residues object
+        """Assign Residue instances, create Residues instances
 
-        This will make all Residue instances (and their Atom instances) dependents of this Structure instance
+        This will make all Residue instances (and their Atom instances) dependents of this instance
 
         Args:
             residues: The Residue instances to assign to the Structure
-            atoms: The Atom instances to assign to the Structure. Optional, will use Residues.atoms if not specified
+            atoms: The Atom instances or Atoms to assign. Optional, will use Residues.atoms if not specified
         Keyword Args:
-            coords: numpy.ndarray = None - The coordinates to assign to the Structure.
-                Optional, will use Residues.coords if not specified
+            coords: numpy.ndarray = None - The coordinates to assign to the StructureBase.
+                Optional, will use Residue.coords if not specified
         Sets:
             self._atom_indices (list[int])
 
@@ -3710,7 +3723,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             for residue in residues:
                 atoms.extend(residue.atoms)
         self._assign_atoms(atoms, atoms_only=False)  # Not passing kwargs as _populate_coords() handles
-        # Done below with _residues.reindex_atoms(), not necessary here
+        # Done below with _residues.reindex(), not necessary here
         # self._atoms.reindex()
 
         # Set proper residues attributes
@@ -3738,8 +3751,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         # Perform after _populate_coords as .coords may be set and then 'residues' .coords are overwritten
         self._residues.set_attributes(_parent=self)
         self._residues.find_prev_and_next()  # # Duplicate call with "residues = residues.copy()"
-        self._residues.reindex()  # # Duplicates call .set_index with "residues = residues.copy()"
-
+        self._residues.reindex()
 
     # @property
     # def residue_indexed_atom_indices(self) -> list[list[int]]:
@@ -3944,8 +3956,8 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
     #             setattr(residue, key, value[idx])
 
     def get_residue_atom_indices(self, **kwargs) -> list[int]:
-        """Retrieve Atom indices for Residues in the Structure. Returns all by default. If numbers are provided the
-        selected Residue numbers are returned
+        """Returns Atom indices for Residue instances. Returns all by default unless numbers are specified, returns only
+        those Residue instance selected by number.
 
         Keyword Args:
             numbers: Container[int] = None - The Residue numbers of interest
@@ -4071,7 +4083,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             residue.number = idx
 
     def get_residues(self, numbers: Container[int] = None, indices: Iterable[int] = None, **kwargs) -> list[Residue]:
-        """Retrieve Residue instances from the Structure. Returns all by default
+        """Returns Residue instances as specified. Returns all by default
 
         Args:
             numbers: Residue numbers of interest
@@ -4145,7 +4157,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         for index in remove_atom_indices[::-1]:  # Ensure popping happens in reverse
             atom_indices.pop(index)
         self._atom_indices = atom_indices
-        # Todo remove bad atoms
         # self._atoms.remove()
 
     # When alt_location parsing performed, there may be some use to below implementation
@@ -4338,8 +4349,11 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
             raise ValueError(
                 f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
         elif self.is_dependent():
-            # Ensure the mutation is done by the Structure parent to account for everything correctly
-            return self.parent.mutate_residue(residue, to=to)
+            _parent = self.parent
+            self.log.debug(f"{self.mutate_residue.__name__} can't be performed on a dependent StructureBase. "
+                           f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
+            # Ensure the deletion is done by the Structure parent to account for everything correctly
+            return _parent.mutate_residue(residue, to=to)
 
         to = protein_letters_1to3.get(to.upper(), to.upper())
         if residue.type == to:  # No mutation necessary
@@ -4366,7 +4380,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         else:
             # Clear all state variables for all Residue instances
             # Todo create mutate_residues() and only call this once...
-            #  It is redundant with start_index.setter in _residues.reindex_atoms()
+            #  It is redundant with @Residue.start_index.setter in _residues.reindex_atoms()
             self._residues.reset_state()
             # residue.side_chain_indices = []
 
@@ -4416,9 +4430,9 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         elif not residues:
             self.log.debug(f'{self.delete_residues.__name__}: No residues found')
             return []
-        elif self.is_dependent():
+        elif self.is_dependent():  # Call on the parent
             _parent = self.parent
-            self.log.debug(f"{self.delete_residues.__name__} can't be performed on a dependent Structure. "
+            self.log.debug(f"{self.delete_residues.__name__} can't be performed on a dependent StructureBase. "
                            f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             return _parent.delete_residues(residues=residues)
@@ -4462,7 +4476,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         """
         if self.is_dependent():  # Call on the parent
             _parent = self.parent
-            self.log.debug(f"{self.insert_residue_type.__name__} can't be performed on a dependent Structure. "
+            self.log.debug(f"{self.insert_residue_type.__name__} can't be performed on a dependent StructureBase. "
                            f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
@@ -4594,7 +4608,7 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
 
         if self.is_dependent():  # Call on the parent
             _parent = self.parent
-            self.log.debug(f"{self.insert_residues.__name__} can't be performed on a dependent Structure. "
+            self.log.debug(f"{self.insert_residues.__name__} can't be performed on a dependent StructureBase. "
                            f"Calling on the {self.__class__.__name__}.parent {repr(_parent)}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
@@ -4794,8 +4808,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
 
         self.delete_residues(_delete_residues)
 
-    # Todo this should be a property keeping in line with Residue.local_density, however the arguments are important at
-    #  this level... Need to reconcile the API for this
     def local_density(self, residues: list[Residue] = None, residue_numbers: list[int] = None, distance: float = 12.) \
             -> list[float]:
         """Return the number of Atoms within 'distance' Angstroms of each Atom in the requested Residues
@@ -4886,7 +4898,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         # else:
 
         # Set up the query indices. BallTree is faster upon timeit with 131 msec/loop
-        # Todo make self.atom_tree a property?
         atom_tree = BallTree(self.coords)
         atoms = self.atoms
         measured_clashes, other_clashes = [], []
@@ -5115,13 +5126,14 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
 
         return [residue for residue in self.residues if residue.relative_sasa < relative_sasa_thresh]
 
-    def get_surface_area_residues(self, residues: list[Residue] = None, dtype: polarity_types_literal = 'polar',
-                                  **kwargs) -> float:
+    def get_surface_area_residues(
+        self, residues: list[Residue] = None, dtype: sasa_types_literal = 'polar', **kwargs
+    ) -> float:
         """Get the surface area for specified residues
 
         Args:
             residues: The Residues to sum. If not provided, will be retrieved by `.get_residues()`
-            dtype: The type of area to query. Can be 'polar' or 'apolar'
+            dtype: The type of area classification to query.
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
@@ -5137,7 +5149,13 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         if not residues:
             residues = self.get_residues(**kwargs)
 
-        return sum([getattr(residue, dtype) for residue in residues if residue.number in numbers])
+        sasa_dtype = f'sasa_{dtype}'
+        try:
+            return sum([getattr(residue, sasa_dtype) for residue in residues])
+        except AttributeError:
+            raise ValueError(
+                f" {dtype=} is an invalid 'sasa_dtype'. Viable types are {', '.join(sasa_types)}"
+            )
 
     def errat(self, out_path: AnyStr = os.getcwd()) -> tuple[float, np.ndarray]:
         """Find the overall and per residue Errat accuracy for the given Structure
@@ -5292,7 +5310,15 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
         if 'H' * window in term_window:
             return True
         else:
-            return False  # 0
+            return False
+
+    def calculate_secondary_structure(self, **kwargs):
+        """Perform the secondary structure calculation for the Structure using the DEFAULT_SS_PROGRAM
+
+        Keyword Args:
+            to_file: AnyStr = None - The location of a file to save secondary structure calculations
+        """
+        self.__getattribute__(DEFAULT_SS_PROGRAM)(**kwargs)  # self.stride()
 
     @property
     def secondary_structure(self) -> str:
@@ -5306,14 +5332,6 @@ class ContainsResiduesMixin(ContainsAtomsMixin, StructureIndexMixin):  # , ABC):
                 self.calculate_secondary_structure()
             # self._secondary_structure = self.fill_secondary_structure()
             return self._secondary_structure
-
-    def calculate_secondary_structure(self, **kwargs):
-        """Perform the secondary structure calculation for the Structure using the DEFAULT_SS_PROGRAM
-
-        Keyword Args:
-            to_file: AnyStr = None - The location of a file to save secondary structure calculations
-        """
-        self.__getattribute__(DEFAULT_SS_PROGRAM)(**kwargs)  # self.stride()
 
     @secondary_structure.setter
     def secondary_structure(self, secondary_structure: Sequence[str]):
@@ -5863,7 +5881,6 @@ class Structure(ContainsResiduesMixin):
                     "Can't set up structure_containers when there are more than 1 initialized and there are missing "
                     f"'structure_containers'. Initialized={self.structure_containers}, Missing={missing_containers}")
 
-    def __copy__(self) -> Structure:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
 
@@ -5884,6 +5901,7 @@ class Structure(ContainsResiduesMixin):
             other.__dict__[parent_variable] = self.__dict__[parent_variable]
             for attr in new_parent_attributes:
                 other.__dict__[attr] = self.__dict__[attr].copy()
+    def __copy__(self) -> ContainsResidues:  # Todo -> Self: in python 3.11
 
             skip_state_attrs = ['_coords_indexed_residues_']
             for attr in skip_state_attrs:
@@ -5916,21 +5934,10 @@ class Structure(ContainsResiduesMixin):
     def _key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
 
-    def __eq__(self, other: Structure) -> bool:
-        if isinstance(other, Structure):  # Use Structure as subclasses could be the same? with same name and indices
-            return self._key == other._key
-        raise NotImplementedError(
-            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
-    # Must define __hash__ in all subclasses that define an __eq__
-    def __hash__(self) -> int:
-        return hash(self._key)
 
-    def __str__(self) -> str:
-        return self.name
+    # copy = __copy__  # Overwrites to use this instance __copy__
 
-    def __repr__(self,) -> str:
-        return f'{self.__class__.__name__}({self.name})'
 
 
 class Structures(Structure, UserList):
@@ -5938,22 +5945,25 @@ class Structures(Structure, UserList):
     #  FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
     #  are all concatenated Structure methods and attributes accounted for?
     #  ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
-    """Keep track of groups of Structure objects
-
-    Pass the parent Structure with parent= to initialize .log, .coords, .atoms, and .residues
-
-    Args:
-        structures: The Iterable of Structure to set the Structures with
-        dtype: If an empty Structures, the specific subclass of Structure that Structures contains
-    """
     data: list[Structure]
+    """A view of a set of Structure instances"""
     dtype: str
     """The type of Structure in instance"""
 
     def __init__(self, structures: Iterable[Structure], dtype: str = None, **kwargs):
+        """Pass the parent Structure with parent= to initialize .log, .coords, .atoms, and .residues
+
+        Args:
+            structures: The Iterable of Structure to set the Structures with
+            dtype: If an empty Structures, the specific subclass of Structure that Structures contains
+        """
         super().__init__(initlist=structures, **kwargs)  # initlist sets UserList.data to Iterable[Structure]
 
-        # Todo should Structures be allowed to be a parent...
+        if self.is_parent():
+            raise stutils.ConstructionError(
+                f"Couldn't create {Structures.__name__} without passing 'parent' argument"
+            )
+
         if not self.data:  # Set up an empty Structures
             self.dtype = dtype if dtype else 'Structure'
         elif all([True if isinstance(structure, Structure) else False for structure in self]):
@@ -5972,10 +5982,7 @@ class Structures(Structure, UserList):
                 f'must set with type [Structure, ...] or an empty constructor. Ex: Structures()')
 
         # Overwrite attributes in Structure
-        try:
-            self.name = f'{self.parent.name}-{self.dtype}_{Structures.__name__}'
-        except AttributeError:  # if not .parent.name
-            self.name = f'{"-".join(structure.name for structure in self)}_{Structures.__name__}'
+        self.name = f'{self.parent.name}-{dtype}Selection'
 
     # this setter would work in a world where Structures has it's own .coords, .atoms, and .residues
     # @StructureBase._parent.setter
@@ -6303,10 +6310,9 @@ class Structures(Structure, UserList):
 # 0 indexed, 1 letter aa, alphabetically sorted at the origin
 try:
     reference_residues: list[Residue] = utils.unpickle(putils.reference_residues_pkl)
-except (_pickle.UnpicklingError, ImportError, FileNotFoundError) as error:  # SyntaxError <- can't catch from 3.10
-    # raise
+except (_pickle.UnpicklingError, ImportError, FileNotFoundError, AttributeError, utils.InputError) as error:
     logger.error(''.join(traceback.format_exc()))
-    print('\n' * 3)
     logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version '
                  f'using {putils.pickle_program_requirements_cmd}')
+    print('\n')
     reference_residues = None

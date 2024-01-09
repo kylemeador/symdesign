@@ -559,7 +559,7 @@ if __name__ == '__main__':
     uniprot_sorted, no_unp_code = sort_pdbs_to_uniprot_d(pdbs_of_interest, pdb_uniprot_info,
                                                          master_dictionary=uniprot_master)
     logger.info('Total UniProtID\'s added: %d\nTotal without UniProtID: %s' % (len(uniprot_sorted), len(no_unp_code)))
-    # sort all interfaces by UniProt ID to account for duplicated PDB Structures, i.e. 1ABC and 2XYZ are protein P012345
+    # Sort all interfaces by UniProt ID to account for duplicated PDB EntryID, i.e. 1ABC and 2XYZ are protein P012345
     uniprot_partners = {uniprot_id: add_partners_to_uniprot_entry(uniprot_id, uniprot_entry, pdb_uniprot_info)
                         for uniprot_id, uniprot_entry in uniprot_sorted.items()}
 
@@ -574,7 +574,7 @@ if __name__ == '__main__':
     # Find unique UniProtIDs which are representative of the homo-oligomer and unknown PDB interfaces
     unknown_bio_interfaces = {pdb: interface_sort_d[pdb]['unknown_bio'] for pdb in interface_sort_d
                               if interface_sort_d[pdb]['unknown_bio']}
-    # each of these has the data type - {pdb: set()}
+    # Each of these has the data type - {pdb: set()}
     bio_interfaces = {pdb: interface_sort_d[pdb]['bio'] for pdb in interface_sort_d
                       if interface_sort_d[pdb]['bio']}
     # ^ this contains hetero and homo interfaces

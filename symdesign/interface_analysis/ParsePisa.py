@@ -10,8 +10,6 @@ from lxml import etree, html
 from requests import get, post
 
 from symdesign import utils
-from symdesign.structure.base import Structure
-from symdesign.structure.model import Model
 
 logger = logging.getLogger(__name__)
 

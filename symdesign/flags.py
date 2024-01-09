@@ -1272,7 +1272,7 @@ align_component_mutual2_arguments[align_pdb_codes2_args] = align_component_mutua
 # ---------------------------------------------------
 measure_pose_args = (measure_pose.long,)
 measure_pose_kwargs = dict(action='store_true', help=f'Whether the pose should be included in measurements')
-refine_help = 'Process Structures into an energy function'
+refine_help = 'Process structures into an energy function'
 parser_refine = dict(description=refine_help, help=refine_help)
 refine_arguments = {
     ('-ala', interface_to_alanine.long): dict(action=argparse.BooleanOptionalAction, default=False,

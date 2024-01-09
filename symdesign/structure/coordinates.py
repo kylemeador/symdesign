@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation
 from symdesign.utils.symmetry import identity_matrix
 
 
-class Coords:
+class Coordinates:
     """Responsible for handling StructureBase coordinates by storing in a numpy.ndarray with shape (n, 3) where n is the
      number of atoms in the structure and the 3 dimensions represent x, y, and z coordinates
 
@@ -93,7 +93,7 @@ class Coords:
     def __iter__(self) -> Iterator[list[float, float, float]]:
         yield from self.coords.tolist()
 
-    def __copy__(self) -> Coords:  # Todo -> Self: in python 3.11
+    def __copy__(self) -> Coordinates:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
         other.coords = self.coords.copy()

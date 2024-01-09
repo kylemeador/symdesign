@@ -1,4 +1,4 @@
 # import .base  # FragmentDatabase circular import
-from . import coords, utils
+from . import coordinates, utils
 # import .model  # FragmentDatabase circular import
 # import .sequence

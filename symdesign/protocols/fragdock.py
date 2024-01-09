@@ -26,12 +26,12 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Structure, Residue
-from symdesign.structure.coords import transform_coordinate_sets, superposition3d
+from symdesign.structure.coordinates import transform_coordinate_sets, superposition3d, Coordinates
 from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.db import fragment_factory, TransformHasher
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
-from symdesign.structure.model import Pose, Model, Models
+from symdesign.structure.model import ContainsEntities, Model, Models, Pose
 from symdesign.structure.sequence import pssm_as_array
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import identity_matrix
@@ -493,8 +493,7 @@ def get_check_tree_for_query_overlap_batch_length(coords: np.ndarray) -> int:
     return int((number_of_elements_available//model_elements) // 16)
 
 
-def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
-    # model1: Structure | AnyStr, model2: Structure | AnyStr,
+def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | list:
     """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
@@ -591,7 +590,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # Initialize incoming Structures
     models = []
     """The Structure instances to be used in docking"""
-    # Ensure models are oligomeric with make_oligomer()
     # Assumes model is oriented with major axis of symmetry along z
     entity_count = count(1)
     for idx, (input_model, symmetry) in enumerate(zip(input_models, sym_entry.groups)):
@@ -602,6 +600,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 # Remove any unstructured termini from the Entity to allow the best secondary structure docking
                 if job.trim_termini:
                     entity.delete_termini(how='unstructured')
+                # Ensure models are oligomeric with make_oligomer()
                 entity.make_oligomer(symmetry=symmetry)
 
             if next(entity_count) > 2:
@@ -2103,7 +2102,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # # Next, set the interface fragment info for gathering of interface metrics
         # if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
         # Remove old fragments
-        pose._fragment_queries = {}
+        pose._fragment_info_by_entity_pair = {}
         # Query fragments
         pose.generate_interface_fragments()
 

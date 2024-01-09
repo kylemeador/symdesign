@@ -11,7 +11,7 @@ idx_slice = pd.IndexSlice
 
 def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.fragment.GhostFragment],
                                                 file_name: AnyStr = os.getcwd()) -> AnyStr:
-    """Write GhostFragments as an MultiModel Structure trajectory where each successive Model has one more Fragment
+    """Write GhostFragments as an MultiModel trajectory where each successive Model has one more Fragment
 
     Args:
         ghost_frags: An iterable of GhostFragments
@@ -68,7 +68,7 @@ def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.frag
 
 def write_fragments_as_multimodel(ghost_frags: list[structure.fragment.GhostFragment],
                                   file_name: AnyStr = os.getcwd()) -> AnyStr:
-    """Write GhostFragments as one MultiModel Structure
+    """Write GhostFragments as one MultiModel
 
     Args:
         ghost_frags: An iterable of GhostFragments

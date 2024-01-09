@@ -351,7 +351,8 @@ def unpickle(file_name: AnyStr) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
         with open(file_name, 'rb') as serial_f:
             new_object = pickle.load(serial_f)
     except EOFError as ex:
-        raise InputError(f"The serialized file '{file_name}' contains no data present.")
+        raise InputError(
+            f"The serialized file '{file_name}' contains no data.")
 
     return new_object
 

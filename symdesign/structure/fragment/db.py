@@ -50,7 +50,7 @@ class Representative:
     ca_coords: np.ndarray
     register: tuple[str, ...] = ('backbone_coords', 'ca_coords')
 
-    def __init__(self, struct: 'structure.base.Structure', fragment_db: FragmentDatabase):
+    def __init__(self, struct: 'structure.base.ContainsResidues', fragment_db: FragmentDatabase):
         for item in self.register:
             self.__setattr__(item, getattr(struct, item))
 
@@ -361,7 +361,7 @@ class FragmentDatabaseFactory:
             except (ModuleNotFoundError, FileNotFoundError):
                 raise RuntimeError(
                     f"Couldn't access the serialized {FragmentDatabase.__name__} which is required for operation. "
-                    f'Please reload this by executing "{putils.pickle_program_requirements_cmd}"')
+                    f"Please reload this by executing '{putils.pickle_program_requirements_cmd}'")
         else:
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
 

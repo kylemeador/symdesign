@@ -37,9 +37,10 @@ from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure import fragment
-from symdesign.structure.base import Structure
-from symdesign.structure.coords import superposition3d
-from symdesign.structure.model import Pose, Models, Model, Entity, PoseSpecification
+from symdesign.structure.base import ContainsResidues, StructureBase
+from symdesign.structure.coordinates import superposition3d
+from symdesign.structure.model import ContainsEntities, Entity, Models, Pose, PoseSpecification, \
+    ContainsStructures
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 # import symdesign.third_party.alphafold.alphafold as af
@@ -64,13 +65,13 @@ missing_pose_transformation = "The design couldn't be transformed as it is missi
 
 
 # def load_evolutionary_profile(job: resources.job.JobResources, pose: Pose, warn_metrics: bool = False) \
-def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Model | Entity,
+def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: ContainsEntities,
                               warn_metrics: bool = False) -> tuple[bool, bool]:
     """Add evolutionary profile information to the provided Entity
 
     Args:
         api_db: The database which store all information pertaining to evolutionary information
-        model: The Structure to check for Entity instances to load evolutionary information
+        model: The ContainsEntities instance to check for Entity instances to load evolutionary information
         warn_metrics: Whether to warn the user about missing files for metric collection
     Returns:
         A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
@@ -357,7 +358,7 @@ class PoseDirectory:
             try:
                 file = source[0]
             except IndexError:  # glob found no files
-                self.log.debug(f"Couldn't find any Structure files matching the path '{glob_target}'")
+                self.log.debug(f"Couldn't find any structural files matching the path '{glob_target}'")
                 file = None
                 raise FileNotFoundError
 
@@ -394,7 +395,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # id: int  # DB
     # """The database row id for the 'pose_data' table"""
     initial_pose: Pose | None
-    """Used if the Structure has never been initialized previously"""
+    """Used if the structure has never been initialized previously"""
     measure_evolution: bool | None
     measure_alignment: bool | None
     pose: Pose | None
@@ -410,7 +411,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Load the PoseJob from a path with file types or a directory
 
         Args:
-            path: The path where the PoseJob instance should load Structure instances
+            path: The path where the PoseJob instance should load structural data
             project: The project where the file should be included
         Returns:
             The PoseJob instance
@@ -445,10 +446,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     @classmethod
     def from_file(cls, file: str, project: str = None, **kwargs):
-        """Load the PoseJob from a Structure file including .pdb/.cif file types
+        """Load the PoseJob from a structural file including .pdb/.cif file types
 
         Args:
-            file: The file where the PoseJob instance should load Structure instances
+            file: The file where the PoseJob instance should load structure files
             project: The project where the file should be included
         Returns:
             The PoseJob instance
@@ -614,7 +615,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Args:
             name: The identifier
             project: The project which this work belongs too
-            source_path: If a path exists, where is Structure information stored?
+            source_path: If a path exists, where is structure files information stored?
             protocol: If a protocol was used to generate this Pose, which protocol?
             pose_source: If this is a descendant of another Design, which one?
         """
@@ -631,7 +632,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.source_path = self.pose_path
 
         # Save job variables to the state during initialization
-        # Todo does seting this variable change the database?
         sym_entry = kwargs.get('sym_entry')
         if sym_entry:
             self.sym_entry = sym_entry
@@ -685,7 +685,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.directives = directives
 
     def load_initial_pose(self):
-        """Parse the Structure at the source_path attribute"""
+        """Loads the Pose at the source_path attribute"""
         if self.pose:
             self.initial_pose = self.pose
         elif self.initial_pose is None:
@@ -855,7 +855,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Provide the design_selector parameters for the design in question
 
         Returns:
-            A mapping of the selection criteria for Structure objects in the Pose
+            A mapping of the selection criteria for StructureBase objects in the Pose
         """
         try:
             return self._design_selector
@@ -983,14 +983,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         return entities
 
-    def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
-        """Take a set of Structure instances and transform them from a standard reference frame to the Pose reference
+    def transform_structures_to_pose(
+        self, structures: Iterable[StructureBase], **kwargs
+    ) -> list[StructureBase]:
+        """Take a set of ContainsResidues instances and transform them from a standard reference frame to the Pose reference
         frame using the pose_transformation attribute
 
         Args:
-            structures: The Structure objects you would like to transform
+            structures: The ContainsResidues instances to transform
         Returns:
-            The transformed Structure objects if a transformation was possible
+            The transformed ContainsResidues instances if a transformation was possible
         """
         if self.transformations:
             # Todo
@@ -1211,7 +1213,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # if self.job.pose_format:
         #     self.pose.pose_numbering()
 
-        # Todo add other output_options? rename_chains, increment_chains?
         if self.job.fuse_chains:
             # try:
             for fusion_nterm, fusion_cterm in self.job.fuse_chains:
@@ -3277,13 +3278,11 @@ class PoseProtocol(PoseData):
                 f"{self.calculate_pose_metrics.__name__} doesn't output anything yet when {type(self.job).__name__}.db"
                 f"={self.job.db}")
             raise NotImplementedError(f"The reference=SymEntry.resulting_symmetry center_of_mass is needed as well")
-            pose_df = self.pose.df  # Also performs entity.calculate_metrics()
+            pose_df = self.pose.df  # Also performs entity.calculate_spatial_orientation_metrics()
 
             entity_dfs = []
             for entity in self.pose.entities:
-                # entity.calculate_metrics()  # Todo add reference=
-                # entity_dfs.append(entity.df)
-                entity_s = pd.Series(**entity.calculate_metrics())  # Todo add reference=
+                entity_s = pd.Series(**entity.calculate_spatial_orientation_metrics())
                 entity_dfs.append(entity_s)
 
             # Stack the Series on the columns to turn into a dataframe where the metrics are rows and entity are columns
@@ -3983,7 +3982,7 @@ class PoseProtocol(PoseData):
         """Perform per-residue analysis on design Model instances
 
         Args:
-            designs: The designs to analyze. The Structure.name attribute is used for naming DataFrame indices
+            designs: The designs to analyze. The StructureBase.name attribute is used for naming DataFrame indices
         Returns:
             A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)

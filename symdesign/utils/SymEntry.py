@@ -339,7 +339,7 @@ class SymEntry:
     unit_cell: tuple[tuple[str], tuple[int]] | None
     cell_lengths: tuple[str] | None
     cell_angles: tuple[int] | None
-    expand_matrices: np.ndarray
+    _expand_matrices: np.ndarray
 
     @classmethod
     def from_cryst(cls, space_group: str, **kwargs):  # uc_dimensions: Iterable[float],
@@ -478,9 +478,9 @@ class SymEntry:
                     f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
             if self.dimension == 0:
-                self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
+                self._expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
             elif self.dimension in [2, 3]:
-                self.expand_matrices, expand_translations = space_group_symmetry_operators[self.resulting_symmetry]
+                self._expand_matrices, expand_translations = space_group_symmetry_operators[self.resulting_symmetry]
             else:
                 raise utils.SymmetryInputError(
                     'Invalid symmetry entry. Supported dimensions are 0, 2, and 3')
@@ -566,7 +566,7 @@ class SymEntry:
     @property
     def number_of_operations(self) -> int:
         """The number of symmetric copies in the full symmetric system"""
-        return len(self.expand_matrices)
+        return len(self._expand_matrices)
 
     @property
     def group_subunit_numbers(self) -> list[int]:
@@ -1441,7 +1441,7 @@ def parse_symmetry_to_sym_entry(sym_entry_number: int = None, symmetry: str = No
                 # logger.debug(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
                 #              f"{symmetry} hasn't been tested thoroughly yet")
                 # Specify as [result, entity1, None as there are no other entities]
-                # If the symmetry is specified as C2 and the Structure represents an A2B2, then this may fail
+                # If the symmetry is specified as C2 and the structure is A2B2, then this may fail
                 sym_map = [symmetry, symmetry, None]
             elif len(symmetry) == 3 and symmetry[1].isdigit() and symmetry[2].isdigit():  # like I32, O43 format
                 sym_map = [*symmetry]

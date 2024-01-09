@@ -13,7 +13,7 @@ from sklearn.neighbors._ball_tree import BinaryTree, BallTree
 
 from symdesign import utils, structure
 from . import db, info, metrics
-from ..coords import guide_superposition, superposition3d, transform_coordinate_sets
+from ..coordinates import guide_superposition, superposition3d, transform_coordinate_sets
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -335,8 +335,7 @@ class Fragment(ABC):
 
 
 class MonoFragment(Fragment):
-    """Used to represent Fragment information when treated as a continuous Structure Fragment of length fragment_length
-    """
+    """Used to represent Fragment information when treated as a continuous Fragment of length fragment_length"""
     central_residue: 'structure.base.Residue'
 
     def __init__(self, residues: Sequence['structure.base.Residue'], **kwargs):
@@ -412,41 +411,6 @@ class MonoFragment(Fragment):
         else:
             raise ValueError(
                 f'{self.__class__.__name__} coords.shape ({coords.shape}) != (3, 3)')
-
-    # def get_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
-    #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
-    #         MonoFragment:
-    #     """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
-    #
-    #     Transformation proceeds by matrix multiplication with the order of operations as:
-    #     rotation, translation, rotation2, translation2
-    #
-    #     Args:
-    #         rotation: The first rotation to apply, expected array shape (3, 3)
-    #         translation: The first translation to apply, expected array shape (3,)
-    #         rotation2: The second rotation to apply, expected array shape (3, 3)
-    #         translation2: The second translation to apply, expected array shape (3,)
-    #     Returns:
-    #         A transformed copy of the original object
-    #     """
-    #     if rotation is not None:  # required for np.ndarray or None checks
-    #         new_coords = np.matmul(self.guide_coords, np.transpose(rotation))
-    #     else:
-    #         new_coords = self.guide_coords
-    #
-    #     if translation is not None:  # required for np.ndarray or None checks
-    #         new_coords += np.array(translation)
-    #
-    #     if rotation2 is not None:  # required for np.ndarray or None checks
-    #         new_coords = np.matmul(new_coords, np.transpose(rotation2))
-    #
-    #     if translation2 is not None:  # required for np.ndarray or None checks
-    #         new_coords += np.array(translation2)
-    #
-    #     new_structure = copy(self)
-    #     new_structure.guide_coords = new_coords
-    #
-    #     return new_structure
 
 
 class ResidueFragment(Fragment, ABC):

@@ -206,7 +206,7 @@ multicomponent_valid_subunit_number = \
     {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}
 
 
-def generate_cryst1_record(dimensions: list[float], space_group: str) -> str:
+def generate_cryst1_record(dimensions: tuple[float, float, float, float, float, float], space_group: str) -> str:
     """Format the CRYST1 record from specified unit cell dimensions and space group for a .pdb file
 
     Args:
@@ -219,6 +219,7 @@ def generate_cryst1_record(dimensions: list[float], space_group: str) -> str:
         formatted_space_group = space_group_cryst1_fmt_dict.get(space_group, space_group)
     elif space_group in layer_group_cryst1_fmt_dict or space_group in layer_group_hm_to_simple_dict:
         formatted_space_group = layer_group_cryst1_fmt_dict.get(space_group, space_group)
+        dimensions = list(dimensions)
         dimensions[2] = 1.
         dimensions[4] = dimensions[5] = 90.
     else:

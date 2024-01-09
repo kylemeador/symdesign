@@ -424,7 +424,7 @@ class UniProtEntity(sql.Base):
     uniprot_id = synonym('id')
     # _uniprot_id = Column('uniprot_id', String)
     # entity_id = Column(String, nullable=False, index=True)  # entity_name is used in config.metrics
-    # """This is a stand in for the Structure.name attribute"""
+    # """This is a stand in for the StructureBase.name attribute"""
 
     # # Set up one-to-many relationship with entity_data table
     # entities = relationship('EntityData', back_populates='entity')

@@ -360,7 +360,7 @@ class ProteinMetadata(Base):
 
     @property
     def entity_info(self) -> dict[str, dict[str, Any]]:
-        """Format the instance for population of Structure metadata via the entity_info kwargs"""
+        """Format the instance for population of metadata via the entity_info kwargs"""
         return {self.entity_id:
                 dict(chains=[],
                      dbref=dict(accession=self.uniprot_ids, db=UKB),
@@ -434,7 +434,7 @@ class EntityData(Base):
 
     @property
     def entity_info(self) -> dict[str, dict[str, Any]]:
-        """Format the instance for population of Structure metadata via the entity_info kwargs"""
+        """Format the instance for population of metadata via the entity_info kwargs"""
         return self.meta.entity_info
 
     @property
@@ -692,7 +692,7 @@ class DesignData(Base):
         return self.name
 
 
-# This has 105 columns. Most of these don't get filled unless there is a Structure
+# This has 105 columns. Most of these don't get filled unless there is a Pose structure associated
 #  3 always
 #  38 for Sequence
 #  59 for Structure
@@ -943,7 +943,7 @@ class PoseResidueMetrics(Base):
     dock_hydrophobic_collapse = Column(Float)
 
 
-# This has 54 columns, most of which rely on Structures
+# This has 54 columns, most of which rely on structures
 #  None (besides design_residue) has a use in the processing of modules... just used to produce DesignMetrics
 class ResidueMetrics(Base):
     __tablename__ = 'residue_metrics'

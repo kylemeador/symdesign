@@ -5,7 +5,7 @@ import math
 import os
 import time
 from itertools import count
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 
 import numpy as np
 from sqlalchemy import select
@@ -14,9 +14,9 @@ from sqlalchemy.orm import selectinload
 from symdesign import flags, utils
 from symdesign.protocols.pose import insert_pose_jobs, PoseJob
 from symdesign.resources import job as symjob, sql
-from symdesign.structure.base import Residue, SS_HELIX_IDENTIFIERS, Structure
-from symdesign.structure.coords import superposition3d
-from symdesign.structure.model import Chain, Entity, Model, Pose
+from symdesign.structure.base import ContainsResidues, Residue, SS_HELIX_IDENTIFIERS
+from symdesign.structure.coordinates import superposition3d
+from symdesign.structure.model import Chain, Entity, Model, Pose, ContainsEntities
 from symdesign.structure.utils import chain_id_generator, DesignError, termini_literal
 from symdesign.utils import types
 from symdesign.utils.SymEntry import SymEntry
@@ -380,9 +380,11 @@ def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples
     return bent_coords_samples
 
 
-def prepare_alignment_motif(model: Structure, model_start: int, motif_length: int,
-                            termini: termini_literal, extension_length: int = 0, alignment_length: int = 5) -> tuple[Structure, Chain]:
-    """From a Structure, select helices of interest from a termini of the model and separate the model into the
+def prepare_alignment_motif(
+    model: ContainsResidues, model_start: int, motif_length: int,
+    termini: termini_literal, extension_length: int = 0, alignment_length: int = 5
+) -> tuple[ContainsResidues, Chain]:
+    """From a ContainsResidues, select helices of interest from a termini of the model and separate the model into the
     original model and the selected helix
 
     Args:
@@ -507,7 +509,7 @@ def get_terminal_helix_start_index_and_length(secondary_structure: str, termini:
 
 
 # @profile
-def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
+def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
     """
 
     Args:

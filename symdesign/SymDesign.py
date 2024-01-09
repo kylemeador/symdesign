@@ -53,7 +53,6 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
         uniprot_entities: All UniProtEntity instances which should be checked for evolutionary info
         metadata: The ProteinMetadata instances that are being imported for the first time
         batch_commands: Whether commands should be made for batch submission
-        # structures: The Structure instances that are being imported for the first time
     Returns:
         The processed structures
     """
@@ -73,7 +72,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
                         f'\tpython {" ".join(sys.argv)}')
             sys.exit(1)
 
-    # Set up common Structure/Entity resources
+    # Set up common Entity resources
     if job.use_evolution:
         profile_search_instructions = \
             job.process_evolutionary_info(uniprot_entities=uniprot_entities, batch_commands=batch_commands)
@@ -145,8 +144,8 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
     Args:
         job: The active JobResources singleton
         sym_entry: The SymEntry used to perform the orient protocol on the specified structure identifiers
-        paths: The locations on disk to search for Structure instances
-        pdb_codes: The PDB API EntryID, EntityID, or AssemblyID codes to fetch Structure instances
+        paths: The locations on disk to search for structural files
+        pdb_codes: The PDB API EntryID, EntityID, or AssemblyID codes to fetch structure information
         query_codes: Whether a PDB API query should be initiated
     Returns:
         The tuple consisting of (
@@ -187,7 +186,7 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
 def load_poses_from_structure_and_entity_pairs(job: JobResources,
                                                structure_id_to_entity_ids: dict[str, Iterable[str]] | list[Pose],
                                                all_protein_metadata: list[sql.ProteinMetadata]) -> list[Pose]:
-    """From specified identifiers, load the corresponding Pose and return all Structure instances
+    """From specified identifiers, load the corresponding Pose and return all instances
 
     Args:
         job:
@@ -252,7 +251,7 @@ def load_poses_from_structure_and_entity_pairs(job: JobResources,
 
                 entity.metadata = data
             structures.append(pose)
-    else:  # These are already processed Structure instances
+    else:  # These are already processed structure instances
         structures = structure_id_to_entity_ids
 
     return structures
@@ -882,9 +881,10 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Grab all Poses (PoseJob instance) from either database, directory, project, single, or file
     # -----------------------------------------------------------------------------------------------------------------
-    # pose_jobs hold jobs with specific poses
-    # list[PoseJob] for an establishes pose
-    # list[tuple[Structure, Structure]] for a nanohedra docking job
+    """pose_jobs hold jobs with specific Structure that constitue a pose
+    list[PoseJob] for an establishes pose
+    list[tuple[StructureBase, StructureBase]] for a nanohedra docking job
+    """
     pose_jobs: list[PoseJob] | list[tuple[Any, Any]] = []
     logger.info(f'Setting up input for {job.module}')
     if job.module == flags.initialize_building_blocks:
