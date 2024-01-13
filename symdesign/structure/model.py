@@ -807,6 +807,821 @@ class ContainsChainsMixin:
         """
         return chain_id_generator()
 
+    @property
+    def chain_breaks(self) -> list[int]:
+        """Return the index where each of the Chain instances ends, i.e. at the c-terminal Residue"""
+        return [structure.c_terminal_residue.index for structure in self.chains]
+    #
+    # @property
+    # def atom_indices_per_chain(self) -> list[list[int]]:
+    #     """Return the atom indices for each Chain in the Model"""
+    #     return [structure.atom_indices for structure in self.chains]
+    #
+    # @property
+    # def residue_indices_per_chain(self) -> list[list[int]]:
+    #     """Return the residue indices for each Chain in the Model"""
+    #     return [structure.residue_indices for structure in self.chains]
+
+    def orient(self, symmetry: str = None):
+        """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
+
+        Args:
+            symmetry: The symmetry of the Structure
+        """
+        # These notes are obviated by the use of the below protocol with from_file() constructor
+        # orient_oligomer.f program notes
+        # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
+        # C		in ways such as but not limited to:
+        # C     equivalent residues in different chains don't have the same numbering; different subunits
+        # C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
+        # C		of separate IDs; multiple conformations are written out for the same subunit structure
+        # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
+        try:
+            subunit_number = utils.symmetry.valid_subunit_number[symmetry]
+        except KeyError:
+            SymmetryError(
+                f"{self.orient.__name__}: Symmetry {symmetry} isn't a valid symmetry. Please try one of: "
+                f'{", ".join(utils.symmetry.valid_symmetries)}')
+            return
+
+        number_of_subunits = self.number_of_chains
+        multicomponent = False
+        if symmetry == 'C1':
+            self.log.debug("C1 symmetry doesn't have a canonical orientation. Translating to the origin")
+            self.translate(-self.center_of_mass)
+            return
+        elif number_of_subunits > 1:
+            if number_of_subunits != subunit_number:
+                if number_of_subunits in utils.symmetry.multicomponent_valid_subunit_number.get(symmetry):
+                    multicomponent = True
+                else:
+                    raise SymmetryError(
+                        f"{self.name} couldn't be oriented: It has {number_of_subunits} subunits while a multiple of "
+                        f'{subunit_number} are expected for symmetry={symmetry}')
+        else:
+            raise SymmetryError(
+                f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
+
+        orient_input = Path(putils.orient_exe_dir, 'input.pdb')
+        orient_output = Path(putils.orient_exe_dir, 'output.pdb')
+
+        def clean_orient_input_output():
+            orient_input.unlink(missing_ok=True)
+            orient_output.unlink(missing_ok=True)
+
+        clean_orient_input_output()
+        orient_kwargs = {
+            'out_path': str(orient_input),
+            'pdb_number': True  # Change residue numbering to PDB numbering
+        }
+        if multicomponent:
+            if not isinstance(self, ContainsEntities):
+                raise SymmetryError(
+                    f"Couldn't {repr(self)}.{self.orient.__name__} as the symmetry is {multicomponent=}, however, there"
+                    f" are no .entities in the class {self.__class__.__name__}"
+                )
+            self.entities[0].write(assembly=True, **orient_kwargs)
+        else:
+            self.write(**orient_kwargs)
+
+        # Todo superposition3d -> quaternion
+        name = self.name
+        p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, cwd=putils.orient_exe_dir)
+        in_symm_file = os.path.join(putils.orient_exe_dir, 'symm_files', symmetry)
+        stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
+        self.log.debug(name + stdout.decode()[28:])
+        self.log.debug(stderr.decode()) if stderr else None
+        if not orient_output.exists() or orient_output.stat().st_size == 0:
+            # Todo change output to logger with potential for file and stdout?
+            try:
+                log_file = getattr(self.log.handlers[0], 'baseFilename', None)
+            except IndexError:  # No handlers attached
+                log_file = None
+            log_message = f'. Check {log_file} for more information' if log_file else \
+                f': {stderr.decode()}' if stderr else ''
+            clean_orient_input_output()
+            raise utils.SymDesignException(
+                f"{putils.orient_exe_path} couldn't orient {name}{log_message}")
+
+        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
+        orient_fixed_struct = oriented_pdb.chains[0]
+        if multicomponent:
+            moving_struct = self.entities[0]
+        else:
+            moving_struct = self.chains[0]
+
+        orient_fixed_seq = orient_fixed_struct.sequence
+        moving_seq = moving_struct.sequence
+
+        fixed_coords = orient_fixed_struct.ca_coords
+        moving_coords = moving_struct.ca_coords
+        if orient_fixed_seq != moving_seq:
+            # Do an alignment, get selective indices, then follow with superposition
+            self.log.debug(f'{self.orient.__name__}(): existing Chain {moving_struct.chain_id} and '
+                           f'oriented Chain {orient_fixed_struct.chain_id} are being aligned for superposition')
+            fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
+            fixed_coords = fixed_coords[fixed_indices]
+            moving_coords = moving_coords[moving_indices]
+
+        _, rot, tx = superposition3d(fixed_coords, moving_coords)
+
+        self.transform(rotation=rot, translation=tx)
+        clean_orient_input_output()
+
+
+class ContainsEntities(ContainsChains):
+    """"""
+    entity_info: dict[str, dict[dict | list | str]] | dict
+
+    def __init__(self, entities: bool | list[Entity] | Structures = True,
+                 entity_info: dict[str, dict[dict | list | str]] = None,
+                 # rename_chains: bool = False,
+                 **kwargs):
+        """
+
+        Args:
+            entities: Whether to construct the structure from existing Entity instances, or create Entity instances from
+                chain instances
+            entity_info:
+            **kwargs:
+        """
+        super().__init__(**kwargs)  # ContainsEntities
+
+        self.entity_info = {} if entity_info is None else entity_info
+
+        if entities:
+            self.structure_containers.append('_entities')
+            if isinstance(entities, (list, Structures)):
+                # Create the instance from existing entities
+                self.assign_residues_from_structures(entities)
+                # Set the entities accordingly, first copying, then resetting, and finally updating the parent
+                self._entities = entities
+                self._copy_structure_containers()
+                self.reset_structures_states(self._entities)
+                self._update_structure_container_attributes(_parent=self)
+                rename_chains = kwargs.get('rename_chains')
+                if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
+                    available_chain_ids = chain_id_generator()
+                    for entity in self.entities:
+                        entity.chain_id = next(available_chain_ids)
+                        # If the full structure wanted contiguous chain_ids, this should be used
+                        # for _ in range(entity.number_of_symmetry_mates):
+                        #     # Discard ids
+                        #     next(available_chain_ids)
+                        # self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
+                    # self.chain_ids.extend([entity.chain_id for entity in self.entities])
+            else:  # Provided as True
+                self._entities = []
+                self._create_entities(**kwargs)
+
+            if not self.chain_ids:
+                # Set chain_ids according to self.entities as it wasn't set by self.chains (probably False)
+                # Todo make property or move to .from_entities()
+                self.chain_ids.extend([entity.chain_id for entity in self.entities])
+        else:
+            self._entities = []
+
+        # If any of the entities are symmetric, ensure the new Model is aware they are
+        for entity in self.entities:
+            if entity.is_symmetric():
+                self.symmetric_dependents = '_entities'
+                break
+
+        # self.api_entry = None
+        # """
+        # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+        #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+        # """
+        # Must be in class
+        # self.biological_assembly
+
+    @property
+    def entities(self) -> list[Entity]:  # | Structures
+        """Returns each of the Entity instances in the Structure"""
+        return self._entities
+
+    @property
+    def number_of_entities(self) -> int:
+        """Return the number of Entity instances in the Structure"""
+        return len(self.entities)
+
+    # def iterate_over_entity_chains(self) -> Generator[Chain, None, None]:
+    #     for idx in range(max(entity.number_of_chains for entity in self.entities)):
+    #         for entity in self.entities:
+    #             try:
+    #                 yield entity.chains[idx]
+    #             except IndexError:
+    #                 continue
+    #
+    # self._chains = iterate_over_entity_chains
+
+    def _format_seqres(self, asu: bool = True, **kwargs) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Args:
+            asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
+        Returns:
+            The .pdb formatted SEQRES record
+        """
+        if asu:
+            structure_container = self.entities
+        else:
+            structure_container = self.chains
+
+        formatted_reference_sequence = \
+            {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
+                                       for aa in struct.reference_sequence)
+             for struct in structure_container}
+        chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
+        return '%s\n' \
+            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
+                        f'{formatted_sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]}         '
+                        for chain_id, formatted_sequence in formatted_reference_sequence.items()
+                        for line_number in range(1, 1 + math.ceil(len(formatted_sequence) / seq_res_len)))
+
+    def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9,
+                                    length_difference: float = None, **kwargs):
+        """Find all unique Entities in the input .pdb file. These are unique sequence objects
+
+        Args:
+            method: The method used to extract information. One of 'sequence' or 'structure'
+            tolerance: The acceptable difference between chains to consider them the same Entity.
+                Alternatively, the use of a structural match should be used. For example, when each chain in an ASU is
+                structurally deviating, but shares a sequence with an existing chain
+            length_difference: A percentage expressing the maximum length difference acceptable for a matching entity.
+                Where the difference in lengths is calculated by the magnitude difference between them divided by the
+                larger. For example, 100 and 111 and 100 and 90 would both be ~10% length difference
+        Sets:
+            self.entity_info
+        """
+        if not 0 < tolerance <= 1:
+            raise ValueError(
+                f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance} isn't allowed. Must be bounded "
+                "between (0-1]")
+        if length_difference is None:
+            length_difference = 1 - tolerance
+
+        entity_start_idx = 1
+        if self.entity_info:
+            start_with_entity_info = True
+            warn_parameters_msg = f"The parameters 'tolerance' and 'length_difference' aren't compatible with the " \
+                                  f"chain.sequence and the soon to be Entity sequence.\n" \
+                                  f"tolerance={tolerance}\tlength_difference={length_difference}"
+            # Remove existing chain IDs
+            for data in self.entity_info.values():
+                data['chains'] = []
+            entity_idx = count(entity_start_idx + len(self.entity_info))
+        else:  # Assume that all chains are new_entities
+            start_with_entity_info = False
+            entity_idx = count(entity_start_idx)
+
+        for chain in self.chains:
+            # If the passed parameters don't cover the sequences provided
+            warn_bad_parameters = False
+            chain_id = chain.chain_id
+            chain_sequence = chain.sequence
+            numeric_chain_seq = sequence_to_numeric(
+                chain_sequence, translation_table=default_substitution_matrix_translation_table)
+            perfect_score = default_substitution_matrix_array[numeric_chain_seq, numeric_chain_seq].sum()
+            best_score = -10000  # Setting arbitrarily bad
+            self.log.debug(
+                f'Searching for matching entities for Chain {chain_id} with perfect_score={perfect_score}')
+            for entity_name, data in self.entity_info.items():
+                # Check if the sequence associated with the Chain is in entity_info
+                # Start with the Structure sequence as this is going to be a closer match
+                entity_sequence = struct_sequence = data.get('sequence', False)
+                if not struct_sequence:  # No Structure sequence in entity_info
+                    entity_sequence = data['reference_sequence']
+                #     reference_sequence = True
+                # else:
+                #     reference_sequence = False
+
+                if chain_sequence == entity_sequence:
+                    self.log.debug(f'Chain {chain_id} matches Entity {entity_name} sequence exactly')
+                    data['chains'].append(chain_id)
+                    break
+
+                # Use which ever sequence is greater as the max
+                len_seq, len_chain_seq = len(entity_sequence), len(chain_sequence)
+                if len_seq >= len_chain_seq:
+                    large_sequence_length, small_sequence_length = len_seq, len_chain_seq
+                else:  # len_seq < len_chain_seq
+                    small_sequence_length, large_sequence_length = len_seq, len_chain_seq
+
+                # Align to find their match
+                # generate_alignment('AAAAAAAAAA', 'PPPPPPPPPP').score -> -10
+                alignment = generate_alignment(chain_sequence, entity_sequence)
+                # score = alignment.score  # Grab score value
+                # Find score and bound between 0-1. 1 should be max if it perfectly aligns
+                match_score = alignment.score / perfect_score
+                if match_score <= 0:  # Throw these away
+                    continue
+                length_proportion = (large_sequence_length - small_sequence_length) / large_sequence_length
+                self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
+                               f'and {length_proportion:.2f} length difference with tolerance={tolerance} '
+                               f'and length_difference={length_difference}')
+                if match_score >= tolerance and length_proportion <= length_difference:
+                    self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
+                    # If number of sequence matches is > tolerance, and the length difference < tolerance
+                    # the current chain is the same as the Entity, add to chains, and move on to the next chain
+                    if start_with_entity_info:
+                        # There is information, however, ensure it is the best info
+                        # Especially if there isn't a structure_sequence, the reference is used to align
+                        # so check all references then set a struct_sequence, i.e. data['sequence'] in the else clause
+                        if struct_sequence:
+                            # These should've matched perfectly unless there are mutations from model
+                            data['chains'].append(chain_id)
+                            break
+                        else:  # ref_sequence. There is more lenience between the chain.sequence and entity sequence
+                            if match_score > best_score:
+                                # Set the best_score and best_entity
+                                best_score = match_score
+                                best_entity = entity_name
+                            # Run again to ensure that the there isn't a better choice
+                            continue
+                    else:  # The entity isn't unique, add to the possible chain IDs
+                        data['chains'].append(chain_id)
+                        break
+                elif start_with_entity_info and match_score > best_score:
+                    # Set the best_score and best_entity
+                    best_score = match_score
+                    best_entity = entity_name
+                    warn_bad_parameters = True
+            else:  # No match, this is a new Entity
+                if start_with_entity_info:
+                    # self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
+                    # Set the 'sequence' to the structure sequence
+                    try:
+                        data = self.entity_info[best_entity]
+                    except UnboundLocalError:  # best_entity not set
+                        raise DesignError(warn_parameters_msg)
+                    data['sequence'] = struct_sequence
+                    data['chains'].append(chain_id)
+                    del best_entity
+                    if warn_bad_parameters:
+                        self.log.debug(warn_parameters_msg)
+                else:  # No existing entity matches, add new entity
+                    entity_name = f'{self.name}_{next(entity_idx)}'
+                    self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
+                    self.entity_info[entity_name] = dict(chains=[chain_id], sequence=chain_sequence)
+
+        self.log.debug(f'Entity information was solved by {method} match')
+
+    # Todo
+    #  Externalize this outside of symdesign.structure dependencies?
+    def retrieve_metadata_from_pdb(self, biological_assembly: int = None) -> dict[str, Any] | dict:
+        """Query the PDB API for information on the PDB code found at the Model.name attribute
+
+        For each new instance, makes one call to the PDB API, plus an additional call for each Entity, and one more
+        if biological_assembly is passed. If this has been loaded before, it uses the persistent wrapapi.APIDatabase
+
+        Args:
+            biological_assembly: The number of the biological assembly that is associated with this structural state
+        Sets:
+            self.api_entry (dict[str, dict[Any] | float] | dict):
+                {'assembly': [['A', 'B'], ...],
+                 'entity': {'EntityID':
+                                {'chains': ['A', 'B', ...],
+                                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
+                                 'reference_sequence': 'MSLEHHHHHH...',
+                                 'thermophilicity': 1.0},
+                            ...},
+                 'res': resolution,
+                 'struct': {'space': space_group, 'a_b_c': (a, b, c),
+                            'ang_a_b_c': (ang_a, ang_b, ang_c)}
+                }
+        """
+        # api_entry = self.api_entry
+        # if api_entry is not None:  # Already tried to solve this
+        #     return
+
+        # if self.api_db:
+        try:
+            # retrieve_api_info = self.api_db.pdb.retrieve_data
+            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
+        except AttributeError:
+            retrieve_api_info = query.pdb.query_pdb_by
+
+        # if self.name:  # Try to solve API details from name
+        parsed_name = self.name
+        splitter_iter = iter('_-')  # 'entity, assembly'
+        idx = count(-1)
+        extra = None
+        while len(parsed_name) != 4:
+            try:  # To parse the name using standard PDB API entry ID's
+                parsed_name, *extra = parsed_name.split(next(splitter_iter))
+            except StopIteration:
+                # We didn't find an EntryID in parsed_name from splitting typical PDB formatted strings
+                self.log.debug(f"The name '{self.name}' can't be coerced to PDB API format")
+                # api_entry = {}
+                return {}
+            else:
+                next(idx)
+        # Set the index to the index that was stopped at
+        idx = next(idx)
+
+        # At some point, len(parsed_name) == 4
+        if biological_assembly is not None:
+            # query_args.update(assembly_integer=self.assembly)
+            # # self.api_entry.update(_get_assembly_info(self.name))
+            api_entry = retrieve_api_info(entry=parsed_name) or {}
+            api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=biological_assembly)
+            # ^ returns [['A', 'A', 'A', ...], ...]
+        elif extra:  # Extra not None or []
+            # Todo, use of elif means 1ABC_1.pdb2 wouldn't work
+            # Try to parse any found extra to an integer denoting entity or assembly ID
+            integer, *non_sense = extra
+            if integer.isdigit() and not non_sense:
+                integer = int(integer)
+                if idx == 0:  # Entity integer, such as 1ABC_1.pdb
+                    api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
+                    # retrieve_api_info returns
+                    # {'EntityID': {'chains': ['A', 'B', ...],
+                    #               'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
+                    #               'reference_sequence': 'MSLEHHHHHH...',
+                    #               'thermophilicity': 1.0},
+                    #  ...}
+                    parsed_name = f'{parsed_name}_{integer}'
+                else:  # Get entry alone. This is an assembly or unknown conjugation. Either way entry info is needed
+                    api_entry = retrieve_api_info(entry=parsed_name) or {}
+
+                    if idx == 1:  # This is an assembly integer, such as 1ABC-1.pdb
+                        api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=integer)
+            else:  # This isn't an integer or there are extra characters
+                # It's likely they are extra characters that won't be of help
+                # Tod0, try to collect anyway?
+                self.log.debug(
+                    f"The name '{self.name}' contains extra info that can't be coerced to PDB API format")
+                api_entry = {}
+        elif extra is None:  # Nothing extra as it was correct length to begin with, just query entry
+            api_entry = retrieve_api_info(entry=parsed_name)
+        else:
+            raise RuntimeError(
+                f"This logic wasn't expected and shouldn't be allowed to persist: "
+                f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
+        if api_entry:
+            self.log.debug(f'Found PDB API information: '
+                           f'{", ".join(f"{k}={v}" for k, v in api_entry.items())}')
+            # Set the identified name to lowercase
+            self.name = parsed_name.lower()
+            for entity in self.entities:
+                entity.name = entity.name.lower()
+
+        return api_entry
+
+    def _create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
+        """Create all Entities in the PDB object searching for the required information if it was not found during
+        file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
+        biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
+        instance using a specified threshold of sequence homology
+        Args:
+            entity_names: Names explicitly passed for the Entity instances. Length must equal number of entities.
+                Names will take precedence over query_by_sequence if passed
+            query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence. Only used
+                if entity_names not provided
+        """
+        if self.is_parent():
+            biological_assembly = self.metadata.biological_assembly
+        else:
+            biological_assembly = None
+
+        if not self.entity_info:
+            # We didn't get info from the file (probably not PDB), so we have to try and piece together.
+            # The file is either from a program that has modified an original PDB file, or may be some sort of PDB
+            # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
+            # after the .pdb extension (.pdb1). If not, it may be an assembly file from another source, in which case we
+            # have to solve by using the atomic info
+
+            # First, try to get api data for the structure in case it is a PDB EntryID (or likewise)
+            # # self.retrieve_metadata_from_pdb()
+            # # api_entry = self.api_entry
+            api_entry = self.retrieve_metadata_from_pdb(biological_assembly=biological_assembly)
+            if api_entry:  # Not an empty dict
+                found_api_entry = True
+                if biological_assembly:
+                    # As API returns information on the asu, assembly may be different.
+                    # We fetch API info for assembly, so we try to reconcile
+                    multimodel = self.is_parsed_multimodel()
+                    for entity_name, data in api_entry.get('entity', {}).items():
+                        chains = data['chains']
+                        assembly_data = api_entry.get('assembly', [])
+                        for cluster_chains in assembly_data:
+                            if not set(cluster_chains).difference(chains):  # nothing missing, correct cluster
+                                self.entity_info[entity_name] = data
+                                if multimodel:  # Ensure the renaming of chains is handled correctly
+                                    self.entity_info[entity_name].update(
+                                        {'chains': [
+                                            new_chn for new_chn, old_chn in zip(self.chain_ids, self.original_chain_ids)
+                                            if old_chn in chains
+                                        ]})
+                                # else:  # chain names should be the same as assembly API if file is sourced from PDB
+                                #     self.entity_info[entity_name] = data
+                                break  # we satisfied this cluster, move on
+                        else:  # if we didn't satisfy a cluster, report and move to the next
+                            self.log.error(f'Unable to find the chains corresponding from Entity {entity_name} to '
+                                           f'assembly {biological_assembly} with data {assembly_data}')
+                else:  # We can't be certain of the requested biological assembly
+                    for entity_name, data in api_entry.get('entity', {}).items():
+                        self.entity_info[entity_name] = data
+            else:  # Still nothing, the API didn't work for self.name. Solve by atom information
+                found_api_entry = False
+                # Get rid of any information already acquired
+                self.entity_info = {}
+                self._get_entity_info_from_atoms(**kwargs)
+                if query_by_sequence and entity_names is None:
+                    # Copy self.entity_info data for iteration, then reset for re-addition
+                    entity_names_to_data = list(self.entity_info.items())
+                    self.entity_info = {}
+                    for entity_name, data in entity_names_to_data:
+                        # Todo incorporate wrapapi call to fetch from local sequence db
+                        # Using data['sequence'] here as there is no data['reference_sequence'] from PDB API
+                        entity_sequence = data.pop('sequence', None)
+                        pdb_api_entity_id = query.pdb.retrieve_entity_id_by_sequence(entity_sequence)
+                        if pdb_api_entity_id:
+                            new_name = pdb_api_entity_id.lower()
+                            self.log.info(f'Entity {entity_name} now named "{new_name}", as found by PDB API '
+                                          f'sequence search')
+                        else:
+                            self.log.info(f"Entity {entity_name} couldn't be located by PDB API sequence search")
+                            # Set as the reference_sequence because we won't find one without another database...
+                            data['reference_sequence'] = entity_sequence
+                            new_name = entity_name
+                        self.entity_info[new_name] = data
+        else:
+            # self.log.debug(f"_create_entities entity_info={self.entity_info}")
+            # This is being set to True because there is API info in the self.entity_info (If passed correctly)
+            found_api_entry = True
+
+        if entity_names is not None:
+            renamed_entity_info = {}
+            for idx, (entity_name, data) in enumerate(self.entity_info.items()):
+                try:
+                    new_entity_name = entity_names[idx]
+                except IndexError:
+                    raise IndexError(
+                        f'The number of indices in entity_names, {len(entity_names)} != {len(self.entity_info)}, the '
+                        f'number of entities in the {self.__class__.__name__}')
+
+                # Get any info already solved using the old name
+                renamed_entity_info[new_entity_name] = data
+                self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
+            # Reset self.entity_info with the same order, but new names
+            self.entity_info = renamed_entity_info
+
+        # Check to see that the parsed entity_info is compatible with the chains already parsed
+        if found_api_entry:
+            # Set if self.retrieve_metadata_from_pdb was called above or entity_info provided to Model construction
+            if self.nucleotides_present:
+                self.log.warning(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
+
+            max_reference_sequence = 0
+            for data in self.entity_info.values():
+                reference_sequence_length = len(data['reference_sequence'])
+                if reference_sequence_length > max_reference_sequence:
+                    max_reference_sequence = reference_sequence_length
+            # Find the minimum chain sequence length
+            min_chain_sequence = sys.maxsize
+            for chain in self.chains:
+                chain_sequence_length = chain.number_of_residues
+                if chain_sequence_length < min_chain_sequence:
+                    min_chain_sequence = chain_sequence_length
+
+            # Use the Structure attributes to get the entity info correct
+            # Provide an expected tolerance and length_difference
+            # Sequence could be highly mutated compared to the reference, so set the tolerance threshold to a percentage
+            # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publication)
+            tolerance = .2  # .3 <- Some ProteinMPNN sequences failed this bar
+            # Because the reference sequence could be much longer than the chain sequence,
+            # find an 'expected' length proportion
+            # length_proportion = (max_reference_sequence-min_chain_sequence) / max_reference_sequence
+            length_proportion = min_chain_sequence / max_reference_sequence
+            self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
+        else:
+            entity_api_entry = {}
+            api_entry = {'entity': entity_api_entry}
+            # entity_api_entry = self.api_entry.get('entity', {})
+            # if not entity_api_entry:
+            #     self.api_entry['entity'] = entity_api_entry
+            # if self.api_db:
+            try:
+                # retrieve_api_info = self.api_db.pdb.retrieve_data
+                retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
+            except AttributeError:
+                retrieve_api_info = query.pdb.query_pdb_by
+
+            for entity_name, data in self.entity_info.items():
+                # update_entity_info_from_api(new_entity_name)
+                # def update_entity_info_from_api(entity_name: str):
+                entity_api_data: dict = retrieve_api_info(entity_id=entity_name)
+                """entity_api_data takes the format:
+                {'EntityID': 
+                    {'chains': ['A', 'B', ...],
+                     'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
+                     'reference_sequence': 'MSLEHHHHHH...',
+                     'thermophilicity': 1.0},
+                 ...}
+                This is the final format of each entry in the self.entity_info dictionary
+                """
+                # Set the parent self.api_entry['entity']
+                # If the entity_name is already present, it's expected that self.entity_info is already solved
+                if entity_api_data:  # and entity_name not in entity_api_entry:
+                    entity_api_entry.update(entity_api_data)
+                    # Respect already solved 'chains' info in self.entity_info
+                    if data.get('chains', {}):
+                        # Remove entity_api_data 'chains'
+                        entity_api_data[entity_name].pop('chains')
+                    # Update the entity_info with the entity_api_data
+                    data.update(entity_api_data[entity_name])
+
+        # Finish processing by cleaning data and preparing for Entity()
+        for entity_name, data in list(self.entity_info.items()):
+            # For each Entity, get matching Chain instances
+            # Add any missing information to the individual data dictionary
+            # dbref = data.get('dbref', None)
+            # # if dbref is None:
+            # #     dbref = {}
+            # entity_data['dbref'] = data['dbref'] = dbref
+            uniprot_ids = None
+            # These aren't used anymore
+            entity_sequence = data.pop('sequence', None)
+            dbref = data.pop('dbref', None)
+            if dbref is not None:
+                db_source = dbref.get('db')
+                if db_source == query.pdb.UKB:  # This is a protein
+                    uniprot_ids = dbref['accession']
+                    # Todo put all Entity.from_chains() in this flow control segment
+                    #  once uniprot_ids can be queried with blastp
+                elif db_source == query.pdb.GB:  # Nucleotide
+                    self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
+                                      f'This is currently not parsable')
+                elif db_source == query.pdb.NOR:  # Todo Nucleotide?
+                    self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
+                                      f'This is currently not parsable')
+            # else:
+            #     data['dbref'] = None
+
+            # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
+            #                                               generated from a PDB API sequence search v
+            # if isinstance(entity_name, int):
+            #     data['name'] = f'{self.name}_{data["name"]}'
+
+            # ref_seq = data.get('reference_sequence')
+            # reference_sequence = data.get('reference_sequence')
+            # if reference_sequence is None:
+            #     sequence = data.get('sequence')
+            #     if sequence is None:  # We should try to set using the entity_name
+            #         # Todo transition to wrap_api
+            #         reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
+            #     else:  # We set from Atom info
+            #         reference_sequence = sequence
+            # # else:
+            # entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
+            if 'reference_sequence' not in data:
+                # This is only possible when self.entity_info was set during __init__()
+                # This should not be possible with the passing of an explicit list[sql.ProteinMetadata class]
+                # new_reference_sequence = data.get('sequence')
+                # if new_reference_sequence is None:
+                # We should try to set using the entity_name
+                # Todo transition to wrap_api
+                new_reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
+                # else:  # We set from Atom info
+                #     reference_sequence = sequence
+                data['reference_sequence'] = new_reference_sequence
+
+            # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
+            # data_chains = data.get('chains', [])
+            data_chains = utils.remove_duplicates(data.get('chains', []))
+            chains = [self.chain(chain_id) if isinstance(chain_id, str) else chain_id
+                      for chain_id in data_chains]
+            entity_chains = [chain for chain in chains if chain]
+            entity_data = {
+                **data,  # Place the original data in the new dictionary
+                # 'biological_assembly': biological_assembly,
+                'chains': entity_chains,  # Overwrite chains in data dictionary
+                'uniprot_ids': uniprot_ids,
+            }
+            if len(entity_chains) == 0:
+                if self.nucleotides_present:
+                    self.log.warning(f'Nucleotide chain was already removed from Structure')
+                else:
+                    # This occurred when there were 2 entity records in the entity_info but only 1 in the Structure
+                    self.log.debug(f'Missing associated chains for the Entity {entity_name} with data: '
+                                   f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_chains}, "
+                                   f"data['chains']={data_chains}, "
+                                   f'{", ".join(f"{k}={v}" for k, v in data.items())}')
+                    # Drop this section in the entity_info
+                    self.log.warning(f'Dropping Entity {entity_name} from {self.__class__.__name__} as no Structure '
+                                     f'information exists for it')
+                    self.entity_info.pop(entity_name)
+                    # raise DesignError(f"The Entity couldn't be processed as currently configured")
+                continue
+            #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
+            #                             'api_entry=%s, original_chain_ids=%s'
+            #                             % (self.name, self._create_entities.__name__, self.entity_info,
+            #                             self.biological_assembly, self.api_entry, self.original_chain_ids))
+            # entity_data has attributes chains, dbref, and reference_sequence
+            # entity_data.pop('dbref')  # This isn't used anymore
+            entity = Entity.from_chains(**entity_data, name=entity_name, parent=self)
+            for chain in entity_chains:
+                chain._entity = entity
+
+            self.entities.append(entity)
+
+    @property
+    def entity_breaks(self) -> list[int]:
+        """Return the index where each of the Entity instances ends, i.e. at the c-terminal Residue"""
+        return [structure.c_terminal_residue.index for structure in self.entities]
+
+    def entity(self, entity_id: str) -> Entity | None:
+        """Retrieve an Entity by name
+
+        Args:
+            entity_id: The name of the Entity to query
+        Returns:
+            The Entity if one was found
+        """
+        for entity in self.entities:
+            if entity_id == entity.name:
+                return entity
+        return None
+
+    def entity_from_chain(self, chain_id: str) -> Entity | None:
+        """Return the entity associated with a particular chain id"""
+        for entity in self.entities:
+            if chain_id == entity.chain_id:
+                return entity
+        return None
+
+    def match_entity_by_seq(self, other_seq: str = None, force_closest: bool = True, tolerance: float = 0.7) \
+            -> Entity | None:
+        """From another sequence, returns the first matching chain from the corresponding Entity
+
+        Uses a local alignment to produce the match score
+
+        Args:
+            other_seq: The sequence to query
+            force_closest: Whether to force the search if a perfect match isn't identified
+            tolerance: The acceptable difference between sequences to consider them the same Entity.
+                Tuning this parameter is necessary if you have sequences which should be considered different entities,
+                but are fairly similar
+        Returns
+            The matching Entity if one was found
+        """
+        for entity in self.entities:
+            if other_seq == entity.sequence:
+                return entity
+
+        # We didn't find an ideal match
+        if force_closest:
+            entity_alignment_scores = {}
+            for entity in self.entities:
+                alignment = generate_alignment(other_seq, entity.sequence, local=True)
+                entity_alignment_scores[entity] = alignment.score
+
+            max_score, max_score_entity = 0, None
+            for entity, score in entity_alignment_scores.items():
+                normalized_score = score / len(entity.sequence)
+                if normalized_score > max_score:
+                    max_score = normalized_score  # alignment_score_d[entity]
+                    max_score_entity = entity
+
+            if max_score > tolerance:
+                return max_score_entity
+
+        return None
+
+    @property
+    def sequence(self) -> str:
+        """Return the sequence of structurally modeled residues for every Entity instance
+
+        Returns:
+            The concatenated sequence for all Entity instances combined
+        """
+        return ''.join(entity.sequence for entity in self.entities)
+
+    @property
+    def reference_sequence(self) -> str:
+        """Return the sequence for every Entity instance, constituting all Residues, not just structurally modeled ones
+
+        Returns:
+            The concatenated reference sequences for all Entity instances combined
+        """
+        return ''.join(entity.reference_sequence for entity in self.entities)
+
+    @property
+    def atom_indices_per_entity(self) -> list[list[int]]:  # Todo Entity expansion
+        """Return the atom indices for each Entity in the Model"""
+        return [structure.atom_indices for structure in self.entities]
+
+    # @property
+    # def residue_indices_per_entity(self) -> list[list[int]]:
+    #     """Return the residue indices for each Entity in the Model"""
+    #     return [structure.residue_indices for structure in self.entities]
+
+
 class SymmetryOpsMixin(abc.ABC):
     _asu_indices: slice  # list[int]
     _asu_model_idx: int
@@ -1220,6 +2035,22 @@ class SymmetryOpsMixin(abc.ABC):
         else:
             return self.frac_to_cart(model_coords)
 
+    # # Todo ContainsEntities
+    # @property
+    # def atom_indices_per_entity_symmetric(self):
+    #     # Todo make Structure .atom_indices a numpy array
+    #     #  Need to modify delete_residue and insert residue ._atom_indices attribute access
+    #     # alt solution may be quicker by performing the following addition then .flatten()
+    #     # broadcast entity_indices ->
+    #     # (np.arange(model_number) * number_of_atoms).T
+    #     # |
+    #     # v
+    #     # number_of_atoms = self.number_of_atoms
+    #     # number_of_atoms = len(self.coords)
+    #     return [self.make_indices_symmetric(entity_indices) for entity_indices in self.atom_indices_per_entity]
+    #     # return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
+    #     #          for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+
     @property
     def asu_model_index(self) -> int:
         """The asu equivalent model in the SymmetricModel. Zero-indexed"""
@@ -1241,6 +2072,8 @@ class SymmetryOpsMixin(abc.ABC):
     @property
     def asu_indices(self) -> slice:
         """Return the ASU indices"""
+        # Todo
+        #  Always the same as _atom_indices due to sym/coords nature. Save slice mechanism, remove overhead!
         try:
             return self._asu_indices
         except AttributeError:
@@ -1257,6 +2090,17 @@ class SymmetryOpsMixin(abc.ABC):
             self.generate_symmetric_coords()
             return self._symmetric_coords.coords
 
+    # @symmetric_coords.setter
+    # def symmetric_coords(self, coords: np.ndarray | list[list[float]]):
+    #     if isinstance(coords, Coords):
+    #         self._symmetric_coords = coords
+    #     else:
+    #         self._symmetric_coords = Coords(coords)
+    #     # Todo make below like StructureBase
+    #     #  once symmetric_coords are handled as a settable property
+    #     #  this requires setting the asu if these are set
+    #     self._models_coords.replace(self.make_indices_symmetric(self._atom_indices), coords)
+
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
         """A view of the symmetric coords split at different symmetric models"""
@@ -1266,6 +2110,35 @@ class SymmetryOpsMixin(abc.ABC):
             self._symmetric_coords_split = np.split(self.symmetric_coords, self.number_of_symmetry_mates)
 
             return self._symmetric_coords_split
+
+    # # Todo ContainsEntities
+    # @property
+    # def symmetric_coords_split_by_entity(self) -> list[list[np.ndarray]]:
+    #     """A view of the symmetric coords split for each symmetric model by the Pose Entity indices"""
+    #     try:
+    #         return self._symmetric_coords_split_by_entity
+    #     except AttributeError:
+    #         symmetric_coords_split = self.symmetric_coords_split
+    #         self._symmetric_coords_split_by_entity = []
+    #         for entity_indices in self.atom_indices_per_entity:
+    #             # self._symmetric_coords_split_by_entity.append(symmetric_coords_split[:, entity_indices])
+    #             self._symmetric_coords_split_by_entity.append(
+    #                 [symmetric_split[entity_indices] for symmetric_split in symmetric_coords_split])
+    #
+    #         return self._symmetric_coords_split_by_entity
+    #
+    # # Todo ContainsEntities
+    # @property
+    # def symmetric_coords_by_entity(self) -> list[np.ndarray]:
+    #     """A view of the symmetric coords for each Entity in order of the Pose Entity indices"""
+    #     try:
+    #         return self._symmetric_coords_by_entity
+    #     except AttributeError:
+    #         self._symmetric_coords_by_entity = []
+    #         for entity_indices in self.atom_indices_per_entity_symmetric:
+    #             self._symmetric_coords_by_entity.append(self.symmetric_coords[entity_indices])
+    #
+    #         return self._symmetric_coords_by_entity
 
     @property
     def center_of_mass_symmetric(self) -> np.ndarray:
@@ -1287,6 +2160,28 @@ class SymmetryOpsMixin(abc.ABC):
         except AttributeError:
             self._center_of_mass_symmetric_models = self.return_symmetric_coords(self.center_of_mass)
             return self._center_of_mass_symmetric_models
+
+    # # Todo ContainsEntities
+    # @property
+    # def center_of_mass_symmetric_entities(self) -> list[list[np.ndarray]]:
+    #     """The center of mass position for each Entity instance in the symmetric system for each symmetry mate with
+    #     shape [(number_of_symmetry_mates, 3), ... number_of_entities]
+    #     """
+    #     # if self.symmetry:
+    #     # self._center_of_mass_symmetric_entities = []
+    #     # for num_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
+    #     #     self._center_of_mass_symmetric_entities.append(np.matmul(np.full(num_atoms, 1 / num_atoms),
+    #     #                                                              entity_coords))
+    #     # return self._center_of_mass_symmetric_entities
+    #     # return [np.matmul(entity.center_of_mass, self._expand_matrices) for entity in self.entities]
+    #     try:
+    #         return self._center_of_mass_symmetric_entities
+    #     except AttributeError:
+    #         self._center_of_mass_symmetric_entities = [
+    #             list(self.return_symmetric_coords(entity.center_of_mass)) for entity in self.entities]
+    #         return self._center_of_mass_symmetric_entities
+
+    # Todo ContainsEntities
     def find_contacting_asu(self, distance: float = 8., **kwargs) -> list[Entity]:
         """Find the maximally contacting symmetry mate for each Entity and return the corresponding Entity instances
 
@@ -1301,6 +2196,11 @@ class SymmetryOpsMixin(abc.ABC):
             self._create_entities()
             entities = self.entities
 
+        # Todo this takes short cuts with the assumption that the self.entities are
+        #  1) oligomeric,
+        #  2) when oligomeric, they are in contact
+        #  A fix would ensure that all symmetric models are created (similar to _assign_pose_transformation COM routine)
+        #  Finding those models where they contact
         number_of_entities = len(entities)
         if number_of_entities != 1:
             idx = count()
@@ -1347,6 +2247,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         return entities
 
+    # Todo ContainsEntities
     def get_contacting_asu(self, distance: float = 8., **kwargs) -> SymmetricModel:  # Todo -> Self python 3.11
         """Find the maximally contacting symmetry mate for each Entity and return the corresponding Entity instances as
          a new Pose
@@ -1374,6 +2275,7 @@ class SymmetryOpsMixin(abc.ABC):
             entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry, rename_chains=rename,
             biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
+    # Todo ContainsEntities
     def set_contacting_asu(self, **kwargs):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
 
@@ -1531,24 +2433,15 @@ class Chain(Structure, SequenceProfile):
             return self._disorder
 
 
-class Entity(Chain, ContainsChainsMixin, Metrics):
-    """Entity
+class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
 
-    Args:
-        chains: A list of Chain instance that match the Entity
-        dbref: The unique database reference for the Entity
-        reference_sequence: The reference sequence (according to expression sequence or reference database)
-        thermophilicity: The extent to which the Entity is deemed thermophilic
-    Keyword Args:
-        name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
+
     """
     _captain: Entity | None
-    _chain_transforms: list[types.TransformationMapping] | list
     """The specific transformation operators to generate all mate chains of the Oligomer"""
     _chains: list | list[Entity]
     _oligomer: Model  # Todo list[Entity] | Structures:
     _is_captain: bool
-    _number_of_symmetry_mates: int
     # Metrics class attributes
     # _df: pd.Series  # Metrics
     # _metrics: sql.EntityMetrics  # Metrics
@@ -1559,7 +2452,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     _api_data: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
     _max_symmetry: int | None
-    _max_symmetry_chain_idx: int | None
+    _max_symmetry_chain_idx: int
     mate_rotation_axes: list[dict[str, int | np.ndarray]] | list
     """Maps mate entities to their rotation matrix"""
     _uniprot_ids: tuple[str | None, ...]
@@ -1578,21 +2471,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     #     """Initialize an Entity from a set of Chain objects and EntityData"""
     #     return cls(chains=chains, metadata=metadata, **kwargs)
 
-    # @classmethod  # Todo implemented above, but clean here to mirror Model?
-    # def from_file(cls):
-    #     return cls()
+    def __init__(self, operators: tuple[np.ndarray | list[list[float]], np.ndarray | list[float]] | np.ndarray = None,
+                 **kwargs):
+        """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated
 
-    def __init__(self, chains: list[Chain] | Structures = None, chain_ids: Iterable[str] = None,
-                 metadata: sql.ProteinMetadata = None,
-                 uniprot_ids: tuple[str, ...] = None,
-                 # uniprot_id: str = None,
-                 # dbref: dict[str, str] = None,
-                 # Todo remove self.thermophilicity once sql load more streamlined
-                 thermophilicity: bool = None,
-                 reference_sequence: str | dict[str, str] = None, **kwargs):
-        """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
+        Args:
+            operators: A set of symmetry operations to designate how to apply symmetry
+        """
         self._captain = None
-        self._chain_transforms = []
         self._is_captain = True
         self._api_data = None  # {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
         self.dihedral_chain = None
@@ -1626,30 +2512,36 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.chain_ids.extend([chain.chain_id for chain in chains])
 
         # Indicate that the first self.chain should be this instance
-        self._chains.clear()
-        self._chains.append(self)
-        self.structure_containers.append('_chains')  # Use '_chains' as 'chains' is okay to equal []
-        if additional_chains:
-            # Todo
-            #  Handle chains with imperfect symmetry by using the actual chain and forgoing the transform
-            #  Need to make a copy of the chain and make it an "Entity mate"
-            self_seq = self.sequence
-            ca_coords = self.ca_coords
-            for chain in additional_chains:  # Todo match this mechanism with the symmetric chain index
-                chain_seq = chain.sequence
-                if chain_seq == self_seq:  # Sequences are apples to apples
+        self._chains[0] = self
+
+        _expand_matrices = []
+        _expand_translations = []
+        if operators is not None:
+            for rot, tx in operators:
+                _expand_matrices.append(rot)
+                _expand_translations.append(tx)
+            symmetry_source = 'operators'
+        else:
+            symmetry_source = 'chains'
+            _expand_matrices.append(utils.symmetry.identity_matrix)
+            _expand_translations.append(utils.symmetry.origin)
+            if additional_chains:
+                self_seq = self.sequence
+                ca_coords = self.ca_coords
+                for chain in additional_chains:
+                    chain_seq = chain.sequence
                     additional_chain_coords = chain.ca_coords
                     first_chain_coords = ca_coords
-                else:  # Get aligned indices, then follow with superposition
-                    self.log.debug(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
-                    fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
-                    additional_chain_coords = chain.ca_coords[fixed_indices]
-                    first_chain_coords = ca_coords[moving_indices]
+                    if chain_seq != self_seq:
+                        # Get aligned indices, then follow with superposition
+                        self.log.debug(f'{repr(chain)} and {repr(self)} require alignment to symmetrize')
+                        fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
+                        additional_chain_coords = additional_chain_coords[fixed_indices]
+                        first_chain_coords = first_chain_coords[moving_indices]
 
-                _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
-                self._chain_transforms.append(dict(rotation=rot, translation=tx))
-                # Todo when capable of asymmetric symmetrization
-                #  self.chains.append(chain)
+                    _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
+                    _expand_matrices.append(rot)
+                    _expand_translations.append(tx)
 
         self._number_of_symmetry_mates = len(self._chain_transforms) + 1
         if self._number_of_symmetry_mates > 1:
@@ -1693,6 +2585,44 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.thermophilicity = metadata.thermophilicity
             if metadata.uniprot_entities is not None:
                 self.uniprot_ids = metadata.uniprot_ids
+        if _expand_matrices:
+            _expand_matrices = np.array(_expand_matrices)
+            if _expand_matrices.ndim == 3:
+                self._expand_matrices = _expand_matrices.swapaxes(-2, -1)
+            else:
+                raise SymmetryError(
+                    f"Couldn't set the symmetry rotation operations from the provided '{symmetry_source}'"
+                )
+            _expand_translations = np.array(_expand_translations)
+            if _expand_translations.ndim == 2:
+                self._expand_translations = _expand_translations[:, None, :]
+            else:
+                raise SymmetryError(
+                    f"Couldn't set the symmetry translation operations from the provided {symmetry_source}"
+                )
+        else:
+            raise ConstructionError(
+                f"Couldn't construct {repr(self)} with 'operators'={operators}"
+            )
+
+        if not self.is_symmetric():
+            # symmetry = 'C1'  # This is accurate but not handled when expecting self.symmetry=None
+            symmetry = None
+            number_of_symmetry_mates = len(_expand_matrices)
+            if number_of_symmetry_mates > 1:
+                if self.is_dihedral():
+                    symmetry = f'D{int(number_of_symmetry_mates / 2)}'
+                elif self.is_cyclic():
+                    symmetry = f'C{number_of_symmetry_mates}'
+                else:  # Higher than D, probably T, O, I, or asymmetric
+                    try:
+                        symmetry = utils.symmetry.subunit_number_to_symmetry[number_of_symmetry_mates]
+                    except KeyError:
+                        self.log.warning(f"Couldn't find a compatible symmetry for the Entity with "
+                                         f"{number_of_symmetry_mates} chain copies")
+                        # symmetry = None
+                        # self.symmetry = "Unknown-symmetry"
+            self.set_symmetry(symmetry=symmetry)
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -1717,14 +2647,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     _parent._dependent_is_updating = False
 
             # Find the transformation from the old coordinates to the new
-            current_ca_coords = self.ca_coords
-            _, new_rot, new_tx = superposition3d(current_ca_coords, prior_ca_coords)
+            new_ca_coords = self.ca_coords
+            _, new_rot, new_tx = superposition3d(new_ca_coords, prior_ca_coords)
 
+            new_rot_t = np.transpose(new_rot)
             # Remove prior transforms by setting a fresh container
-            current_chain_transforms = self._chain_transforms.copy()
-            self._chain_transforms.clear()
+            _expand_matrices = [utils.symmetry.identity_matrix]
+            _expand_translations = [utils.symmetry.origin]
             # Find the transform between the new coords and the current mate chain coords
-            for chain, transform in zip(mate_chains, current_chain_transforms):
+            # for chain, transform in zip(mate_chains, current_chain_transforms):
+            for chain, transform in zip(mate_chains, self.chain_transforms):
                 # self.log.debug(f'Updated transform of mate {chain.chain_id}')
                 # In liu of using chain.coords as lengths might be different
                 # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
@@ -1732,15 +2664,20 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 #     np.matmul(np.matmul(prior_ca_coords,
                 #                         np.transpose(transform['rotation'])) + transform['translation'],
                 #               np.transpose(new_rot)) + new_tx
-                new_chain_ca_coords = \
-                    np.matmul(chain.ca_coords, np.transpose(new_rot)) + new_tx
+                new_chain_ca_coords = np.matmul(chain.ca_coords, new_rot_t) + new_tx
                 # Find the transform from current coords and the new mate chain coords
-                _, rot, tx = superposition3d(new_chain_ca_coords, current_ca_coords)
+                _, rot, tx = superposition3d(new_chain_ca_coords, new_ca_coords)
                 # Save transform
-                self._chain_transforms.append(dict(rotation=rot, translation=tx))
+                # self._chain_transforms.append(dict(rotation=rot, translation=tx))
+                rot_t = np.transpose(rot)
+                _expand_matrices.append(rot_t)
+                _expand_translations.append(tx)
                 # Transform existing mate chain
-                chain.coords = np.matmul(coords, np.transpose(rot)) + tx
+                chain.coords = np.matmul(coords, rot_t) + tx
                 # self.log.debug(f'Setting coords on mate chain {chain.chain_id}')
+
+            self._expand_matrices = np.array(_expand_matrices)  # .swapaxes(-2, -1)
+            self._expand_translations = np.array(_expand_translations)[:, None, :]
         else:  # Accept the new coords
 
     def clear_api_data(self):
@@ -1965,6 +2902,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # def chain_ids(self, chain_ids: list[str]):
     #     self._chain_ids = chain_ids
 
+    @property
+    def chain_transforms(self) -> list[types.TransformationMapping]:
+        """Returns the transformation operations for each of the SymmetryMates"""
+        chain_transforms = []
+        # Skip the first given the mechanism for symmetry mate creation
+        for idx, (rot, tx) in enumerate(zip(list(self.expand_matrices[1:]), list(self.expand_translations[1:]))):
+            chain_transforms.append(types.TransformationMapping(rotation=rot, translation=tx))
+
+        return chain_transforms
+
     @SymmetryBase.symmetry.setter
     def symmetry(self, symmetry: str | None):
         super(StructureBase, StructureBase).symmetry.fset(self, symmetry)
@@ -1972,45 +2919,19 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Set the parent StructureBase.symmetric_dependents to the 'entities' container
             self.parent.symmetric_dependents = 'entities'
 
-    @property
-    def number_of_symmetric_residues(self) -> int:  # Todo present in SymmetricModel
-        """Describes the number of Residues when accounting for symmetry mates"""
-        return self.number_of_symmetry_mates * len(self._residue_indices)  # <- same as self.number_of_residues
-
-    @property
-    def number_of_symmetry_mates(self) -> int:  # Todo in SymmetricModel
-        """The number of copies of the Entity in the Oligomer including the captain Entity"""
-        try:
-            return self._number_of_symmetry_mates
-        except AttributeError:  # Set based on the symmetry, unless that fails then find using chain_ids
-            self._number_of_symmetry_mates = utils.symmetry.valid_subunit_number.get(self.symmetry, len(self.chain_ids))
-            return self._number_of_symmetry_mates
-
-    # @number_of_symmetry_mates.setter
-    # def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as SymmetricModel
-    #     self._number_of_symmetry_mates = number_of_symmetry_mates
-
-    @property
-    def center_of_mass_symmetric(self) -> np.ndarray:  # Todo exactly as in SymmetricModel
-        """The center of mass for the symmetric system with shape (3,)"""
-        # number_of_symmetry_atoms = len(self.symmetric_coords)
-        # return np.matmul(np.full(number_of_symmetry_atoms, 1 / number_of_symmetry_atoms), self.symmetric_coords)
-        # v since all symmetry by expand_matrix anyway
-        return self.center_of_mass_symmetric_models.mean(axis=-2)
-
-    @property
-    def center_of_mass_symmetric_models(self) -> np.ndarray:
-        """The individual centers of mass for each model in the symmetric system"""
-        # try:
-        #     return self._center_of_mass_symmetric_models
-        # except AttributeError:
-        com = self.center_of_mass
-        mate_coms = [com]
-        for transform in self._chain_transforms:
-            mate_coms.append(np.matmul(com, transform['rotation'].T) + transform['translation'])
-
-        # np.array makes the right shape while concatenate doesn't
-        return np.array(mate_coms)
+    # @property
+    # def center_of_mass_symmetric_models(self) -> np.ndarray:
+    #     """The individual centers of mass for each model in the symmetric system"""
+    #     # try:
+    #     #     return self._center_of_mass_symmetric_models
+    #     # except AttributeError:
+    #     com = self.center_of_mass
+    #     mate_coms = [com]
+    #     for transform in self.chain_transforms:
+    #         mate_coms.append(np.matmul(com, transform['rotation'].T) + transform['translation'])
+    #
+    #     # np.array makes the right shape while concatenate doesn't
+    #     return np.array(mate_coms)
 
     def is_captain(self) -> bool:
         """Is the Entity instance the captain?"""
@@ -2033,26 +2954,23 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return [self]
 
     @property
-    def number_of_entities(self) -> int:
-        """Return the number of Entity instances in the Structure"""
-        return 1
-
-    @property
     def chains(self) -> list[Entity]:  # Todo python3.11 -> list[Self] | Structures
         """The mate Chain instances of the instance. If not created, returns transformed copies of the instance"""
         # Set in __init__() -> self._chains = [self]
-        if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
+        chain_transforms = self.chain_transforms
+        chains = self._chains
+        if self._is_captain and len(chains) == 1 and chain_transforms:
             # populate ._chains with Entity mates
-            # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
-            self.log.debug(f"Generating {self.__class__.__name__} mate instances in '.chains' attribute")
-            mate_entities = [self.get_transformed_mate(**transform) for transform in self._chain_transforms]
+            # These mates will be their own "parent", and will be under the control of this instance, i.e. the captain
+            self.log.debug(f"Generating {len(chain_transforms)} {repr(self)} mate instances in '.chains' attribute")
+            mate_entities = [self.get_transformed_mate(**transform) for transform in chain_transforms]
 
             # Set entity.chain_id which sets all residues
             for mate, chain_id in zip(mate_entities, self.chain_ids[1:]):
                 mate.chain_id = chain_id
-            self._chains.extend(mate_entities)
+            chains.extend(mate_entities)
 
-        return self._chains
+        return chains
 
     @property
     def assembly(self) -> Model:
@@ -2064,15 +2982,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._oligomer
         except AttributeError:
-            self.log.debug(f'Loading {repr(self)}.assembly Model upon first access')
             # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
+            self.log.debug(f'Constructing {repr(self)}.assembly')
             self._oligomer = Model.from_chains(self.chains, entities=False, name=f'{self.name}-oligomer', log=self.log)
             return self._oligomer
 
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
-        self._chain_transforms.clear()
-        self._number_of_symmetry_mates = 1
+        self._expand_matrices = self._expand_translations = None
         self._chains.clear()
         self._chains.append(self)
         self._is_captain = False
@@ -2088,40 +3005,44 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self._captain = captain
         self._is_captain = False
         self.chain_ids = [captain.chain_id]  # Set for a length of 1, using the captain.chain_id
-        self._chain_transforms.clear()
+        self._expand_matrices = self._expand_translations = None
 
     def _make_captain(self):
         """Turn the Entity into a "captain" Entity if it isn't already"""
-        if not self._is_captain:
-            # Todo handle superposition with imperfect symmetry
-            # self.log.debug(f'Promoting mate Entity {self.chain_id} to a captain')
-            # Find and save the transforms between the self.coords and the prior captains mate chains
-            current_ca_coords = self.ca_coords
-            self._chain_transforms.clear()
-            for chain in self._captain.chains:
-                # Find the transform from current coords and the new mate chain coords
-                _, rot, tx = superposition3d(chain.ca_coords, current_ca_coords)
-                if np.allclose(utils.symmetry.identity_matrix, rot):
-                    # This "chain" is the self instance and the identity transform is skipped
-                    # self.log.debug(f'Skipping identity transform')
-                    continue
-                # self.log.debug(f'Adding transform between self._captain.chain idx {idx} and the new captain')
-                self._chain_transforms.append(dict(rotation=rot, translation=tx))
+        if self._is_captain:
+            return
 
-            # # Alternative:
-            # # Transform the transforms by finding transform from the old captain to the current coords
-            # # Not sure about the algebraic requirements of the old translation. It may require rotation with offset_ro...
-            # _, offset_rot, offset_tx = superposition3d(self.ca_coords, self._captain.ca_coords)
-            # self._chain_transforms = []  # self._captain._chain_transforms.copy()
-            # for idx, transform in enumerate(self._captain._chain_transforms):  # self._chain_transforms):
-            #     # Rotate the captain oriented rotation matrix to the current coordinates
-            #     new_rotation = np.matmul(transform['rotation'], offset_rot)
-            #     new_transform = transform['translation'] + offset_tx
-            #     self._chain_transforms.append()
+        # self.log.debug(f'Promoting mate {repr(self)} to a captain')
+        # Find and save the transforms between the self.coords and the prior captains mate chains
+        current_ca_coords = self.ca_coords
+        _expand_matrices = [utils.symmetry.identity_matrix]
+        _expand_translations = [utils.symmetry.origin]
+        for chain in self._captain.chains:
+            # Find the transform from current coords and the new mate chain coords
+            _, rot, tx = superposition3d(chain.ca_coords, current_ca_coords)
+            if np.allclose(utils.symmetry.identity_matrix, rot):
+                # This "chain" is the self instance and the identity transform is skipped
+                # self.log.debug(f'Skipping identity transform')
+                continue
+            _expand_matrices.append(rot)
+            _expand_translations.append(tx)
 
-            self._is_captain = True
-            self.chain_id = self._captain.chain_id
-            self._captain = None
+        self._expand_matrices = np.array(_expand_matrices).swapaxes(-2, -1)
+        self._expand_translations = np.array(_expand_translations)[:, None, :]
+        # # Alternative:
+        # # Transform the transforms by finding transform from the old captain to the current coords
+        # # Not sure about the algebraic requirements of the old translation. It may require rotation with offset_ro...
+        # _, offset_rot, offset_tx = superposition3d(self.ca_coords, self._captain.ca_coords)
+        # self._chain_transforms = []  # self._captain._chain_transforms.copy()
+        # for idx, transform in enumerate(self._captain._chain_transforms):  # self._chain_transforms):
+        #     # Rotate the captain oriented rotation matrix to the current coordinates
+        #     new_rotation = np.matmul(transform['rotation'], offset_rot)
+        #     new_transform = transform['translation'] + offset_tx
+        #     self._chain_transforms.append()
+
+        self._is_captain = True
+        self.chain_id = self._captain.chain_id
+        self._captain = None
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
                       translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
@@ -2141,34 +3062,36 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
         Sets:
-            self._chain_transforms (list[types.TransformationMapping])
-            self.number_of_symmetry_mates (int)
             self.symmetry (str)
+            self.sym_entry (SymEntry)
+            self.number_of_symmetry_mates (int)
+            self._expand_matrices
+            self._expand_translations
         """
-        try:
-            if symmetry is None or symmetry == 'C1':  # Not symmetric
-                return
-            elif symmetry in utils.symmetry.cubic_point_groups:
-                rotation_matrices = utils.symmetry.point_group_symmetry_operators[symmetry]
-                degeneracy_matrices = None  # Todo may need to add T degeneracy here!
-            elif 'D' in symmetry:  # Provide a 180-degree rotation along x (all D orient symmetries have axis here)
-                rotation_matrices = \
-                    utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[symmetry.replace('D', 'C')], 'z', 360)
-                degeneracy_matrices = [utils.symmetry.identity_matrix, utils.symmetry.flip_x_matrix]
-            else:  # Symmetry is cyclic
-                rotation_matrices = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[symmetry], 'z')
-                degeneracy_matrices = None
-            degeneracy_rotation_matrices = utils.SymEntry.make_rotations_degenerate(rotation_matrices,
-                                                                                    degeneracy_matrices)
-        except KeyError:
-            raise ValueError(
-                f"Symmetry '{symmetry}' isn't viable. If you believe this is a mistake, "
-                f'try increasing utils.symmetry.MAXIMUM_SYMMETRY which is currently = {utils.symmetry.MAX_SYMMETRY}')
+        self.set_symmetry(symmetry=symmetry)
+        if not self.is_symmetric():
+            return
 
-        self.symmetry = symmetry
-        # self._is_captain = True
-        # Todo should this be set here. NO! set in init
-        #  or prevent self._mate from becoming oligomer?
+        symmetry = self.symmetry
+        degeneracy_matrices = None
+        if symmetry in utils.symmetry.cubic_point_groups:
+            rotation_matrices = utils.symmetry.point_group_symmetry_operators[symmetry]
+        elif 'D' in symmetry:  # Provide a 180-degree rotation along x (all D orient symmetries have axis here)
+            rotation_matrices = \
+                utils.SymEntry.get_rot_matrices(
+                    utils.symmetry.rotation_range[symmetry.replace('D', 'C')],
+                    'z', 360
+                )
+            degeneracy_matrices = [utils.symmetry.identity_matrix, utils.symmetry.flip_x_matrix]
+        else:  # Symmetry is cyclic
+            rotation_matrices = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[symmetry], 'z')
+
+        degeneracy_rotation_matrices = utils.SymEntry.make_rotations_degenerate(
+            rotation_matrices, degeneracy_matrices)
+
+        assert self.number_of_symmetry_mates == len(degeneracy_rotation_matrices), \
+            f"The {self.number_of_symmetry_mates=} != {len(degeneracy_rotation_matrices)}, the number of operations"
+
         if rotation is None:
             rotation = inv_rotation = utils.symmetry.identity_matrix
         else:
@@ -2193,11 +3116,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
-        self._chain_transforms.clear()
-        # number_of_subunits = 0
+        _expand_matrices = [utils.symmetry.identity_matrix]
+        _expand_translations = [utils.symmetry.origin]
         subunit_count = count()
         for rotation_matrix in degeneracy_rotation_matrices:
-            # number_of_subunits += 1
             if next(subunit_count) == 0 and np.all(rotation_matrix == utils.symmetry.identity_matrix):
                 self.log.debug(f'Skipping {self.make_oligomer.__name__} transformation 1 as it is identity')
                 continue
@@ -2205,10 +3127,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
                                                    rotation2=rotation2, translation2=translation2)
             _, rot, tx = superposition3d(new_coords, cb_coords)
-            self._chain_transforms.append(dict(rotation=rot, translation=tx))
+            _expand_matrices.append(rot)
+            _expand_translations.append(tx)
+
+        self._expand_matrices = np.array(_expand_matrices).swapaxes(-2, -1)
+        self._expand_translations = np.array(_expand_translations)[:, None, :]
 
         # Set the new properties
-        self._number_of_symmetry_mates = next(subunit_count)  # number_of_subunits
         self._chains.clear()
         self._chains.append(self)
         self._set_chain_ids()
@@ -2696,7 +3621,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.mate_rotation_axes.append({'sym': symmetry_order, 'axis': quat[:3]})
 
         # Find the highest order symmetry in the Structure
-        max_sym, max_chain_idx = 0, None
+        max_sym = 0
+        max_chain_idx = None
         for chain_idx, data in enumerate(self.mate_rotation_axes):
             if data['sym'] > max_sym:
                 max_sym = data['sym']
@@ -2791,12 +3717,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if os.path.exists(out_file):
             return out_file
 
-        # if self.symmetry == 'C1':
-        #     return
-        # el
         if self.symmetry in utils.symmetry.cubic_point_groups:
-            # if not struct_file:
-            #     struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
             sdf_mode = 'PSEUDO'
             self.log.warning('Using experimental symmetry definition file generation, proceed with caution as Rosetta '
                              'runs may fail due to improper set up')
@@ -5056,10 +5977,11 @@ class SymmetricModel(SymmetryOpsMixin, Model):
             _, rot, tx = superposition3d(ca_coords, self.ca_coords)
             self.transform(rotation=rot, translation=tx)
 
-            if self.symmetric_coords is None:
-                self.log.debug('Generating symmetric coords')
-                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
         self.set_contacting_asu()
+        # if self._symmetric_coords is None:
+        try:
+            self._symmetric_coords.coords
+        except AttributeError:
             self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
 
         # Generate oligomers for each entity in the pose
@@ -5291,17 +6213,55 @@ class SymmetricModel(SymmetryOpsMixin, Model):
             return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
                                      cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
 
+        return models
 
+    # Todo reconcile mechanism with Entity.assembly
+    def _generate_assembly(
+            self, minimal: bool | int | None = False, surrounding_uc: bool = False
+    ) -> Model:  # SymmetricModel:  # Self Todo python 3.11
+        """Creates the Model with all chains from the SymmetricModel
 
         Args:
+            minimal: Whether to create the minimally contacting assembly. This is advantageous in crystalline
+                symmetries to minimize the size of the "assembly"
+            surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly
         Returns:
+            A Model instance for each of the symmetric mates. These are transformed copies of the SymmetricModel
         """
+        if not minimal and not surrounding_uc:
+            # These are the defaults, so just use the chains attribute
+            chains = self.chains
+        else:
+            chains = []
+            models = self._generate_models(minimal=minimal, surrounding_uc=surrounding_uc)
+            for model in models:
+                chains.extend(model.entities)
+        name = self._generate_assembly_name(minimal=minimal, surrounding_uc=surrounding_uc)
 
+        # print(f"_generate_assembly: Found the {chains=}")
+        return Model.from_chains(  # type(self)
+            chains, name=name, log=self.log,
+            entity_info=self.entity_info,  # entities=False
+            biomt_header=self.format_biomt(), cryst_record=self.cryst_record
+        )
 
     @property
+    def chains(self) -> list[Entity]:  # list[Chain]:
+        """Returns transformed copies, i.e. mate chains of the instance"""
         try:
+            return self._chains
         except AttributeError:
+            print(f"{repr(self)} is generating chains")
+            chains = []
+            models = self._generate_models()
+            # print(f"{len(models)} models were generated")
+            for model in models:
+                chains.extend(model.entities)
 
+            # print(f"{len(chains)} chains were generated")
+            self._chains = chains
+
+            return self._chains
 
     @property
     def oligomeric_model_indices(self) -> dict[Entity, list[int]] | dict:
