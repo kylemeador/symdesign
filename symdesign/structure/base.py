@@ -336,9 +336,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     header: list = []
     resolution: float | None = None
     seq_res_lines: list[str] = []
-    # Structure
-    biomt: list = []
-    biomt_header: str = ''
+    biomt = []
 
     entity = None
     current_operation = -1
@@ -387,7 +385,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
             remark_number = line[slice_number]
             # elif line[:18] == 'REMARK 350   BIOMT':
             if remark_number == ' 350 ':  # 6:11  '   BIOMT'
-                biomt_header += line
                 # integration of the REMARK 350 BIOMT
                 # REMARK 350
                 # REMARK 350 BIOMOLECULE: 1
@@ -410,7 +407,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
                         current_operation = operation_number
                         biomt.append([])
                     # Add the transformation to the current matrix
-                    biomt[-1].append([x, y, z, tx])
+                    biomt[-1].append(list(map(float, (x, y, z, tx))))
             elif remark_number == '   2 ':  # 6:11 ' RESOLUTION'
                 try:
                     resolution = float(line[22:30].strip().split()[0])
@@ -472,6 +469,13 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     # # Convert the incrementing reference sequence to a list of the sequences
     # reference_sequence = list(reference_sequence.values())
 
+    if biomt:
+        biomt = np.array(biomt, dtype=float)
+        rotation_matrices = biomt[:, :, :3]
+        translation_matrices = biomt[:, :, 3:].squeeze()
+    else:
+        rotation_matrices = translation_matrices = None
+
     parsed_info = \
         dict(atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)]
              if separate_coords else
@@ -484,8 +488,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
                         occupancy, b_factor, element, charge)
               in enumerate(temp_info)],
              biological_assembly=assembly,
-             biomt=np.array(biomt, dtype=float),  # go to Structure
-             biomt_header=biomt_header,  # go to Structure
+             rotation_matrices=rotation_matrices,
+             translation_matrices=translation_matrices,
              coords=coords if separate_coords else None,
              cryst_record=cryst_record,
              entity_info=entity_info,
@@ -806,9 +810,15 @@ class SymmetryBase(ABC):
     """The Structure container where dependent symmetric Structures are contained"""
     symmetry_state_attributes: set[str] = set()
 
-    def __init__(self, **kwargs):
+    def __init__(self, rotation_matrices: np.ndarray = None, translation_matrices: np.ndarray = None, **kwargs):
         self._symmetry = self._symmetric_dependents = None
-        super().__init__(**kwargs)  # SymmetryBase
+        try:
+            super().__init__(**kwargs)  # SymmetryBase
+        except TypeError:
+            raise TypeError(
+                f"The argument(s) passed to the {self.__class__.__name__} instance weren't recognized and aren't "
+                f"accepted by the object class: {', '.join(kwargs.keys())}\n\nIt's likely that your class MRO is "
+                "insufficient for your passed arguments or you have passed invalid arguments")
 
     @property
     def symmetry(self) -> str | None:
@@ -893,10 +903,17 @@ class StructureBase(SymmetryBase, ABC):
     state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True,
-                 cryst_record=None, entities=None, entity_info=None, entity_names=None, file_path=None, header=None,
-                 metadata=None, pose_format=None, query_by_sequence=True, rename_chains=None, resolution=None,
-                 reference_sequence=None, sequence=None, **kwargs):
                  coords: np.ndarray | Coordinates | list[list[float]] = None, name: str = None,
+                 # metadata: StructureMetadata = None,
+                 file_path: AnyStr = None, biological_assembly: str | int = None,
+                 cryst_record: str = None, resolution: float = None,
+                 entity_info: dict[str, dict[dict | list | str]] = None,
+                 reference_sequence: str | dict[str, str] = None,
+                 # entity_info=None,
+                 **kwargs):
+        # These shouldn't be passed as they should be stripped by prior constructors...
+        # entity_names=None, rotation_matrices=None, translation_matrices=None,
+        # metadata=None, pose_format=None, query_by_sequence=True, rename_chains=None
         """
         Args:
             parent: If another Structure object created this Structure instance, pass the 'parent' instance. Will take
@@ -938,12 +955,13 @@ class StructureBase(SymmetryBase, ABC):
             else:  # Create a Coords instance. This assumes the dimensions are correct. Coords() handles if not
                 self._coords = Coordinates(coords)
 
-        try:
-            super().__init__(**kwargs)  # StructureBase
-        except TypeError:
-            raise TypeError(
-                "The argument(s) passed to the StructureBase object weren't recognized and aren't "
-                f'accepted by the object class: {", ".join(kwargs.keys())}')
+        # try:
+        super().__init__(**kwargs)  # StructureBase
+        # except TypeError:
+        #     raise TypeError(
+        #         f"The argument(s) passed to the {self.__class__.__name__} instance weren't recognized and aren't "
+        #         f"accepted by the object class: {', '.join(kwargs.keys())}\n\nIt's likely that your class MRO is "
+        #         "insufficient for your passed arguments or you have passed invalid arguments")
 
     @property
     def parent(self) -> StructureBase | None:
