@@ -655,6 +655,500 @@ class State(Structures):
     #     return self.structures[idx]
 
 
+class ParseStructureMixin(abc.ABC):
+
+    @classmethod
+    def from_file(cls, file: AnyStr, **kwargs):
+        """Create a new Structure from a file with Atom records
+
+        Keyword Args:
+            pdb_lines: Iterable[str] = None - If lines are already read, provide the lines instead
+            separate_coords: bool = True - Whether to separate parsed coordinates from Atom instances. Will be returned
+                as two separate entries in the parsed dictionary, otherwise returned with coords=None
+        """
+        if '.pdb' in file:
+            return cls.from_pdb(file, **kwargs)
+        elif '.cif' in file:
+            return cls.from_mmcif(file, **kwargs)
+        else:
+            raise NotImplementedError(
+                f"{cls.__name__}: The file type {os.path.splitext(file)[-1]} isn't supported for parsing. Please use "
+                f"the supported types '.pdb' or '.cif'. Alternatively use those constructors instead (ex: from_pdb(), "
+                'from_mmcif()) if the file extension is nonsense, but the file format is respected')
+
+    @classmethod
+    def from_pdb(cls, file: AnyStr, **kwargs):
+        """Create a new Structure from a .pdb formatted file
+
+        Keyword Args:
+            separate_coords: bool = True - Whether to separate parsed coordinates from Atom instances. Will be returned
+                as two separate entries in the parsed dictionary, otherwise returned with coords=None
+        """
+        data = read_pdb_file(file, **kwargs)
+        # _metadata = StructureMetadata(file_path=file, **data)
+        # _cls = cls(metadata=_metadata, **data)
+        _cls = cls(file_path=file, **data)
+        # _cls.metadata = _metadata
+        return _cls
+
+    @classmethod
+    def from_pdb_lines(cls, pdb_lines: Iterable[str], **kwargs):
+        """Create a new Structure from already parsed .pdb file lines
+
+        Keyword Args:
+            separate_coords: bool = True - Whether to separate parsed coordinates from Atom instances. Will be returned
+                as two separate entries in the parsed dictionary, otherwise returned with coords=None
+        """
+        data = read_pdb_file(pdb_lines=pdb_lines, **kwargs)
+        # _metadata = StructureMetadata(**data)
+        # _cls = cls(metadata=_metadata, **data)
+        _cls = cls(**data)
+        # _cls.metadata = _metadata
+        return _cls
+
+    @classmethod
+    def from_mmcif(cls, file: AnyStr, **kwargs):
+        """Create a new Structure from a .cif formatted file"""
+        data = read_mmcif_file(file, **kwargs)
+        # _metadata = StructureMetadata(file_path=file, **data)
+        # _cls = cls(metadata=_metadata, **data)
+        _cls = cls(file_path=file, **data)
+        # _cls.metadata = _metadata
+        return _cls
+
+    @abc.abstractmethod
+    def __init__(self, **kwargs):
+        """"""
+    # def __init__(self, metadata: StructureMetadata = None, **kwargs):
+    #     """"""
+    #     # self.metadata = metadata
+    #     self.metadata = StructureMetadata(**kwargs)
+    #     super().__init__(**kwargs)
+
+    # Todo move to Model (parsed) and Entity (oligomer)?
+    def format_header(self, **kwargs) -> str:
+        """Return the BIOMT record as a .pdb format header
+
+        Returns:
+            The header with .pdb file formatting
+        """
+        return super().format_header(**kwargs) + self.format_biomt(**kwargs)
+
+    # # Todo StructureBase
+    # # Todo move to Model (parsed) and Entity (oligomer)?
+    # def format_biomt(self, **kwargs) -> str:
+    #     """Return the BIOMT record for the Structure if there was one parsed
+    #
+    #     Returns:
+    #         The PDB file formatted BIOMT REMARK 350
+    #     """
+    #     if self.biomt is not None:
+    #         return '%s\n' \
+    #             % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
+    #                         .format(v_idx, m_idx, *vec)
+    #                         for m_idx, matrix in enumerate(self.biomt.tolist(), 1)
+    #                         for v_idx, vec in enumerate(matrix, 1))
+    #     else:
+    #         return ''
+
+
+class StructuredGeneEntity(ContainsResidues, GeneEntity):
+    _disorder: dict[int, dict[str, str]]
+
+    def __init__(self,
+                 metadata: sql.ProteinMetadata = None,
+                 uniprot_ids: tuple[str, ...] = None,
+                 thermophilicity: bool = None,
+                 reference_sequence: str = None,
+                 **kwargs):
+        """
+        Args:
+            metadata: Unique database references for the Entity
+            uniprot_ids: The UniProtID(s) that describe this protein sequence
+            thermophilicity: The extent to which the Entity is deemed thermophilic
+            reference_sequence: The reference sequence (according to expression sequence or reference database)
+        """
+        super().__init__(**kwargs)  # StructuredGeneEntity
+        self._api_data = None  # {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
+
+        if metadata is None:
+            if reference_sequence is not None:
+                self._reference_sequence = reference_sequence
+
+            # Todo remove self.thermophilicity once sql load more streamlined
+            self.thermophilicity = thermophilicity
+            if uniprot_ids is not None:
+                self.uniprot_ids = uniprot_ids
+        else:
+            if metadata.reference_sequence is not None:
+                self._reference_sequence = metadata.reference_sequence
+
+            self.thermophilicity = metadata.thermophilicity
+            if metadata.uniprot_entities is not None:
+                self.uniprot_ids = metadata.uniprot_ids
+
+    def clear_api_data(self):
+        """Remove any state information associated with the Entity from the PDB API"""
+        del self._reference_sequence
+        self.uniprot_ids = (None,)
+        self.thermophilicity = None
+
+    def retrieve_api_metadata(self):
+        """Try to set attributes about the Entity from PDB API query information
+
+        Sets:
+            self._api_data: dict[str, Any]
+            {'chains': [],
+             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
+             'reference_sequence': 'MSLEHHHHHH...',
+             'thermophilicity': True
+            self._uniprot_id: str | None
+            self._reference_sequence: str
+            self.thermophilicity: bool
+        """
+        name = self.name
+        try:
+            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
+        except AttributeError:
+            retrieve_api_info = query.pdb.query_pdb_by
+        api_return = retrieve_api_info(entity_id=name)
+        """Get the data on it's own since retrieve_api_info returns
+        {'EntityID':
+           {'chains': ['A', 'B', ...],
+            'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
+            'reference_sequence': 'MSLEHHHHHH...',
+            'thermophilicity': 1.0},
+        ...}
+        """
+        if api_return:
+            if name.lower() in api_return:
+                self.name = name = name.lower()
+
+            self._api_data = api_return.get(name, {})
+        else:
+            self._api_data = {}
+
+        if self._api_data is not None:
+            for data_type, data in self._api_data.items():
+                # self.log.debug('Retrieving UNP ID for {self.name}\nAPI DATA for chain {chain}:\n{api_data}')
+                if data_type == 'reference_sequence':
+                    self._reference_sequence = data
+                elif data_type == 'thermophilicity':
+                    # Todo remove self.thermophilicity once sql load more streamlined
+                    self.thermophilicity = data
+                elif data_type == 'dbref':
+                    if data.get('db') == query.pdb.UKB:
+                        self.uniprot_ids = data.get('accession')
+        else:
+            self.log.warning(f'Entity {self.name}: No information found from PDB API')
+
+    # @hybrid_property Todo wrapapi.UniProtEntity
+    @property
+    def uniprot_ids(self) -> tuple[str | None, ...]:
+        """The UniProt ID for the Entity used for accessing genomic and homology features"""
+        # Todo wrapapi.UniProtEntity
+        # try:
+        #     return self._uniprot_id.upper()
+        # except AttributeError:
+        #     if not self._search_uniprot_id:
+        #         self._search_uniprot_id = True
+        #         # wrapapi.UniProtEntity set as None, and we haven't tried to find, so lets try
+        # return self._uniprot_id
+        try:
+            return self._uniprot_ids
+        except AttributeError:
+            # Set None but attempt to get from the API
+            self._uniprot_ids = (None,)
+            if self._api_data is None:
+                self.retrieve_api_metadata()
+        return self._uniprot_ids
+
+    @uniprot_ids.setter
+    def uniprot_ids(self, uniprot_ids: Iterable[str, ...] | str):
+        if isinstance(uniprot_ids, Iterable):
+            self._uniprot_ids = tuple(uniprot_ids)
+        elif isinstance(uniprot_ids, str):
+            self._uniprot_ids = (uniprot_ids,)
+        else:
+            raise ValueError(
+                f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str, ...] or str, not "
+                f"{type(uniprot_ids).__name__}")
+
+    @property
+    def reference_sequence(self) -> str:
+        """Return the entire sequence, constituting all described residues, not just structurally modeled ones
+
+        Returns:
+            The sequence according to the Entity reference, or the Structure sequence if no reference available
+        """
+        try:
+            return self._reference_sequence
+        except AttributeError:
+            if self._api_data is None:
+                self.retrieve_api_metadata()
+                try:
+                    return self._reference_sequence
+                except AttributeError:
+                    pass
+            # else:  # retrieve_api_metadata() was already attempted
+            self._reference_sequence = self._retrieve_reference_sequence_from_name(self.name)
+            if self._reference_sequence is None:
+                self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
+                self._reference_sequence = self.sequence
+            return self._reference_sequence
+
+    def _retrieve_reference_sequence_from_name(self, name: str) -> str | None:
+        """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence
+
+        Args:
+            name:
+        Returns:
+            The sequence (if located) from the PDB API
+        """
+        def _query_sequence_for_entity_id():
+            self.log.warning(f"{self._retrieve_reference_sequence_from_name.__name__}: The provided {name=} isn't the "
+                             'correct format (1abc_1), and PDB API query will fail. Retrieving closest entity_id by PDB'
+                             ' API structure sequence using the default sequence similarity parameters: '
+                             f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
+            return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
+
+        try:
+            entry, entity_integer, *_ = name.split('_')
+            if len(entry) == 4 and entity_integer.isdigit():
+                entity_id = f'{entry}_{entity_integer}'
+            else:
+                entity_id = _query_sequence_for_entity_id()
+        except ValueError:  # Couldn't unpack correct number of values
+            entity_id = _query_sequence_for_entity_id()
+
+        if entity_id is None:
+            return None
+        else:
+            self.log.debug(f'Querying {entity_id} reference sequence from PDB')
+            return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
+
+    @property
+    def disorder(self) -> dict[int, dict[str, str]]:
+        """Return the Residue number keys where disordered residues are found by comparison of the reference sequence
+        with the structure sequence
+
+        Returns:
+            Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
+        """
+        try:
+            return self._disorder
+        except AttributeError:
+            self._disorder = generate_mutations(self.reference_sequence, self.sequence, only_gaps=True)
+            return self._disorder
+
+    def format_missing_loops_for_design(
+        self, max_loop_length: int = 12, exclude_n_term: bool = True, ignore_termini: bool = False, **kwargs
+    ) -> tuple[list[tuple], dict[int, int], int]:
+        """Process missing residue information to prepare for loop modeling files. Assumes residues in pose numbering!
+
+        Args:
+            max_loop_length: The max length for loop modeling.
+                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
+            exclude_n_term: Whether to exclude the N-termini from modeling due to Remodel Bug
+            ignore_termini: Whether to ignore terminal loops in the loop file
+        Returns:
+            Pairs of indices where each loop starts and ends, adjacent indices (not all indices are disordered) mapped
+                to their disordered residue indices, and the n-terminal residue index
+        """
+        disordered_residues = self.disorder
+        # Formatted as {residue_number: {'from': aa, 'to': aa}, ...}
+        reference_sequence_length = len(self.reference_sequence)
+        loop_indices = []
+        loop_to_disorder_indices = {}  # Holds the indices that should be inserted into the total residues to be modeled
+        n_terminal_idx = 0  # Initialize as an impossible value
+        excluded_disorder_len = 0  # Total residues excluded from loop modeling. Needed for pose numbering translation
+        segment_length = 0  # Iterate each missing residue
+        n_term = False
+        loop_start = loop_end = None
+        for idx, residue_number in enumerate(disordered_residues.keys(), 1):
+            segment_length += 1
+            if residue_number - 1 not in disordered_residues:  # indicate that this residue_number starts disorder
+                # print('Residue number -1 not in loops', residue_number)
+                loop_start = residue_number - 1 - excluded_disorder_len  # - 1 as loop modeling needs existing residue
+                if loop_start < 1:
+                    n_term = True
+
+            if residue_number + 1 not in disordered_residues:
+                # The segment has ended
+                if residue_number != reference_sequence_length:
+                    # Not the c-terminus
+                    # logger.debug('f{residue_number=} +1 not in loops. Adding loop with {segment_length=}')
+                    if segment_length <= max_loop_length:
+                        # Modeling useful, add to loop_indices
+                        if n_term and (ignore_termini or exclude_n_term):
+                            # The n-terminus should be included
+                            excluded_disorder_len += segment_length
+                            n_term = False  # No more n_term considerations
+                        else:  # Include the segment in the disorder_indices
+                            loop_end = residue_number + 1 - excluded_disorder_len
+                            loop_indices.append((loop_start, loop_end))
+                            for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
+                                loop_to_disorder_indices[residue_index] = residue_number - (segment_length - it)
+                            # Set the start and end indices as out of bounds numbers
+                            loop_to_disorder_indices[loop_start], loop_to_disorder_indices[loop_end] = -1, -1
+                            if n_term and idx != 1:  # If this is the n-termini and not start Met
+                                n_terminal_idx = loop_end  # Save idx of last n-term insertion
+                    else:  # Modeling not useful, sum the exclusion length
+                        excluded_disorder_len += segment_length
+
+                    # After handling disordered segment, reset increment and loop indices
+                    segment_length = 0
+                    loop_start = loop_end = None
+                # Residue number is the c-terminal residue
+                elif ignore_termini:
+                    if segment_length <= max_loop_length:
+                        # loop_end = loop_start + 1 + segment_length  # - excluded_disorder
+                        loop_end = residue_number - excluded_disorder_len
+                        loop_indices.append((loop_start, loop_end))
+                        for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
+                            loop_to_disorder_indices[residue_index] = residue_number - (segment_length - it)
+                        # Don't include start index in the loop_to_disorder map since c-terminal doesn't have attachment
+                        loop_to_disorder_indices[loop_end] = -1
+
+        return loop_indices, loop_to_disorder_indices, n_terminal_idx
+
+    def make_loop_file(self, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr | None:
+        """Format a loops file according to Rosetta specifications. Assumes residues in pose numbering!
+
+        The loop file format consists of one line for each specified loop with the format:
+
+        LOOP 779 784 0 0 1
+
+        Where LOOP specifies a loop line, start idx, end idx, cut site (0 lets Rosetta choose), skip rate, and extended
+
+        All indices should refer to existing locations in the structure file so if a loop should be inserted into
+        missing density, the density needs to be modeled first before the loop file would work to be modeled. You
+        can't therefore specify that a loop should be between 779 and 780 if the loop is 12 residues long since there is
+         no specification about how to insert those residues. This type of task requires a blueprint file.
+
+        Args:
+            out_path: The location the file should be written
+        Keyword Args:
+            max_loop_length=12 (int): The max length for loop modeling.
+                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
+            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
+        Returns:
+            The path of the file if one was written
+        """
+        loop_indices, _, _ = self.format_missing_loops_for_design(**kwargs)
+        if not loop_indices:
+            return None
+
+        loop_file = os.path.join(out_path, f'{self.name}.loops')
+        with open(loop_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(f'LOOP {start} {stop} 0 0 1' for start, stop in loop_indices))
+
+        return loop_file
+
+    def make_blueprint_file(self, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr | None:
+        """Format a blueprint file according to Rosetta specifications. Assumes residues in pose numbering!
+
+        The blueprint file format is described nicely here:
+            https://www.rosettacommons.org/docs/latest/application_documentation/design/rosettaremodel
+
+        In a gist, a blueprint file consists of entries describing the type of design available at each position.
+
+        Ex:
+            1 x L PIKAA M   <- Extension
+
+            1 x L PIKAA V   <- Extension
+
+            1 V L PIKAA V   <- Attachment point
+
+            2 D .
+
+            3 K .
+
+            4 I .
+
+            5 L N PIKAA N   <- Attachment point
+
+            0 x I NATAA     <- Insertion
+
+            0 x I NATAA     <- Insertion
+
+            6 N A PIKAA A   <- Attachment point
+
+            7 G .
+
+            0 X L PIKAA Y   <- Extension
+
+            0 X L PIKAA P   <- Extension
+
+        All structural indices must be specified in "pose numbering", i.e. starting with 1 ending with the last residue.
+        If you have missing density in the middle, you should not specify those residues that are missing, but keep
+        continuous numbering. You can specify an inclusion by specifying the entry index as 0 followed by the blueprint
+        directive. For missing density at the n- or c-termini, the file should still start 1, however, the n-termini
+        should be extended by prepending extra entries to the structurally defined n-termini entry 1. These blueprint
+        entries should also have 1 as the residue index. For c-termini, extra entries should be appended with the
+        indices as 0 like in insertions. For all unmodeled entries for which design should be performed, there should
+        be flanking attachment points that are also capable of design. Designable entries are seen above with the PIKAA
+        directive. Other directives are available. The only location this isn't required is at the c-terminal attachment
+        point
+
+        Args:
+            out_path: The location the file should be written
+        Keyword Args:
+            max_loop_length=12 (int): The max length for loop modeling.
+                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
+            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
+        Returns:
+            The path of the file if one was written
+        """
+        disordered_residues = self.disorder
+        # Formatted as {residue_number: {'from': aa, 'to': aa}, ...}
+        # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
+        # disordered_residues and then all subsequent indices adjusted.
+
+        # # look for existing tag to remove from sequence and save identity
+        # available_tags = find_expression_tags(self.reference_sequence)
+        # if available_tags:
+        #     loop_sequences = ''.join(mutation['from'] for mutation in disordered_residues)
+        #     remove_loop_pairs = []
+        #     for tag in available_tags:
+        #         tag_location = loop_sequences.find(tag['sequences'])
+        #         if tag_location != -1:
+        #             remove_loop_pairs.append((tag_location, len(tag['sequences'])))
+        #     for tag_start, tag_length in remove_loop_pairs:
+        #         for
+        #
+        #     # untagged_seq = remove_terminal_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
+
+        _, disorder_indices, start_idx = self.format_missing_loops_for_design(**kwargs)
+        if not disorder_indices:
+            return
+
+        residues = self.residues
+        # for residue_number in sorted(disorder_indices):  # ensure ascending order, insert dependent on prior inserts
+        for residue_index, disordered_residue in disorder_indices.items():
+            mutation = disordered_residues.get(disordered_residue)
+            if mutation:  # add disordered residue to residues list if they exist
+                residues.insert(residue_index - 1, mutation['from'])  # offset to match residues zero-index
+
+        #                 index AA SS Choice AA
+        # structure_str   = '%d %s %s'
+        # loop_str        = '%d X %s PIKAA %s'
+        blueprint_lines = []
+        for idx, residue in enumerate(residues, 1):
+            if isinstance(residue, Residue):  # use structure_str template
+                residue_type = protein_letters_3to1_extended.get(residue.type)
+                blueprint_lines.append(f'{residue.number} {residue_type} '
+                                       f'{f"L PIKAA {residue_type}" if idx in disorder_indices else "."}')
+            else:  # residue is the residue type from above insertion, use loop_str template
+                blueprint_lines.append(f'{1 if idx < start_idx else 0} X {"L"} PIKAA {residue}')
+
+        blueprint_file = os.path.join(out_path, f'{self.name}.blueprint')
+        with open(blueprint_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(blueprint_lines))
+        return blueprint_file
+
 class ContainsChainsMixin:
     residues: list[Residue]
     chain_ids: list[str]
@@ -2352,9 +2846,8 @@ class SymmetryOpsMixin(abc.ABC):
 class Chain(Structure, SequenceProfile):
     """A grouping of Residue, Atom and Coords instances, typically from a sequence that should be a connected polymer"""
     _chain_id: str
-    _disorder: dict[int, dict[str, str]]
     _entity: Entity
-    _reference_sequence: str
+    _metrics_table = None
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
         """
@@ -2401,41 +2894,20 @@ class Chain(Structure, SequenceProfile):
         """The Entity ID associated with the instance"""
         return getattr(self._entity, 'name', None)
 
-    @property
-    def reference_sequence(self) -> str:
-        """Return the entire sequence, constituting all described residues, not just structurally modeled ones
-
-        Returns:
-            The sequence according to the Chain reference, or the Structure sequence if no reference available
-        """
-        try:
-            return self._reference_sequence
-        except AttributeError:
-            try:
-                self._reference_sequence = self.entity.reference_sequence
-            except AttributeError:
-                self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
-                self._reference_sequence = self.sequence
-            return self._reference_sequence
-
-    @property
-    def disorder(self) -> dict[int, dict[str, str]]:
-        """Return the Residue number keys where disordered residues are found by comparison of the reference sequence
-        with the structure sequence
-
-        Returns:
-            Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
-        """
-        try:
-            return self._disorder
-        except AttributeError:
-            self._disorder = generate_mutations(self.reference_sequence, self.sequence, only_gaps=True)
-            return self._disorder
+    def calculate_metrics(self, **kwargs) -> dict[str, Any]:
+        """"""
+        self.log.warning(f"{self.calculate_metrics.__name__} doesn't calculate anything yet...")
+        return {
+            # 'name': self.name,
+            # 'n_terminal_helix': self.is_termini_helical(),
+            # 'c_terminal_helix': self.is_termini_helical(termini='c'),
+            # 'thermophile': thermophile
+            # 'number_of_residues': self.number_of_residues,
+        }
 
 
 class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
-
-
+    """
     """
     _captain: Entity | None
     """The specific transformation operators to generate all mate chains of the Oligomer"""
@@ -2480,7 +2952,6 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         """
         self._captain = None
         self._is_captain = True
-        self._api_data = None  # {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
         self.dihedral_chain = None
         self.mate_rotation_axes = []
 
@@ -2543,48 +3014,6 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
                     _expand_matrices.append(rot)
                     _expand_translations.append(tx)
 
-        self._number_of_symmetry_mates = len(self._chain_transforms) + 1
-        if self._number_of_symmetry_mates > 1:
-            # Inherent to Entity type is a single reference sequence. Therefore, must be symmetric
-            if self.is_dihedral():
-                self.symmetry = f'D{int(self.number_of_symmetry_mates / 2)}'
-            elif self.is_cyclic():
-                self.symmetry = f'C{self.number_of_symmetry_mates}'
-            else:  # Higher than D, probably T, O, I
-                try:
-                    self.symmetry = utils.symmetry.subunit_number_to_symmetry[self.number_of_symmetry_mates]
-                except KeyError:
-                    self.log.warning(f"Couldn't find a compatible symmetry for the Entity with "
-                                     f"{self.number_of_symmetry_mates} chain copies")
-                    self.symmetry = "Unknown-symmetry"
-
-        # reference_sequence must be set up after self.chains
-        if metadata is None:
-            if reference_sequence is not None:
-                if isinstance(reference_sequence, dict):  # Was parsed from file
-                    self.set_reference_sequence_from_seqres(reference_sequence)
-                    # for chain_id in self.chain_ids:
-                    #     try:
-                    #         self._reference_sequence = reference_sequence[chain_id]
-                    #     except KeyError:
-                    #         pass
-                    #     else:
-                    #         break
-                else:  # Assuming a string from create_entities()
-                    self._reference_sequence = reference_sequence
-
-            # Todo remove self.thermophilicity once sql load more streamlined
-            self.thermophilicity = thermophilicity
-            if uniprot_ids is not None:
-                self.uniprot_ids = uniprot_ids
-        else:
-            if metadata.reference_sequence is not None:
-                self._reference_sequence = metadata.reference_sequence
-
-            # Todo remove self.thermophilicity once sql load more streamlined
-            self.thermophilicity = metadata.thermophilicity
-            if metadata.uniprot_entities is not None:
-                self.uniprot_ids = metadata.uniprot_ids
         if _expand_matrices:
             _expand_matrices = np.array(_expand_matrices)
             if _expand_matrices.ndim == 3:
@@ -2679,96 +3108,10 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             self._expand_matrices = np.array(_expand_matrices)  # .swapaxes(-2, -1)
             self._expand_translations = np.array(_expand_translations)[:, None, :]
         else:  # Accept the new coords
-
-    def clear_api_data(self):
-        """Remove any state information associated with the Entity from the PDB API"""
-        del self._reference_sequence
-        self.uniprot_ids = (None,)
-        self.thermophilicity = None
             super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
 
-    def retrieve_api_metadata(self):
-        """Try to set attributes about the Entity from PDB API query information
-
-        Sets:
-            self._api_data: dict[str, Any]
-            {'chains': [],
-             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
-             'reference_sequence': 'MSLEHHHHHH...',
-             'thermophilicity': True}
-            self._uniprot_id: str | None
-            self._reference_sequence: str
-            self.thermophilicity: bool
-        """
-        # # if self.api_db:
-        try:
-            # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-        except AttributeError:
-            retrieve_api_info = query.pdb.query_pdb_by
-        # self._api_data = get_pdb_info_by_entity(self.name)
-        api_return = retrieve_api_info(entity_id=self.name)
-        """Get the data on it's own since retrieve_api_info returns
-        {'EntityID':
-           {'chains': ['A', 'B', ...],
-            'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
-            'reference_sequence': 'MSLEHHHHHH...',
-            'thermophilicity': 1.0},
-        ...}
-        """
-        if api_return:
-            if self.name.lower() in api_return:
-                self.name = self.name.lower()
-
-            self._api_data = api_return.get(self.name, {})
-        else:
-            self._api_data = {}
-
-        if self._api_data is not None:
-            for data_type, data in self._api_data.items():
-                # self.log.debug('Retrieving UNP ID for {self.name}\nAPI DATA for chain {chain}:\n{api_data}')
-                if data_type == 'reference_sequence':
-                    self._reference_sequence = data
-                elif data_type == 'thermophilicity':
-                    # Todo remove self.thermophilicity once sql load more streamlined
-                    self.thermophilicity = data
-                elif data_type == 'dbref':
-                    if data.get('db') == query.pdb.UKB:
-                        self.uniprot_ids = data.get('accession')
-        else:
-            self.log.warning(f'Entity {self.name}: No information found from PDB API')
-
-    # @hybrid_property Todo wrapapi.UniProtEntity
     @property
-    def uniprot_ids(self) -> tuple[str | None, ...]:
-        """The UniProt ID for the Entity used for accessing genomic and homology features"""
-        # Todo wrapapi.UniProtEntity
-        # try:
-        #     return self._uniprot_id.upper()
-        # except AttributeError:
-        #     if not self._search_uniprot_id:
-        #         self._search_uniprot_id = True
-        #         # wrapapi.UniProtEntity set as None, and we haven't tried to find, so lets try
-        # return self._uniprot_id
-        try:
-            return self._uniprot_ids
-        except AttributeError:
-            # Set None but attempt to get from the API
-            self._uniprot_ids = (None,)
-            if self._api_data is None:
-                self.retrieve_api_metadata()
-        return self._uniprot_ids
 
-    @uniprot_ids.setter
-    def uniprot_ids(self, uniprot_ids: Iterable[str, ...] | str):
-        if isinstance(uniprot_ids, Iterable):  # tuple):
-            self._uniprot_ids = tuple(uniprot_ids)
-        elif isinstance(uniprot_ids, str):
-            self._uniprot_ids = (uniprot_ids,)
-        else:
-            raise ValueError(
-                f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str, ...] or str, not "
-                f"{type(uniprot_ids).__name__}")
 
     @property
     def reference_sequence(self) -> str:
@@ -2777,54 +3120,6 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         Returns:
             The sequence according to the Entity reference, or the Structure sequence if no reference available
         """
-        try:
-            return self._reference_sequence
-        except AttributeError:
-            if self._api_data is None:
-                self.retrieve_api_metadata()
-                try:
-                    return self._reference_sequence
-                except AttributeError:
-                    pass
-            # else:  # retrieve_api_metadata() was already attempted
-            self._reference_sequence = self._retrieve_sequence_from_api()
-            if self._reference_sequence is None:
-                self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
-                self._reference_sequence = self.sequence
-            return self._reference_sequence
-
-    def _retrieve_sequence_from_api(self) -> str | None:
-        """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence
-
-        Returns:
-            The sequence (if located) from the PDB API
-        """
-        # if entity_id is None:
-        #     # if len(self.name.split('_')) == 2:
-        #     #     entity_id = self.name
-        #     # else:
-        def _query_sequence_for_entity_id():
-            self.log.warning(f"{self._retrieve_sequence_from_api.__name__}: If an entity_id isn't passed and the "
-                             f"Entity name '{self.name}' isn't the correct format (1abc_1), the query will fail. "
-                             f'Retrieving closest entity_id by PDB API structure sequence using the default '
-                             f'sequence similarity parameters: '
-                             f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
-            return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
-
-        try:
-            entry, entity_integer, *_ = self.name.split('_')
-            if len(entry) == 4 and entity_integer.isdigit():
-                entity_id = f'{entry}_{entity_integer}'
-            else:
-                entity_id = _query_sequence_for_entity_id()
-        except ValueError:  # Couldn't unpack correct number of values
-            entity_id = _query_sequence_for_entity_id()
-
-        if entity_id is None:
-            return None
-        else:
-            self.log.debug(f'Querying {entity_id} reference sequence from PDB')
-            return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
 
     # @property
     # def chain_id(self) -> str:
@@ -3834,210 +4129,6 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             self.log.info(f"Symmetry Definition File '{to_file}' was missing {count_} lines. A fix was attempted and "
                           'modeling may be affected')
         return to_file
-
-    def format_missing_loops_for_design(self, max_loop_length: int = 12, exclude_n_term: bool = True,
-                                        ignore_termini: bool = False, **kwargs) \
-            -> tuple[list[tuple], dict[int, int], int]:
-        """Process missing residue information to prepare for loop modeling files. Assumes residues in pose numbering!
-
-        Args:
-            max_loop_length: The max length for loop modeling.
-                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term: Whether to exclude the N-termini from modeling due to Remodel Bug
-            ignore_termini: Whether to ignore terminal loops in the loop file
-        Returns:
-            each loop start/end indices, loop and adjacent indices (not all disordered indices) mapped to their
-                disordered residue indices, n-terminal residue index
-        """
-        disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
-        reference_sequence_length = len(self.reference_sequence)
-        # disorder_indices = list(disordered_residues.keys())
-        # disorder_indices = []  # Holds the indices that should be inserted into the total residues to be modeled
-        loop_indices = []  # holds the loop indices
-        loop_to_disorder_indices = {}  # Holds the indices that should be inserted into the total residues to be modeled
-        n_terminal_idx = 0  # initialize as an impossible value
-        excluded_disorder = 0  # total residues excluded from loop modeling. Needed for pose numbering translation
-        segment_length = 0  # iterate each missing residue
-        n_term = False
-        loop_start, loop_end = None, None
-        for idx, residue_number in enumerate(disordered_residues.keys(), 1):
-            segment_length += 1
-            if residue_number - 1 not in disordered_residues:  # indicate that this residue_number starts disorder
-                # print('Residue number -1 not in loops', residue_number)
-                loop_start = residue_number - 1 - excluded_disorder  # - 1 as loop modeling needs existing residue
-                if loop_start < 1:
-                    n_term = True
-
-            if residue_number + 1 not in disordered_residues:  # the segment has ended
-                if residue_number != reference_sequence_length:  # is it not the c-termini?
-                    # print('Residue number +1 not in loops', residue_number)
-                    # print('Adding loop with length', segment_length)
-                    if segment_length <= max_loop_length:  # modeling useful, add to loop_indices
-                        if n_term and (ignore_termini or exclude_n_term):  # check if the n_terminus should be included
-                            excluded_disorder += segment_length  # sum the exclusion length
-                            n_term = False  # we don't have any more n_term considerations
-                        else:  # include the segment in the disorder_indices
-                            loop_end = residue_number + 1 - excluded_disorder
-                            loop_indices.append((loop_start, loop_end))
-                            for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
-                                loop_to_disorder_indices[residue_index] = residue_number - (segment_length - it)
-                            # set the start and end indices as out of bounds numbers
-                            loop_to_disorder_indices[loop_start], loop_to_disorder_indices[loop_end] = -1, -1
-                            if n_term and idx != 1:  # if n-termini and not just start Met
-                                n_terminal_idx = loop_end  # save idx of last n-term insertion
-                    else:  # Modeling not useful, sum the exclusion length
-                        excluded_disorder += segment_length
-                    # after handling disordered segment, reset increment and loop indices
-                    segment_length = 0
-                    loop_start, loop_end = None, None
-                # residue number is the c-terminal residue
-                elif ignore_termini:  # do we ignore termini?
-                    if segment_length <= max_loop_length:
-                        # loop_end = loop_start + 1 + segment_length  # - excluded_disorder
-                        loop_end = residue_number - excluded_disorder
-                        loop_indices.append((loop_start, loop_end))
-                        for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
-                            loop_to_disorder_indices[residue_index] = residue_number - (segment_length - it)
-                        # don't include start index in the loop_to_disorder map since c-terminal doesn't have attachment
-                        loop_to_disorder_indices[loop_end] = -1
-
-        return loop_indices, loop_to_disorder_indices, n_terminal_idx
-
-    # Todo move both of these to Structure/Pose. Requires using .reference_sequence in Structure/ or maybe Pose better
-    def make_loop_file(self, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr | None:
-        """Format a loops file according to Rosetta specifications. Assumes residues in pose numbering!
-
-        The loop file format consists of one line for each specified loop with the format:
-
-        LOOP 779 784 0 0 1
-
-        Where LOOP specifies a loop line, start idx, end idx, cut site (0 lets Rosetta choose), skip rate, and extended
-
-        All indices should refer to existing locations in the structure file so if a loop should be inserted into
-        missing density, the density needs to be modeled first before the loop file would work to be modeled. You
-        can't therefore specify that a loop should be between 779 and 780 if the loop is 12 residues long since there is
-         no specification about how to insert those residues. This type of task requires a blueprint file.
-
-        Args:
-            out_path: The location the file should be written
-        Keyword Args:
-            max_loop_length=12 (int): The max length for loop modeling.
-                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
-            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
-        Returns:
-            The path of the file if one was written
-        """
-        loop_indices, _, _ = self.format_missing_loops_for_design(**kwargs)
-        if not loop_indices:
-            return
-        loop_file = os.path.join(out_path, f'{self.name}.loops')
-        with open(loop_file, 'w') as f:
-            f.write('%s\n' % '\n'.join(f'LOOP {start} {stop} 0 0 1' for start, stop in loop_indices))
-
-        return loop_file
-
-    def make_blueprint_file(self, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr | None:
-        """Format a blueprint file according to Rosetta specifications. Assumes residues in pose numbering!
-
-        The blueprint file format is described nicely here:
-            https://www.rosettacommons.org/docs/latest/application_documentation/design/rosettaremodel
-
-        In a gist, a blueprint file consists of entries describing the type of design available at each position.
-
-        Ex:
-            1 x L PIKAA M   <- Extension
-
-            1 x L PIKAA V   <- Extension
-
-            1 V L PIKAA V   <- Attachment point
-
-            2 D .
-
-            3 K .
-
-            4 I .
-
-            5 L N PIKAA N   <- Attachment point
-
-            0 x I NATAA     <- Insertion
-
-            0 x I NATAA     <- Insertion
-
-            6 N A PIKAA A   <- Attachment point
-
-            7 G .
-
-            0 X L PIKAA Y   <- Extension
-
-            0 X L PIKAA P   <- Extension
-
-        All structural indices must be specified in "pose numbering", i.e. starting with 1 ending with the last residue.
-        If you have missing density in the middle, you should not specify those residues that are missing, but keep
-        continuous numbering. You can specify an inclusion by specifying the entry index as 0 followed by the blueprint
-        directive. For missing density at the n- or c-termini, the file should still start 1, however, the n-termini
-        should be extended by prepending extra entries to the structurally defined n-termini entry 1. These blueprint
-        entries should also have 1 as the residue index. For c-termini, extra entries should be appended with the
-        indices as 0 like in insertions. For all unmodeled entries for which design should be performed, there should
-        be flanking attachment points that are also capable of design. Designable entries are seen above with the PIKAA
-        directive. Other directives are available. The only location this isn't required is at the c-terminal attachment
-        point
-
-        Args:
-            out_path: The location the file should be written
-        Keyword Args:
-            max_loop_length=12 (int): The max length for loop modeling.
-                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
-            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
-        Returns:
-            The path of the file if one was written
-        """
-        disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
-        # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
-        # disordered_residues and then all subsequent indices adjusted.
-
-        # # look for existing tag to remove from sequence and save identity
-        # available_tags = find_expression_tags(self.reference_sequence)
-        # if available_tags:
-        #     loop_sequences = ''.join(mutation['from'] for mutation in disordered_residues)
-        #     remove_loop_pairs = []
-        #     for tag in available_tags:
-        #         tag_location = loop_sequences.find(tag['sequences'])
-        #         if tag_location != -1:
-        #             remove_loop_pairs.append((tag_location, len(tag['sequences'])))
-        #     for tag_start, tag_length in remove_loop_pairs:
-        #         for
-        #
-        #     # untagged_seq = remove_terminal_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
-
-        _, disorder_indices, start_idx = self.format_missing_loops_for_design(**kwargs)
-        if not disorder_indices:
-            return
-
-        residues = self.residues
-        # for residue_number in sorted(disorder_indices):  # ensure ascending order, insert dependent on prior inserts
-        for residue_index, disordered_residue in disorder_indices.items():
-            mutation = disordered_residues.get(disordered_residue)
-            if mutation:  # add disordered residue to residues list if they exist
-                residues.insert(residue_index - 1, mutation['from'])  # offset to match residues zero-index
-
-        #                 index AA SS Choice AA
-        # structure_str   = '%d %s %s'
-        # loop_str        = '%d X %s PIKAA %s'
-        blueprint_lines = []
-        for idx, residue in enumerate(residues, 1):
-            if isinstance(residue, Residue):  # use structure_str template
-                residue_type = protein_letters_3to1_extended.get(residue.type)
-                blueprint_lines.append(f'{residue.number} {residue_type} '
-                                       f'{f"L PIKAA {residue_type}" if idx in disorder_indices else "."}')
-            else:  # residue is the residue type from above insertion, use loop_str template
-                blueprint_lines.append(f'{1 if idx < start_idx else 0} X {"L"} PIKAA {residue}')
-
-        blueprint_file = os.path.join(out_path, f'{self.name}.blueprint')
-        with open(blueprint_file, 'w') as f:
-            f.write('%s\n' % '\n'.join(blueprint_lines))
-        return blueprint_file
 
     # Todo
     #  - This is also useful when there are symmetric_dependents such as Pose.models... extend
