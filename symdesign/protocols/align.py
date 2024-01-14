@@ -98,6 +98,7 @@ def vnorm3(a: Sequence[float]) -> list[float]:
         dot += i ** 2
 
     dot_root = math.sqrt(dot)
+    b = [0., 0., 0.]
     for idx, i in enumerate(a):
         b[idx] = i / dot_root
 
