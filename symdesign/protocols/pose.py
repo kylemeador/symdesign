@@ -3070,8 +3070,8 @@ class PoseProtocol(PoseData):
         if rosetta_provided_new_design_names:
             score_sequences = [design_sequences.pop(new_file_name)
                                for new_file_name in rosetta_provided_new_design_names]
-            sequences_and_scores = self.pose.score(score_sequences,
-                                                   model_name=self.job.design.proteinmpnn_model)
+            sequences_and_scores = self.pose.score_sequences(
+                score_sequences, model_name=self.job.design.proteinmpnn_model)
             # Set each position that was parsed as "designable"
             # This includes packable residues from neighborhoods. How can we get only designable?
             # Right now, it is only the interface residues that go into Rosetta
@@ -3336,8 +3336,9 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         if self.job.use_proteinmpnn:
-            sequences = [self.pose.sequence]
-            sequences_and_scores = self.pose.score(sequences, model_name=self.job.design.proteinmpnn_model)
+            sequences = [self.pose.sequence]  # Expected ASU sequence
+            sequences_and_scores = self.pose.score_sequences(
+                sequences, model_name=self.job.design.proteinmpnn_model)
             # design_residues = np.zeros((1, pose_length), dtype=bool)
             # design_residues[interface_residue_indices] = 1
             sequences_and_scores['design_indices'] = np.zeros((1, pose_length), dtype=bool)
@@ -3785,8 +3786,9 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
-        sequences_and_scores = self.pose.score(design_sequences,
-                                               model_name=self.job.design.proteinmpnn_model)
+        # sequences_and_scores = self.pose.score(
+        sequences_and_scores = self.pose.score_sequences(
+            design_sequences, model_name=self.job.design.proteinmpnn_model)
         sequences_and_scores['design_indices'] = design_residue_df.values
 
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)

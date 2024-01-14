@@ -31,9 +31,9 @@ from .coordinates import Coordinates, superposition3d, superposition3d_quat, tra
 from .fragment.db import alignment_types, FragmentDatabase, FragmentInfo
 from .sequence import GeneEntity, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
     sequence_to_one_hot
-from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, DesignError, \
-    default_clash_distance, SymmetryError
-from symdesign import flags, metrics, resources, utils
+from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, \
+    default_clash_distance, DesignError, design_programs_literal, SymmetryError
+from symdesign import metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
@@ -5916,6 +5916,9 @@ class SymmetricModel(SymmetryOpsMixin, Model):
             internal_tx = temp_model_coms[entity_model_indices].mean(axis=-2)
             setting_matrix = setting_matrices[setting_matrix_idx]
 
+        dimension = self.dimension
+        symmetry = self.symmetry
+        sym_entry = self.sym_entry
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
         number_of_symmetry_mates = self.number_of_symmetry_mates
         point_group_symmetry = self.point_group_symmetry
@@ -5926,10 +5929,10 @@ class SymmetricModel(SymmetryOpsMixin, Model):
         oligomeric_indices_groups: list[list[int]] = []
         """Contains Collection of indices that specify the model indices where the asymmetric unit could exist"""
         for group_idx, (entity_symmetric_centers_of_mass, sym_group) in \
-                enumerate(zip(center_of_mass_symmetric_entities, self.sym_entry.groups)):
+                enumerate(zip(center_of_mass_symmetric_entities, sym_entry.groups)):
             # Find groups for which the oligomeric parameters do not apply or exist by nature of orientation [T, O, I]
             # Add every symmetric index to oligomeric_indices_groups
-            if sym_group == self.symmetry:
+            if sym_group == symmetry:
                 # The molecule should be oriented already and expand matrices handle oligomers
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
                 oligomeric_indices_groups.append(list(range(number_of_symmetry_mates)))
@@ -5953,7 +5956,7 @@ class SymmetricModel(SymmetryOpsMixin, Model):
                 # self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
                 # Find groups of COMs with equal z heights
                 possible_height_groups: dict[float, list[int]] = defaultdict(list)
-                if self.dimension == 0:
+                if dimension == 0:
                     temp_model_coms = np.matmul(entity_symmetric_centers_of_mass,
                                                 np.transpose(inv_setting_matrices[setting_matrix_idx]))
                     # Rounding to 2 decimals may be required precision
@@ -6068,7 +6071,7 @@ class SymmetricModel(SymmetryOpsMixin, Model):
                             # Chose the positive one in the case that there are degeneracies (most likely)
                             self.log.debug('There are multiple pose transformation solutions for the symmetry group '
                                            f'{sym_group} (specified in position {group_idx + 1} of '
-                                           f'{self.sym_entry.specification}). The solution with a positive translation '
+                                           f'{sym_entry.specification}). The solution with a positive translation '
                                            'was chosen by convention. This may result in inaccurate behavior')
                             # internal_tx will have been set already, check the z-axis value
                             internal_tx: np.ndarray
@@ -6082,26 +6085,21 @@ class SymmetricModel(SymmetryOpsMixin, Model):
 
             if entity_model_indices is None:  # No solution
                 raise SymmetryError(
-                    f'For {repr(self)} with symmetry={self.symmetry},'
-                    f' there was no solution found for Entity #{group_idx + 1}. A possible issue could be '
-                    "that the supplied Model has it's Entities out of order for the assumed symmetric "
-                    f'entry "{self.sym_entry.specification}". If the order of the Entities in the file is '
-                    'different than the provided symmetry, please supply the correct order using the '
-                    f'symmetry specification with format "{utils.SymEntry.symmetry_combination_format}" to the '
-                    f'flag {flags.format_args(flags.symmetry_args)}. Another possibility is that the symmetry of '
-                    f'the {self.__class__.__name__} was generated improperly or imprecisely. Please ensure '
-                    "your inputs are symmetrically viable and if not, 'orient' them. See the flag "
-                    f'{flags.format_args(flags.guide_args)} for more help on this')
+                    f'For {repr(self)} with symmetry specified as {repr(sym_entry)}, there was no solution found for '
+                    f'group #{group_idx + 1}->{sym_group}. If the Entity order is different than the specification, '
+                    'please supply the correct order using the symmetry specification with format '
+                    f"'{utils.SymEntry.symmetry_combination_format}' to the 'symmetry' argument. Another possibility "
+                    f"is that the {self.__class__.__name__}.symmetry operations were generated improperly/imprecisely. "
+                    f"Please ensure your input is symmetrically viable and if not, '.orient(symmetry={symmetry})'")
             else:
                 if getattr(self.sym_entry, f'is_internal_tx{group_idx + 1}'):
-                    transform_solutions.append(dict(translation=internal_tx,
-                                                    rotation2=setting_matrix,
-                                                    translation2=external_tx[group_idx]))
+                    translation = internal_tx
                 else:
                     # self.log.debug('Group has NO internal_dof')
-                    transform_solutions.append(dict(translation=None,
-                                                    rotation2=setting_matrix,
-                                                    translation2=external_tx[group_idx]))
+                    translation = None
+
+                transform_solutions.append(
+                    dict(translation=translation, rotation2=setting_matrix, translation2=external_tx[group_idx]))
                 oligomeric_indices_groups.append(entity_model_indices)
 
         # Todo find the particular rotation to orient the Entity oligomer to a canonical orientation. This must
@@ -7047,10 +7045,10 @@ class Pose(SymmetricModel, MetricsMixin):
         return np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
 
     @torch.no_grad()  # Ensure no gradients are produced
-    def score(self, sequences: Sequence[str] | Sequence[Sequence[str]] | np.array,
-              method: flags.design_programs_literal = putils.proteinmpnn,
-              measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
-        """Perform sequence design on the Pose
+    def score_sequences(self, sequences: Sequence[str] | Sequence[Sequence[str]] | np.array,
+                        method: design_programs_literal = putils.proteinmpnn,
+                        measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
+        """Analyze the output of sequence design
 
         Args:
             sequences: The sequences to score
@@ -7202,7 +7200,7 @@ class Pose(SymmetricModel, MetricsMixin):
         return sequences_and_scores
 
     @torch.no_grad()  # Ensure no gradients are produced
-    def design_sequences(self, method: flags.design_programs_literal = putils.proteinmpnn, number: int = flags.nstruct,
+    def design_sequences(self, method: design_programs_literal = putils.proteinmpnn, number: int = 10,
                          temperatures: Sequence[float] = (0.1,), interface: bool = False, neighbors: bool = False,
                          measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
@@ -7318,7 +7316,8 @@ class Pose(SymmetricModel, MetricsMixin):
             # self.log.debug(f'Found proteinmpnn_loss_unbound with shape {sequences_and_scores["proteinmpnn_loss_unbound"].shape}')
         else:
             sequences_and_scores = {}
-            raise ValueError(f"The method '{method}' isn't a viable design protocol")
+            raise ValueError(
+                f"The method '{method}' isn't a viable design protocol")
 
         return sequences_and_scores
 

@@ -14,7 +14,8 @@ from psutil import cpu_count
 
 from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
-from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, termini_literal
+from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, \
+    design_programs_literal, termini_literal
 from symdesign.utils import handle_errors, InputError, log_levels, remove_digit_table, path as putils, \
     pretty_format_table, to_iterable, logging_levels
 from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_logging_level, \
@@ -1399,7 +1400,6 @@ neighbors_args = (neighbors.long,)
 neighbors_kwargs = \
     dict(action='store_true', help='Whether the neighboring residues should be considered during sequence design')
 design_method_args = ('-m', design_method.long)
-design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 design_programs: tuple[str, ...] = get_args(design_programs_literal)
 design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
                             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')
