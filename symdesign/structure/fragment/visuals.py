@@ -55,8 +55,9 @@ def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.frag
             # Iterate only the paired chain with new chainID
             trnsfmd_fragment.chain(frag_paired_chain).chain_id = next(chain_generator)
             # Set the mapped chain to the single mapped_chain_id
-            trnsfmd_fragment.chain(tuple(set(frag_model.chain_ids).difference({frag_paired_chain, '9'})
-                                         )[0]).chain_id = mapped_chain_id
+            trnsfmd_fragment.chain(tuple(
+                set(frag_model.chain_ids).difference({frag_paired_chain, '9'})
+            )[0]).chain_id = mapped_chain_id
             trnsfmd_fragment.renumber_residues(at=residue_iterator)
             fragment_lines.append(trnsfmd_fragment.get_atom_record(atom_offset=atom_iterator))
             # trnsfmd_fragment.write(file_handle=f)
@@ -95,8 +96,9 @@ def write_fragments_as_multimodel(ghost_frags: list[structure.fragment.GhostFrag
             # Set the paired chain to the single paired chainID
             trnsfmd_fragment.chain(frag_paired_chain).chain_id = paired_chain_id
             # Set the mapped chain to the single mapped chainID
-            trnsfmd_fragment.chain(tuple(set(frag_model.chain_ids).difference({frag_paired_chain, '9'})
-                                         )[0]).chain_id = mapped_chain_id
+            trnsfmd_fragment.chain(tuple(
+                set(frag_model.chain_ids).difference({frag_paired_chain, '9'})
+            )[0]).chain_id = mapped_chain_id
             trnsfmd_fragment.renumber_residues(at=residue_iterator)
             trnsfmd_fragment.write(file_handle=f, atom_offset=atom_iterator)
             atom_iterator += frag_model.number_of_atoms

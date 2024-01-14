@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 class GhostFragment:
     _guide_coords: np.ndarray
     """The guide coordinates according to the representative ghost fragment"""
-    _representative: 'structure.base.Structure'
     aligned_fragment: Fragment
     """The Fragment instance that this GhostFragment is aligned too. 
     Must support .chain_id, .number, .index, .rotation, .translation, and .transformation attributes
@@ -119,14 +118,10 @@ class GhostFragment:
         return self.aligned_fragment.transformation
 
     @property
-    def representative(self) -> 'structure.base.Structure':
-        """Access the Representative GhostFragment Structure"""
-        try:
-            return self._representative.get_transformed_copy()
-        except AttributeError:
-            self._representative, _ = self._fragment_db.paired_frags[self.ijk]
-
-        return self._representative.get_transformed_copy()
+    def representative(self) -> 'structure.model.Chain':
+        """Access the Representative GhostFragment StructureBase"""
+        _representative, paired_chain_id = self._fragment_db.paired_frags[self.ijk]
+        return _representative.get_transformed_copy(*self.aligned_fragment.transformation)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) \
             -> AnyStr | None:
@@ -134,8 +129,8 @@ class GhostFragment:
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
         Args:
-            out_path: The location where the Structure object should be written to disk
-            file_handle: Used to write Structure details to an open FileObject
+            out_path: The location where the StructureBase object should be written to disk
+            file_handle: Used to write to an open FileObject
             header: A string that is desired at the top of the file
         Keyword Args:
             chain_id: str = None - The chain ID to use
@@ -143,21 +138,32 @@ class GhostFragment:
         Returns:
             The name of the written file if out_path is used
         """
+        representative = self.representative
         if file_handle:
-            file_handle.write(f'{self.representative.get_atom_record(**kwargs)}\n')
+            file_handle.write(f'{representative.get_atom_record(**kwargs)}\n')
             return None
         else:  # out_path always has default argument current working directory
-            _header = self.representative.format_header(**kwargs)
+            _header = representative.format_header(**kwargs)
             if header is not None and isinstance(header, str):  # Used for cryst_record now...
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
-                outfile.write(f'{self.representative.get_atom_record(**kwargs)}\n')
+                outfile.write(f'{representative.get_atom_record(**kwargs)}\n')
             return out_path
 
-    # def get_center_of_mass(self):  # UNUSED
-    #     return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
+    def __copy__(self) -> GhostFragment:  # Todo -> Self: in python 3.11
+        cls = self.__class__
+        other = cls.__new__(cls)
+        other.__dict__.update(self.__dict__)
+        try:
+            other.__dict__.pop('aligned_fragment')
+        except AttributeError:
+            raise structure.utils.ConstructionError(
+                f"The {repr(self)} is missing the 'aligned_fragment' variable an isn't valid"
+            )
+
+        return other
 
 
 class Fragment(ABC):
@@ -271,7 +277,7 @@ class Fragment(ABC):
 
         Args:
             clash_tree: Allows clash prevention during search. Typical use is the backbone and CB atoms of the
-                Structure that the Fragment is assigned
+                ContainsAtomsMixin that the Fragment is assigned
             clash_dist: The distance to check for backbone clashes
         """
         ghost_i_type_arrays = self._fragment_db.indexed_ghosts.get(self.i_type, None)
@@ -310,7 +316,7 @@ class Fragment(ABC):
 
         Keyword Args:
             clash_tree: sklearn.neighbors._ball_tree.BinaryTree = None - Allows clash prevention during search.
-                Typical use is the backbone and CB coordinates of the Structure that the Fragment is assigned
+                Typical use is the backbone and CB coordinates of the ContainsAtomsMixin that the Fragment is assigned
             clash_dist: float = 2.1 - The distance to check for backbone clashes
         Returns:
             The ghost fragments associated with the fragment
@@ -323,7 +329,6 @@ class Fragment(ABC):
         else:
             # This routine is necessary when the ghost_fragments are already generated on a residue,
             # but that residue is copied.
-            # Todo Perhaps, this routine should be called by the copy function...
             logger.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
             for ghost in self.ghost_fragments:
                 ghost.aligned_fragment = self

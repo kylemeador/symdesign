@@ -1327,32 +1327,15 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         if self.job.output_fragments:
             putils.make_path(self.frags_path)
-            # Write trajectory if specified
             if self.job.output_trajectory:
-                # Create a Models instance to collect each model
-                trajectory_models = Models()
-
+                # Write all fragments as one trajectory
                 if self.sym_entry.unit_cell:
-                    self.log.warning('No unit cell dimensions applicable to the trajectory file.')
-
-                trajectory_models.write(out_path=os.path.join(self.frags_path, 'all_frags.pdb'),
-                                        assembly=True)
-                residues = self.pose.residues
-                ghost_frags = []
-                for entity_pair, fragment_info in self.pose.fragment_queries_by_entity_pair.items():
-                    for info in fragment_info:
-                        ijk = info.cluster
-                        # match_score = info.match
-                        aligned_residue = residues[info.mapped]
-                        fragment_model, _ = aligned_residue.fragment_db.paired_frags[ijk]
-                        ghost_frags.append(fragment_model.get_transformed_copy(*aligned_residue.transformation))
-
-                fragment.visuals.write_fragments_as_multimodel(
-                    ghost_frags, os.path.join(self.frags_path, 'all_frags.pdb'))
-                # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
-                #     continue
+                    self.log.warning('No unit cell dimensions applicable to the Fragment trajectory file.')
+                out_path = os.path.join(self.frags_path, 'all_frags.pdb')
             else:
-                self.pose.write_fragment_pairs(out_path=self.frags_path)
+                out_path = self.frags_path
+
+            self.pose.write_fragment_pairs(out_path=out_path, multimodel=self.job.output_trajectory)
 
         # Todo move to ProtocolMetaData
         # self.info['fragment_source'] = self.job.fragment_db.source

@@ -21,6 +21,7 @@ alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[str, str] = get_args(alignment_types_literal)
 aa_frequencies_type: dict[protein_letters_literal, float]
 RELOAD_DB = 123
+PARTNER_CHAIN = 'partnerchain'
 
 
 @frozen(auto_attribs=True)
@@ -67,7 +68,7 @@ class Representative:
 class FragmentDatabase(info.FragmentInfo):
     cluster_representatives_path: str
     cluster_info_path: str
-    euler_lookup: EulerLookup
+    euler_lookup: EulerLookup | None
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     # monofrag_representatives_path: str
@@ -89,8 +90,7 @@ class FragmentDatabase(info.FragmentInfo):
         #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
         #     # self.get_monofrag_cluster_rep_dict()
         #     self.representatives = {int(os.path.splitext(file)[0]):
-        #                             structure.base.Structure.from_file(
-        #                                 os.path.join(root, file), entities=False, log=None).ca_coords
+        #                             structure.base.Chain.from_file(os.path.join(root, file), log=None).ca_coords
         #                             for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
         #     self.paired_frags = load_paired_fragment_representatives(self.cluster_representatives_path)
         #     self.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
@@ -106,13 +106,14 @@ class FragmentDatabase(info.FragmentInfo):
 
         keeping each data type as numpy array allows facile indexing for allowed ghosts if a clash test is performed
         """
-        ijk_types = list(sorted(self.paired_frags.keys()))
-        stacked_bb_coords, stacked_guide_coords = [], []
+        paired_frags = self.paired_frags
+        ijk_types = list(sorted(paired_frags.keys()))
+        stacked_bb_coords = []
+        stacked_guide_coords = []
         for ijk in ijk_types:
-            frag_model, frag_paired_chain_id = self.paired_frags[ijk]
+            frag_model, frag_paired_chain_id = paired_frags[ijk]
             # Look up the partner coords by using stored frag_paired_chain
             stacked_bb_coords.append(frag_model.chain(frag_paired_chain_id).backbone_coords)
-            # Todo store these as a numpy array instead of as a chain
             stacked_guide_coords.append(frag_model.chain('9').coords)
         logger.debug(f'Last representative file: {frag_model}, Paired chain: {frag_paired_chain_id}')
 
@@ -121,15 +122,15 @@ class FragmentDatabase(info.FragmentInfo):
         logger.debug(f'stacked_bb_coords {stacked_bb_coords.shape}')
         logger.debug(f'stacked_guide_coords {stacked_guide_coords.shape}')
 
-        stacked_rmsds = np.array([self.info[ijk].rmsd for ijk in ijk_types])
-        # Todo ensure rmsd rounded correct upon creation
+        _info = self.info
+        stacked_rmsds = np.array([_info[ijk].rmsd for ijk in ijk_types])
         stacked_rmsds = np.where(stacked_rmsds == 0, 0.0001, stacked_rmsds)
         logger.debug(f'stacked_rmsds {stacked_rmsds.shape}')
 
         # Split data into separate i_types
-        prior_idx = 0
+        prior_idx = idx = 0
         prior_i_type, prior_j_type, prior_k_type = ijk_types[prior_idx]
-        for idx, (i_type, j_type, k_type) in enumerate(ijk_types):
+        for idx, (i_type, j_type, k_type) in enumerate(ijk_types, idx):
             if i_type != prior_i_type:
                 self.indexed_ghosts[prior_i_type] = \
                     (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
@@ -325,6 +326,12 @@ class FragmentDatabase(info.FragmentInfo):
             'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
             'percent_fragment_coil': (metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2)}
+
+    def __copy__(self) -> FragmentDatabase:
+        return self
+
+    def __deepcopy__(self, memodict={}) -> FragmentDatabase:
+        return self
 
 
 class FragmentDatabaseFactory:

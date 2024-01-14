@@ -9310,36 +9310,50 @@ class Pose(SymmetricModel, MetricsMixin):
             self._fragment_info_by_entity_pair[(entity.name, entity.name)] = (
                 fragment.create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs))
 
-    def write_fragment_pairs(self, out_path: AnyStr = os.getcwd()):
+    def write_fragment_pairs(self, out_path: AnyStr = os.getcwd(), multimodel: bool = False) -> AnyStr | None:
         """Write the fragments associated with the pose to disk
 
         Args:
             out_path: The path to the directory to output files to
+            multimodel: Whether to write all fragments as a multimodel file. File written to "'out_path'/all_frags.pdb"
+        Returns:
+            The path to the written file if one was written
         """
-        putils.make_path(out_path)
-        frag_file = Path(out_path, putils.frag_text_file)
-        frag_file.unlink(missing_ok=True)  # Ensure old file is removed before new write
-
-        match_count = count(1)
         residues = self.residues
+        ghost_frags = []
+        clusters = []
         for entity_pair, fragment_info in self.fragment_queries_by_entity_pair.items():
             for info in fragment_info:
                 ijk = info.cluster
+                clusters.append(ijk)
                 # match_score = info.match
                 aligned_residue = residues[info.mapped]
                 fragment_model, _ = aligned_residue.fragment_db.paired_frags[ijk]
                 trnsfmd_fragment = fragment_model.get_transformed_copy(*aligned_residue.transformation)
+                ghost_frags.append(trnsfmd_fragment)
 
+        putils.make_path(out_path)
+        file_path = None
+        if multimodel:
+            file_path = os.path.join(out_path, 'all_frags.pdb')
+            fragment.visuals.write_fragments_as_multimodel(ghost_frags, file_path)
+        else:
+            match_count = count(1)
+            for trnsfmd_fragment, ijk in zip(ghost_frags, clusters):
+                file_path = os.path.join(
+                    out_path, '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, next(match_count)))
+                trnsfmd_fragment.write(out_path=file_path)
+
+        # frag_file = Path(out_path, putils.frag_text_file)
+        # frag_file.unlink(missing_ok=True)  # Ensure old file is removed before new write
         # for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
         #     ijk = ghost_frag.ijk
         #     fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
         #     trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
-                trnsfmd_fragment.write(
-                    out_path=os.path.join(out_path, '{}_{}_{}_fragment_match_{}.pdb'.format(
-                        *ijk, next(match_count))))
                 # fragment.write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                 #                                     overlap_error=fragment.metrics.z_value_from_match_score(match_score),
                 #                                     match_number=match_count, out_path=out_path)
+        return file_path
 
     def debug_pose(self, out_dir: AnyStr = os.getcwd(), tag: str = None):
         """Write out all Structure objects for the Pose PDB"""
