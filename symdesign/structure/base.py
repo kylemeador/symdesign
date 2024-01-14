@@ -1276,22 +1276,6 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.name})'
 
-    # Todo
-    #  self.atom_indices isn't long term sustainable...
-    @property
-    def _key(self) -> tuple[str, int, ...]:
-        return self.name, *self.atom_indices
-
-    def __eq__(self, other: StructureBase) -> bool:
-        if isinstance(other, StructureBase):
-            return self._key == other._key
-        raise NotImplementedError(
-            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
-
-    # Must define __hash__ in all subclasses that define an __eq__
-    def __hash__(self) -> int:
-        return hash(self._key)
-
 
 class Atom(CoordinateOpsMixin):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
@@ -1894,7 +1878,7 @@ atom_type_num = len(atom_order)
 # END DRY violation
 
 
-class ContainsAtomsMixin(StructureBase, ABC):
+class ContainsAtoms(StructureBase, ABC):
     _atoms: Atoms
     _inverse_number_atoms: np.ndarray
     _indices_attributes: set[str] = {
@@ -1912,7 +1896,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
         Args:
             atoms: Atom instances to initialize the instance
         """
-        super().__init__(**kwargs)  # ContainsAtomsMixin
+        super().__init__(**kwargs)  # ContainsAtoms
         if self.is_parent():
             if atoms is not None:
                 self._assign_atoms(atoms)
@@ -1936,7 +1920,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
         # Had to call _StructureBase__parent to access this variable given issue with inheritance
-        super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
+        super(ContainsAtoms, ContainsAtoms)._parent.fset(self, parent)
         self._atoms = parent._atoms
 
     def make_parent(self):
@@ -2065,7 +2049,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
         parent_coords = self._coords.coords
         atom_indices = self.atom_indices
 
-        # Create a "self.coords" and modify only coordinates in the ContainsAtomsMixin instance
+        # Create a "self.coords" and modify only coordinates in the ContainsAtoms instance
         modified_self_coords = parent_coords.copy()
         # Translate each self coordinate
         modified_self_coords[atom_indices] = parent_coords.max(axis=0) + [1000, 1000, 1000]
@@ -2347,6 +2331,22 @@ class ContainsAtomsMixin(StructureBase, ABC):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
 
+    # Todo
+    #  self.atom_indices isn't long term sustainable...
+    @property
+    def _key(self) -> tuple[str, int, ...]:
+        return self.name, *self.atom_indices
+
+    def __eq__(self, other: StructureBase) -> bool:
+        if isinstance(other, StructureBase):
+            return self._key == other._key
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
+
+    # Must define __hash__ in all subclasses that define an __eq__
+    def __hash__(self) -> int:
+        return hash(self._key)
+
 
 residue_attributes_literal = Literal[
     'contact_order',
@@ -2359,7 +2359,7 @@ residue_attributes_literal = Literal[
 ]
 
 
-class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
+class Residue(ContainsAtoms, fragment.ResidueFragment):
     _ca_indices: list[int]
     _cb_indices: list[int]
     _bb_indices: list[int]
@@ -2388,7 +2388,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
     _secondary_structure: str
     chain_id: str
     number: int
-    state_attributes = ContainsAtomsMixin.state_attributes \
+    state_attributes = ContainsAtoms.state_attributes \
         | {'_contact_order', '_local_density',
            '_next_residue', '_prev_residue',
            '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
@@ -2457,7 +2457,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
 
         return True
 
-    @ContainsAtomsMixin.start_index.setter
+    @ContainsAtoms.start_index.setter
     def start_index(self, index: int):
         """Set Residue atom_indices starting with atom_indices[0] as start_index. Creates remainder incrementally and
         updates individual Atom instance .index accordingly
@@ -2586,7 +2586,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         self._bb_and_cb_indices = indices
 
     @property
-    def ca_indices(self) -> list[int]:  # This is for compatibility with ContainsAtomsMixin
+    def ca_indices(self) -> list[int]:  # This is for compatibility with ContainsAtoms
         """Return the index of the CA Atom as a list in the Residue Atoms/Coords"""
         try:
             return self._ca_indices
@@ -2595,7 +2595,7 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
             return self._ca_indices
 
     @property
-    def cb_indices(self) -> list[int]:  # This is for compatibility with ContainsAtomsMixin
+    def cb_indices(self) -> list[int]:  # This is for compatibility with ContainsAtoms
         """Return the index of the CB Atom as a list in the Residue Atoms/Coords. Will return CA index if Glycine"""
         try:
             return self._cb_indices
@@ -3460,7 +3460,7 @@ class StructureIndexMixin(ABC):
                 f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
 
 
-class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
+class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
@@ -3490,7 +3490,7 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     _coords_indexed_residues_: np.ndarray  # Residues # list[Residue]
     # _coords_indexed_residue_atoms: np.ndarray  # list[int]
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
-    state_attributes = ContainsAtomsMixin.state_attributes \
+    state_attributes = ContainsAtoms.state_attributes \
         | {'_sequence', '_helix_cb_indices', '_secondary_structure', '_coords_indexed_residues_'}
 
     @classmethod
@@ -3592,7 +3592,7 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
         elif residues:  # Assume the passed residues aren't bound to an existing Structure
             self._assign_residues(residues)
         elif self.atoms:
-            # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
+            # Assume ContainsAtoms initialized .atoms. Make Residue instances, Residues
             self._create_residues()
         else:  # Set up an empty Structure or let subclass handle population
             return
@@ -3603,14 +3603,13 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
-        # super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
-        super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
+        super(ContainsAtoms, ContainsAtoms)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
 
     def make_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
-        super(ContainsAtomsMixin, ContainsAtomsMixin).make_parent(self)
+        super(ContainsAtoms, ContainsAtoms).make_parent(self)
         # Populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)
         self.reset_state()
