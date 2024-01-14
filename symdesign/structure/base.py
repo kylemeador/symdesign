@@ -783,7 +783,7 @@ class Log:
     def __copy__(self) -> Log:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        other.__dict__.update(self.__dict__)
+        other.log = self.log
         return other
 
     copy = __copy__  # Overwrites to use this instance __copy__
@@ -1239,7 +1239,34 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     def __copy__(self) -> StructureBase:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        other.__dict__.update(self.__dict__)
+        other__dict__ = other.__dict__
+        other__dict__.update(self.__dict__)
+
+        ignore_attrs = (*parent_attributes, *cls.ignore_copy_attrs)
+        for attr, value in other__dict__.items():
+            if attr not in ignore_attrs:
+                other__dict__[attr] = copy(value)
+        if self.is_parent():  # This Structure is the parent, it's copy should be too
+            # Set the copying Structure attribute .spawn to indicate to dependents their "copies" parent is "other"
+            self.spawn = other
+            other__dict__[parent_variable] = other  # None
+            try:
+                for attr in new_parent_attributes:
+                    other__dict__[attr] = self.__dict__[attr].copy()
+            except KeyError:  # '_atoms', '_residues' may not be present and come after _log, _coords
+                pass
+            # Remove the attribute spawn after other Structure containers are copied
+            del self.spawn
+        else:  # This Structure is a dependent
+            try:  # If initiated by the parent, this Structure's copy should be a dependent too
+                other._parent = self.parent.spawn
+            except AttributeError:  # This copy was not initiated by the parent
+                if self._copier:  # Copy initiated by StructureBaseContainer
+                    pass
+                else:
+                    other.make_parent()
+                    other.log.debug(f"The dependent {repr(other)}'s copy is now a parent")
+
         return other
 
     copy = __copy__  # Overwrites to use this instance __copy__
@@ -1543,33 +1570,18 @@ class Atom(StructureBase):
     def __hash__(self) -> int:
         return hash(self._key)
 
-    def __copy__(self) -> Atom:  # Todo -> Self: in python 3.11
     def __repr__(self) -> str:
         return f'{Atom.__name__}({self._type} at {self.coords.tolist()})'
 
+    def __copy__(self) -> Atom:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
         other.__dict__.update(self.__dict__)
 
-        if self.is_parent():  # This Structure is the parent, it's copy should be too
-            # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
-            self.spawn = other
-            try:
-                other.__dict__[parent_variable] = self.__dict__[parent_variable]
-                for attr in new_parent_attributes:
-                    other.__dict__[attr] = self.__dict__[attr].copy()
-            except KeyError:  # '_atoms' is not present and comes after _log, _coords
-                pass
-            # Remove the attribute spawn after other Structure containers are copied
-            del self.spawn
-        else:  # This Structure is a dependent
-            try:  # If initiated by the parent, this Structure's copy should be a dependent too
-                other._parent = self.parent.spawn
-            except AttributeError:  # This copy was not initiated by the parent
-                if self._copier:  # Copy initiated by Atoms container
-                    pass
-                else:
-                    other.detach_from_parent()
+        if self._copier:  # Copy initiated by Atoms container
+            pass
+        else:
+            other.make_parent()
 
         return other
 
@@ -3214,43 +3226,12 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         return hash(self._key)
 
     def __copy__(self) -> Residue:  # Todo -> Self: in python 3.11
-        cls = self.__class__
-        other = cls.__new__(cls)
-        other.__dict__.update(self.__dict__)
-        # Copy mutable objects like _indices_attributes
-        other.__dict__['_atom_indices'] = self._atom_indices.copy()
-        # for attr in self._indices_attributes:
-        #     try:
-        #         other.__dict__[attr] = self.__dict__[attr].copy()
-        #     except KeyError:  # This attribute not made yet
-        #         pass
-        # # # Copy each of the key value pairs to the new, other dictionary
-        # # for attr, obj in self.__dict__.items():
-        # #     if attr in parent_attributes:
-        # #         # Perform shallow copy on these attributes. They will be handled correctly below
-        # #         other.__dict__[attr] = obj
-        # #     else:  # Perform a deeper copy
-        # #         other.__dict__[attr] = copy(obj)  # obj.copy() <- This won't work for str or bool
+        other: Residue = super().__copy__()
+        for attr in self.ignore_copy_attrs:
+            other.__dict__.pop(attr, None)
+        # del other._prev_residue
+        # del other._next_residue
 
-        if self.is_parent():  # This Structure is the parent, it's copy should be too
-            # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
-            self.spawn = other
-            try:
-                other.__dict__[parent_variable] = self.__dict__[parent_variable]
-                for attr in new_parent_attributes:
-                    other.__dict__[attr] = self.__dict__[attr].copy()
-            except KeyError:  # '_residues' is not present and comes after _log, _coords, _atoms
-                pass
-            # Remove the attribute spawn after other Structure containers are copied
-            del self.spawn
-        else:  # This Structure is a dependent
-            try:  # If initiated by the parent, this Structure's copy should be a dependent too
-                other._parent = self.parent.spawn
-            except AttributeError:  # This copy was not initiated by the parent
-                if self._copier:  # Copy initiated by Residues container
-                    pass
-                else:
-                    other.detach_from_parent()
 
         return other
 
@@ -3312,8 +3293,9 @@ class Residues(StructureBaseContainer):
                 prior_struct = struct
 
     def __copy__(self) -> Residues:  # Todo -> Self: in python 3.11
-        # other.find_prev_and_next()
         other = super().__copy__()
+        other.find_prev_and_next()
+        # other.reindex()
         # other.set_index()
 
         return other
@@ -3511,6 +3493,7 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     def from_mmcif(cls, file: AnyStr, **kwargs):
         """Create a new Structure from a .cif formatted file"""
         return cls(file_path=file, **read_mmcif_file(file, **kwargs))
+    ignore_copy_attrs: set[str] = ContainsAtomsMixin.ignore_copy_attrs | {'_coords_indexed_residues_'}
 
     @classmethod
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
@@ -3722,7 +3705,6 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
         # Update Residue instance attributes to ensure they are dependants of this instance
         # Perform after _populate_coords as .coords may be set and then 'residues' .coords are overwritten
         self._residues.set_attributes(_parent=self)
-        self._residues.find_prev_and_next()  # # Duplicate call with "residues = residues.copy()"
         self._residues.reindex()
 
     # @property
@@ -5874,28 +5856,17 @@ class Structure(ContainsResiduesMixin):
             for attr in new_parent_attributes:
                 other.__dict__[attr] = self.__dict__[attr].copy()
     def __copy__(self) -> ContainsResidues:  # Todo -> Self: in python 3.11
+        # self.log.debug(f'In ContainsResidues __copy__ of {repr(self)}')
+        other: ContainsResidues = super().__copy__()
+        for attr in self.ignore_copy_attrs:
+            other.__dict__.pop(attr, None)
 
-            skip_state_attrs = ['_coords_indexed_residues_']
-            for attr in skip_state_attrs:
-                try:
-                    delattr(other, attr)
-                except AttributeError:
-                    continue
 
-            # other._atoms.set_attributes(_parent=other)
-            # other._residues.set_attributes(_parent=other)
-            other._copy_structure_containers()
-            other._update_structure_container_attributes(_parent=other)
-            # Remove the attribute spawn after other Structure containers are copied
-            del self.spawn
-        else:  # This Structure is a dependent
-            try:  # If initiated by the parent, this Structure's copy should be a dependent too
-                other._parent = self.parent.spawn
-            except AttributeError:  # This copy was not initiated by the parent
-                other.detach_from_parent()
-                other.log.debug(f'The copied {repr(other)} is now a parent. It was a dependent previously')
-                other._copy_structure_containers()
-                other._update_structure_container_attributes(_parent=other)
+        # other__dict__ = other.__dict__
+        # for attr, value in other__dict__.items():
+        #     if attr not in parent_attributes:
+        #         # Perform a copy
+        #         other__dict__[attr] = copy(value)  # value.copy() <- This won't work for str or bool
 
         return other
 
