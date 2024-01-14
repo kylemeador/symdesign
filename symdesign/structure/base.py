@@ -1085,7 +1085,8 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         if parent is not None:  # Initialize StructureBase from parent
             self._parent = parent
         else:  # This is the parent
-            self.__parent = None  # Requires use of _StructureBase__parent attribute checks
+            # self._parent_ = None
+            self._parent_ = self
             self.metadata = StructureMetadata(
                 biological_assembly=biological_assembly, cryst_record=cryst_record, entity_info=entity_info,
                 file_path=file_path, reference_sequence=reference_sequence, resolution=resolution
@@ -1292,12 +1293,13 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         return hash(self._key)
 
 
-class Atom(StructureBase):
+class Atom(CoordinateOpsMixin):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     _coords_: list[float]
-    # _next_atom: Atom
-    # _prev_atom: Atom
-    _sasa: float
+    _coords: Coordinates
+    _copier: bool = False
+    """Whether the StructureBase is being copied by a Container object. If so, cut corners"""
+    # _sasa: float
     _type_str: str
     index: int | None
     number: int | None
@@ -1311,7 +1313,7 @@ class Atom(StructureBase):
     b_factor: float | None
     element: str | None
     charge: str | None
-    state_attributes = StructureBase.state_attributes | {'_sasa'}
+    sasa: float | None
 
     @classmethod
     def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain_id, residue_number,
@@ -1349,8 +1351,9 @@ class Atom(StructureBase):
             coords: The set of values of the x, y, and z coordinate position
             **kwargs:
         """
-        super().__init__(**kwargs)  # Atom
+        # super().__init__(**kwargs)  # Atom
         self.index = index
+        # self._atom_indices = [index]
         self.number = number
         self._type = atom_type
         # Comply with special .pdb formatting syntax by padding type with a space if len(atom_type) == 4
@@ -1370,18 +1373,7 @@ class Atom(StructureBase):
         self.b_factor = b_factor
         self.element = element
         self.charge = charge
-        # self.sasa = sasa
-        # # Set Atom from parent attributes. By default parent is None
-        # parent = self.parent
-        # if parent:
-        #     self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
-        #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
-
-    def make_parent(self):
-        """Remove this instance from its parent, making it a parent in the process"""
-        super().make_parent()
-        self.index = 0
-        self.reset_state()
+        self.sasa = None
 
     @property
     def type(self) -> str:
@@ -1394,35 +1386,116 @@ class Atom(StructureBase):
         """The index of the Atom in the Atoms/Coords container"""
         return [self.index]
 
-    # Below properties are considered part of the Atom state
+    # This getter is a placeholder so that _parent set automatically handles _log and _coords set in derived classes
     @property
-    def sasa(self) -> float:
-        """The Solvent accessible surface area for the Atom. Raises AttributeError if .sasa isn't set"""
-        # try:  # let the Residue owner handle errors
-        return self._sasa
-        # except AttributeError:
-        #     raise AttributeError
+    def _parent(self):
+        """The 'parent' StructureBase of this instance. _parent should only be set"""
+        raise NotImplementedError('_parent should only be set')
 
-    @sasa.setter
-    def sasa(self, sasa: float):
-        self._sasa = sasa
+    @_parent.setter
+    def _parent(self, parent: StructureBase):
+        """Set the 'parent' of this instance"""
+        self._parent_ = None  # parent
+        # self.__parent = None  # parent
+        # self._log = parent._log
+        self._coords = parent._coords
 
-    # End state properties
+    # @staticmethod
+    def is_dependent(self) -> bool:
+        """Is this instance a dependent on a parent StructureBase?"""
+        return True
+
+    # @staticmethod
+    def is_parent(self) -> bool:
+        """Is this instance a parent?"""
+        return False
+
     @property
     def coords(self) -> np.ndarray:
         """The coordinates for the Atom. Array is 1 dimensional in contrast to other .coords properties"""
         # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
         try:
-            # return self._coords.coords[self.index]
-            # ^ this method is what is needed, but not in line with API. v call flatten() to return correct shape
-            return self._coords.coords[[self.index]].flatten()
+            return self._coords.coords[self.index]
         except (AttributeError, IndexError):
             # Possibly the Atom was set with keyword argument coords instead of Structure Coords
             # This shouldn't be used often as it will be quite slow... give warning?
             return np.array(self._coords_)
-            # Todo try something like
-            #  return self.parent._collect_coords()
-            #  This would grab all Atom coords and make them _coords (Coords)
+
+    @coords.setter
+    def coords(self, coords: np.ndarray | list[float]):
+        try:
+            self._coords.replace([self.index], coords)
+        except AttributeError:
+            if not isinstance(coords, (list, np.ndarray)):
+                raise ValueError(
+                    f"Can't pass {coords=}. Must be either list[float] or numpy.ndarray"
+                )
+            self._coords_ = coords
+
+    def make_parent(self):
+        """Remove this instance from its parent, making it a parent in the process"""
+        # super().make_parent()  # When subclassing StructureBase
+        # Create a new, Coords instance detached from the parent
+        self._coords = Coordinates(self.coords)
+        self.index = 0
+        self.reset_state()
+
+    def reset_state(self):
+        """Remove attributes that are valid for the current state
+
+        This is useful for transfer of ownership, or changes in the state that should be overwritten
+        """
+        for attr in self.state_attributes:
+            try:
+                self.__delattr__(attr)
+            except AttributeError:
+                continue
+
+    # Below properties are considered part of the Atom state
+    # state_attributes = StructureBase.state_attributes | {'sasa'}
+    state_attributes = {'sasa'}
+
+    # @property
+    # def sasa(self) -> float:
+    #     """The Solvent accessible surface area for the Atom. Raises AttributeError if .sasa isn't set"""
+    #     # try:  # Let the Residue owner handle errors
+    #     return self._sasa
+    #     # except AttributeError:
+    #     #     raise AttributeError
+    #
+    # @sasa.setter
+    # def sasa(self, sasa: float):
+    #     self._sasa = sasa
+
+    # End state properties
+
+    # @property
+    # def next_atom(self) -> Atom | None:
+    #     """The next Atom in the Structure if this Atom is part of a polymer"""
+    #     try:
+    #         return self._next_atom
+    #     except AttributeError:
+    #         return None
+    #
+    # @next_atom.setter
+    # def next_atom(self, other: Atom):
+    #     """Set the next_atom for this Atom and the prev_atom for the other Atom"""
+    #     self._next_atom = other
+    #     other._next_atom = self
+    #
+    # @property
+    # def prev_atom(self) -> Atom | None:
+    #     """The next Atom in the Structure if this Atom is part of a polymer"""
+    #     try:
+    #         return self._prev_atom
+    #     except AttributeError:
+    #         return None
+    #
+    # @prev_atom.setter
+    # def prev_atom(self, other: Atom):
+    #     """Set the prev_atom for this Atom and the next_atom for the other Atom"""
+    #     self._prev_atom = other
+    #     other._prev_atom = self
 
     @property
     def center_of_mass(self) -> np.ndarray:
@@ -1498,34 +1571,6 @@ class Atom(StructureBase):
     def is_heavy(self) -> bool:
         """Is the Atom a heavy atom?"""
         return 'H' not in self._type
-
-    # @property
-    # def next_atom(self) -> Atom | None:
-    #     """The next Atom in the Structure if this Atom is part of a polymer"""
-    #     try:
-    #         return self._next_atom
-    #     except AttributeError:
-    #         return None
-    #
-    # @next_atom.setter
-    # def next_atom(self, other: Atom):
-    #     """Set the next_atom for this Atom and the prev_atom for the other Atom"""
-    #     self._next_atom = other
-    #     other._next_atom = self
-    #
-    # @property
-    # def prev_atom(self) -> Atom | None:
-    #     """The next Atom in the Structure if this Atom is part of a polymer"""
-    #     try:
-    #         return self._prev_atom
-    #     except AttributeError:
-    #         return None
-    #
-    # @prev_atom.setter
-    # def prev_atom(self, other: Atom):
-    #     """Set the prev_atom for this Atom and the next_atom for the other Atom"""
-    #     self._prev_atom = other
-    #     other._prev_atom = self
 
     @property
     def _key(self) -> tuple[int, str, str, float]:
