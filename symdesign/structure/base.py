@@ -865,6 +865,40 @@ class SymmetryBase(ABC):
                     f"Must be class 'str'")
 
 
+class StructureMetadata:
+    biological_assembly: str | None
+    cryst_record: str | None
+    entity_info: dict[str, dict[dict | list | str]] | dict
+    file_path: AnyStr | None
+    header: list
+    reference_sequence: str | dict[str, str] = None
+    resolution: float | None
+
+    def __init__(self, biological_assembly: str | int = None, cryst_record: str = None,
+                 entity_info: dict[str, dict[dict | list | str]] = None, file_path: AnyStr = None,
+                 reference_sequence: str | dict[str, str] = None, resolution: float = None, **kwargs):
+        """
+        Args:
+            biological_assembly: The integer of the biological assembly (as indicated by PDB AssemblyID format)
+            cryst_record: The string specifying how the molecule is situated in a lattice
+            entity_info: A mapping of the metadata to their distinct molecular identifiers
+            file_path: The location on disk where the file was accessed
+            reference_sequence: The reference sequence (according to expression sequence or reference database)
+            resolution: The level of detail available from an experimental dataset contributing to the sharpness with
+                which structural data can contribute towards building a model
+        """
+        if biological_assembly is None:
+            self.biological_assembly = biological_assembly
+        else:
+            self.biological_assembly = str(biological_assembly)
+        self.cryst_record = cryst_record
+        self.entity_info = entity_info
+        self.file_path = file_path
+        self.reference_sequence = reference_sequence
+        self.resolution = resolution
+        # super().__init__(**kwargs)  # StructureMetadata
+
+
 # parent Structure controls these attributes
 parent_variable = '_StructureBase__parent'
 new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
@@ -874,7 +908,141 @@ and _residues
 """
 
 
-class StructureBase(SymmetryBase, ABC):
+class CoordinateOpsMixin(abc.ABC):
+    _transforming: bool = False
+    """Whether the StructureBase.coords are being updated internally."""
+
+    @property
+    @abc.abstractmethod
+    def coords(self):
+        """"""
+    @coords.setter
+    @abc.abstractmethod
+    def coords(self, value):
+        """"""
+
+    def distance_from_reference(
+        self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs
+    ) -> float:
+        """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
+
+        Args:
+            reference: The reference where the point should be measured from. Default is origin
+            measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
+                numpy function to describe computed distance scalars
+        Returns:
+            The distance from the reference point to the furthest point
+        """
+        if reference is None:
+            reference = utils.symmetry.origin
+
+        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
+
+    def translate(self, translation: list[float] | np.ndarray, **kwargs) -> None:
+        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
+        ensuring the underlying coords are not modified
+
+        Args:
+            translation: The first translation to apply, expected array shape (3,)
+        """
+        self._transforming = True
+        self.coords += translation
+        self._transforming = False
+
+    def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs) -> None:
+        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
+        underlying coords are not modified
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+        """
+        self._transforming = True
+        self.coords = np.matmul(self.coords, np.transpose(rotation))  # Allows a list to be passed
+        # self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
+        self._transforming = False
+
+    def transform(
+        self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
+        rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None, **kwargs
+    ) -> None:
+        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
+        transformed ensuring the underlying coords are not modified
+
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+        rotation, translation, rotation2, translation2
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
+        """
+        if rotation is not None:  # Required for np.ndarray or None checks
+            new_coords = np.matmul(self.coords, np.transpose(rotation))  # Allows list to be passed...
+            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
+        else:
+            new_coords = self.coords  # No need to copy as this is a view
+
+        if translation is not None:  # Required for np.ndarray or None checks
+            new_coords += translation
+
+        if rotation2 is not None:  # Required for np.ndarray or None checks
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # Allows list to be passed...
+            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
+
+        if translation2 is not None:  # Required for np.ndarray or None checks
+            new_coords += translation2
+
+        self._transforming = True
+        self.coords = new_coords
+        self._transforming = False
+
+    @abc.abstractmethod
+    def copy(self):
+        """"""
+
+    def get_transformed_copy(
+        self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
+        rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None
+    ) -> StructureBase:  # Todo -> Self in python 3.11
+        """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
+
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+        rotation, translation, rotation2, translation2
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
+        Returns:
+            A transformed copy of the original object
+        """
+        if rotation is not None:  # Required for np.ndarray or None checks
+            new_coords = np.matmul(self.coords, np.transpose(rotation))  # Allows list to be passed...
+            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
+        else:
+            new_coords = self.coords  # No need to copy as this is a view
+
+        if translation is not None:  # Required for np.ndarray or None checks
+            new_coords += translation
+
+        if rotation2 is not None:  # Required for np.ndarray or None checks
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # Allows list to be passed...
+            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
+
+        if translation2 is not None:  # Required for np.ndarray or None checks
+            new_coords += translation2
+
+        new_structure = self.copy()
+        new_structure._transforming = True
+        new_structure.coords = new_coords
+        new_structure._transforming = False
+
+        return new_structure
+
+
+class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     """StructureBase manipulates the Coords and Log instances as well as the atom_indices for a StructureBase.
     Additionally. sorts through parent Structure and dependent Structure hierarchies during Structure subclass creation.
     Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
@@ -920,6 +1088,10 @@ class StructureBase(SymmetryBase, ABC):
         else:  # This is the parent
             self.__parent = None  # Requires use of _StructureBase__parent attribute checks
             self._dependent_is_updating = False
+            self.metadata = StructureMetadata(
+                biological_assembly=biological_assembly, cryst_record=cryst_record, entity_info=entity_info,
+                file_path=file_path, reference_sequence=reference_sequence, resolution=resolution
+            )
             # Initialize Log
             if log:
                 if isinstance(log, Log):  # Initialized Log
@@ -1053,135 +1225,16 @@ class StructureBase(SymmetryBase, ABC):
         if self.is_symmetric():
             self.reset_symmetry_state()
 
-    @property
-    @abc.abstractmethod
-    def center_of_mass(self) -> np.ndarray:
-        """"""
+    # @property
+    # @abc.abstractmethod
+    # def center_of_mass(self) -> np.ndarray:
+    #     """"""
 
-    @property
-    def radius(self) -> float:
-        """The furthest point from the center of mass of the Structure"""
-        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
+    # @property
+    # @abc.abstractmethod
+    # def radius(self) -> float:
+    #     """"""
 
-    @property
-    def radius_of_gyration(self) -> float:
-        """The measurement of the implied radius (Angstroms) affecting how the Structure diffuses through solution
-
-        Satisfies the equation:
-            Rg = SQRT(SUM|i->N(Ri**2)/N)
-        Where:
-            - Ri is the radius of the point i from the center of mass point
-            - N is the total number of points
-        """
-        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
-
-    def distance_from_reference(
-        self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs
-    ) -> float:
-        """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
-
-        Args:
-            reference: The reference where the point should be measured from. Default is origin
-            measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
-                numpy function to describe computed distance scalars
-        Returns:
-            The distance from the reference point to the furthest point
-        """
-        if reference is None:
-            reference = utils.symmetry.origin
-
-        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
-
-    def translate(self, translation: list[float] | np.ndarray, **kwargs) -> None:
-        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
-        ensuring the underlying coords are not modified
-
-        Args:
-            translation: The first translation to apply, expected array shape (3,)
-        """
-        self.coords += translation
-
-    def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs) -> None:
-        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
-        underlying coords are not modified
-
-        Args:
-            rotation: The first rotation to apply, expected array shape (3, 3)
-        """
-        self.coords = np.matmul(self.coords, np.transpose(rotation))  # Allows a list to be passed
-        # self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
-
-    def transform(
-        self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
-        rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None, **kwargs
-    ) -> None:
-        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
-        transformed ensuring the underlying coords are not modified
-
-        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
-        rotation, translation, rotation2, translation2
-
-        Args:
-            rotation: The first rotation to apply, expected array shape (3, 3)
-            translation: The first translation to apply, expected array shape (3,)
-            rotation2: The second rotation to apply, expected array shape (3, 3)
-            translation2: The second translation to apply, expected array shape (3,)
-        """
-        if rotation is not None:  # Required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, np.transpose(rotation))  # Allows list to be passed...
-            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
-        else:
-            new_coords = self.coords  # No need to copy as this is a view
-
-        if translation is not None:  # Required for np.ndarray or None checks
-            new_coords += translation
-
-        if rotation2 is not None:  # Required for np.ndarray or None checks
-            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # Allows list to be passed...
-            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
-
-        if translation2 is not None:  # Required for np.ndarray or None checks
-            new_coords += translation2
-
-        self.coords = new_coords
-
-    def get_transformed_copy(
-        self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
-        rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None
-    ) -> StructureBase:
-        """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
-
-        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
-        rotation, translation, rotation2, translation2
-
-        Args:
-            rotation: The first rotation to apply, expected array shape (3, 3)
-            translation: The first translation to apply, expected array shape (3,)
-            rotation2: The second rotation to apply, expected array shape (3, 3)
-            translation2: The second translation to apply, expected array shape (3,)
-        Returns:
-            A transformed copy of the original object
-        """
-        if rotation is not None:  # Required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, np.transpose(rotation))  # Allows list to be passed...
-            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
-        else:
-            new_coords = self.coords  # No need to copy as this is a view
-
-        if translation is not None:  # Required for np.ndarray or None checks
-            new_coords += translation
-
-        if rotation2 is not None:  # Required for np.ndarray or None checks
-            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # Allows list to be passed...
-            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
-
-        if translation2 is not None:  # Required for np.ndarray or None checks
-            new_coords += translation2
-
-        new_structure = self.copy()
-        new_structure.coords = new_coords
-
-        return new_structure
 
     def __copy__(self) -> StructureBase:  # Todo -> Self: in python 3.11
         cls = self.__class__
