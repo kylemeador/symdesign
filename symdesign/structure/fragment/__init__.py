@@ -129,7 +129,7 @@ class GhostFragment:
         return self._representative.get_transformed_copy()
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) \
-            -> str | None:
+            -> AnyStr | None:
         """Write the GhostFragment to a file specified by out_path or with a passed file_handle
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
@@ -140,6 +140,8 @@ class GhostFragment:
         Keyword Args:
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
+        Returns:
+            The name of the written file if out_path is used
         """
         if file_handle:
             file_handle.write(f'{self.representative.get_atom_record(**kwargs)}\n')

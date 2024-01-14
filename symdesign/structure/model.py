@@ -602,7 +602,7 @@ class State(Structures):
     #         return self._ca_indices
     #
 
-    def write(self, increment_chains: bool = False, **kwargs) -> str | None:
+    def write(self, increment_chains: bool = False, **kwargs) -> AnyStr | None:
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
         Keyword Args:
@@ -3634,29 +3634,28 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             header: A string that is desired at the top of the file
             assembly: Whether to write the oligomeric form of the Entity
         Keyword Args:
-            asu: bool = True - Whether to output SEQRES for the Entity ASU or the full oligomer
+            increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
+                a new Model
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed.
-                Not used if asu=True
+                Not used if assembly=True
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.debug(f'Entity is writing {repr(self)}')
+        self.log.debug(f'{Entity.__name__} is writing {repr(self)}')
 
-        def entity_write(handle):
+        def _write(handle) -> None:
             if assembly:
                 kwargs.pop('atom_offset', None)
-                offset = 0
-                for chain in self.chains:
-                    handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
-                    offset += chain.number_of_atoms
+                if 'increment_chains' not in kwargs:
+                    kwargs['increment_chains'] = True
+                assembly_models = Models(self.chains)
+                assembly_models.write(file_handle=handle, **kwargs)
             else:
-                super(ContainsResidues, ContainsResidues).write(self, file_handle=handle, **kwargs)
+                super(Structure, Structure).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
-            entity_write(file_handle)
-            return None
-
+            return _write(file_handle)
         else:  # out_path always has default argument current working directory
             # assembly=True implies all chains will be written, so asu=False to write each SEQRES record
             _header = self.format_header(asu=not assembly, **kwargs)
@@ -3665,7 +3664,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
 
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
-                entity_write(outfile)
+                _write(outfile)
 
             return out_path
 
@@ -4933,42 +4932,44 @@ class Models(UserList):  # (Model):
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
-            increment_chains: Whether to write each Chain with an incremental chain ID,
-                otherwise write with the chain IDs present, repeating for each Model
+            increment_chains: Whether to write each Chain with an incrementing chain ID,
+                otherwise use the chain IDs present, repeating for each Model
         Keyword Args
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
-            oligomer: bool = False - Whether to write the oligomeric representation of each Model instance
+            assembly: bool = False - Whether to write an assembly representation of each Model instance
         Returns:
             The name of the written file if out_path is used
         """
-        logger.debug(f'Models is writing {repr(self)}')
+        logger.debug(f'{Models.__name__} is writing {repr(self)}')
 
-        def models_write(handle):
+        def _write(handle) -> None:
             # self.models is populated
+            entity: Entity
+            offset = 0
             if increment_chains:
                 available_chain_ids = chain_id_generator()
                 for model in self:
                     for entity in model.entities:
                         chain_id = next(available_chain_ids)
-                        entity.write(file_handle=handle, chain_id=chain_id, **kwargs)
-                        c_term_residue = entity.c_terminal_residue
+                        entity.write(file_handle=handle, chain_id=chain_id, atom_offset=offset, **kwargs)
+                        offset += entity.number_of_atoms
+                        c_term_residue: Residue = entity.c_terminal_residue
                         # Todo when used with assembly=True, the c_term_residue is the first monomer residue...
-                        handle.write(f'TER   {c_term_residue.end_index + 1:>5d}      {c_term_residue.type:3s} '
+                        handle.write(f'TER   {offset + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{chain_id:1s}{c_term_residue.number:>4d}\n')
             else:
                 for model_number, model in enumerate(self, 1):
                     handle.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                     for entity in model.entities:
-                        entity.write(file_handle=handle, **kwargs)
-                        c_term_residue = entity.c_terminal_residue
-                        handle.write(f'TER   {c_term_residue.end_index + 1:>5d}      {c_term_residue.type:3s} '
+                        entity.write(file_handle=handle, atom_offset=offset, **kwargs)
+                        offset += entity.number_of_atoms
+                        c_term_residue: Residue = entity.c_terminal_residue
+                        handle.write(f'TER   {offset + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{entity.chain_id:1s}{c_term_residue.number:>4d}\n')
 
                     handle.write('ENDMDL\n')
 
         if file_handle:
-            models_write(file_handle)
-            return None
+            return _write(file_handle)
         else:  # out_path always has default argument current working directory
             _header = ''  # self.format_header(**kwargs)
             if header is not None and isinstance(header, str):
@@ -4976,7 +4977,7 @@ class Models(UserList):  # (Model):
 
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
-                models_write(outfile)
+                _write(outfile)
             return out_path
 
     def __getitem__(self, idx: int) -> Model:
@@ -6290,14 +6291,13 @@ class SymmetricModel(SymmetryOpsMixin, Model):
                 a new Model
             surrounding_uc: bool = False - Whether the 3x3 layer group, or 3x3x3 space group should be written when
                 assembly is True and self.dimension > 1
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.debug(f'SymmetricModel is writing {repr(self)}')
+        self.log.debug(f'{SymmetricModel.__name__} is writing {repr(self)}')
         is_symmetric = self.is_symmetric()
 
-        def write_pose(handle):
+        def _write(handle) -> None:
             if is_symmetric:
                 # symmetric_model_write(outfile)
                 # def symmetric_model_write(handle):
@@ -6306,23 +6306,14 @@ class SymmetricModel(SymmetryOpsMixin, Model):
                     # assembly_to_write.write(file_handle=handle, **kwargs)
                     assembly_models = self._generate_assembly_models(**kwargs)
                     assembly_models.write(file_handle=handle, **kwargs)
-                    # models_write(handle, assembly_models)
-
-                # if assembly:  # Will make models and use next logic steps to write them out
-                #     self.generate_assembly_symmetry_models(**kwargs)
-                #     # self.models is populated, use Models.write() to finish
-                #     super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
                 else:  # Skip models, write asu using biomt_record/cryst_record for sym
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
-            else:  # Use Model.write() to finish
-                # self.write(file_handle=handle, **kwargs)
-                super(Model, Model).write(self, file_handle=handle, **kwargs)
-                # Models.write(self, file_handle=handle, **kwargs)
+            else:  # Finish with a standard write
+                super(Structure, Structure).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
-            write_pose(file_handle)
-            return None
+            return _write(file_handle)
         else:  # out_path default argument is current working directory
             _header = self.format_header(asu=is_symmetric and not assembly, **kwargs)
             if header is not None and isinstance(header, str):
@@ -6330,7 +6321,7 @@ class SymmetricModel(SymmetryOpsMixin, Model):
 
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
-                write_pose(outfile)
+                _write(outfile)
             return out_path
 
     def __copy__(self) -> SymmetricModel:  # Todo -> Self: in python 3.11

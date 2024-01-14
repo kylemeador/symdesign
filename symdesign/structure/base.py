@@ -2188,15 +2188,15 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """Provide the Structure Atom instances as a .pdb file string
 
         Keyword Args:
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) -> \
-            str | None:
+    def write(
+        self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs
+    ) -> AnyStr | None:
         """Write Atom instances to a file specified by out_path or with a passed file_handle
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
@@ -3126,16 +3126,16 @@ class Residue(ContainsAtomsMixin, fragment.ResidueFragment):
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
-    def get_atom_record(self, **kwargs) -> str:
+    def get_atom_record(self, chain_id: str = None, atom_offset: int = 0, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
 
-        Keyword Args:
-            chain_id: str = None - The chain ID to use
-            atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
+        Args:
+            chain_id: The chain ID to use
+            atom_offset: How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
-        return f'{self.__str__(**kwargs)}\n'
+        return f'{self.__str__(chain_id=chain_id, atom_offset=atom_offset, **kwargs)}\n'
 
     def __str__(self, chain_id: str = None, atom_offset: int = 0, **kwargs) -> str:
         #         type=None, number=None
