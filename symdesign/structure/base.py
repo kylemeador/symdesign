@@ -1755,21 +1755,23 @@ class Atoms(StructureBaseContainer):
         Args:
             start_at: The index to start reindexing at. Must be [0, 'inf']
         """
-        if start_at > 0:
-            # if start_at < self.atoms.shape[0]:  # if in the Atoms index range
-            try:
-                prior_atom: Atom = self.atoms[start_at - 1]
-                for idx, atom in enumerate(self.atoms[start_at:].tolist(), prior_atom.index + 1):
-                    atom.index = idx
-            except IndexError:
-                raise IndexError(
-                    f'{self.reindex.__name__}: Starting index is outside of the allowable indices in the '
-                    f'{self.__class__.__name__} object')
-        else:  # When start_at is 0 or less
+        if start_at == 0:
+            _start_at = start_at
+        else:
+            _start_at = start_at - 1
             if start_at < 0:
-                raise NotImplementedError(
-                    f"Can't use {self.reindex.__name__} with negative integers")
-            for idx, struct in enumerate(self, start_at):
+                _start_at += len(self)
+        try:
+            prior_struct, *other_structs = self.structs[_start_at:]
+        except ValueError:  # Not enough values to unpack as the index didn't slice anything
+            raise IndexError(
+                f'{self.reindex.__name__}: {start_at=} is outside of the {self.__class__.__name__} indices with '
+                f'size {len(self)}')
+        else:
+            if start_at == 0:
+                prior_struct.index = 0
+
+            for idx, struct in enumerate(other_structs, prior_struct.index + 1):
                 struct.index = idx
 
     def __copy__(self) -> Atoms:  # Todo -> Self: in python 3.11
@@ -3314,23 +3316,26 @@ class Residues(StructureBaseContainer):
         Args:
             start_at: The index to start reindexing at. Must be [0, 'inf']
         """
-        residue: Residue
-        if start_at > 0:
-            try:
-                prior_struct, *other_structs = self.residues[start_at - 1:]
-                for struct in other_structs:
-                    struct.start_index = prior_struct.end_index + 1
-                    prior_struct = struct
-            except IndexError:
-                raise IndexError(
-                    f'{self.reindex_atoms.__name__}: Starting index is outside of the allowable indices in the '
-                    f'{self.__class__.__name__} instance')
-        else:  # When start_at is 0 or less
+        if start_at == 0:
+            _start_at = start_at
+        else:
+            _start_at = start_at - 1
             if start_at < 0:
-                raise NotImplementedError(
-                    f"Can't use {self.reindex_atoms.__name__} with negative integers")
-            prior_struct, *other_structs = self.residues
-            prior_struct.start_index = start_at
+                _start_at += len(self)
+
+        struct: Residue
+        prior_struct: Residue
+        try:
+            # prior_struct, *other_structs = self.structs[start_at - 1:]
+            prior_struct, *other_structs = self[_start_at:]
+        except ValueError:  # Not enough values to unpack as the index didn't slice anything
+            raise IndexError(
+                f'{self.reindex_atoms.__name__}: {start_at=} is outside of the allowed {self.__class__.__name__} '
+                f'indices with size {len(self)}')
+        else:
+            if start_at == 0:
+                prior_struct.start_index = start_at
+
             for struct in other_structs:
                 struct.start_index = prior_struct.end_index + 1
                 prior_struct = struct
