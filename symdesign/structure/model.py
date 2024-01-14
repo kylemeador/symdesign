@@ -3230,7 +3230,14 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
 
     @property
+    def sequence(self) -> str:
+        """Return the sequence of structurally modeled residues for every Entity instance
 
+        Returns:
+            The concatenated sequence for all Entity instances combined
+        """
+        # Due to the ContainsEntities MRO, need to call the ContainsResidues.sequence
+        return super(Structure, Structure).sequence.fget(self)
 
     @property
     def reference_sequence(self) -> str:
@@ -3239,6 +3246,8 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         Returns:
             The sequence according to the Entity reference, or the Structure sequence if no reference available
         """
+        # Due to the ContainsEntities MRO, need to call the ContainsResidues.reference_sequence
+        return super(Structure, Structure).reference_sequence.fget(self)
 
     # @property
     # def chain_id(self) -> str:
