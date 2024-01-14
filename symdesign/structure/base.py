@@ -316,19 +316,11 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
         raise ValueError(
             f"{read_pdb_file.__name__}: Must provide the argument 'file' or 'pdb_lines'")
 
-    # PDB
     # type to info index:   1    2    3    4    5    6    7     11     12   13   14
+    # eventual type:      int, str, str, str, str, int, str, float, float, str, str]] = []
     temp_info: list[tuple[str, str, str, str, str, str, str, str, str, str, str]] = []
-    # temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
-    # if separate_coords:
-    #     # type to info index:   1    2    3    4    5    6    7 8,9,10    11     12   13   14
-    #     atom_info: list[tuple[int, str, str, str, str, int, str, None, float, float, str, str]] = []
-    # else:
-    #     # type to info index:   1    2    3    4    5    6    7      8,9,10      11     12   13   14
-    #     atom_info: list[tuple[int, str, str, str, str, int, str, list[float], float, float, str, str]] = []
-    #     # atom_info: dict[int | str | list[float]] = {}
-
-    # atom_info: dict[int | str | list[float]] = {}
+    # type to info index:   1    2    3    4    5    6    7 8,9,10     11     12   13   14
+    # fields w/ coords   [int, str, str, str, str, int, str, float, float, float, str, str]
     coords: list[list[float]] = []
     cryst_record: str = None
     dbref: dict[str, dict[str, str]] = {}
@@ -349,9 +341,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     #     #     line[6:11].strip(), int(line[6:11]), line[12:16].strip(), line[16:17].strip(), line[17:20].strip(),
     #     #     line[21:22], int(line[22:26]), line[26:27].strip(), float(line[30:38]), float(line[38:46]), \
     #     #     float(line[46:54]), float(line[54:60]), float(line[60:66]), line[76:78].strip(), line[78:80].strip()
-    #     if line_tokens[0] == 'ATOM' or line_tokens[4] == 'MSE' and line_tokens[0] == 'HETATM':
-    #         if line_tokens[3] not in ['', 'A']:
-    #             continue
     for line in pdb_lines:
         remark = line[slice_remark]
         if remark == 'ATOM  ' or line[slice_residue_type] == 'MSE' and remark == 'HETATM':
@@ -1051,9 +1040,9 @@ class StructureBase(SymmetryBase, ABC):
         self._coords = Coordinates(self.coords)
 
     def reset_state(self):
-        """Remove StructureBase attributes that are valid for the current state
+        """Remove attributes that are valid for the current state
 
-        This is useful for transfer of ownership, or changes in the StructureBase state that should be overwritten
+        This is useful for transfer of ownership, or changes in the state that should be overwritten
         """
         for attr in self.state_attributes:
             try:
@@ -1263,7 +1252,7 @@ class Atom(StructureBase):
         """
 
         Args:
-            index: The zero-indexed number to describe this Atom instance's position in a StructureContainer
+            index: The zero-indexed number to describe this Atom instance's position in a StructureBaseContainer
             number: The integer number describing this Atom instances position in comparison to others instances
             atom_type: The characters describing the classification of atom via membership to a molecule
             alt_location: Whether the observation of the Atom has alternative evidences
@@ -1286,7 +1275,8 @@ class Atom(StructureBase):
         self.index = index
         self.number = number
         self._type = atom_type
-        self._type_str = f'{"" if atom_type[3:] else " "}{atom_type:<3s}'  # pad with space if atom_type is len()=4
+        # Comply with special .pdb formatting syntax by padding type with a space if len(atom_type) == 4
+        self._type_str = f'{"" if atom_type[3:] else " "}{atom_type:<3s}'
         self.alt_location = alt_location
         self.residue_type = residue_type
         self.chain_id = chain_id
@@ -1472,7 +1462,7 @@ class Atom(StructureBase):
         x, y, z = list(self.coords)
         # Add 1 to the self.index since this is 0 indexed
         return f'ATOM  {self.index + 1:5d} {self._type_str}{self.alt_location:1s}{self.residue_type:3s}' \
-               f'{self.chain_id:>2s}{self.residue_number:4d}{self.code_for_insertion:1s}   '\
+               f'{self.chain_id:>2s}{self.residue_number:4d}{self.code_for_insertion:1s}   ' \
                f'{x:8.3f}{y:8.3f}{z:8.3f}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
 
@@ -1554,7 +1544,7 @@ class StructureBaseContainer(Generic[_StructType]):
         self.structs = np.array(structs, dtype=np.object_)
 
     def are_dependents(self) -> bool:
-        """Check if any of the Residue instance are dependents on another Structure"""
+        """Check if any of the StructureBase instances are dependents of another StructureBase"""
         for struct in self:
             if struct.is_dependent():
                 return True
@@ -1887,7 +1877,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
             # Update Atom instance attributes to ensure they are dependants of this instance
             # Must do this after _populate_coords to ensure that coordinate info isn't overwritten
             self._atoms.set_attributes(_parent=self)
-            # if not self.file_path:  # Assume this instance wasn't parsed and Atom indices are incorrect
             self._atoms.reindex()
 
     def _populate_coords(self, coords: np.ndarray = None, from_source: structure_container_types = 'atoms'):
@@ -3290,9 +3279,6 @@ ArrayIndexer = Type[Union[Sequence[int], Sequence[bool], slice, None]]  # Ellips
 class StructureIndexMixin(ABC):
     """"""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)  # StructureIndexMixin
-
     @abc.abstractmethod
     def is_parent(self) -> bool:
         """"""
@@ -3415,11 +3401,6 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
-    biomt: np.ndarray | None
-    biomt_header: str
-    file_path: AnyStr | None
-    nucleotides_present: bool
-    class_structure_containers = set()
     _contact_order: np.ndarray
     _residues: Residues | None
     _residue_indices: list[int] | None
@@ -3544,7 +3525,7 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     def _parent(self, parent: StructureBase):
         """Set the 'parent' StructureBase of this instance"""
         # super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
-        super(ContainsResidues, ContainsResidues)._parent.fset(self, parent)
+        super(ContainsAtomsMixin, ContainsAtomsMixin)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
 
@@ -4376,26 +4357,26 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
             return _parent.delete_residues(residues=residues)
 
         # Find the Residue, Atom indices to delete
-        delete_indices = []
+        atom_indices = []
         for residue in residues:
             self.log.debug(f'Deleting {residue.type}{residue.number}')
-            delete_indices.extend(residue.atom_indices)
+            atom_indices.extend(residue.atom_indices)
 
-        if not delete_indices:
+        if not atom_indices:
             return []  # There are no indices for the Residue instances
         else:  # Find the Residue indices to delete
             residue_indices = [residue.index for residue in residues]
 
         # Remove indices from the Residue, and Structure atom_indices
-        self._delete_indices(delete_indices, dtype='atom')
+        self._delete_indices(atom_indices, dtype='atom')
         self._delete_indices(residue_indices, dtype='residue')
         # Re-index all succeeding Atom and Residue instance indices
-        self._coords.delete(delete_indices)
-        self._atoms.delete(delete_indices)
+        self._coords.delete(atom_indices)
+        self._atoms.delete(atom_indices)
         self._residues.delete(residue_indices)
         self._residues.reindex(start_at=residue_indices[0])
 
-        # Clear state variables for remaining Residue instances. Deleted Residues affected remaining attrs and indices
+        # Clear state variables for remaining Residue instances. Residue deletion affected remaining attrs and indices
         self._residues.reset_state()
         # Reindex the coords/residues map
         self.reset_state()
@@ -5867,7 +5848,6 @@ class Structure(ContainsResiduesMixin):
 
     copy = __copy__  # Overwrites to use this instance __copy__
 
-    # Todo this isn't long term sustainable. Perhaps a better case would be the ._sequence
     @property
     def _key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices

@@ -5322,19 +5322,22 @@ def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: st
         The PoseJob instances that are already present
     """
     error_count = count(1)
+    # logger.debug(f"Start: {getattr(pose_jobs[0], 'id', 'No id')}")
     while True:
         pose_name_to_pose_jobs = {pose_job.name: pose_job for pose_job in pose_jobs}
         session.add_all(pose_jobs)
+        # logger.debug(f"ADD ALL: {getattr(pose_jobs[0], 'id', 'No id')}")
         try:  # Flush PoseJobs to the current session to generate ids
             session.flush()
         except IntegrityError:  # PoseJob.project/.name already inserted
+            # logger.debug(f"FLUSH: {getattr(pose_jobs[0], 'id', 'No id')}")
             session.rollback()
+            # logger.debug(f"ROLLBACK: {getattr(pose_jobs[0], 'id', 'No id')}")
             number_flush_attempts = next(error_count)
-            pose_names = list(pose_name_to_pose_jobs.keys())
             logger.debug(f'rollback() #{number_flush_attempts}')
-            logger.debug(f'From {len(pose_names)} pose_names:\n{sorted(pose_names)}')
 
             # Find the actual pose_jobs_to_commit and place in session
+            pose_names = list(pose_name_to_pose_jobs.keys())
             fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                 .where(PoseJob.name.in_(pose_names))
             existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
@@ -5342,15 +5345,21 @@ def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: st
             # ex, design 11 is processed before design 2
             existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
             new_pose_names = set(pose_names).difference(existing_pose_names)
-            if new_pose_names:
-                logger.debug(
-                    f'Found {len(new_pose_names)} new_pose_names:\n{sorted(new_pose_names)}\n'
-                    f'Removing existing docked poses from output: {", ".join(existing_pose_names)}')
             if not new_pose_names:  # No new PoseJobs
                 return existing_pose_jobs
             else:
                 pose_jobs = [pose_name_to_pose_jobs[pose_name] for pose_name in new_pose_names]
-                if number_flush_attempts == 2:
+                # Set each of the primary id to None so they are updated again during the .flush()
+                for pose_job in pose_jobs:
+                    pose_job.id = None
+                # logger.debug(f"RESET: {getattr(pose_jobs[0], 'id', 'No id')}")
+
+                if number_flush_attempts == 1:
+                    logger.debug(
+                        f'From {len(pose_names)} pose_jobs:\n{sorted(pose_names)}\n'
+                        f'Found {len(new_pose_names)} new_pose_jobs:\n{sorted(new_pose_names)}\n'
+                        f'Removing existing docked poses from output: {", ".join(existing_pose_names)}')
+                elif number_flush_attempts == 2:
                     # Try to attach existing protein_metadata.entity_id
                     # possibly_new_uniprot_to_prot_metadata = {}
                     possibly_new_uniprot_to_prot_metadata = defaultdict(list)

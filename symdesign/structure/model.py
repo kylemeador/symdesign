@@ -1489,10 +1489,7 @@ class ContainsChains(ContainsStructures):
             orient_output.unlink(missing_ok=True)
 
         clean_orient_input_output()
-        orient_kwargs = {
-            'out_path': str(orient_input),
-            'pdb_number': True  # Change residue numbering to PDB numbering
-        }
+        orient_kwargs = {'out_path': str(orient_input)}
         if multicomponent:
             if not isinstance(self, ContainsEntities):
                 raise SymmetryError(
@@ -4173,7 +4170,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         return
 
     def _copy_structure_containers(self):
-        """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
+        """Copy all contained Structure members. Entity specific handling of chains index 0"""
         # self.log.debug('In Entity copy_structure_containers()')
         for structure_type in self.structure_containers:
             # Get and copy the structure container
@@ -4210,7 +4207,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         else:
             # If the .entity_spawn attribute is set, the copy was initiated by the captain,
             # ._captain will be set after this __copy__ return in _copy_structure_containers()
-            try:  # To delete entity_spawn attribute for the self and the copy (it was copied)
+            try:  # To delete entity_spawn attribute
                 del self.entity_spawn
                 del other.entity_spawn
             except AttributeError:
@@ -4220,6 +4217,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
                 # _make_captain() extracts data, and finally, will set _captain as None
                 other._captain = captain
                 other._make_captain()  # other._captain -> None
+                # Have to make it a captain -> None
 
         # Set the first chain as the object itself
         other._chains[0] = other
@@ -4448,8 +4446,8 @@ class Model(Structure, ContainsEntities):
             # Find the Residue, Atom indices to delete
             # Offset these indices if prior indices have already been removed
             atom_delete_indices = [idx - atom_index_offset_amount for idx in residue.atom_indices]
-            residue_index = residue.index - residue_idx
             delete_length = len(atom_delete_indices)
+            residue_index = residue.index - residue_idx
             # Offset the next Residue Atom indices by the incrementing amount
             atom_index_offset_amount += delete_length
             for structure_type in self.structure_containers:
@@ -4474,13 +4472,6 @@ class Model(Structure, ContainsEntities):
                     else:  # Remove atom_delete_indices, residue_index from Structure
                         structure._delete_indices(atom_delete_indices, dtype='atom')
                         structure._delete_indices([residue_index], dtype='residue')
-                        # input(f'deleted structure._residue_indices for residue={residue_idx}')
-                    # except IndexError:  # This will happen if the indices aren't in the Structure
-                    #     pass
-                    # else:
-                    #     input(f'{structure.name} Structure._atom_indices:\n{structure._atom_indices}')
-                    #     structure._offset_indices(start_at=atom_delete_indices[0], offset=-delete_length, dtype='atom')
-                    #     input(f'offset {structure.name} Structure._atom_indices:\n{structure._atom_indices}')
                         structure.reset_state()
                         residue_found = True
 
@@ -4881,11 +4872,11 @@ class Models(UserList):  # (Model):
         """Initialize from an iterable of Model instances"""
         return cls(models=models, **kwargs)
 
-    def __init__(self, models: Iterable[Model], name: str = None, **kwargs):
-        super().__init__(initlist=models)  # initlist sets UserList.data to Iterable[Model]
+    def __init__(self, models: Iterable[ContainsEntities], name: str = None, **kwargs):
+        super().__init__(initlist=models)  # Sets UserList.data to models
 
         for model in self:
-            if not isinstance(model, Model):
+            if not isinstance(model, ContainsEntities):
                 raise TypeError(
                     f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be an Iterable"
                     f' of {Model.__name__}')
@@ -4980,6 +4971,9 @@ class Models(UserList):  # (Model):
                 _write(outfile)
             return out_path
 
+    def __iter__(self) -> ContainsChains:
+        yield from self.data
+
     def __getitem__(self, idx: int) -> Model:
         return self.data[idx]
 
@@ -5013,12 +5007,6 @@ class SymmetricModel(SymmetryOpsMixin, Model):
     def __init__(self, **kwargs):
         """"""
         super().__init__(**kwargs)  # SymmetricModel
-        # Initialize symmetry first incase initialization of Model requires symmetric coordinate handling
-        self._expand_matrices = self._expand_translations = None
-        # self.uc_dimensions = None  # uc_dimensions
-        self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
-                          operators=symmetry_operators,
-                          transformations=transformations, surrounding_uc=surrounding_uc)
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                      uc_dimensions: list[float] = None,
@@ -5253,8 +5241,6 @@ class SymmetricModel(SymmetryOpsMixin, Model):
 
     @property
     def atom_indices_per_entity_symmetric(self):
-        # Todo make Structure .atom_indices a numpy array
-        #  Need to modify delete_residue and insert residue ._atom_indices attribute access
         # alt solution may be quicker by performing the following addition then .flatten()
         # broadcast entity_indices ->
         # (np.arange(model_number) * number_of_atoms).T
@@ -7327,26 +7313,6 @@ class Pose(SymmetricModel, MetricsMixin):
 
         return sequences_and_scores
 
-    # def combine_sequence_profiles(self):
-    #     """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
-    #
-    #     Sets:
-    #         self.evolutionary_profile (ProfileDict)
-    #         self.fragment_profile (ProfileDict)
-    #         self.profile (ProfileDict)
-    #     """
-    #     # Ensure each Entity has the evolutionary_profile fit to the structure sequence before concatenation
-    #     for entity in self.entities:
-    #         if not entity.verify_evolutionary_profile():
-    #             entity.fit_evolutionary_profile_to_structure()
-    #
-    #     self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
-    #     fragment_profile = []
-    #     for entity in self.entities:
-    #         fragment_profile.extend(entity.fragment_profile)
-    #     self.fragment_profile = Profile(fragment_profile, dtype='fragment')
-    #     self.profile = concatenate_profile([entity.profile for entity in self.entities])
-
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> dict[str, bool]:
         """Return the termini which are not buried in the Pose
 
@@ -8908,7 +8874,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
     def get_fragment_metrics(self, fragments: list[FragmentInfo] = None, total_interface: bool = True,
                              by_interface: bool = False, by_entity: bool = False,
-                             entity1: Structure = None, entity2: Structure = None, **kwargs) -> dict[str, Any]:
+                             entity1: Entity = None, entity2: Entity = None, **kwargs) -> dict[str, Any]:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
 
         Uses data from self.fragment_queries unless fragments are passed

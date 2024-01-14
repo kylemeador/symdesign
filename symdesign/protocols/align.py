@@ -84,7 +84,7 @@ modes3x4_R = np.array([
 ])
 
 
-def vdot3(a, b):
+def vdot3(a: Sequence[float], b: Sequence[float]) -> float:
     dot = 0.
     for i in range(3):
         dot += a[i] * b[i]
@@ -92,8 +92,7 @@ def vdot3(a, b):
     return dot
 
 
-def vnorm3(a):
-    b = [0., 0., 0.]
+def vnorm3(a: Sequence[float]) -> list[float]:
     dot = 0.
     for i in a:
         dot += i ** 2
@@ -105,7 +104,7 @@ def vnorm3(a):
     return b
 
 
-def vcross(a, b):
+def vcross(a: Sequence[float], b: Sequence[float]) -> list[float]:
     c = [0., 0., 0.]
     for i in range(3):
         c[i] = a[(i + 1) % 3] * b[(i + 2) % 3] - a[(i + 2) % 3] * b[(i + 1) % 3]
@@ -118,29 +117,24 @@ def norm(a):
     return a / np.sqrt(b)
 
 
-def cross(a, b):
+def cross(a: Sequence[float], b: Sequence[float]) -> np.ndarray:
     c = np.zeros(3)
     for i in range(3):
         c[i] = a[(i + 1) % 3] * b[(i + 2) % 3] - a[(i + 2) % 3] * b[(i + 1) % 3]
     return c
 
 
-def make_guide(n_ca_c_atoms: np.ndarray, scale: float) -> np.ndarray:
-    """
-    Take 3 atom positions in a 3x3 array (vectors as columns) representing
-    N, Ca, C, atoms, and return 3 guide position vectors.  The 1st vector is the
-    Ca position, the second is displaced from the Ca position
-    along the direction to the C atom with a length
-    set by the scale quantity. The 3rd position is likewise offset from the
-    Ca position along a direction in the
-    plane of the 3 atoms given, also with length given by scale
+def make_guide(n_ca_c_atoms: np.ndarray, scale: float = 1.) -> np.ndarray:
+    """Returns 3 guide position vectors. The 1st vector is the Ca position, the second is
+    displaced from the Ca position along the direction to the C atom with a length set by
+    the scale quantity. The 3rd position is likewise offset from the Ca position along a
+    direction in the plane of the 3 atoms given, also with length given by scale.
 
     Args:
-        n_ca_c_atoms:
-        scale:
-
+        n_ca_c_atoms: A 'F' order (vectors as columns) array with shape (3, 3) representing N, Ca, and C coordinates
+        scale: The magnitude of the guide vectors
     Returns:
-
+        The guide coordinates in a
     """
     ca = n_ca_c_atoms[:, 1].flatten()
     v1 = n_ca_c_atoms[:, 2].flatten() - ca
@@ -149,12 +143,9 @@ def make_guide(n_ca_c_atoms: np.ndarray, scale: float) -> np.ndarray:
     v2t = v2 - v1n * np.dot(v2, v1n)
     v2tn = norm(v2t)
 
-    #    print(np.dot(v1n,v2tn))
-
     guide1 = ca + scale * v1n
     guide2 = ca + scale * v2tn
-    #
-    #    print(ca,guide1,guide2)
+
     guide = np.zeros((3, 3))
     guide[:, 0], guide[:, 1], guide[:, 2] = ca, guide1, guide2
 
@@ -168,28 +159,28 @@ def get_frame_from_joint(joint_points: np.ndarray) -> np.ndarray:
         The Fortran ordered array with shape (3, 4) that contains 3 basis vectors (x, y, z) of the point in question
         along the first 3 columns, then the 4th column is the translation to the provided joint_point
     """
-    guide_target_1 = make_guide(joint_points, 1.)
+    guide_target_1 = make_guide(joint_points)
     ca = joint_points[:, 1].flatten()
     v1 = guide_target_1[:, 1] - ca
     v2 = guide_target_1[:, 2] - ca
     v3 = cross(v1, v2)
     rot = np.array([v1, v2, v3]).T
-    # print ('frame rot: ', rot)
-    # print ('frame trans: ', guide_points[:,1], guide_target_1[:,0])
+    # logger.debug(f'frame rot:\n{rot}')
+    # logger.debug(f'frame trans:\n{guide_points[:, 1]} {guide_target_1[:, 0]}')
     frame_out = np.zeros((3, 4))
-    frame_out[:, 0:3] = rot
+    frame_out[:, :3] = rot
     frame_out[:, 3] = joint_points[:, 1]
     return frame_out
 
 
 def invert_3x4(in3x4: np.ndarray) -> np.ndarray:
-    rin = in3x4[:, 0:3]
+    rin = in3x4[:, :3]
     tin = in3x4[:, 3]
 
     rout = np.linalg.inv(rin)
     tout = -np.matmul(rout, tin)
     out3x4 = np.zeros((3, 4))
-    out3x4[:, 0:3] = rout
+    out3x4[:, :3] = rout
     out3x4[:, 3] = tout
 
     return out3x4
@@ -197,7 +188,7 @@ def invert_3x4(in3x4: np.ndarray) -> np.ndarray:
 
 def compose_3x4(a3x4: np.ndarray, b3x4: np.ndarray) -> np.ndarray:
     """Apply a rotation and translation of one array with shape (3, 4) to another array with same shape"""
-    r1 = a3x4[:, 0:3]
+    r1 = a3x4[:, :3]
     t1 = a3x4[:, 3]
     # r2=b3x4[:,0:3]
     # t2=b3x4[:,3]
@@ -217,29 +208,26 @@ def combine_modes(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
     for i in range(len(coeffs)):
         c = coeffs[i]
         tx_delta += modes3x4[i, :, 3] * c
-        rot_delta += (modes3x4[i, :, 0:3] - roti) * c
+        rot_delta += (modes3x4[i, :, :3] - roti) * c
     rtmp = roti + rot_delta
-    # print ('unnormalized rot:\n', rtmp)
+    # logger.debug(f'unnormalized rot:\n{rtmp}')
     # normalize r
     rc1 = rtmp[:, 0]
     rc1n = np.array(vnorm3(rc1))
     rc2 = rtmp[:, 1]
     dot12 = vdot3(rc1n, rc2)
-    rc2p = np.array(rc2) - dot12 * rc1n
+    rc2p = rc2 - dot12 * rc1n
     rc2pn = np.array(vnorm3(rc2p))
     rc3 = np.array(vcross(rc1n, rc2pn))
 
     rot_out = np.array([rc1n, rc2pn, rc3]).T
-    # print ('normalized rot:\n', rot_out)
+    # logger.debug(f'normalized rot:\n{rot_out}')
     # rcheck = np.matmul(rot_out, rot_out.T)
-    # print (rcheck)
+    # logger.debug(rcheck)
     blended_mode = np.concatenate((rot_out, np.array([tx_delta]).T), axis=1)
-    # print ('blended mode output:\n', blended_mode)
+    # logger.debug(f'blended mode output:\n{blended_mode}')
 
     return blended_mode
-
-
-# model_ideal_helix = Structure.from_atoms(alpha_helix_15_atoms)
 
 
 def generate_bend_transformations(joint_residue: Residue, direction: termini_literal = None) \
@@ -254,50 +242,18 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
     Returns:
         A generator which yields a transformation mapping for a single 'bending mode' upon each access
     """
-    # Todo KM changed F to c, R to n where the side that should bend is c-terminal of the specified index
-    #  So c is Todd's F direction
-    if direction == 'c':  # 'F'
-        # modes3x4 = get_3x4_modes_d(job.job.direction)
+    if direction == 'c':
         modes3x4 = modes3x4_F
-    elif direction == 'n':  # 'R'
+    elif direction == 'n':
         modes3x4 = modes3x4_R
     else:
         raise ValueError(
             f"'direction' must be either 'n' or 'c', not {direction}")
 
-    # model_residues = model.get_residues(indices=list(range(joint_index - 2, joint_index + 3)))
-    # model_coords = model.get_coords_subset(residue_numbers=[r.number for r in model_residues], dtype='backbone')
-    # model_coords = model.get_coords_subset(indices=list(range(joint_index - 2, joint_index + 3)), dtype='backbone')
-    # Todo make dependent on the helix length?
-    # helix_residue_num = 3
-    # ideal_coords = model_ideal_helix.get_coords_subset(
-    #     residue_numbers=list(range(helix_residue_num - 2, helix_residue_num + 3)), dtype='backbone')
-    # if len(model_coords) != len(ideal_coords):
-    #     # The residue selection failed
-    #     # raise DesignError(
-    #     # flags.format_args(flags.joint_residue_args)}
-    #     logger.warning(
-    #         # f"The number of residues selected from the index {joint_index}, {len(model_residues)} != "
-    #         # f"{len(list(range(helix_residue_num - 2, helix_residue_num + 3)))}, length of aligned residues. "
-    #         f"Couldn't perform superposition. The number of model coords, {len(model_coords)} != {len(ideal_coords)}, "
-    #         f"the number of ideal coords")
-    #     return []
-
-    # rmsd, rot_ideal_onto_fixed, tx_ideal_onto_fixed = superposition3d(model_coords, ideal_coords)
-    # model_ideal_helix.transform(rotation=rot_ideal_onto_fixed, translation=tx_ideal_onto_fixed)
-    # Todo remove the transform. It doesn't appear to be necessary.
-    #  Just get the coords of the center residue from model
-    # Get the Nitrogen, Ca and C atoms of the ideal_moved helix
-    # ideal_center_residue = model_ideal_helix.residue(helix_residue_num)
-    # ideal_joint_in_fixed_frame = np.array(
-    #     [ideal_center_residue.n.coords, ideal_center_residue.ca.coords, ideal_center_residue.c.coords]).T
-    # joint_frame = get_frame_from_joint(ideal_joint_in_fixed_frame)
-
-    # joint_residue = model.residues[joint_index]
     model_frame = np.array(
         [joint_residue.n.coords, joint_residue.ca.coords, joint_residue.c.coords]).T
     joint_frame = get_frame_from_joint(model_frame)
-    # print ('joint_frame:\n',joint_frame)
+    # logger.debug(f'joint_frame:\n{joint_frame}')
     jinv = invert_3x4(joint_frame)
     # Fixed parameters
     bend_dim = 4
@@ -338,8 +294,6 @@ def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples
     residue_chain = pose.chain(joint_residue.chain_id)
     bending_entity = residue_chain.entity
 
-    # Todo KM changed F to c, R to n where the side that should bend is c-terminal of the specified index
-    #  So c is Todd's F direction
     if direction == 'n':
         set_coords_slice = slice(bending_entity.n_terminal_residue.start_index, joint_residue.start_index)
     elif direction == 'c':
@@ -1090,6 +1044,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
                         fused_entity = Entity.from_residues(
                             ordered_entity1.residues + helix_residues + ordered_entity2.residues,
                             name=fusion_name, chain_ids=[chain_id],
+                            # Using sequence as reference_sequence is uncertain given the fusion
                             reference_sequence=ordered_entity1.sequence
                             + ''.join(r.type1 for r in helix_residues) + ordered_entity2.sequence,
                             uniprot_ids=tuple(uniprot_id for entity in [ordered_entity1, ordered_entity2]
