@@ -1048,13 +1048,14 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
     in the method resolution order of derived classes.
     """
-    _copier: bool
+    _atom_indices: ArrayIndexer = Ellipsis  # slice(None)
     _coords: Coordinates
+    _copier: bool = False
     """Whether the StructureBase is being copied by a Container object. If so, cut corners"""
-    _dependent_is_updating: bool
+    _dependent_is_updating: bool = False
     """Whether the StructureBase.coords are being updated by a dependent. If so, cut corners"""
     _log: Log
-    _parent_is_updating: bool
+    _parent_is_updating: bool = False
     """Whether the StructureBase.coords are being updated by a parent. If so, cut corners"""
     __parent: StructureBase | None
     state_attributes: set[str] = set()
@@ -1080,14 +1081,11 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
             coords: When setting up a parent Structure instance, the coordinates of that Structure
             name: The identifier for the Structure instance
         """
-        self._copier = False
         self.name = name if name not in [None, False] else f'Unnamed_{self.__class__.__name__}'
-        if parent:  # Initialize StructureBase from parent
+        if parent is not None:  # Initialize StructureBase from parent
             self._parent = parent
-            self._parent_is_updating = False
         else:  # This is the parent
             self.__parent = None  # Requires use of _StructureBase__parent attribute checks
-            self._dependent_is_updating = False
             self.metadata = StructureMetadata(
                 biological_assembly=biological_assembly, cryst_record=cryst_record, entity_info=entity_info,
                 file_path=file_path, reference_sequence=reference_sequence, resolution=resolution
@@ -1172,10 +1170,10 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
             raise TypeError(
                 f"Can't set {Log.__class__.__name__} to {type(log).__name__}. Must be type logging.Logger")
 
-    @property
-    @abc.abstractmethod
-    def atom_indices(self) -> list[int]:
-        """The Atoms/Coords indices which the StructureBase has access to"""
+    # @property
+    # @abc.abstractmethod
+    # def atom_indices(self) -> list[int]:
+    #     """The Atoms/Coords indices which the StructureBase has access to"""
 
     @property
     def coords(self) -> np.ndarray:
