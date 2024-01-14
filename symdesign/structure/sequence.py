@@ -27,7 +27,7 @@ from symdesign.sequence import alignment_programs_literal, alignment_programs, h
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
     numerical_translation_alph1_gaped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
     protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences, \
-    get_equivalent_indices, generate_mutations
+    get_equivalent_indices, generate_mutations, protein_letters_literal, AminoAcidDistribution
 
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
@@ -134,7 +134,8 @@ def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: 
             raise NotImplementedError('Need to make the "numerical_translation_alph3_bytes" table')
             return np.vectorize(numerical_translation_alph3_bytes.__getitem__)(_array)
         else:
-            raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
+            raise ValueError(
+                f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
 def pssm_as_array(pssm: ProfileDict, alphabet: str = protein_letters_alph1, lod: bool = False) \
@@ -237,37 +238,64 @@ def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = Non
     return file_name
 
 
-class Profile(UserList):
+class Profile(UserList[ProfileEntry]):
     data: list[ProfileEntry]
     """[{'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
          'type': 'W', 'info': 3.20, 'weight': 0.73},
         {}, ...]
     """
-    def __init__(self, profile: list[ProfileEntry] = None, dtype: str = None, **kwargs):
-        # Todo?
-        if profile is None:
-            profile = []
-        elif isinstance(profile, list):
-            try:
-                self.available_keys = tuple(profile[0].keys())
-            except IndexError:  # No values in list
-                pass
+    def __init__(self, entries: Iterable[ProfileEntry], dtype: str = 'profile', **kwargs):
+        """
 
-        super().__init__(initlist=profile, **kwargs)  # initlist sets UserList.data to ProfileDict
+        Args:
+            entries: The per-residue entries to create the instance
+            dtype: The datatype of the profile.
+            **kwargs:
+        """
 
-        self.dtype = 'profile' if dtype is None else dtype
-        if not self.data:  # Set up an empty Profile
-            self.available_keys = tuple()
-            self.lods = self.types = self.weights = self.info = None
-        else:
-            if 'lod' in self.available_keys:
-                self.lods = [position_info['lod'] for position_info in self]
-            if 'type' in self.available_keys:
-                self.types = [position_info['type'] for position_info in self]
-            if 'weight' in self.available_keys:
-                self.weights = [position_info['weight'] for position_info in self]
-            if 'info' in self.available_keys:
-                self.info = [position_info['info'] for position_info in self]
+        super().__init__(initlist=entries, **kwargs)  # initlist sets UserList.data
+        self.dtype = dtype
+
+    @property
+    def available_keys(self) -> tuple[Any, ...]:
+        """Returns the available ProfileEntry keys that are present in the Profile"""
+        return tuple(self.data[0].keys())
+
+    @property
+    def lods(self) -> list[AminoAcidDistribution]:
+        """The log of odds values, given for each amino acid type, for each entry in the Profile"""
+        if 'lod' not in self.available_keys:
+            raise ValueError(
+                f"Couldn't find the {self.__class__.__name__}.lods' as the underlying data is missing key 'lod'"
+            )
+        return [position_info['lod'] for position_info in self]
+
+    @property
+    def types(self) -> list[protein_letters_literal]:
+        """The amino acid type, for each entry in the Profile"""
+        if 'type' not in self.available_keys:
+            raise ValueError(
+                f"Couldn't find the {self.__class__.__name__}.types' as the underlying data is missing key 'type'"
+            )
+        return [position_info['type'] for position_info in self]
+
+    @property
+    def weights(self) -> list[float]:
+        """The weight assigned to each entry in the Profile"""
+        if 'weight' not in self.available_keys:
+            raise ValueError(
+                f"Couldn't find the {self.__class__.__name__}.weights' as the underlying data is missing key 'weight'"
+            )
+        return [position_info['weight'] for position_info in self]
+
+    @property
+    def info(self) -> list[float]:
+        """The information present for each entry in the Profile"""
+        if 'info' not in self.available_keys:
+            raise ValueError(
+                f"Couldn't find the {self.__class__.__name__}.info' as the underlying data is missing key 'info'"
+            )
+        return [position_info['info'] for position_info in self]
 
     def as_array(self, alphabet: str = protein_letters_alph1, lod: bool = False) -> np.ndarray:
         """Convert the Profile into a numeric array
@@ -277,8 +305,8 @@ class Profile(UserList):
             lod: Whether to return the array for the log of odds values
         Returns:
             The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are
-            the frequency data at every indexed amino acid. Indices are according to the specified amino acid alphabet,
-                i.e array([[0.1, 0.01, 0.12, ...], ...])
+                the frequency data at every indexed amino acid. Indices are according to the specified amino acid
+                alphabet, i.e. array([[0.1, 0.01, 0.12, ...], ...])
         """
         if lod:
             if self.lods:
@@ -292,7 +320,7 @@ class Profile(UserList):
         return np.array([[position_info[aa] for aa in alphabet]
                          for position_info in data_source], dtype=np.float32)
 
-    def write(self, file_name: AnyStr = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr | None:
+    def write(self, file_name: AnyStr = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is 1 to last entry
 
         Args:
@@ -304,13 +332,11 @@ class Profile(UserList):
         """
         # Format the Profile according to the write_pssm_file mechanism
         # This takes the shape of 1 to the last entry
-        if self.dtype in putils.fragment_profile:
+        data: list[list[float]] = [[position_info[aa] for aa in protein_letters_alph3] for position_info in self]
+        if self.dtype == 'fragment':
             # Need to convert np.nan to zeros
+            data = [[0 if np.nan else num for num in entry] for entry in data]
             logger.warning(f'Converting {self.dtype} type Profile np.nan values to 0.0')
-            data = np.nan_to_num([[position_info[aa] for aa in protein_letters_alph3]
-                                  for position_info in self]).tolist()
-        else:
-            data = [[position_info[aa] for aa in protein_letters_alph3] for position_info in self]
 
         # Find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
         lods = self.lods
@@ -353,46 +379,6 @@ class Profile(UserList):
                         f'{round(info, 4):4.2f} {round(weight, 4):4.2f}\n')
 
         return file_name
-
-
-# class Profile(UserDict):
-#     data: ProfileDict
-#     """{1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
-#            'type': 'W', 'info': 3.20, 'weight': 0.73},
-#         2: {}, ...}
-#     """
-#     def __init__(self, profile: ProfileDict, dtype: str = None, **kwargs):
-#         super().__init__(initialdata=profile, **kwargs)  # initialdata sets UserDict.data to ProfileDict
-#
-#         self.dtype = 'profile' if dtype is None else dtype
-#         if not self.data:  # Set up an empty Profile
-#             self.available_keys = tuple()
-#         else:
-#             self.available_keys = tuple(next(iter(self.values())).keys())
-#             if 'lod' in self.available_keys:
-#                 self.lods = {position: position_info['lod'] for position, position_info in self.items()}
-#             if 'weight' in self.available_keys:
-#                 self.weights = {position: position_info['weight'] for position, position_info in self.items()}
-#             if 'info' in self.available_keys:
-#                 self.info = {position: position_info['info'] for position, position_info in self.items()}
-#
-#     def as_array(self, alphabet: str = utils.protein_letters_alph1, lod: bool = False) -> np.ndarray:
-#         """Convert the Profile into a numeric array
-#
-#         Args:
-#             alphabet: The amino acid alphabet to use. Array values will be returned in this order
-#             lod: Whether to return the array for the log of odds values
-#         Returns:
-#             The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are
-#             the frequency data at every indexed amino acid. Indices are according to the specified amino acid alphabet,
-#                 i.e array([[0.1, 0.01, 0.12, ...], ...])
-#         """
-#         if lod:
-#             return np.array([[position_info['lod'][aa] for aa in alphabet]
-#                              for position_info in self.values()], dtype=np.float32)
-#         else:
-#             return np.array([[position_info[aa] for aa in alphabet]
-#                              for position_info in self.values()], dtype=np.float32)
 
 
 class SequenceProfile(ABC):

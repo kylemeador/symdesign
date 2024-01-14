@@ -110,41 +110,41 @@ optimization_species_literal = Literal[
 # optimization_species = get_args(optimization_species_literal)
 
 
-class LodDict(TypedDict):
-    A: int
-    R: int
-    N: int
-    D: int
-    C: int
-    Q: int
-    E: int
-    G: int
-    H: int
-    I: int
-    L: int
-    K: int
-    M: int
-    F: int
-    P: int
-    S: int
-    T: int
-    W: int
-    Y: int
-    V: int
-    # B: int
-    # J: int
-    # O: int
-    # U: int
-    # X: int
-    # Z: int
+class AminoAcidDistribution(TypedDict):
+    A: float
+    C: float
+    D: float
+    E: float
+    F: float
+    G: float
+    H: float
+    I: float
+    K: float
+    L: float
+    M: float
+    N: float
+    P: float
+    Q: float
+    R: float
+    S: float
+    T: float
+    V: float
+    W: float
+    Y: float
+    # B: float
+    # J: float
+    # O: float
+    # U: float
+    # X: float
+    # Z: float
 
 
 profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
-ProfileEntry = TypedDict('ProfileEntry', {**LodDict.__dict__['__annotations__'],
-                                          'lod': LodDict,
-                                          'type': protein_letters_literal,
-                                          'info': float,
-                                          'weight': float})
+ProfileEntry = TypedDict(
+    'ProfileEntry', {**AminoAcidDistribution.__dict__['__annotations__'], 'lod': AminoAcidDistribution,
+                     'type': protein_letters_literal, 'info': float, 'weight': float},
+    total=False
+)
 ProfileDict = dict[int, ProfileEntry]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
