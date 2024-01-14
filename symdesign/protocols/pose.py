@@ -1132,7 +1132,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 else:
                     rename = False
                 self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
-                self.pose.set_contacting_asu()
             elif self.initial_pose:
                 # This is a fresh Model that was already loaded so reuse
                 # Careful, if processing has occurred to the initial_pose, then this may be wrong!
