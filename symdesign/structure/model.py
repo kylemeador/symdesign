@@ -3185,7 +3185,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             prior_ca_coords = self.ca_coords.copy()
 
             # Set coords with new coords
-            super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
+            super(ContainsAtoms, ContainsAtoms).coords.fset(self, coords)
             if self.is_dependent():
                 _parent = self.parent
                 if _parent.is_symmetric() and not self._parent_is_updating:
@@ -3227,7 +3227,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             self._expand_matrices = np.array(_expand_matrices)  # .swapaxes(-2, -1)
             self._expand_translations = np.array(_expand_translations)[:, None, :]
         else:  # Accept the new coords
-            super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
+            super(ContainsAtoms, ContainsAtoms).coords.fset(self, coords)
 
     @property
     def sequence(self) -> str:
@@ -5265,7 +5265,7 @@ class SymmetricModel(SymmetryOpsMixin, Model):
     def coords(self, coords: np.ndarray | list[list[float]]):
         self.log.debug(f'Setting {self.__class__.__name__} coords')
         if self.is_symmetric():  # Set the symmetric coords according to the ASU
-        super(ContainsAtomsMixin, ContainsAtomsMixin).coords.fset(self, coords)
+        super(ContainsAtoms, ContainsAtoms).coords.fset(self, coords)
 
             self.log.debug(f'Updating symmetric coords')
             self.generate_symmetric_coords(surrounding_uc=self.is_surrounding_uc())

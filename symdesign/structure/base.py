@@ -1144,8 +1144,8 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         self.__parent = parent
         self._log = parent._log
         self._coords = parent._coords
-        # self._atoms = parent._atoms  # Todo make empty Atoms for StructureBase objects?
-        # self._residues = parent._residues  # Todo make empty Residues for StructureBase objects?
+        # self._atoms = parent._atoms
+        # self._residues = parent._residues
 
     def is_dependent(self) -> bool:
         """Is this instance a dependent on a parent StructureBase?"""
@@ -1277,6 +1277,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         return f'{self.__class__.__name__}({self.name})'
 
 
+# class Atom(StructureBase):
 class Atom(CoordinateOpsMixin):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     _coords_: list[float]
@@ -3274,8 +3275,6 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         other: Residue = super().__copy__()
         for attr in self.ignore_copy_attrs:
             other.__dict__.pop(attr, None)
-        # del other._prev_residue
-        # del other._next_residue
 
 
         return other
@@ -3604,6 +3603,16 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         if pose_format:
             self.pose_numbering()
+
+    def assign_residues_from_structures(self, structures: Iterable[ContainsResidues]):
+        """Initialize the instance from existing structure instance attributes, .coords, and .atoms, and .residues"""
+        atoms, residues, coords = [], [], []
+        for structure in structures:
+            atoms.extend(structure.atoms)
+            residues.extend(structure.residues)
+            coords.append(structure.coords)
+
+        self._assign_residues(residues, atoms=atoms, coords=coords)
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
@@ -5907,13 +5916,6 @@ class Structure(ContainsResiduesMixin):
         other: ContainsResidues = super().__copy__()
         for attr in self.ignore_copy_attrs:
             other.__dict__.pop(attr, None)
-
-
-        # other__dict__ = other.__dict__
-        # for attr, value in other__dict__.items():
-        #     if attr not in parent_attributes:
-        #         # Perform a copy
-        #         other__dict__[attr] = copy(value)  # value.copy() <- This won't work for str or bool
 
         return other
 

@@ -18,7 +18,7 @@ from .database import Database, DataStore
 from symdesign import flags, resources, structure, utils
 from symdesign.protocols.pose import load_evolutionary_profile
 from symdesign.sequence import generate_mutations, expression
-from symdesign.structure.model import Entity, Model, Pose
+from symdesign.structure.model import ContainsEntities, Entity, Pose, Structure
 from symdesign.utils.SymEntry import SymEntry
 from symdesign.utils.symmetry import CRYST
 putils = utils.path
@@ -119,8 +119,9 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
         return pdb_file[0]
 
 
-def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.getcwd(), asu: bool = False) \
-        -> list[Pose | Entity]:
+def download_structures(
+    structure_identifiers: Iterable[str], out_dir: str = os.getcwd(), asu: bool = False
+) -> list[Structure]:
     """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a ContainsEntities for each identifier
 
     Defaults to fetching the biological assembly file, prioritizing the assemblies as predicted very high/high from

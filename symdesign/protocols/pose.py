@@ -36,11 +36,9 @@ from .utils import handle_design_errors, warn_missing_symmetry
 from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
-from symdesign.structure import fragment
-from symdesign.structure.base import ContainsResidues, StructureBase
+from symdesign.structure.base import StructureBase
 from symdesign.structure.coordinates import superposition3d
-from symdesign.structure.model import ContainsEntities, Entity, Models, Pose, PoseSpecification, \
-    ContainsStructures
+from symdesign.structure.model import ContainsEntities, Entity, Structure, Pose, PoseSpecification
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 # import symdesign.third_party.alphafold.alphafold as af
