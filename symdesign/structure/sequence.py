@@ -381,7 +381,7 @@ class Profile(UserList[ProfileEntry]):
         return file_name
 
 
-class SequenceProfile(ABC):
+class GeneEntity(ABC):
     """Contains the sequence information for a ContainsResidues."""
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
@@ -408,7 +408,8 @@ class SequenceProfile(ABC):
     profile: ProfileDict | dict
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)  # SequenceProfile
+        """"""
+        super().__init__(**kwargs)  # GeneEntity
         self._alpha = default_fragment_contribution
         self._evolutionary_profile = {}  # position specific scoring matrix
         self.alpha = []
@@ -457,7 +458,7 @@ class SequenceProfile(ABC):
 
     @property
     def offset_index(self) -> int:
-        """Return the starting index for the SequenceProfile based on pose numbering of the residues. Zero-indexed"""
+        """Return the starting index for the GeneEntity based on pose numbering of the residues. Zero-indexed"""
         return self.residues[0].index
 
     @property
@@ -470,7 +471,7 @@ class SequenceProfile(ABC):
 
     @msa.setter
     def msa(self, msa: MultipleSequenceAlignment):
-        """Set the SequenceProfile MultipleSequenceAlignment object using a file path or an initialized instance"""
+        """Set the GeneEntity MultipleSequenceAlignment object using a file path or an initialized instance"""
         if isinstance(msa, MultipleSequenceAlignment):
             self._msa = copy(msa)
             self._fit_msa_to_structure()
@@ -594,7 +595,7 @@ class SequenceProfile(ABC):
     def add_evolutionary_profile(self, file: AnyStr = None, out_dir: AnyStr = os.getcwd(),
                                  profile_source: alignment_programs_literal = putils.hhblits, force: bool = False,
                                  **kwargs):
-        """Add the evolutionary profile to the Structure. If the profile isn't provided, it is generated through search
+        """Add the evolutionary profile to the GeneEntity. If the profile isn't provided, it is generated through search
         of homologous protein sequences using the profile_source argument
 
         Args:
@@ -1230,7 +1231,7 @@ class SequenceProfile(ABC):
         Weight the frequency of each observation by the fragment indexed, average observation weight, proportionally
         scaled by the match score between the fragment database and the observed fragment overlap
 
-        From the self.fragment_map data, create a fragment profile and add to the SequenceProfile
+        From the self.fragment_map data, create a fragment profile and add to the GeneEntity
 
         Args:
             evo_fill: Whether to fill missing positions with evolutionary profile values
@@ -1739,8 +1740,6 @@ def residue_object_to_number(
             # for i, residue in enumerate(residue_dict[entry][_set]):
             for residue in _set:
                 resi_number = residue.residue_number
-                # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_ids[i], residue)).ca
-                # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.file_path))
                 residue_num_set.append(resi_number)
             pairs.append(tuple(residue_num_set))
         residue_dict[entry] = pairs
@@ -1814,7 +1813,7 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-# def parse_stockholm_to_msa(file):
+# def parse_stockholm_to_msa(file, **kwargs):
 #     """
 #     Args:
 #         file (str): The location of a file containing the .fasta records of interest
@@ -1826,11 +1825,11 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #                  'rep': {1: 210, 2:211, ...}}
 #             The msa formatted with counts and indexed by residue
 #     """
-#     return generate_msa_dictionary(read_stockholm_file(file)))
+#     return MultipleSequenceAlignment((read_stockholm_file(file)), **kwargs)
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-# def parse_fasta_to_msa(file):
+# def parse_fasta_to_msa(file, **kwargs):
 #     """
 #     Args:
 #         file (str): The location of a file containing the .fasta records of interest
@@ -1842,7 +1841,7 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #                  'rep': {1: 210, 2:211, ...}}
 #             The msa formatted with counts and indexed by residue
 #     """
-#     return generate_msa_dictionary(msa_from_seq_records(read_fasta_file(file)))
+#     return MultipleSequenceAlignment(alignment=msa_from_seq_records(read_fasta_file(file)), **kwargs)
 
 
 # def make_pssm_file(pssm_dict: ProfileDict, name: str, out_dir: AnyStr = os.getcwd()):
@@ -2188,7 +2187,6 @@ def multi_chain_alignment(mutated_sequences, **kwargs):
             total_alignment += msa_from_dictionary(named_sequences)[:, :]
 
     if total_alignment:
-        # return generate_msa_dictionary(total_alignment)
         return MultipleSequenceAlignment(alignment=total_alignment, **kwargs)
     else:
         raise RuntimeError(f'{multi_chain_alignment.__name__} - No sequences were found!')

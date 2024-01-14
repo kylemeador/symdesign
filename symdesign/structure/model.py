@@ -29,7 +29,7 @@ from .base import Atom, Atoms, Residue, Residues, Structure, Structures, Structu
     SymmetryBase
 from .coordinates import Coordinates, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import alignment_types, FragmentDatabase, FragmentInfo
-from .sequence import SequenceProfile, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
+from .sequence import GeneEntity, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
     sequence_to_one_hot
 from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, DesignError, \
     default_clash_distance, SymmetryError
@@ -8845,7 +8845,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 entity2.add_fragments_to_profile(fragments=fragment_info, alignment_type='paired')
 
         # The order of this and below could be switched by combining self.fragment_map too
-        # Also, need to extract the entity.fragment_map to Pose to SequenceProfile.process_fragment_profile() ...
+        # Also, need to extract the entity.fragment_map to process_fragment_profile()
         fragments_available = False
         for entity in self.entities:
             if entity.fragment_map:

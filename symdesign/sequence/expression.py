@@ -533,15 +533,13 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     # all_alignments = []
     # max_tag_idx, max_len = None, []  # 0
     # for idx, (tag1, tag2) in enumerate(combinations(all_matching_tags, 2)):
-    #     alignment = SequenceProfile.generate_alignment(tag1, tag2)
+    #     alignment = generate_alignment(tag1, tag2)
     #     all_alignments.append(alignment)
     #     # if max_len < alignment[4]:  # the length of alignment
     #     max_len.append(alignment[4])
     #     # have to find the alignment with the max length, then find which one of the sequences has the max length for
     #     # multiple alignments, then need to select all alignments to this sequence to generate the MSA
-    #
-    # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
-    # tag_msa = SequenceProfile.generate_msa_dictionary(total_alignment)
+
     if all_matching_tag_sequences:  # For now, grab the first available tag
         logger.debug(f'Grabbing the first matching tag out of {len(all_matching_tag_sequences)} possible')
         final_tag_sequence = all_matching_tag_sequences[0]

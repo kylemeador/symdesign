@@ -1243,7 +1243,7 @@ class JobResources:
         return int(psutil.virtual_memory().available <= distribute.hhblits_memory_threshold)
 
     def process_evolutionary_info(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
-                                  entities: Iterable[structure.sequence.SequenceProfile] = None,
+                                  entities: Iterable[structure.sequence.GeneEntity] = None,
                                   batch_commands: bool = False) -> list[str]:
         """Format the job with evolutionary constraint options
 

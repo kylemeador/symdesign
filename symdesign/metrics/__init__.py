@@ -636,7 +636,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
              'hydrophobic_collapse'
              }
     """
-    #    collapse_profile: The per-residue hydrophobic collapse values measured from a reference SequenceProfile
+    #    collapse_profile: The per-residue hydrophobic collapse values measured from a reference GeneEntity
     #    reference_mean: The hydrophobic collapse mean value(s) to use as a reference for z-score calculation
     #    reference_std: The hydrophobic collapse deviation value(s) to use as a reference for z-score calculation
     hydrophobicity = kwargs.get('hydrophobicity')
