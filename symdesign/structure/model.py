@@ -1149,16 +1149,139 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             f.write('%s\n' % '\n'.join(blueprint_lines))
         return blueprint_file
 
-class ContainsChainsMixin:
-    residues: list[Residue]
+
+class ContainsStructures(ContainsResidues):
+    structure_containers: list | list[str]
+
+    def __init__(self, **kwargs):
+        """"""
+        super().__init__(**kwargs)  # ContainsStructures
+        self.structure_containers = []
+
+    @staticmethod
+    def reset_and_reindex_structures(structs: Sequence[ContainsResidues] | Structures):
+        """Given ContainsResidues instances, reset the states and renumber indices in the order passed"""
+        first_struct, *other_structs = structs
+        first_struct.reset_state()
+        first_struct._start_indices(at=0, dtype='atom')
+        first_struct._start_indices(at=0, dtype='residue')
+        for prior_struct, struct in zip(structs, other_structs):
+            struct.reset_state()
+            struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
+            struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
+
+    def _update_structure_container_attributes(self, **kwargs):
+        """Update attributes specified by keyword args for all ContainsResidues members"""
+        for structure_type in self.structure_containers:
+            for structure in self.__getattribute__(structure_type):
+                for kwarg, value in kwargs.items():
+                    setattr(structure, kwarg, value)
+
+    def _copy_structure_containers(self):
+        """Copy all contained Structure members"""
+        # self.log.debug('In ContainsStructures copy_structure_containers()')
+        for structure_type in self.structure_containers:
+            # Get and copy the structure container
+            new_structures = self.__getattribute__(structure_type).copy()
+            for idx, structure in enumerate(new_structures):
+                new_structures[idx] = structure.copy()
+            # Set the copied and updated structure container
+            self.__setattr__(structure_type, new_structures)
+
+    def __copy__(self) -> ContainsStructures:  # Todo -> Self: in python 3.11
+        other: ContainsStructures = super().__copy__()
+        # Set the copying StructureBase attribute ".spawn" to indicate to dependents the "other" of this copy
+        if other.is_parent():
+            if self.is_parent():
+                self.spawn = other
+                other._copy_structure_containers()
+                # Remove the attribute spawn after member containers are copied
+                del self.spawn
+            else:  # other is a new parent
+                self._update_structure_container_attributes(_copier=True)
+                other._copy_structure_containers()
+                other._update_structure_container_attributes(_parent=other)
+                self._update_structure_container_attributes(_copier=False)
+
+        return other
+
+    copy = __copy__  # Overwrites to use this instance __copy__
+
+
+class ContainsChains(ContainsStructures):
+    """Initializes and enables stuctural operations on a collection of Chain instances"""
     chain_ids: list[str]
     chains: list[Chain] | Structures
     original_chain_ids: list[str]
 
-    def __init__(self, **kwargs):
-        # Make dependent on the same list as default. If parsing is done, explicitly set self.original_chain_ids
+    @classmethod
+    def from_chains(cls, chains: Sequence[Chain], **kwargs):
+        """Create an instance from a Sequence of Chain objects. Automatically renames all chains"""
+        return cls(chains=chains, rename_chains=True, **kwargs)
+
+    def __init__(self, chains: bool | Sequence[Chain] = True, chain_ids: Iterable[str] = None,
+                 rename_chains: bool = False, as_mates: bool = False, **kwargs):
+        """
+        Args:
+            chain_ids: A list of identifiers to assign to each Chain instance
+            chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
+                instances to create the Model with
+            rename_chains: Whether to name each chain an incrementally new Alphabetical character
+            as_mates: Whether Chain instances should be controlled by a captain (True), or be dependents
+        """
+        super().__init__(**kwargs)  # ContainsChains
+        # Use the same list as default to save parsed chain ids
         self.original_chain_ids = self.chain_ids = []
-        super().__init__(**kwargs)
+        if chains:  # Populate chains
+            self.structure_containers.append('_chains')
+            if isinstance(chains, Sequence):
+                # Set the chains accordingly, copying them to remove prior relationships
+                self._chains = list(chains)
+                self._copy_structure_containers()  # Copy each Chain in chains
+                if as_mates:
+                    if self.residues is None:
+                        raise DesignError(
+                            f"Couldn't initialize {self.__class__.__name__}.chains as it is missing '.residues' while "
+                            f"{as_mates=}"
+                        )
+                else:  # Create the instance from existing chains
+                    self.assign_residues_from_structures(chains)
+                    # Reindex all residue and atom indices
+                    self.reset_and_reindex_structures(self._chains)
+                    # Set the parent attribute for all containers
+                    self._update_structure_container_attributes(_parent=self)
+
+                if chain_ids:
+                    for chain, id_ in zip(self.chains, chain_ids):
+                        chain.chain_id = id_
+                # By using extend, self.original_chain_ids are set as well
+                # Todo make property
+                self.chain_ids.extend([chain.chain_id for chain in self.chains])
+            else:  # Create Chain instances from Residues
+                self._chains = []
+                self._create_chains(as_mate=as_mates, chain_ids=chain_ids)
+
+            if rename_chains or not self.are_chain_ids_pdb_compatible():
+                self.rename_chains()
+
+            self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
+                           f'Loaded chain_ids: {",".join(self.chain_ids)}')
+        else:
+            self._chains = []
+
+        if self.is_parent():
+            reference_sequence = self.metadata.reference_sequence
+            if isinstance(reference_sequence, dict):  # Was parsed from file
+                self.set_reference_sequence_from_seqres(reference_sequence)
+
+    @property
+    def chains(self) -> list[Chain]:
+        """Returns the Chain instances which are contained in the instance"""
+        return self._chains
+
+    def is_parsed_multimodel(self) -> bool:
+        """Returns True if parsing located multiple MODEL records, aka a 'multimodel' or multistate Structure"""
+        return self.chain_ids != self.original_chain_ids
 
     def _create_chains(self, chain_ids: Iterable[str] = None, **kwargs):
         """For all the Residues in the Structure, create Chain objects which contain their member Residues
@@ -1220,9 +1343,9 @@ class ContainsChainsMixin:
         else:
             self.chain_ids = chain_ids
 
-        self.chains.clear()
+        self._chains.clear()
         for residue_indices, chain_id in zip(chain_residue_indices, self.chain_ids):
-            self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, parent=self, **kwargs))
+            self._chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, parent=self, **kwargs))
 
     @property
     def number_of_chains(self) -> int:
@@ -1430,7 +1553,7 @@ class ContainsEntities(ContainsChains):
     """"""
     entity_info: dict[str, dict[dict | list | str]] | dict
 
-    def __init__(self, entities: bool | list[Entity] | Structures = True,
+    def __init__(self, entities: bool | Sequence[Entity]= True,
                  entity_info: dict[str, dict[dict | list | str]] = None,
                  # rename_chains: bool = False,
                  **kwargs):
@@ -1448,13 +1571,13 @@ class ContainsEntities(ContainsChains):
 
         if entities:
             self.structure_containers.append('_entities')
-            if isinstance(entities, (list, Structures)):
+            if isinstance(entities, Sequence):
                 # Create the instance from existing entities
                 self.assign_residues_from_structures(entities)
                 # Set the entities accordingly, first copying, then resetting, and finally updating the parent
                 self._entities = entities
                 self._copy_structure_containers()
-                self.reset_structures_states(self._entities)
+                self.reset_and_reindex_structures(self._entities)
                 self._update_structure_container_attributes(_parent=self)
                 rename_chains = kwargs.get('rename_chains')
                 if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
@@ -2796,7 +2919,7 @@ class SymmetryOpsMixin(abc.ABC):
                            "This method hasn't been thoroughly debugged")
             # Essentially performs,
             # self.assign_residues_from_structures(self.entities)
-            # however the containers are not updated.
+            # however, without _assign_residues(), the containers are not updated.
             # Set base Structure attributes
             new_coords = []
             new_atoms = []
@@ -2827,8 +2950,7 @@ class SymmetryOpsMixin(abc.ABC):
             self.coords = np.concatenate([entity.coords for entity in entities])
             del self._no_reset
             # If imperfect symmetry, adapting below may provide some benefit
-            # Deprecated -> self._process_model(entities=entities, chains=False, **kwargs)
-            # This is the best place to start -> self.assign_residues_from_structures(entities)
+            # self.assign_residues_from_structures(entities)
         else:
             raise SymmetryError(
                 f"Couldn't {self.set_contacting_asu.__name__}() with the number of parsed chains, "
@@ -4227,9 +4349,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         return hash(self._key)
 
 
-# class Model(Structure, ContainsChainsMixin):
-class Model(SequenceProfile, Structure, ContainsChainsMixin):
-
+class Model(Structure, ContainsEntities):
     """The base object for Structure file (.pdb/.cif) parsing and manipulation, particularly containing multiple Chain
     or Entity instances
 
@@ -4237,54 +4357,21 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
-    cryst_record: str | None
-    # dbref: dict[str, dict[str, str]]
-    entities: list[Entity] | Structures | bool | None
-    entity_info: dict[str, dict[dict | list | str]] | dict
-    header: list
-    resolution: float | None
     class_structure_containers = {'chains', 'entities'}
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
-
-    @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Create a new Model from a container of Chain objects. Automatically renames all chains"""
-        return cls(chains=chains, rename_chains=True, **kwargs)
 
     @classmethod
     def from_model(cls, model, **kwargs):
         """Initialize from an existing Model"""
         return cls(model=model, **kwargs)
 
-    @staticmethod
-    def reset_structures_states(structs: list[Structure] | Structures):
-        """Given a container of Structure instances, reset the states and renumber indices in the order passed"""
-        struct0, *other_structs = structs
-        struct0.reset_state()
-        struct0._start_indices(at=0, dtype='atom')
-        struct0._start_indices(at=0, dtype='residue')
-        for prior_struct, struct in zip(structs, other_structs):
-            struct.reset_state()
-            struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
-            struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
-
-    def __init__(self,
-                 chains: bool | list[Chain] | Structures = True, entities: bool | list[Entity] | Structures = True,
-                 model: Structure = None,
-                 cryst_record: str = None, entity_info: dict[str, dict[dict | list | str]] = None,
-                 fragment_db: FragmentDatabase = None, pose_format: bool = False, rename_chains: bool = False,
-                 resolution: float = None, reference_sequence: dict[str, str] = None,
-                 # metadata: Model = None,
+    def __init__(self, model: ContainsResidues = None,
+                 fragment_db: FragmentDatabase = None,
                  **kwargs):
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
-            chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
-                instances to create the Model with
-            entities: Whether to create Entity instances from passed Structure container instances, or existing Entity
-                instances to create the Model with
             model: Whether to create this Model from another Model instance
-            pose_format: Whether to initialize Structure with residue numbering from 1 until the end
         Keyword Args:
             entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
                 of entities. Names will take precedence over query_by_sequence if passed
@@ -4292,11 +4379,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 sequence. Only used if entity_names not provided
             -*Passed to ContainsAtomsMixin*-
             atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
-            biological_assembly: str | int = None - The integer of the biological assembly
-                (as indicated by PDB AssemblyID format)
-            biomt: np.ndarray = None - A parsed array of transformations to recreate the molecules symmetry
-            biomt_header: str = None - The REMARK 350 formatted lines for printing the BIOMT record
-            file_path: AnyStr = None: The location on disk where the file was accessed
             -*Passed to ContainsResidues*-
             residues: list[Residue] | Residues = None - The Residue instances which should constitute a new
                 instance
@@ -4312,9 +4394,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 coordinates of that Structure
             name: str = None - The identifier for the Structure instance
         """
-
-        using_structures = False
-        """Ensure only one of the allowed arguments is used during class construction"""
         if model:
             if isinstance(model, ContainsResidues):
                 model_kwargs = model.get_base_containers()
@@ -4328,109 +4407,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 raise NotImplementedError(
                     f"Setting {self.__class__.__name__} with model={type(model).__name__} isn't supported")
         else:
-
-        self.api_entry = None
-        """
-        {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        """
-        self.cryst_record = cryst_record
-        self.entity_info = {} if entity_info is None else entity_info
-        self.header = []
-        self.resolution = resolution
-
-        # self.log.debug(f'{self._process_model.__name__} start')
-
-        # If this function is extended, it is important to call clear on structure_containers before setting any more
-        # # Calling clear as we should only set those containers that are used
-        # self.structure_containers.clear()
-
-        def assign_residues_from_structures(structures: Iterable[Structure]):
-            """Create instance from existing attributes"""
-            nonlocal using_structures
-            if using_structures:
-                raise DesignError(
-                    f"Can't construct {self.__class__.__name__} with multiple arguments from 'chains', 'entities', "
-                    "and 'model'")
-            else:
-                using_structures = True
-
-            atoms, residues, coords = [], [], []
-            for structure in structures:
-                atoms.extend(structure.atoms)
-                residues.extend(structure.residues)
-                coords.append(structure.coords)
-            self._assign_residues(residues, atoms=atoms, coords=coords)
-
-        self.chains = []
-        if chains:  # Populate chains
-            self.structure_containers.append('chains')
-            if isinstance(chains, (list, Structures)):
-                # Create the instance from existing chains
-                assign_residues_from_structures(chains)
-                self.chains = chains  # .copy()  # Copy the passed chains
-                self._copy_structure_containers()  # Copy each Chain in chains
-                # Reindex all residue and atom indices
-                self.reset_structures_states(self.chains)
-                # Set the parent attribute for all containers
-                self._update_structure_container_attributes(_parent=self)
-                # By using extend, self.original_chain_ids are set as well
-                self.chain_ids.extend([chain.chain_id for chain in self.chains])
-            else:  # Create Chain instances from Residues
-                self._create_chains()
             super().__init__(**kwargs)  # Model
-
-            if rename_chains or not self.are_chains_pdb_compatible():
-                self.rename_chains()
-            self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
-                           f'Loaded chain_ids: {",".join(self.chain_ids)}')
-
-        self.entities = []
-        if entities:  # Populate entities
-            self.structure_containers.append('entities')
-            if isinstance(entities, (list, Structures)):
-                # Create the instance from existing entities
-                assign_residues_from_structures(entities)
-                self.entities = entities  # .copy()  # Copy the passed entities
-                self._copy_structure_containers()  # Copy each Entity in entities
-                # Reindex all residue and atom indices
-                self.reset_structures_states(self.entities)
-                # Set the parent attribute for all containers
-                self._update_structure_container_attributes(_parent=self)
-                if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
-                    available_chain_ids = chain_id_generator()
-                    for entity in self.entities:
-                        entity.chain_id = next(available_chain_ids)
-                        # If the full structure wanted contiguous chain_ids, this should be used
-                        # for _ in range(entity.number_of_symmetry_mates):
-                        #     # Discard ids
-                        #     next(available_chain_ids)
-                        # self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
-                    # self.chain_ids.extend([entity.chain_id for entity in self.entities])
-
-                # If any of the entities are symmetric, ensure the new Model is aware they are
-                for entity in self.entities:
-                    if entity.is_symmetric():
-                        self.symmetric_dependents = 'entities'
-                        break
-
-                # Update chains to entities after everything is set
-                self.chains = self.entities
-            else:  # Create Entity instances from Chain and Chain.residue_indices
-                # self.log.debug(f'{self._process_model.__name__} -> _create_entities')
-                self._create_entities(**kwargs)
-
-            if not self.chain_ids:
-                # Set chain_ids according to self.entities as it wasn't set by self.chains (probably False)
-                self.chain_ids.extend([entity.chain_id for entity in self.entities])
-                # Todo DRY upon removing from above if isinstance(chains (list, Structures)):
-                #  self.chain_ids.extend([chain.chain_id for chain in self.chains])
-        else:  # self.chains (could) be viable at this point
-            if reference_sequence is not None:  # reference_sequence was parsed from file
-                self.set_reference_sequence_from_seqres(reference_sequence)
-
-        if pose_format:
-            self.pose_numbering()
 
         # After structure containers are created, initialize fragment_db so the db is available to container
         self.fragment_db = fragment_db
@@ -4454,75 +4431,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     structure.fragment_db = self._fragment_db
         else:  # This is likely the RELOAD_DB token, just reload
             return
-
-    @property
-    def chain_breaks(self) -> list[int]:
-        """Return the index where each of the Chain instances ends, i.e. at the c-terminal Residue"""
-        return [structure.c_terminal_residue.index for structure in self.chains]
-
-    @property
-    def entity_breaks(self) -> list[int]:
-        """Return the index where each of the Entity instances ends, i.e. at the c-terminal Residue"""
-        return [structure.c_terminal_residue.index for structure in self.entities]
-
-    # @property
-    # def atom_indices_per_chain(self) -> list[list[int]]:  # UNUSED
-    #     """Return the atom indices for each Chain in the Model"""
-    #     return [structure.atom_indices for structure in self.chains]
-
-    @property
-    def atom_indices_per_entity(self) -> list[list[int]]:
-        """Return the atom indices for each Entity in the Model"""
-        return [structure.atom_indices for structure in self.entities]
-
-    # @property
-    # def residue_indices_per_chain(self) -> list[list[int]]:  # UNUSED
-    #     """Return the residue indices for each Chain in the Model"""
-    #     return [structure.residue_indices for structure in self.chains]
-    #
-    # @property
-    # def residue_indices_per_entity(self) -> list[list[int]]:  # UNUSED
-    #     """Return the residue indices for each Entity in the Model"""
-    #     return [structure.residue_indices for structure in self.entities]
-    #
-    # @property
-    # def number_of_atoms_per_chain(self) -> list[int]:  # UNUSED
-    #     return [structure.number_of_atoms for structure in self.chains]
-    #
-    # @property
-    # def number_of_atoms_per_entity(self) -> list[int]:  # UNUSED
-    #     return [structure.number_of_atoms for structure in self.entities]
-    #
-    # @property
-    # def number_of_residues_per_chain(self) -> list[int]:  # UNUSED
-    #     return [structure.number_of_residues for structure in self.chains]
-    #
-    # @property
-    # def number_of_residues_per_entity(self) -> list[int]:  # UNUSED
-    #     return [structure.number_of_residues for structure in self.entities]
-
-    @property
-    def number_of_entities(self) -> int:
-        """Return the number of Entity instances in the Structure"""
-        return len(self.entities)
-
-    def is_multimodel(self) -> bool:
-        """Return whether the parsed file contains multiple models, aka a 'multimodel'"""
-        return self.chain_ids != self.original_chain_ids
-
-    @property
-    def sequence(self) -> str:
-        """Holds the Model amino acid sequence"""
-        return ''.join(chain.sequence for chain in self.chains)
-
-    @property
-    def reference_sequence(self) -> str:
-        """Return the entire Model sequence, constituting all Residues, not just structurally modeled ones
-
-        Returns:
-            The sequence according to each of the Chain reference sequences
-        """
-        return ''.join(chain.reference_sequence for chain in self.chains)
 
     def _format_seqres(self, asu: bool = False, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
@@ -4886,556 +4794,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # self._reset_sequence()  # Performed in self.reset_state()
 
         return new_residues
-
-    def retrieve_metadata_from_pdb(self):
-        """Query the PDB API for information on the PDB code found at the Model.name attribute
-
-        For each new instance, makes one call to the PDB API, plus an additional call for each Entity, and one more
-        if self.biological_assembly. If this has been loaded before, it uses the persistent wrapapi.APIDatabase
-
-        Sets:
-            self.api_entry (dict[str, dict[Any] | float] | dict):
-                {'assembly': [['A', 'B'], ...],
-                 'entity': {'EntityID':
-                                {'chains': ['A', 'B', ...],
-                                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
-                                 'reference_sequence': 'MSLEHHHHHH...',
-                                 'thermophilicity': 1.0},
-                            ...},
-                 'res': resolution,
-                 'struct': {'space': space_group, 'a_b_c': (a, b, c),
-                            'ang_a_b_c': (ang_a, ang_b, ang_c)}
-                }
-        """
-        if self.api_entry is not None:  # Already tried to solve this
-            return
-        # if self.api_db:
-        try:
-            # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-        except AttributeError:
-            retrieve_api_info = query.pdb.query_pdb_by
-
-        # if self.name:  # Try to solve API details from name
-        parsed_name = self.name
-        splitter_iter = iter(('_', '-'))  # (entity, assembly))
-        idx = count(-1)
-        extra = None
-        while len(parsed_name) != 4:
-            try:  # To parse the name using standard PDB API entry ID's
-                parsed_name, *extra = parsed_name.split(next(splitter_iter))
-            except StopIteration:
-                # We didn't find an EntryID in parsed_name from splitting typical PDB formatted strings
-                self.log.debug(f"The name '{self.name}' can't be coerced to PDB API format")
-                self.api_entry = {}
-                return
-            else:
-                next(idx)
-        # Set the index to the index that was stopped at
-        idx = next(idx)
-
-        # At some point, len(parsed_name) == 4
-        if self.biological_assembly:
-            # query_args.update(assembly_integer=self.assembly)
-            # # self.api_entry.update(_get_assembly_info(self.name))
-            self.api_entry = retrieve_api_info(entry=parsed_name) or {}
-            self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
-            # ^ returns [['A', 'A', 'A', ...], ...]
-        elif extra:  # Extra not None or []
-            # Todo, use of elif means 1ABC_1.pdb2 wouldn't work
-            # Try to parse any found extra to an integer denoting entity or assembly ID
-            integer, *non_sense = extra
-            if integer.isdigit() and not non_sense:
-                integer = int(integer)
-                if idx == 0:  # Entity integer, such as 1ABC_1.pdb
-                    self.api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
-                    # retrieve_api_info returns
-                    # {'EntityID': {'chains': ['A', 'B', ...],
-                    #               'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
-                    #               'reference_sequence': 'MSLEHHHHHH...',
-                    #               'thermophilicity': 1.0},
-                    #  ...}
-                    parsed_name = f'{parsed_name}_{integer}'
-                else:  # Get entry alone. This is an assembly or unknown conjugation. Either way entry info is needed
-                    self.api_entry = retrieve_api_info(entry=parsed_name) or {}
-
-                    if idx == 1:  # This is an assembly integer, such as 1ABC-1.pdb
-                        self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=integer)
-            else:  # This isn't an integer or there are extra characters
-                # It's likely they are extra characters that won't be of help
-                # Tod0, try to collect anyway?
-                self.log.debug(f"The name '{self.name}' contains extra info that can't be coerced to PDB API format")
-                self.api_entry = {}
-        elif extra is None:  # Nothing extra as it was correct length to begin with, just query entry
-            self.api_entry = retrieve_api_info(entry=parsed_name)
-        else:
-            raise RuntimeError(
-                f"This logic wasn't expected and shouldn't be allowed to persist: "
-                f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
-        if self.api_entry:
-            self.log.debug(f'Found PDB API information: '
-                           f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
-            # Set the identified name to lowercase
-            self.name = parsed_name.lower()
-            for entity in self.entities:
-                entity.name = entity.name.lower()
-
-    def entity(self, entity_id: str) -> Entity | None:
-        """Retrieve an Entity by name from the PDB object
-
-        Args:
-            entity_id: The name of the Entity to query
-        Returns:
-            The Entity if one was found
-        """
-        for entity in self.entities:
-            if entity_id == entity.name:
-                return entity
-        return None
-
-    def _create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
-        """Create all Entities in the PDB object searching for the required information if it was not found during
-        file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
-        biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
-        instance using a specified threshold of sequence homology
-
-        Args:
-            entity_names: Names explicitly passed for the Entity instances. Length must equal number of entities.
-                Names will take precedence over query_by_sequence if passed
-            query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence. Only used
-                if entity_names not provided
-        """
-        if not self.entity_info:
-            # We didn't get info from the file (probably not PDB), so we have to try and piece together.
-            # The file is either from a program that has modified an original PDB file, or may be some sort of PDB
-            # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
-            # after the .pdb extension (.pdb1). If not, it may be an assembly file from another source, in which case we
-            # have to solve by using the atomic info
-            self.retrieve_metadata_from_pdb()  # First, try to set self.api_entry
-            if self.api_entry:  # Not an empty dict
-                found_api_entry = True
-                if self.biological_assembly:
-                    # As API returns information on the asu, assembly may be different.
-                    # We fetch API info for assembly, so we try to reconcile
-                    multimodel = self.is_multimodel()
-                    for entity_name, data in self.api_entry.get('entity', {}).items():
-                        chains = data['chains']
-                        assembly_data = self.api_entry.get('assembly', [])
-                        for cluster_chains in assembly_data:
-                            if not set(cluster_chains).difference(chains):  # nothing missing, correct cluster
-                                self.entity_info[entity_name] = data
-                                if multimodel:  # Ensure the renaming of chains is handled correctly
-                                    self.entity_info[entity_name].update(
-                                        {'chains': [new_chn for new_chn, old_chn in zip(self.chain_ids,
-                                                                                        self.original_chain_ids)
-                                                    if old_chn in chains]})
-                                # else:  # chain names should be the same as assembly API if file is sourced from PDB
-                                #     self.entity_info[entity_name] = data
-                                break  # we satisfied this cluster, move on
-                        else:  # if we didn't satisfy a cluster, report and move to the next
-                            self.log.error(f'Unable to find the chains corresponding from Entity {entity_name} to '
-                                           f'assembly {self.biological_assembly} with data {assembly_data}')
-                else:  # We can't be certain of the requested biological assembly
-                    for entity_name, data in self.api_entry.get('entity', {}).items():
-                        self.entity_info[entity_name] = data
-            else:  # Still nothing, the API didn't work for self.name. Solve by atom information
-                found_api_entry = False
-                # Get rid of any information already acquired
-                self.entity_info = {}
-                self._get_entity_info_from_atoms(**kwargs)
-                if query_by_sequence and entity_names is None:
-                    # Copy self.entity_info data for iteration, then reset for re-addition
-                    entity_names_to_data = list(self.entity_info.items())
-                    self.entity_info = {}
-                    for entity_name, data in entity_names_to_data:
-                        # Todo incorporate wrapapi call to fetch from local sequence db
-                        # Using data['sequence'] here as there is no data['reference_sequence'] from PDB API
-                        pdb_api_entity_id = query.pdb.retrieve_entity_id_by_sequence(data['sequence'])
-                        if pdb_api_entity_id:
-                            new_name = pdb_api_entity_id.lower()
-                            self.log.info(f'Entity {entity_name} now named "{new_name}", as found by PDB API '
-                                          f'sequence search')
-                        else:
-                            self.log.info(f"Entity {entity_name} couldn't be located by PDB API sequence search")
-                            # Set as the reference_sequence because we won't find one without another database...
-                            data['reference_sequence'] = data['sequence']
-                            new_name = entity_name
-                        self.entity_info[new_name] = data
-        else:
-            # self.log.debug(f"_create_entities entity_info={self.entity_info}")
-            # This is being set to True because there is API info in the self.entity_info (If passed correctly)
-            found_api_entry = True
-
-        if entity_names is not None:
-            renamed_entity_info = {}
-            for idx, (entity_name, data) in enumerate(self.entity_info.items()):
-                try:
-                    new_entity_name = entity_names[idx]
-                except IndexError:
-                    raise IndexError(
-                        f'The number of indices in entity_names, {len(entity_names)} != {len(self.entity_info)}, the '
-                        f'number of entities in the {self.__class__.__name__}')
-
-                # Get any info already solved using the old name
-                renamed_entity_info[new_entity_name] = data
-                self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
-            # Reset self.entity_info with the same order, but new names
-            self.entity_info = renamed_entity_info
-
-        # Check to see that the parsed entity_info is compatible with the chains already parsed
-        if found_api_entry:
-            # Set if self.retrieve_metadata_from_pdb was called above or entity_info provided to Model construction
-            if self.nucleotides_present:
-                self.log.warning(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
-
-            max_reference_sequence = 0
-            for data in self.entity_info.values():
-                reference_sequence_length = len(data['reference_sequence'])
-                if reference_sequence_length > max_reference_sequence:
-                    max_reference_sequence = reference_sequence_length
-            # Find the minimum chain sequence length
-            min_chain_sequence = sys.maxsize
-            for chain in self.chains:
-                chain_sequence_length = chain.number_of_residues
-                if chain_sequence_length < min_chain_sequence:
-                    min_chain_sequence = chain_sequence_length
-
-            # Use the Structure attributes to get the entity info correct
-            # Provide an expected tolerance and length_difference
-            # Sequence could be highly mutated compared to the reference, so set the tolerance threshold to a percentage
-            # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publication)
-            tolerance = .2  # .3 <- Some ProteinMPNN sequences failed this bar
-            # Because the reference sequence could be much longer than the chain sequence,
-            # find an 'expected' length proportion
-            # length_proportion = (max_reference_sequence-min_chain_sequence) / max_reference_sequence
-            length_proportion = min_chain_sequence / max_reference_sequence
-            self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
-        else:
-            entity_api_entry = {}
-            self.api_entry = {'entity': entity_api_entry}
-            # entity_api_entry = self.api_entry.get('entity', {})
-            # if not entity_api_entry:
-            #     self.api_entry['entity'] = entity_api_entry
-            # if self.api_db:
-            try:
-                # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-            except AttributeError:
-                retrieve_api_info = query.pdb.query_pdb_by
-
-            for entity_name, data in self.entity_info.items():
-                # update_entity_info_from_api(new_entity_name)
-                # def update_entity_info_from_api(entity_name: str):
-                entity_api_data: dict = retrieve_api_info(entity_id=entity_name)
-                """entity_api_data takes the format:
-                {'EntityID': 
-                    {'chains': ['A', 'B', ...],
-                     'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
-                     'reference_sequence': 'MSLEHHHHHH...',
-                     'thermophilicity': 1.0},
-                 ...}
-                This is the final format of each entry in the self.entity_info dictionary
-                """
-                # Set the parent self.api_entry['entity']
-                # If the entity_name is already present, it's expected that self.entity_info is already solved
-                if entity_api_data:  # and entity_name not in entity_api_entry:
-                    entity_api_entry.update(entity_api_data)
-                    # Respect already solved 'chains' info in self.entity_info
-                    if data.get('chains', {}):
-                        # Remove entity_api_data 'chains'
-                        entity_api_data[entity_name].pop('chains')
-                    # Update the entity_info with the entity_api_data
-                    data.update(entity_api_data[entity_name])
-
-        # Finish processing by cleaning data and preparing for Entity()
-        for entity_name, data in list(self.entity_info.items()):
-            # For each Entity, get matching Chain instances
-            # Add any missing information to the individual data dictionary
-            # dbref = data.get('dbref', None)
-            # # if dbref is None:
-            # #     dbref = {}
-            # entity_data['dbref'] = data['dbref'] = dbref
-            uniprot_ids = None
-            dbref = data.get('dbref', None)
-            if dbref is not None:
-                db_source = dbref.get('db')
-                if db_source == query.pdb.UKB:  # This is a protein
-                    uniprot_ids = dbref['accession']
-                    # Todo put all Entity.from_chains() in this flow control segment
-                    #  once uniprot_ids can be queried with blastp
-                elif db_source == query.pdb.GB:  # Nucleotide
-                    self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
-                                      f'This is currently not parsable')
-                elif db_source == query.pdb.NOR:  # Nucleotide
-                    self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
-                                      f'This is currently not parsable')
-            else:
-                data['dbref'] = None
-
-            # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
-            #                                               generated from a PDB API sequence search v
-            # if isinstance(entity_name, int):
-            #     data['name'] = f'{self.name}_{data["name"]}'
-
-            # ref_seq = data.get('reference_sequence')
-            # reference_sequence = data.get('reference_sequence')
-            # if reference_sequence is None:
-            #     sequence = data.get('sequence')
-            #     if sequence is None:  # We should try to set using the entity_name
-            #         # Todo transition to wrap_api
-            #         reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
-            #     else:  # We set from Atom info
-            #         reference_sequence = sequence
-            # # else:
-            # entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
-            if 'reference_sequence' not in data:
-                # This is only possible when self.entity_info was set during __init__()
-                # This should not be possible with the passing of an explicit list[sql.ProteinMetadata class]
-                # new_reference_sequence = data.get('sequence')
-                # if new_reference_sequence is None:
-                # We should try to set using the entity_name
-                # Todo transition to wrap_api
-                new_reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
-                # else:  # We set from Atom info
-                #     reference_sequence = sequence
-                data['reference_sequence'] = new_reference_sequence
-
-            # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
-            # data_chains = data.get('chains', [])
-            data_chains = utils.remove_duplicates(data.get('chains', []))
-            chains = [self.chain(chain_id) if isinstance(chain_id, str) else chain_id
-                      for chain_id in data_chains]
-            entity_chains = [chain for chain in chains if chain]
-            entity_data = {
-                **data,  # Place the original data in the new dictionary
-                'biological_assembly': self.biological_assembly,
-                'chains': entity_chains,  # Overwrite chains in data dictionary
-                'uniprot_ids': uniprot_ids,
-            }
-            if len(entity_chains) == 0:
-                if self.nucleotides_present:
-                    self.log.warning(f'Nucleotide chain was already removed from Structure')
-                else:
-                    # This occurred when there were 2 entity records in the entity_info but only 1 in the Structure
-                    self.log.debug(f'Missing associated chains for the Entity {entity_name} with data: '
-                                   f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_chains}, "
-                                   f"data['chains']={data_chains}, "
-                                   f'{", ".join(f"{k}={v}" for k, v in data.items())}')
-                    # Drop this section in the entity_info
-                    self.log.warning(f'Dropping Entity {entity_name} from {self.__class__.__name__} as no Structure '
-                                     f'information exists for it')
-                    self.entity_info.pop(entity_name)
-                    # raise DesignError(f"The Entity couldn't be processed as currently configured")
-                continue
-            #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
-            #                             'api_entry=%s, original_chain_ids=%s'
-            #                             % (self.name, self._create_entities.__name__, self.entity_info,
-            #                             self.biological_assembly, self.api_entry, self.original_chain_ids))
-
-            # entity_data has attributes chains, dbref, and reference_sequence
-            entity_data.pop('dbref')  # This isn't used anymore
-            entity = Entity.from_chains(**entity_data, name=entity_name, parent=self)
-            for chain in entity_chains:
-                chain._entity = entity
-
-            self.entities.append(entity)
-
-    def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9,
-                                    length_difference: float = None, **kwargs):
-        """Find all unique Entities in the input .pdb file. These are unique sequence objects
-
-        Args:
-            method: The method used to extract information. One of 'sequence' or 'structure'
-            tolerance: The acceptable difference between chains to consider them the same Entity.
-                Alternatively, the use of a structural match should be used. For example, when each chain in an ASU is
-                structurally deviating, but shares a sequence with an existing chain
-            length_difference: A percentage expressing the maximum length difference acceptable for a matching entity.
-                Where the difference in lengths is calculated by the magnitude difference between them divided by the
-                larger. For example, 100 and 111 and 100 and 90 would both be ~10% length difference
-        Sets:
-            self.entity_info
-        """
-        if not 0 < tolerance <= 1:
-            raise ValueError(
-                f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance} isn't allowed. Must be bounded "
-                "between (0-1]")
-        if length_difference is None:
-            length_difference = 1 - tolerance
-
-        entity_start_idx = 1
-        if self.entity_info:
-            start_with_entity_info = True
-            warn_parameters_msg = f"The parameters 'tolerance' and 'length_difference' aren't compatible with the " \
-                                  f"chain.sequence and the soon to be Entity sequence.\n" \
-                                  f"tolerance={tolerance}\tlength_difference={length_difference}"
-            # Remove existing chain IDs
-            for data in self.entity_info.values():
-                data['chains'] = []
-            entity_idx = count(entity_start_idx + len(self.entity_info))
-        else:  # Assume that all chains are new_entities
-            start_with_entity_info = False
-            entity_idx = count(entity_start_idx)
-
-        for chain in self.chains:
-            # If the passed parameters don't cover the sequences provided
-            warn_bad_parameters = False
-            chain_id = chain.chain_id
-            chain_sequence = chain.sequence
-            numeric_chain_seq = sequence_to_numeric(
-                chain_sequence, translation_table=default_substitution_matrix_translation_table)
-            perfect_score = default_substitution_matrix_array[numeric_chain_seq, numeric_chain_seq].sum()
-            best_score = -1000  # Setting arbitrarily bad
-            self.log.debug(f'Searching for matching entities for Chain {chain_id} with perfect_score={perfect_score}')
-            for entity_name, data in self.entity_info.items():
-                # Todo implement structure check
-                #  rmsd_threshold = 1.  # threshold needs testing
-                #  try:
-                #       rmsd, *_, = superposition3d()
-                #  except ValueError:  # the chains are different lengths
-                #      try to use the code identified in Entity to match lengths..., if not, continue
-                #  if rmsd < rmsd_threshold:
-                #      data['chains'].append(chain_id)
-                #      new_entity = False  # The entity is not unique, do not add
-                #      break
-                # Check if the sequence associated with the Chain is in entity_info
-                # Start with the Structure sequence as this is going to be a closer match
-                entity_sequence = struct_sequence = data.get('sequence', False)
-                if not struct_sequence:  # No Structure sequence in entity_info
-                    entity_sequence = data['reference_sequence']
-                #     reference_sequence = True
-                # else:
-                #     reference_sequence = False
-
-                if chain_sequence == entity_sequence:
-                    self.log.debug(f'Chain {chain_id} matches Entity {entity_name} sequence exactly')
-                    data['chains'].append(chain_id)
-                    break
-
-                # Use which ever sequence is greater as the max
-                len_seq, len_chain_seq = len(entity_sequence), len(chain_sequence)
-                if len_seq >= len_chain_seq:
-                    large_sequence_length, small_sequence_length = len_seq, len_chain_seq
-                else:  # len_seq < len_chain_seq
-                    small_sequence_length, large_sequence_length = len_seq, len_chain_seq
-
-                # Align to find their match
-                # generate_alignment('AAAAAAAAAA', "PPPPPPPPPP").score -> -10
-                alignment = generate_alignment(chain_sequence, entity_sequence)
-                # score = alignment.score  # Grab score value
-                # Find score and bound between 0-1. 1 should be max if it perfectly aligns
-                match_score = alignment.score / perfect_score
-                if match_score <= 0:  # Throw these away
-                    continue
-                length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
-                self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
-                               f'and {length_proportion:.2f} length difference with tolerance={tolerance} '
-                               f'and length_difference={length_difference}')
-                if match_score >= tolerance and length_proportion <= length_difference:
-                    self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
-                    # If number of sequence matches is > tolerance, and the length difference < tolerance
-                    # the current chain is the same as the Entity, add to chains, and move on to the next chain
-                    if start_with_entity_info:
-                        # There is information, however, ensure it is the best info
-                        # Especially if there isn't a structure_sequence, the reference is used to align
-                        # so check all references then set a struct_sequence, i.e. data['sequence'] in the else clause
-                        if struct_sequence:
-                            # These should've matched perfectly unless there are mutations from model
-                            data['chains'].append(chain_id)
-                            break
-                        else:  # ref_sequence. There is more lenience between the chain.sequence and entity sequence
-                            if match_score > best_score:
-                                # Set the best_score and best_entity
-                                best_score = match_score
-                                best_entity = entity_name
-                            # Run again to ensure that the there isn't a better choice
-                            continue
-                    else:  # The entity isn't unique, add to the possible chain IDs
-                        data['chains'].append(chain_id)
-                        break
-                elif start_with_entity_info and match_score > best_score:
-                    # Set the best_score and best_entity
-                    best_score = match_score
-                    best_entity = entity_name
-                    warn_bad_parameters = True
-            else:  # No match, this is a new Entity
-                if start_with_entity_info:
-                    # self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
-                    # Set the 'sequence' to the structure sequence
-                    try:
-                        data = self.entity_info[best_entity]
-                    except UnboundLocalError:  # best_entity not set
-                        raise DesignError(warn_parameters_msg)
-                    data['sequence'] = struct_sequence
-                    data['chains'].append(chain_id)
-                    del best_entity
-                    if warn_bad_parameters:
-                        self.log.debug(warn_parameters_msg)
-                else:  # No existing entity matches, add new entity
-                    entity_name = f'{self.name}_{next(entity_idx)}'
-                    self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
-                    self.entity_info[entity_name] = dict(chains=[chain_id], sequence=chain_sequence)
-
-        self.log.debug(f'Entity information was solved by {method} match')
-
-    def entity_from_chain(self, chain_id: str) -> Entity | None:
-        """Return the entity associated with a particular chain id"""
-        for entity in self.entities:
-            if chain_id == entity.chain_id:
-                return entity
-        return None
-
-    # def entity_from_residue(self, residue_number: int) -> Union[Entity, None]:  # Todo ResidueSelectors/fragment query
-    #     """Return the entity associated with a particular Residue number
-    #
-    #     Returns:
-    #         (Union[Entity, None])
-    #     """
-    #     for entity in self.entities:
-    #         if entity.get_residues(numbers=[residue_number]):
-    #             return entity
-    #     return
-    #
-    # def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
-    #     """From another set of atoms, returns the first matching chain from the corresponding entity"""
-    #     return  # TODO when entities are structure compatible
-
-    def match_entity_by_seq(self, other_seq: str = None, force_closest: bool = True, tolerance: float = 0.7) \
-            -> Entity | None:
-        """From another sequence, returns the first matching chain from the corresponding Entity
-
-        Uses a local alignment to produce the match score
-
-        Args:
-            other_seq: The sequence to query
-            force_closest: Whether to force the search if a perfect match isn't identified
-            tolerance: The acceptable difference between sequences to consider them the same Entity.
-                Tuning this parameter is necessary if you have sequences which should be considered different entities,
-                but are fairly similar
-        Returns
-            The matching Entity if one was found
-        """
-        for entity in self.entities:
-            if other_seq == entity.sequence:
-                return entity
-
-        # We didn't find an ideal match
-        if force_closest:
-            entity_alignment_scores = {}
-            for entity in self.entities:
-                alignment = generate_alignment(other_seq, entity.sequence, local=True)
-                entity_alignment_scores[entity] = alignment.score
-
-            max_score, max_score_entity = 0, None
-            for entity, score in entity_alignment_scores.items():
-                normalized_score = score / len(entity.sequence)
-                if normalized_score > max_score:
-                    max_score = normalized_score  # alignment_score_d[entity]
-                    max_score_entity = entity
-
-            if max_score > tolerance:
-                return max_score_entity
-
-        return None
 
 
 # All methods below come with no intention of working with Model, but contain useful code to generate axes and display

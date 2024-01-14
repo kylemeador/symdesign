@@ -3482,12 +3482,14 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
         return cls(residues=residues, **kwargs)
 
-    def __init__(self, residues: list[Residue] | Residues = None, residue_indices: list[int] = None, **kwargs):
+    def __init__(self, residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
+                 pose_format: bool = False, **kwargs):
         """
         Args:
             residues: The Residue instances which should constitute a new Structure instance
             residue_indices: The indices which specify the particular Residue instances to make this Structure instance.
                 Used with a parent to specify a subdivision of a larger Structure
+            pose_format: Whether to initialize with continuous Residue numbering from 1 to N
         Keyword Args:
             atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
             parent: StructureBase = None - If another Structure object created this Structure instance, pass the
@@ -3533,7 +3535,10 @@ class ContainsResidues(ContainsAtomsMixin, StructureIndexMixin):
             # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
             self._create_residues()
         else:  # Set up an empty Structure or let subclass handle population
-            pass
+            return
+
+        if pose_format:
+            self.pose_numbering()
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
