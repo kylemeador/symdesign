@@ -1145,7 +1145,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         return blueprint_file
 
 
-class ContainsStructures(ContainsResidues):
+class ContainsStructures(ContainsResidues, abc.ABC):
     structure_containers: list | list[str]
 
     def __init__(self, **kwargs):
@@ -1156,14 +1156,20 @@ class ContainsStructures(ContainsResidues):
     @staticmethod
     def reset_and_reindex_structures(structs: Sequence[ContainsResidues] | Structures):
         """Given ContainsResidues instances, reset the states and renumber indices in the order passed"""
-        first_struct, *other_structs = structs
-        first_struct.reset_state()
-        first_struct._start_indices(at=0, dtype='atom')
-        first_struct._start_indices(at=0, dtype='residue')
-        for prior_struct, struct in zip(structs, other_structs):
+        struct: ContainsResidues
+        other_structs: tuple[ContainsResidues]
+
+        struct, *other_structs = structs
+        struct.reset_state()
+        struct._start_indices(at=0, dtype='atom')
+        struct._start_indices(at=0, dtype='residue')
+        prior_struct = struct
+        for struct in other_structs:
             struct.reset_state()
             struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
             struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
+            prior_struct = struct
+
     def format_header(self, **kwargs) -> str:
         """Returns any super().format_header() along with the SEQRES records
 
