@@ -246,17 +246,17 @@ class StructureDatabase(Database):
         super().__init__(**kwargs)  # Database
 
         self.models = DataStore(location=models, extension='.pdb', glob_extension='.pdb*',
-                                sql=self.sql, log=self.log, load_file=Model.from_pdb)
+                                sql=self.sql, log=self.log, load_file=Pose.from_pdb)
         # Old version when loop model came from an ensemble
         # self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', glob_extension='_ensemble.pdb*',
         self.full_models = DataStore(location=full_models, extension='.pdb', glob_extension='.pdb*',
-                                     sql=self.sql, log=self.log, load_file=Model.from_pdb)
+                                     sql=self.sql, log=self.log, load_file=Pose.from_pdb)
         self.oriented = DataStore(location=oriented, extension='.pdb', glob_extension='.pdb*',
-                                  sql=self.sql, log=self.log, load_file=Model.from_pdb)
+                                  sql=self.sql, log=self.log, load_file=Pose.from_pdb)
         self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', glob_extension='.pdb*',
-                                      sql=self.sql, log=self.log, load_file=Model.from_pdb)
+                                      sql=self.sql, log=self.log, load_file=Pose.from_pdb)
         self.refined = DataStore(location=refined, extension='.pdb', glob_extension='.pdb*',
-                                 sql=self.sql, log=self.log, load_file=Model.from_pdb)
+                                 sql=self.sql, log=self.log, load_file=Pose.from_pdb)
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
                                 load_file=structure.utils.parse_stride)
 

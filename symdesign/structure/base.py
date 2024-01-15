@@ -1059,6 +1059,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     """Whether the StructureBase.coords are being updated by a parent. If so, cut corners"""
     _parent_: StructureBase | None = None
     state_attributes: set[str] = set()
+    ignore_copy_attrs: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True,
                  coords: np.ndarray | Coordinates | list[list[float]] = None, name: str = None,
@@ -1125,10 +1126,6 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
 
     @property
     def parent(self) -> StructureBase | None:
-        # try:
-        # except AttributeError:
-        #     self.__parent = None
-        #     return self.__parent
         """Return the instance's 'parent' StructureBase which is responsible for manipulation of Structure containers"""
         return self._parent_
 

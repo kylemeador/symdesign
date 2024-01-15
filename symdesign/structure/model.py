@@ -2007,8 +2007,6 @@ class ContainsEntities(ContainsChains):
 
         self.log.debug(f'Entity information was solved by {method} match')
 
-    # Todo
-    #  Externalize this outside of symdesign.structure dependencies?
     def retrieve_metadata_from_pdb(self, biological_assembly: int = None) -> dict[str, Any] | dict:
         """Query the PDB API for information on the PDB code found at the Model.name attribute
 
@@ -3276,9 +3274,6 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
     """Maps mate entities to their rotation matrix"""
     _uniprot_ids: tuple[str | None, ...]
     state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
-    # | ContainsChainsMixin.state_attributes
-    class_structure_containers = set()  # '_chains' <- Removed due to issue with .reset_state() and ._chains copying
-    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -4490,8 +4485,6 @@ class Model(Structure, ContainsEntities):
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
-    class_structure_containers = {'chains', 'entities'}
-    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
     @classmethod
     def from_model(cls, model, **kwargs):
@@ -6379,8 +6372,6 @@ class Pose(SymmetricModel, MetricsMixin):
     #      '_fragment_info_by_entity_pair', '_interface_residue_indices_by_entity_name_pair',
     #      '_interface_residue_indices_by_interface', '_interface_residue_indices_by_interface_unique',
     #      }
-    class_structure_containers = {'entities'}
-    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
     @classmethod
     def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
