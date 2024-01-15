@@ -1,0 +1,3 @@
+Each of the files contains the asymmetric unit for the specified design.
+To generate the full assembly use the command:
+    python /PATH/TO/symdesign expand-asu --directory /PATH/TO/T33-ml --sym-entry 54 --output-directory T33-ml_assemblies
