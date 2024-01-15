@@ -2391,12 +2391,12 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     _sasa_apolar: float
     _sasa_polar: float
     _secondary_structure: str
-    chain_id: str
-    number: int
+    chain_id: str = ''  # Used for abstract class with chain_id as plain attribute
+    number: int = None  # Used for abstract class with number as plain attribute
     state_attributes = ContainsAtoms.state_attributes \
         | {'_contact_order', '_local_density',
-           '_next_residue', '_prev_residue',
            '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
+    ignore_copy_attrs: set[str] = ContainsAtoms.ignore_copy_attrs | {'_next_residue', '_prev_residue'}
     type: str
 
     def __init__(self, **kwargs):
@@ -2486,12 +2486,14 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         #         match atom.type:  # Todo python 3.10
         #             case 'N':
         #                 self._n_index = idx
-        #                 try:  # To see if the residue has a number attribute already
-        #                     self.number
-        #                 except AttributeError:  # This is the first set up. Add information from the N atom
+        #                 if self.number is None:
         #                     self.chain_id = atom.chain_id
         #                     self.number = atom.residue_number
         #                     self.type = atom.residue_type
+        #                else:
+        #                    raise stutils.ConstructionError(
+        #                        f"Couldn't create a {self.__class__.__name__} with multiple 'N' Atom instances"
+        #                    )
         #             case 'CA':
         #                 self._ca_index = idx
         #             case 'CB':
@@ -2511,12 +2513,14 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
             atom_type = atom.type
             if atom_type == 'N':
                 self._n_index = idx
-                try:  # To see if the residue has a number attribute already
-                    self.number
-                except AttributeError:  # This is the first set-up. Add information from the N atom
+                if self.number is None:
                     self.chain_id = atom.chain_id
                     self.number = atom.residue_number
                     self.type = atom.residue_type
+                else:
+                    raise stutils.ConstructionError(
+                        f"Couldn't create a {self.__class__.__name__} with multiple 'N' Atom instances"
+                    )
             elif atom_type == 'CA':
                 self._ca_index = idx
             elif atom_type == 'CB':
@@ -2871,6 +2875,17 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         except AttributeError:  # NoneType has no _next_residue
             return
 
+    @prev_residue.deleter
+    def prev_residue(self):
+        try:
+            del self._prev_residue._next_residue
+        except AttributeError:
+            pass
+        try:
+            del self._prev_residue
+        except AttributeError:
+            pass
+
     def is_n_termini(self) -> bool:
         """Returns whether the Residue is the n-termini of the parent Structure"""
         return self.prev_residue is None
@@ -2891,6 +2906,22 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
             other._prev_residue = self
         except AttributeError:  # NoneType has no _prev_residue
             return
+
+    @next_residue.deleter
+    def next_residue(self):
+        try:
+            del self._next_residue._prev_residue
+        except AttributeError:
+            pass
+        try:
+            del self._next_residue
+        except AttributeError:
+            pass
+
+    def detach_residue(self):
+        """Clear the prev_residue and next_residue attributes"""
+        del self.prev_residue
+        del self.next_residue
 
     def is_c_termini(self) -> bool:
         """Returns whether the Residue is the n-termini of the parent Structure"""
@@ -3543,6 +3574,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         """Create a new Structure from a .cif formatted file"""
         return cls(file_path=file, **read_mmcif_file(file, **kwargs))
     ignore_copy_attrs: set[str] = ContainsAtomsMixin.ignore_copy_attrs | {'_coords_indexed_residues_'}
+    ignore_copy_attrs: set[str] = ContainsAtoms.ignore_copy_attrs | {'_coords_indexed_residues_'}
 
     @classmethod
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
@@ -4458,7 +4490,10 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         if not atom_indices:
             return []  # There are no indices for the Residue instances
         else:  # Find the Residue indices to delete
-            residue_indices = [residue.index for residue in residues]
+            residue_indices = []
+            for residue in residues:
+                residue.detach_residue()
+                residue_indices.append(residue.index)
 
         # Remove indices from the Residue, and Structure atom_indices
         self._delete_indices(atom_indices, dtype='atom')
