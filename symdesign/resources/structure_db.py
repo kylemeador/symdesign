@@ -355,7 +355,7 @@ class StructureDatabase(Database):
                     f'The structure{plural_str} able to be oriented properly')
 
         def write_entities_and_asu(model: ContainsEntities, assembly_integer: str):
-            """Write the overall ASU, each Entity as an ASU and oligomer, and sets the model.file_path attribute
+            """Write the overall ASU, each Entity as an ASU and oligomer, and set the model.file_path attribute
 
             Args:
                 model: The ContainsEntities instance being oriented
@@ -364,7 +364,7 @@ class StructureDatabase(Database):
             # Save .file_path attribute
             model.file_path = os.path.join(self.oriented_asu.location, f'{model.name}.pdb{assembly_integer}')
             with open(model.file_path, 'w') as f:
-                f.write(model.format_header(asu=True))
+                f.write(model.format_header())
                 # Write out each Entity in model to form the ASU
                 for entity in model.entities:
                     # Write each Entity to combined asu

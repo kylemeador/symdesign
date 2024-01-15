@@ -275,7 +275,7 @@ def rename_chains(job: pose.PoseJob):
     """
     job.load_pose()
     job.pose.rename_chains()
-    job.output_pose()
+    job.output_pose(force=True)
 
 
 # @protocol_decorator()

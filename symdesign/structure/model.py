@@ -52,8 +52,8 @@ putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
-zero_offset = 1
-seq_res_len = 52
+ZERO_OFFSET = 1
+SEQRES_LEN = 52
 default_atom_contact_distance = 4.68
 idx_slice = pd.IndexSlice
 
@@ -927,6 +927,27 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             self.log.debug(f'Querying {entity_id} reference sequence from PDB')
             return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
 
+    def _format_seqres(self, chain_id: str = None) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Args:
+            chain_id: The identifier used to name this instances reference sequences
+        Returns:
+            The .pdb formatted SEQRES record
+        """
+        _3letter_seq = ' '.join(protein_letters_1to3_extended.get(aa, 'XXX') for aa in self.reference_sequence)
+        if chain_id is None:
+            try:
+                chain_id = getattr(self, 'chain_id')
+            except AttributeError:
+                chain_id = 'A'
+
+        seq_length = len(self.reference_sequence)
+        return '%s\n' \
+            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{seq_length:5d}  '
+                        f'{_3letter_seq[SEQRES_LEN * (line_number - 1):SEQRES_LEN * line_number]}         '
+                        for line_number in range(1, 1 + math.ceil(len(_3letter_seq) / SEQRES_LEN)))
+
     @property
     def disorder(self) -> dict[int, dict[str, str]]:
         """Return the Residue number keys where disordered residues are found by comparison of the reference sequence
@@ -1169,6 +1190,23 @@ class ContainsStructures(ContainsResidues):
             struct.reset_state()
             struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
             struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
+    def format_header(self, **kwargs) -> str:
+        """Returns any super().format_header() along with the SEQRES records
+
+        Returns:
+            The .pdb file header string
+        """
+        if self.is_parent() and isinstance(self.metadata.cryst_record, str):
+            _header = self.metadata.cryst_record
+        else:
+            _header = ''
+
+        return super().format_header(**kwargs) + self._format_seqres(**kwargs) + _header
+
+    @abc.abstractmethod
+    def _format_seqres(self, **kwargs):
+        """"""
+
 
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all ContainsResidues members"""
@@ -1414,6 +1452,14 @@ class ContainsChains(ContainsStructures):
             except KeyError:  # original_chain not parsed in SEQRES
                 pass
 
+    def _format_seqres(self, **kwargs) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Returns:
+            The .pdb formatted SEQRES record
+        """
+        return ''.join(struct._format_seqres() for struct in self.chains)
+
     @staticmethod
     def chain_id_generator() -> Generator[str, None, None]:
         """Provide a generator which produces all combinations of chain ID strings
@@ -1632,29 +1678,30 @@ class ContainsEntities(ContainsChains):
     #
     # self._chains = iterate_over_entity_chains
 
-    def _format_seqres(self, asu: bool = True, **kwargs) -> str:
+    def format_header(self, **kwargs) -> str:
+        """Return any super().format_header()
+
+        Keyword Args:
+            assembly: bool = False - Whether to write header details for the assembly
+        Returns:
+            The .pdb file header string
+        """
+        return super().format_header(**kwargs)
+
+    def _format_seqres(self, assembly: bool = False, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Args:
-            asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
+            assembly: Whether to write header details for the assembly
         Returns:
             The .pdb formatted SEQRES record
         """
-        if asu:
-            structure_container = self.entities
-        else:
+        if assembly:
             structure_container = self.chains
+        else:
+            structure_container = self.entities
 
-        formatted_reference_sequence = \
-            {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-                                       for aa in struct.reference_sequence)
-             for struct in structure_container}
-        chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
-        return '%s\n' \
-            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
-                        f'{formatted_sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]}         '
-                        for chain_id, formatted_sequence in formatted_reference_sequence.items()
-                        for line_number in range(1, 1 + math.ceil(len(formatted_sequence) / seq_res_len)))
+        return ''.join(struct._format_seqres() for struct in structure_container)
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9,
                                     length_difference: float = None, **kwargs):
@@ -2291,6 +2338,14 @@ class SymmetryOpsMixin(abc.ABC):
                     for v_idx, (vec, point) in enumerate(zip(mat, tx), 1)
                 )
         return ''
+
+    def format_header(self, **kwargs) -> str:
+        """Returns any super().format_header() along with the BIOMT record
+
+        Returns:
+            The .pdb file header string
+        """
+        return super().format_header(**kwargs) + self.format_biomt()
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                      uc_dimensions: list[float] = None,
@@ -3229,25 +3284,44 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         else:  # Accept the new coords
             super(ContainsAtoms, ContainsAtoms).coords.fset(self, coords)
 
-    @property
-    def sequence(self) -> str:
-        """Return the sequence of structurally modeled residues for every Entity instance
+    def _format_seqres(self, assembly: bool = False, **kwargs) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
 
+        Args:
+            assembly: Whether to write header details for the assembly
         Returns:
-            The concatenated sequence for all Entity instances combined
+            The .pdb formatted SEQRES record
         """
-        # Due to the ContainsEntities MRO, need to call the ContainsResidues.sequence
-        return super(Structure, Structure).sequence.fget(self)
+        seqres = super(Chain, Chain)._format_seqres(self, **kwargs)
+        if assembly:
+            structure_container = self.chains[1:]
+            chain_ids = self.chain_ids[1:]
+        else:
+            structure_container = chain_ids = []
+            # structure_container = self.entities
 
-    @property
-    def reference_sequence(self) -> str:
-        """Return the entire sequence, constituting all described residues, not just structurally modeled ones
+        return seqres + ''.join(
+            struct._format_seqres(chain_id=chain_id) for struct, chain_id in zip(structure_container, chain_ids))
 
-        Returns:
-            The sequence according to the Entity reference, or the Structure sequence if no reference available
-        """
-        # Due to the ContainsEntities MRO, need to call the ContainsResidues.reference_sequence
-        return super(Structure, Structure).reference_sequence.fget(self)
+    # @property
+    # def sequence(self) -> str:
+    #     """Return the sequence of structurally modeled residues for every Entity instance
+    #
+    #     Returns:
+    #         The concatenated sequence for all Entity instances combined
+    #     """
+    #     # Due to the ContainsEntities MRO, need to call the ContainsResidues.sequence
+    #     return super(Structure, Structure).sequence.fget(self)
+
+    # @property
+    # def reference_sequence(self) -> str:
+    #     """Return the entire sequence, constituting all described residues, not just structurally modeled ones
+    #
+    #     Returns:
+    #         The sequence according to the Entity reference, or the Structure sequence if no reference available
+    #     """
+    #     # Due to the ContainsEntities MRO, need to call the ContainsResidues.reference_sequence
+    #     return super(Structure, Structure).reference_sequence.fget(self)
 
     # @property
     # def chain_id(self) -> str:
@@ -3653,10 +3727,11 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         def _write(handle) -> None:
             if assembly:
                 kwargs.pop('atom_offset', None)
-                if 'increment_chains' not in kwargs:
-                    kwargs['increment_chains'] = True
+                # if 'increment_chains' not in kwargs:
+                #     kwargs['increment_chains'] = True
+                # assembly_models = self._generate_assembly_models(**kwargs)
                 assembly_models = Models(self.chains)
-                assembly_models.write(file_handle=handle, **kwargs)
+                assembly_models.write(file_handle=handle, multimodel=False, **kwargs)
             else:
                 super(Structure, Structure).write(self, file_handle=handle, **kwargs)
 
@@ -3664,8 +3739,10 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             return _write(file_handle)
         else:  # out_path always has default argument current working directory
             # assembly=True implies all chains will be written, so asu=False to write each SEQRES record
-            _header = self.format_header(asu=not assembly, **kwargs)
-            if header is not None and isinstance(header, str):  # Used for cryst_record now...
+            _header = self.format_header(assembly=assembly, **kwargs)
+            if header is not None:
+                if not isinstance(header, str):
+                    header = str(header)
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:
@@ -4049,9 +4126,14 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             sdf_mode = 'NCS'
 
         if not struct_file:
-            struct_file = self.write(assembly=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
+            struct_file = self.write(assembly=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb',
+                                     increment_chains=True)
 
-        chains = [self.chain_ids[self.max_symmetry_chain_idx]]
+        # As increment_chains is used, get the chain name corresponding to the same index as incremental chain
+        available_chain_ids = chain_id_generator()
+        for _ in range(self.max_symmetry_chain_idx):
+            next(available_chain_ids)
+        chains = [next(available_chain_ids)]
         if self.is_dihedral():
             chains.append(self.find_dihedral_chain().chain_id)
 
@@ -4339,43 +4421,6 @@ class Model(Structure, ContainsEntities):
                     structure.fragment_db = self._fragment_db
         else:  # This is likely the RELOAD_DB token, just reload
             return
-
-    def _format_seqres(self, asu: bool = False, **kwargs) -> str:
-        """Format the reference sequence present in the SEQRES remark for writing to the output header
-
-        Args:
-            asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
-        Returns:
-            The .pdb formatted SEQRES record
-        """
-        if asu:
-            structure_container = self.entities
-        else:
-            structure_container = self.chains
-
-        formatted_reference_sequence = \
-            {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-                                       for aa in struct.reference_sequence)
-             for struct in structure_container}
-        chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
-        return '%s\n' \
-            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
-                        f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
-                        for chain_id, formatted_sequence in formatted_reference_sequence.items()
-                        for line_number in range(1, 1 + math.ceil(len(formatted_sequence)/seq_res_len)))
-
-    def format_header(self, **kwargs) -> str:
-        """Return the BIOMT and the SEQRES records as a .pdb format header
-
-        Returns:
-            The header with .pdb file formatting
-        """
-        if isinstance(self.cryst_record, str):
-            _header = self.cryst_record
-        else:
-            _header = ''
-
-        return super().format_header() + self._format_seqres(**kwargs) + _header
 
     def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'A', **kwargs) \
             -> list[int] | list:
@@ -4925,13 +4970,14 @@ class Models(UserList):  # (Model):
     #     self.models.append(model)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-              increment_chains: bool = False, **kwargs) -> AnyStr | None:
+              multimodel: bool = False, increment_chains: bool = False, **kwargs) -> AnyStr | None:
         """Write Model Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
+            multimodel: Whether MODEL and ENDMDL records should be added at the end of each Model
             increment_chains: Whether to write each Chain with an incrementing chain ID,
                 otherwise use the chain IDs present, repeating for each Model
         Keyword Args
@@ -4942,37 +4988,47 @@ class Models(UserList):  # (Model):
         logger.debug(f'{Models.__name__} is writing {repr(self)}')
 
         def _write(handle) -> None:
-            # self.models is populated
-            entity: Entity
-            offset = 0
             if increment_chains:
                 available_chain_ids = chain_id_generator()
-                for model in self:
-                    for entity in model.entities:
-                        chain_id = next(available_chain_ids)
-                        entity.write(file_handle=handle, chain_id=chain_id, atom_offset=offset, **kwargs)
-                        offset += entity.number_of_atoms
-                        c_term_residue: Residue = entity.c_terminal_residue
-                        # Todo when used with assembly=True, the c_term_residue is the first monomer residue...
-                        handle.write(f'TER   {offset + 1:>5d}      {c_term_residue.type:3s} '
-                                     f'{chain_id:1s}{c_term_residue.number:>4d}\n')
+
+                def _get_chain_id(struct: Chain) -> str:
+                    return next(available_chain_ids)
+
             else:
+
+                def _get_chain_id(struct: Chain) -> str:
+                    return struct.chain_id
+
+            chain: Chain
+            offset = 0
+
+            def _write_model(_model):
+                nonlocal offset
+                for chain in _model.entities:
+                    chain_id = _get_chain_id(chain)
+                    chain.write(file_handle=handle, chain_id=chain_id, atom_offset=offset, **kwargs)
+                    # Todo when used with assembly=True, the c_term_residue is the first monomer residue...
+                    c_term_residue: Residue = chain.c_terminal_residue
+                    offset += chain.number_of_atoms
+                    handle.write(f'TER   {offset + 1:>5d}      {c_term_residue.type:3s} '
+                                 f'{chain_id:1s}{c_term_residue.number:>4d}\n')
+
+            if multimodel:
                 for model_number, model in enumerate(self, 1):
                     handle.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                    for entity in model.entities:
-                        entity.write(file_handle=handle, atom_offset=offset, **kwargs)
-                        offset += entity.number_of_atoms
-                        c_term_residue: Residue = entity.c_terminal_residue
-                        handle.write(f'TER   {offset + 1:>5d}      {c_term_residue.type:3s} '
-                                     f'{entity.chain_id:1s}{c_term_residue.number:>4d}\n')
-
+                    _write_model(model)
                     handle.write('ENDMDL\n')
+            else:
+                for model in self:
+                    _write_model(model)
 
         if file_handle:
             return _write(file_handle)
         else:  # out_path always has default argument current working directory
             _header = ''  # self.format_header(**kwargs)
-            if header is not None and isinstance(header, str):
+            if header is not None:
+                if not isinstance(header, str):
+                    header = str(header)
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:
@@ -6292,14 +6348,10 @@ class SymmetricModel(SymmetryOpsMixin, Model):
 
         def _write(handle) -> None:
             if is_symmetric:
-                # symmetric_model_write(outfile)
-                # def symmetric_model_write(handle):
-                if assembly:  # Will make assembly and use next logic steps to write them out
-                    # assembly_to_write = self._generate_assembly(**kwargs)
-                    # assembly_to_write.write(file_handle=handle, **kwargs)
-                    assembly_models = self._generate_assembly_models(**kwargs)
-                    assembly_models.write(file_handle=handle, **kwargs)
-                else:  # Skip models, write asu using biomt_record/cryst_record for sym
+                if assembly:
+                    models = self._generate_assembly_models(**kwargs)
+                    models.write(file_handle=handle, **kwargs)
+                else:  # Skip all models, write asu. Use biomt_record/cryst_record for symmetry
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
             else:  # Finish with a standard write
@@ -6308,8 +6360,12 @@ class SymmetricModel(SymmetryOpsMixin, Model):
         if file_handle:
             return _write(file_handle)
         else:  # out_path default argument is current working directory
-            _header = self.format_header(asu=is_symmetric and not assembly, **kwargs)
-            if header is not None and isinstance(header, str):
+            # Write the header as an asu if no assembly requested or not symmetric
+            assembly_header = (is_symmetric and assembly) or not is_symmetric
+            _header = self.format_header(assembly=assembly_header, **kwargs)
+            if header is not None:
+                if not isinstance(header, str):
+                    header = str(header)
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:
@@ -9079,7 +9135,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
                 # use += because instances of symmetric residues from symmetry related chains are summed
                 try:  # to convert to int. Will succeed if we have an entity value, ex: 1,2,3,...
-                    entity = int(entity_or_complex) - zero_offset
+                    entity = int(entity_or_complex) - ZERO_OFFSET
                     residue_data[residue_number][metric][pose_state][entity] += \
                         (scores.get(column, 0) / entity_energy_multiplier[entity])
                 except ValueError:  # complex is the value, use the pose state
@@ -9188,7 +9244,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 #     pass
                 # Use += because instances of symmetric residues from symmetry related chains are summed
                 try:  # To convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
-                    entity = int(entity_or_complex) - zero_offset
+                    entity = int(entity_or_complex) - ZERO_OFFSET
                 except ValueError:  # 'complex' is the value, use the pose state
                     residue_data[residue_index][metric_str] += (value / pose_energy_multiplier)
                 else:

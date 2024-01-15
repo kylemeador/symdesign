@@ -123,8 +123,9 @@ class GhostFragment:
         _representative, paired_chain_id = self._fragment_db.paired_frags[self.ijk]
         return _representative.get_transformed_copy(*self.aligned_fragment.transformation)
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) \
-            -> AnyStr | None:
+    def write(
+        self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs
+    ) -> AnyStr | None:
         """Write the GhostFragment to a file specified by out_path or with a passed file_handle
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
@@ -144,7 +145,9 @@ class GhostFragment:
             return None
         else:  # out_path always has default argument current working directory
             _header = representative.format_header(**kwargs)
-            if header is not None and isinstance(header, str):  # Used for cryst_record now...
+            if header is not None:
+                if not isinstance(header, str):
+                    header = str(header)
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:

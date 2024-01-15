@@ -1205,8 +1205,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             session.add(self)
             session.commit()
 
-    def output_pose(self, out_path: AnyStr = 'POSE'):  # Todo to PoseProtocol?
-        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
+    def output_pose(self, out_path: AnyStr = 'POSE', force: bool = False):
+        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry
+
+        Args:
+            out_path: The path to save the self.pose.
+                All other outputs are done to the self.pose_directory or self.output_path
+            force: Whether to force writing of the pose
+        Returns:
+            None
+        """
         # if self.job.pose_format:
         #     self.pose.pose_numbering()
 
@@ -1284,11 +1292,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             out_path = self.pose_path
 
         if out_path:
-            self.pose.write(out_path=out_path)
-            self.log.info(f"Wrote Pose file to: '{out_path}'")
+            if not os.path.exists(out_path) or self.job.overwrite or force:
+                self.pose.write(out_path=out_path)
+                self.log.info(f"Wrote Pose file to: '{out_path}'")
 
         if self.job.output_to_directory:
-            if not os.path.exists(self.output_pose_path) or self.job.overwrite:
+            if not os.path.exists(self.output_pose_path) or self.job.overwrite or force:
                 out_path = self.output_pose_path
                 self.pose.write(out_path=out_path)
                 self.log.info(f"Wrote Pose file to: '{out_path}'")
