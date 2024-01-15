@@ -639,9 +639,9 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     project_dir = os.path.join(job.projects, project)
     putils.make_path(project_dir)
     if job.output_trajectory:
-        # Create a Models instance to collect each model
-        raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
-        trajectory_models = Models()
+        if sym_entry.unit_cell:
+            logger.warning('No unit cell dimensions applicable to the trajectory file')
+
 
     # Set up the TransformHasher to assist in scoring/pose output
     radius1 = model1.radius  # .distance_from_reference(measure='max')
@@ -3601,16 +3601,25 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             if job.output_fragments:
                 add_fragments_to_pose()
             if job.output_trajectory:
-                # Todo
-                #  This should be move to before filtering incase the whole trajectory is desired
-                if idx % 2 == 0:
-                    new_pose = pose.copy()
-                    # new_pose = pose.models[0]copy()
-                    for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
-                        entity.chain_id = 'D'
-                        # Todo make more reliable
-                        # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
-                    trajectory_models.append_model(new_pose)
+                available_chain_ids = chain_id_generator()
+
+                def _exhaust_n_chain_ids(n: int) -> str:
+                    for _ in range(n - 1):
+                        next(available_chain_ids)
+                    return next(available_chain_ids)
+
+                with open(os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'), 'a') as f_traj:
+                    # pose.write(file_handle=f_traj, assembly=True)
+                    f_traj.write('{:9s}{:>4d}\n'.format('MODEL', idx + 1))
+                    model_specific_chain_id = next(available_chain_ids)
+                    for entity in pose.entities:
+                        starting_chain_id = entity.chain_id
+                        entity.chain_id = model_specific_chain_id
+                        entity.write(file_handle=f_traj, assembly=True)
+                        entity.chain_id = starting_chain_id
+                        model_specific_chain_id = _exhaust_n_chain_ids(entity.number_of_symmetry_mates)
+                    f_traj.write(f'ENDMDL\n')
+
             # Set the ASU, then write to a file
             pose.set_contacting_asu(distance=cb_distance)
             try:  # Remove existing cryst_record
@@ -3695,13 +3704,6 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         # logger.info(f'Found {len(cluster_map)} unique clusters from {len(remaining_pose_names)} pose inputs. '
         #             f'Wrote cluster map to {job.cluster.map}')
 
-        # Write trajectory if specified
-        if job.output_trajectory:
-            if sym_entry.unit_cell:
-                logger.warning('No unit cell dimensions applicable to the trajectory file.')
-
-            trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
-                                    assembly=True)
         return pose_jobs
 
     # Clean up, save data/output results

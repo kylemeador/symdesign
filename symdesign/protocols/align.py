@@ -517,9 +517,8 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
         selected_models1 = [entity1]
 
     if job.output_trajectory:
-        # Create a Models instance to collect each model
-        raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
-        trajectory_models = Models()
+        if sym_entry.unit_cell:
+            logger.warning('No unit cell dimensions applicable to the trajectory file')
 
     model2_entities_after_fusion = model2.number_of_entities - 1
     # Create the corresponding SymEntry from the original SymEntry and the fusion
@@ -564,8 +563,9 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
             entity_transform = {}
         model1_entity_transformations.append(entity_transform)
     model2_entity_transformations = [{} for _ in range(model2_entities_after_fusion)]
+    _pose_count = count(1)
 
-    def output_pose(name: str) -> None:
+    def _output_pose(name: str) -> None:
         """Handle output of the identified pose
 
         Args:
@@ -584,8 +584,29 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
             # Query fragments
             pose.generate_interface_fragments()
         if job.output_trajectory:
-            # Todo copy the update from fragdock
-            pass
+            available_chain_ids = chain_id_generator()
+
+            def _exhaust_n_chain_ids(n: int) -> str:
+                for _ in range(n - 1):
+                    next(available_chain_ids)
+                return next(available_chain_ids)
+
+            # Write trajectory
+            if sym_entry.unit_cell:
+                logger.warning('No unit cell dimensions used to the trajectory file.')
+
+            with open(os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'), 'a') as f_traj:
+                # pose.write(file_handle=f_traj, assembly=True)
+                f_traj.write('{:9s}{:>4d}\n'.format('MODEL', next(_pose_count)))
+                model_specific_chain_id = next(available_chain_ids)
+                for entity in pose.entities:
+                    starting_chain_id = entity.chain_id
+                    entity.chain_id = model_specific_chain_id
+                    entity.write(file_handle=f_traj, assembly=True)
+                    entity.chain_id = starting_chain_id
+                    model_specific_chain_id = _exhaust_n_chain_ids(entity.number_of_symmetry_mates)
+                f_traj.write(f'ENDMDL\n')
+
         # # Set the ASU, then write to a file
         # pose.set_contacting_asu()
         try:  # Remove existing cryst_record
@@ -1134,7 +1155,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
                                         else:
                                             continue
 
-                                output_pose(name + f'-bend{bend_idx}')
+                                _output_pose(name + f'-bend{bend_idx}')
                         else:
                             if pose.is_clash(measure=job.design.clash_criteria,
                                              distance=job.design.clash_distance, silence_exceptions=True):
@@ -1153,7 +1174,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
                                     else:
                                         continue
 
-                            output_pose(name)
+                            _output_pose(name)
 
     logger.info(f'Total {project} trajectory took {time.time() - align_time_start:.2f}s')
     if not pose_jobs:
@@ -1236,13 +1257,6 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
         # # Populate the database with pose information. Has access to nonlocal session
         # populate_pose_metadata()
 
-        # Write trajectory if specified
-        if job.output_trajectory:
-            if sym_entry.unit_cell:
-                logger.warning('No unit cell dimensions applicable to the trajectory file.')
-
-            trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
-                                    assembly=True)
         return pose_jobs
 
     with job.db.session(expire_on_commit=False) as session:

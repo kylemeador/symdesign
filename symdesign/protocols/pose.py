@@ -1278,7 +1278,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.output_fragments:
             # if not self.pose.fragment_pairs:
             #     self.pose.generate_interface_fragments()
-            self.pose.write_fragment_pairs(out_path=self.frags_path)
+            putils.make_path(self.frags_path)
+            if self.job.output_trajectory:
+                # Write all fragments as one trajectory
+                if self.sym_entry.unit_cell:
+                    self.log.warning('No unit cell dimensions applicable to the Fragment trajectory file')
+
+            self.pose.write_fragment_pairs(out_path=self.frags_path, multimodel=self.job.output_trajectory)
 
         if self.job.output_interface:
             interface_structure = self.pose.get_interface()
@@ -1327,24 +1333,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if interface:
             self.pose.generate_interface_fragments(oligomeric_interfaces=oligomeric_interfaces,
                                                    distance=self.job.interface_distance)
-
         if entities:
             self.pose.generate_fragments(oligomeric_interfaces=oligomeric_interfaces,
                                          distance=self.job.interface_distance)
-
         if self.job.output_fragments:
-            putils.make_path(self.frags_path)
-            if self.job.output_trajectory:
-                # Write all fragments as one trajectory
-                if self.sym_entry.unit_cell:
-                    self.log.warning('No unit cell dimensions applicable to the Fragment trajectory file.')
-                out_path = os.path.join(self.frags_path, 'all_frags.pdb')
-            else:
-                out_path = self.frags_path
+            self.output_pose()
 
-            self.pose.write_fragment_pairs(out_path=out_path, multimodel=self.job.output_trajectory)
-
-        # Todo move to ProtocolMetaData
         # self.info['fragment_source'] = self.job.fragment_db.source
 
     @property

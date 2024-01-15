@@ -177,7 +177,7 @@ class Fragment(ABC):
     _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
     # frag_lower_range: int
     # frag_upper_range: int
-    ghost_fragments: list | list[GhostFragment] | None
+    ghost_fragments: dict | dict[tuple[int, int, int], GhostFragment] | None
     i_type: int | None
     rmsd_thresh: float = 0.75
     rotation: np.ndarray
@@ -275,7 +275,7 @@ class Fragment(ABC):
     #     else:
     #         return None
 
-    def find_ghost_fragments(self, clash_tree: BinaryTree = None, clash_dist: float = 2.1):
+    def find_ghost_fragments(self, clash_tree: BinaryTree = None, clash_dist: float = 2.1) -> list[GhostFragment]:
         """Find all the GhostFragments associated with the Fragment
 
         Args:
@@ -285,14 +285,14 @@ class Fragment(ABC):
         """
         ghost_i_type_arrays = self._fragment_db.indexed_ghosts.get(self.i_type, None)
         if ghost_i_type_arrays is None:
-            self.ghost_fragments = []
-            return
+            self.ghost_fragments = {}
+            return []
 
         stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type_arrays
         # No need to transform stacked_guide_coords as these will be transformed upon .guide_coords access
         if clash_tree is None:
-            # Ensure we slice by nothing, as None alone creates a new axis
-            viable_indices = slice(None)
+            # Ensure no slice occurs
+            viable_indices = Ellipsis
         else:
             # Ensure that the backbone coords are transformed to the Fragment reference frame
             transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, *self.transformation)
@@ -304,12 +304,16 @@ class Fragment(ABC):
             viable_indices = ~clashing_indices
 
         # self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
-        self.ghost_fragments = [
+        selected_ijk_types = ijk_types[viable_indices].tolist()
+        ghost_fragments = [
             GhostFragment(*info_)
             for info_ in zip(
-                list(stacked_guide_coords[viable_indices]), *zip(*ijk_types[viable_indices].tolist()),
+                list(stacked_guide_coords[viable_indices]), *zip(*selected_ijk_types),
                 rmsd_array[viable_indices].tolist(), repeat(self))
         ]
+        self.ghost_fragments = {ijk: frag for ijk, frag in zip(selected_ijk_types, ghost_fragments)}
+
+        return ghost_fragments
 
     def get_ghost_fragments(self, **kwargs) -> list | list[GhostFragment]:
         """Retrieve the GhostFragments associated with the Fragment. Will generate if none are available, otherwise,
@@ -328,15 +332,16 @@ class Fragment(ABC):
         #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
         # self.find_ghost_fragments(**kwargs)
         if self.ghost_fragments is None:
-            self.find_ghost_fragments(**kwargs)
+            ghost_fragments = self.find_ghost_fragments(**kwargs)
         else:
             # This routine is necessary when the ghost_fragments are already generated on a residue,
             # but that residue is copied.
             logger.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
-            for ghost in self.ghost_fragments:
+            ghost_fragments = list(self.ghost_fragments.values())
+            for ghost in ghost_fragments:
                 ghost.aligned_fragment = self
 
-        return self.ghost_fragments
+        return ghost_fragments
 
     # def __copy__(self):  # Todo -> Self: in python 3.11
     #     other = self.__class__.__new__(self.__class__)

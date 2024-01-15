@@ -9358,9 +9358,8 @@ class Pose(SymmetricModel, MetricsMixin):
                 clusters.append(ijk)
                 # match_score = info.match
                 aligned_residue = residues[info.mapped]
-                fragment_model, _ = aligned_residue.fragment_db.paired_frags[ijk]
-                trnsfmd_fragment = fragment_model.get_transformed_copy(*aligned_residue.transformation)
-                ghost_frags.append(trnsfmd_fragment)
+                ghost_frag = aligned_residue.ghost_fragments[ijk]
+                ghost_frags.append(ghost_frag)
 
         putils.make_path(out_path)
         file_path = None
@@ -9369,10 +9368,10 @@ class Pose(SymmetricModel, MetricsMixin):
             fragment.visuals.write_fragments_as_multimodel(ghost_frags, file_path)
         else:
             match_count = count(1)
-            for trnsfmd_fragment, ijk in zip(ghost_frags, clusters):
+            for ghost_frag, ijk in zip(ghost_frags, clusters):
                 file_path = os.path.join(
                     out_path, '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, next(match_count)))
-                trnsfmd_fragment.write(out_path=file_path)
+                ghost_frag.representative.write(out_path=file_path)
 
         # frag_file = Path(out_path, putils.frag_text_file)
         # frag_file.unlink(missing_ok=True)  # Ensure old file is removed before new write

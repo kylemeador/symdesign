@@ -132,16 +132,20 @@ class FragmentDatabase(info.FragmentInfo):
         prior_i_type, prior_j_type, prior_k_type = ijk_types[prior_idx]
         for idx, (i_type, j_type, k_type) in enumerate(ijk_types, idx):
             if i_type != prior_i_type:
+                i_type_ijks = np.empty(idx - prior_idx, dtype=object)
+                i_type_ijks[:] = ijk_types[prior_idx:idx]
                 self.indexed_ghosts[prior_i_type] = \
                     (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
-                     np.array(ijk_types[prior_idx:idx]), stacked_rmsds[prior_idx:idx])
+                     i_type_ijks, stacked_rmsds[prior_idx:idx])
                 prior_i_type = i_type
                 prior_idx = idx
 
         # One more time for the final index
+        i_type_ijks = np.empty(idx - prior_idx, dtype=object)
+        i_type_ijks[:] = ijk_types[prior_idx:idx]
         self.indexed_ghosts[prior_i_type] = \
             (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
-             np.array(ijk_types[prior_idx:idx]), stacked_rmsds[prior_idx:idx])
+             i_type_ijks, stacked_rmsds[prior_idx:idx])
 
     # Todo
     #  An ideal measure of the central importance would weight central fragment observations to new center
