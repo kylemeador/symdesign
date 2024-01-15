@@ -3342,7 +3342,7 @@ class Residues(StructureBaseContainer):
                 prior_struct = struct
 
     def __copy__(self) -> Residues:  # Todo -> Self: in python 3.11
-        other = super().__copy__()
+        other: Residues = super().__copy__()
         other.find_prev_and_next()
         # other.reindex()
         # other.set_index()

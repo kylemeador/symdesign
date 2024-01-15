@@ -725,32 +725,6 @@ class ParseStructureMixin(abc.ABC):
     #     self.metadata = StructureMetadata(**kwargs)
     #     super().__init__(**kwargs)
 
-    # Todo move to Model (parsed) and Entity (oligomer)?
-    def format_header(self, **kwargs) -> str:
-        """Return the BIOMT record as a .pdb format header
-
-        Returns:
-            The header with .pdb file formatting
-        """
-        return super().format_header(**kwargs) + self.format_biomt(**kwargs)
-
-    # # Todo StructureBase
-    # # Todo move to Model (parsed) and Entity (oligomer)?
-    # def format_biomt(self, **kwargs) -> str:
-    #     """Return the BIOMT record for the Structure if there was one parsed
-    #
-    #     Returns:
-    #         The PDB file formatted BIOMT REMARK 350
-    #     """
-    #     if self.biomt is not None:
-    #         return '%s\n' \
-    #             % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
-    #                         .format(v_idx, m_idx, *vec)
-    #                         for m_idx, matrix in enumerate(self.biomt.tolist(), 1)
-    #                         for v_idx, vec in enumerate(matrix, 1))
-    #     else:
-    #         return ''
-
 
 class StructuredGeneEntity(ContainsResidues, GeneEntity):
     _disorder: dict[int, dict[str, str]]
@@ -2850,7 +2824,6 @@ class SymmetryOpsMixin(abc.ABC):
     #             list(self.return_symmetric_coords(entity.center_of_mass)) for entity in self.entities]
     #         return self._center_of_mass_symmetric_entities
 
-    # Todo ContainsEntities
     def find_contacting_asu(self, distance: float = 8., **kwargs) -> list[Entity]:
         """Find the maximally contacting symmetry mate for each Entity and return the corresponding Entity instances
 
@@ -2916,7 +2889,6 @@ class SymmetryOpsMixin(abc.ABC):
 
         return entities
 
-    # Todo ContainsEntities
     def get_contacting_asu(self, distance: float = 8., **kwargs) -> SymmetricModel:  # Todo -> Self python 3.11
         """Find the maximally contacting symmetry mate for each Entity and return the corresponding Entity instances as
          a new Pose
@@ -2944,7 +2916,6 @@ class SymmetryOpsMixin(abc.ABC):
             entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry, rename_chains=rename,
             biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
-    # Todo ContainsEntities
     def set_contacting_asu(self, **kwargs):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
 
@@ -3672,37 +3643,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
 
         return new_structure
 
-    def format_header(self, **kwargs) -> str:
-        """Return the BIOMT and the SEQRES records as a .pdb format header
 
-        Returns:
-            The header with .pdb file formatting
-        """
-        return super().format_header(**kwargs) + self._format_seqres(**kwargs)
-
-    def _format_seqres(self, asu: bool = True, **kwargs) -> str:
-        """Format the reference sequence present in the SEQRES remark for writing to the output header
-
-        Args:
-            asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
-        Returns:
-            The .pdb formatted SEQRES record
-        """
-        if asu:
-            structure_container = self.entities
-        else:
-            structure_container = self.chains
-
-        formatted_reference_sequence = \
-            {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-                                       for aa in struct.reference_sequence)
-             for struct in structure_container}
-        chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
-        return '%s\n' \
-            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
-                        f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
-                        for chain_id, formatted_sequence in formatted_reference_sequence.items()
-                        for line_number in range(1, 1 + math.ceil(len(formatted_sequence) / seq_res_len)))
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
               assembly: bool = False, **kwargs) -> AnyStr | None:
@@ -4099,8 +4040,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
 
         return None
 
-    def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> \
-            AnyStr:
+    def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr:
         """Use the make_symmdef_file.pl script from Rosetta to make a symmetry definition file on the Structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb.pdb -i B -q
@@ -4287,7 +4227,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
         else:
             del self._oligomer
 
-        other = super().__copy__()
+        other: Entity = super().__copy__()
         # Mate Entity instances are a "parent", however, they are under the control of their captain instance
         if self._is_captain:  # If the copier is a captain
             other._captain = None  # Initialize the copy as a captain, i.e. _captain = None
@@ -4303,8 +4243,7 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
                 del other.entity_spawn
             except AttributeError:
                 # This isn't a captain and a captain didn't initiate the copy
-                # Have to make it a captain -> None
-                # First set self._captain object as other._captain, then
+                # First set other._captain to self._captain, then
                 # _make_captain() extracts data, and finally, will set _captain as None
                 other._captain = captain
                 other._make_captain()  # other._captain -> None
@@ -5403,8 +5342,6 @@ class SymmetricModel(SymmetryOpsMixin, Model):
             self._assembly_minimally_contacting = self._generate_assembly(minimal=minimal)
             return self._assembly_minimally_contacting
 
-    # Todo
-    #  reconcile mechanism with Entity.oligomer
     def _generate_assembly_models(
             self, minimal: bool | int | None = False, surrounding_uc: bool = False, **kwargs  # <- Collect excess kwargs
     ) -> Models:
@@ -5532,7 +5469,6 @@ class SymmetricModel(SymmetryOpsMixin, Model):
                 chains.extend(model.entities)
         name = self._generate_assembly_name(minimal=minimal, surrounding_uc=surrounding_uc)
 
-        # print(f"_generate_assembly: Found the {chains=}")
         return Model.from_chains(  # type(self)
             chains, name=name, log=self.log,
             entity_info=self.entity_info,  # entities=False
