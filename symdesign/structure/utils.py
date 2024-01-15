@@ -12,6 +12,7 @@ coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 
 coords_types: tuple[coords_type_literal, ...] = get_args(coords_type_literal)
 default_clash_criteria = 'backbone_and_cb'
 default_clash_distance = 2.1
+design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 termini_literal = Literal['n', 'c']
 
 

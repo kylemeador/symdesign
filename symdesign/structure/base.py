@@ -900,7 +900,7 @@ class StructureMetadata:
 
 
 # parent Structure controls these attributes
-parent_variable = '_StructureBase__parent'
+parent_variable = '_parent_'
 new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
 parent_attributes = (parent_variable, *new_parent_attributes)
 """Holds all the attributes which the parent StructureBase controls including _parent, _coords, _log, _atoms, 
@@ -1057,7 +1057,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     _log: Log
     _parent_is_updating: bool = False
     """Whether the StructureBase.coords are being updated by a parent. If so, cut corners"""
-    __parent: StructureBase | None
+    _parent_: StructureBase | None = None
     state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True,
@@ -1125,12 +1125,12 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
 
     @property
     def parent(self) -> StructureBase | None:
-        """Return the instance's "parent" StructureBase"""
         # try:
-        return self.__parent
         # except AttributeError:
         #     self.__parent = None
         #     return self.__parent
+        """Return the instance's 'parent' StructureBase which is responsible for manipulation of Structure containers"""
+        return self._parent_
 
     # This getter is a placeholder so that _parent set automatically handles _log and _coords set in derived classes
     @property
@@ -1141,7 +1141,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     @_parent.setter
     def _parent(self, parent: StructureBase):
         """Set the 'parent' of this instance"""
-        self.__parent = parent
+        self._parent_ = parent
         self._log = parent._log
         self._coords = parent._coords
         # self._atoms = parent._atoms
@@ -4466,12 +4466,12 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         return residues
 
-    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None) -> Residue:
+    def insert_residue_type(self, index: int, residue_type: str, chain_id: str = None) -> Residue:
         """Insert a standard Residue type into the Structure at the origin. No structural alignment is performed!
 
         Args:
-            residue_type: Either the 1 or 3 letter amino acid code for the residue in question
             index: The residue index where a new Residue should be inserted into the Structure
+            residue_type: Either the 1 or 3 letter amino acid code for the residue in question
             chain_id: The chain identifier to associate the new Residue with
         Returns:
             The newly inserted Residue object
@@ -4483,7 +4483,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             if chain_id is None:
                 chain_id = getattr(self, 'chain_id', None)
-            return _parent.insert_residue_type(residue_type=residue_type, index=index, chain_id=chain_id)
+            return _parent.insert_residue_type(index, residue_type, chain_id=chain_id)
 
         self.log.debug(f'Inserting {residue_type} into index {index} of {self.name}')
 
@@ -4748,17 +4748,17 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         secondary_structure = working_secondary_structure = self.secondary_structure
         number_of_residues = self.number_of_residues
         # no_nterm_disorder_ss = secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
-        # remove_x_nterm_residues = number_of_residues - len(no_nterm_disorder_ss)
+        # n_removed_nterm_res = number_of_residues - len(no_nterm_disorder_ss)
         # no_cterm_disorder_ss = secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)
-        # remove_x_cterm_residues = number_of_residues - len(no_cterm_disorder_ss)
+        # n_removed_cterm_res = number_of_residues - len(no_cterm_disorder_ss)
         # Todo
         #  Could remove disorder by a relative_sasa threshold. A brief investigation shows that ~0.6 could be a
         #  reasonable threshold when combined with other ss indicators
         # sasa = self.relative_sasa
-        # self.log.debug(f'Found n-term relative sasa {sasa[:remove_x_nterm_residues + 10]}')
-        # self.log.debug(f'Found c-term relative sasa {sasa[-(remove_x_cterm_residues + 10):]}')
+        # self.log.debug(f'Found n-term relative sasa {sasa[:n_removed_nterm_res + 10]}')
+        # self.log.debug(f'Found c-term relative sasa {sasa[-(n_removed_cterm_res + 10):]}')
 
-        remove_x_nterm_residues = 0
+        n_removed_nterm_res = 0
         # Remove coils. Find the next coil. If only ss present is (T)urn, then remove that as well and start again
         for idx, termini in enumerate('NC'):
             if idx == 0:  # n-termini
@@ -4767,7 +4767,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             else:  # c-termini
                 self.log.debug(f'N-term is: {working_secondary_structure[:15]}')
                 # Get the number of n-termini removed
-                remove_x_nterm_residues = number_of_residues - len(working_secondary_structure)
+                n_removed_nterm_res = number_of_residues - len(working_secondary_structure)
                 # Reverse the sequence to get the c-termini first
                 possible_secondary_structure = working_secondary_structure[::-1]
                 self.log.debug(f'Starting C-term (reversed) is: {possible_secondary_structure[:15]}')
@@ -4786,26 +4786,26 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         self.log.debug(f'C-term (reversed) is: {working_secondary_structure[:15]}')
 
-        # Get the number of c-termini removed
-        remove_x_cterm_residues = number_of_residues - len(working_secondary_structure) - remove_x_nterm_residues
-        c_term_index = number_of_residues - remove_x_cterm_residues
-        # final_secondary_structure = reversed(working_secondary_structure)
-
         residues = self.residues
         _delete_residues = []
-        if 'n' in termini_ and remove_x_nterm_residues:
-            self.log.debug(f'Found N-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
-            self.log.info(f"Removing {remove_x_nterm_residues} N-term residues with new terminal secondary structure:\n"
-                          f"\told N:{secondary_structure[:remove_x_nterm_residues + 10]}\n"
-                          f"\tnew N:{'-' * remove_x_nterm_residues}"
-                          f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}")
-            _delete_residues += residues[:remove_x_nterm_residues]
-        if 'c' in termini_ and remove_x_cterm_residues:
-            self.log.debug(f'Found C-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
-            self.log.info(f"Removing {remove_x_cterm_residues} C-term residues with new terminal secondary structure:\n"
-                          f"\told C:{secondary_structure[c_term_index - 10:]}\n"
-                          f"\tnew C:{secondary_structure[c_term_index - 10:c_term_index]}"
-                          f"{'-' * remove_x_cterm_residues}")
+        context_length = 10
+        if 'n' in termini_ and n_removed_nterm_res:
+            old_ss = secondary_structure[:n_removed_nterm_res + context_length]
+            self.log.debug(f'Found N-term secondary_structure {secondary_structure[:n_removed_nterm_res + 5]}')
+            self.log.info(f"Removing {n_removed_nterm_res} N-terminal residues. Resulting secondary structure:\n"
+                          f"\told N:{old_ss}...\n"
+                          f"\tnew N:{'-' * n_removed_nterm_res}{old_ss[n_removed_nterm_res:]}...")
+            _delete_residues += residues[:n_removed_nterm_res]
+
+        # Get the number of c-termini removed
+        n_removed_cterm_res = number_of_residues - len(working_secondary_structure) - n_removed_nterm_res
+        if 'c' in termini_ and n_removed_cterm_res:
+            c_term_index = number_of_residues - n_removed_cterm_res
+            old_ss = secondary_structure[c_term_index - context_length:]
+            self.log.debug(f'Found C-term secondary_structure {secondary_structure[-(n_removed_cterm_res + 5):]}')
+            self.log.info(f"Removing {n_removed_cterm_res} C-terminal residues. Resulting secondary structure:\n"
+                          f"\told C:...{old_ss}\n"
+                          f"\tnew C:...{old_ss[:-n_removed_cterm_res]}{'-' * n_removed_cterm_res}")
             _delete_residues += residues[c_term_index:]
 
         self.delete_residues(_delete_residues)

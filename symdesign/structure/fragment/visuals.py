@@ -9,8 +9,8 @@ from symdesign import structure
 idx_slice = pd.IndexSlice
 
 
-def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.fragment.GhostFragment],
-                                                file_name: AnyStr = os.getcwd()) -> AnyStr:
+def write_fragment_pairs_as_accumulating_states(
+        ghost_frags: list[structure.fragment.GhostFragment], file_name: AnyStr = os.getcwd()) -> AnyStr:
     """Write GhostFragments as an MultiModel trajectory where each successive Model has one more Fragment
 
     Args:
@@ -65,6 +65,8 @@ def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.frag
             atom_iterator += frag_model.number_of_atoms
             residue_iterator += frag_model.number_of_residues
             f.write('ENDMDL\n')
+
+    return file_name
 
 
 def write_fragments_as_multimodel(ghost_frags: list[structure.fragment.GhostFragment],

@@ -950,14 +950,13 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # Generate the source TO design mutations before any disorder handling
                 mutations = generate_mutations(source_entity.sequence, design_entity.sequence, offset=False)
                 # Insert the disordered residues into the design pose
-                for residue_number, mutation in indexed_disordered_residues.items():
-                    logger.debug(f'Inserting {mutation["from"]} into position {residue_number} on chain '
+                for residue_index, mutation in indexed_disordered_residues.items():
+                    logger.debug(f'Inserting {mutation["from"]} into position {residue_index} on chain '
                                  f'{source_entity.chain_id}')
-                    design_pose.insert_residue_type(mutation['from'], index=residue_number,
-                                                    chain_id=source_entity.chain_id)
+                    design_pose.insert_residue_type(residue_index, mutation['from'], chain_id=source_entity.chain_id)
                     # adjust mutations to account for insertion
                     for mutation_index in sorted(mutations.keys(), reverse=True):
-                        if mutation_index < residue_number:
+                        if mutation_index < residue_index:
                             break
                         else:  # mutation should be incremented by one
                             mutations[mutation_index + 1] = mutations.pop(mutation_index)
@@ -1990,8 +1989,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     # residue_index is zero indexed
                     new_aa_type = mutation['from']
                     logger.debug(f'Inserting {new_aa_type} into index {residue_index} on Entity {entity_name}')
-                    # design_pose.insert_residue_type(new_aa_type, index=residue_index,
-                    #                                 chain_id=entity.chain_id)
+                    # design_pose.insert_residue_type(residue_index, new_aa_type, chain_id=entity.chain_id)
                     inserted_design_sequence.insert(residue_index, new_aa_type)
                     # Adjust mutations to account for insertion
                     for mutation_index in sorted(mutations.keys(), reverse=True):

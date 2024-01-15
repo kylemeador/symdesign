@@ -828,7 +828,7 @@ class StructureDatabase(Database):
                                 if new_aa_type == '-':
                                     # This could be removed from the structure but that seems implicitly bad
                                     continue
-                                entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
+                                entity.insert_residue_type(residue_index, new_aa_type, chain_id=entity.chain_id)
 
                             # If the msa features are present, the prediction should succeed with high probability...
                             # Attach evolutionary info to the entity

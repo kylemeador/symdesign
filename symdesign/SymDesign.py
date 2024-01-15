@@ -87,7 +87,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
             raise ValueError(
                 f"Couldn't find {data}.model_source")
     # Check whether loop modeling or refinement should be performed
-    # If so, move the oriented Entity.file_path (should be the ASU) to the respective directory
+    # If so, move the oriented Entity.model_source (should be the ASU) to the respective directory
     if job.init.pre_refined:  # Indicate refine stuff is done
         refine_dir = job.structure_db.refined.location
         putils.make_path(refine_dir)

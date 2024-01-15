@@ -25,8 +25,8 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from . import fragment
-from .base import Atom, Atoms, Residue, Residues, Structure, Structures, StructureBase, atom_or_residue_literal, \
-    SymmetryBase
+from .base import ContainsResidues, Residue, Structures, StructureBase, atom_or_residue_literal, \
+    SymmetryBase, ContainsAtoms, read_pdb_file, read_mmcif_file
 from .coordinates import Coordinates, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import alignment_types, FragmentDatabase, FragmentInfo
 from .sequence import GeneEntity, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
@@ -729,12 +729,8 @@ class ParseStructureMixin(abc.ABC):
 class StructuredGeneEntity(ContainsResidues, GeneEntity):
     _disorder: dict[int, dict[str, str]]
 
-    def __init__(self,
-                 metadata: sql.ProteinMetadata = None,
-                 uniprot_ids: tuple[str, ...] = None,
-                 thermophilicity: bool = None,
-                 reference_sequence: str = None,
-                 **kwargs):
+    def __init__(self, metadata: sql.ProteinMetadata = None, uniprot_ids: tuple[str, ...] = None,
+                 thermophilicity: bool = None, reference_sequence: str = None, **kwargs):
         """
         Args:
             metadata: Unique database references for the Entity
@@ -749,7 +745,6 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             if reference_sequence is not None:
                 self._reference_sequence = reference_sequence
 
-            # Todo remove self.thermophilicity once sql load more streamlined
             self.thermophilicity = thermophilicity
             if uniprot_ids is not None:
                 self.uniprot_ids = uniprot_ids
@@ -838,14 +833,14 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         return self._uniprot_ids
 
     @uniprot_ids.setter
-    def uniprot_ids(self, uniprot_ids: Iterable[str, ...] | str):
+    def uniprot_ids(self, uniprot_ids: Iterable[str] | str):
         if isinstance(uniprot_ids, Iterable):
             self._uniprot_ids = tuple(uniprot_ids)
         elif isinstance(uniprot_ids, str):
             self._uniprot_ids = (uniprot_ids,)
         else:
             raise ValueError(
-                f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str, ...] or str, not "
+                f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str] or str, not "
                 f"{type(uniprot_ids).__name__}")
 
     @property
@@ -1779,9 +1774,7 @@ class ContainsEntities(ContainsChains):
     """"""
     entity_info: dict[str, dict[dict | list | str]] | dict
 
-    def __init__(self, entities: bool | Sequence[Entity]= True,
-                 entity_info: dict[str, dict[dict | list | str]] = None,
-                 # rename_chains: bool = False,
+    def __init__(self, entities: bool | Sequence[Entity] = True, entity_info: dict[str, dict[dict | list | str]] = None,
                  **kwargs):
         """
 
@@ -2456,14 +2449,14 @@ class ContainsEntities(ContainsChains):
         return ''.join(entity.reference_sequence for entity in self.entities)
 
     @property
-    def atom_indices_per_entity(self) -> list[list[int]]:  # Todo Entity expansion
-        """Return the atom indices for each Entity in the Model"""
-        return [structure.atom_indices for structure in self.entities]
+    def atom_indices_per_entity(self) -> list[list[int]]:
+        """Return the atom indices for each Entity"""
+        return [entity.atom_indices for entity in self.entities]
 
     # @property
     # def residue_indices_per_entity(self) -> list[list[int]]:
-    #     """Return the residue indices for each Entity in the Model"""
-    #     return [structure.residue_indices for structure in self.entities]
+    #     """Return the residue indices for each Entity"""
+    #     return [entity.residue_indices for entity in self.entities]
 
 
 class SymmetryOpsMixin(abc.ABC):
@@ -3260,7 +3253,7 @@ class Chain(Structure, SequenceProfile):
         }
 
 
-class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
+class Entity(ContainsChains, SymmetryOpsMixin, Chain):
     """
     """
     _captain: Entity | None
@@ -4041,8 +4034,9 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
                 num_sequences = 1
                 deletion_matrix = np.zeros((num_sequences, number_of_residues), dtype=np.int32)
                 species_ids = ['']  # Must include an empty '' as the first "reference" sequence
-                msa_numeric = sequences_to_numeric([sequence], translation_table=
-                numerical_translation_alph1_unknown_gaped_bytes).astype(dtype=np.int32)
+                msa_numeric = sequences_to_numeric(
+                    [sequence], translation_table=numerical_translation_alph1_unknown_gaped_bytes
+                ).astype(dtype=np.int32)
             elif msa:
                 deletion_matrix = msa.deletion_matrix.astype(np.int32)  # [:, msa.query_indices]
                 num_sequences = msa.length
@@ -4416,7 +4410,8 @@ class Entity(SymmetryOpsMixin, ContainsEntities, Chain):
             # Get and copy the structure container
             new_structures = self.__getattribute__(structure_type).copy()
             for idx, structure in enumerate(new_structures[1:], 1):  # Only operate on [1:] since index 0 is different
-                # structures[idx] = copy(structure)
+                # Todo
+                #  use structure._copier = True?
                 structure.entity_spawn = True
                 new_structure = structure.copy()
                 new_structure._captain = self
@@ -4864,11 +4859,11 @@ class Models(UserList):  # (Model):
         """Initialize from an iterable of Model instances"""
         return cls(models=models, **kwargs)
 
-    def __init__(self, models: Iterable[ContainsEntities], name: str = None, **kwargs):
+    def __init__(self, models: Iterable[ContainsEntities | Entity], name: str = None, **kwargs):
         super().__init__(initlist=models)  # Sets UserList.data to models
 
         for model in self:
-            if not isinstance(model, ContainsEntities):
+            if not isinstance(model, (ContainsEntities, Entity)):
                 raise TypeError(
                     f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be an Iterable"
                     f' of {Model.__name__}')
@@ -6326,7 +6321,7 @@ class SymmetricModel(SymmetryOpsMixin, Model):
         else:
             del self._assembly_minimally_contacting
 
-        other = super().__copy__()
+        other: SymmetricModel = super().__copy__()
 
         # Reset the self state as before the copy
         if _assembly_minimally_contacting is not None:
@@ -6348,7 +6343,6 @@ class PoseSpecification(TypedDict):
     selection: StructureSpecification
 
 
-# class Pose(SequenceProfile, SymmetricModel):
 class Pose(SymmetricModel, MetricsMixin):
     """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
