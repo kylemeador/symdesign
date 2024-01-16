@@ -3504,6 +3504,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     _sap: np.ndarray
     _secondary_structure: str
     _sequence: str
+    nucleotides_present: bool = False
     secondary_structure: str | None
     sasa: float | None
     _coords_indexed_residues_: np.ndarray  # Residues # list[Residue]
@@ -3541,7 +3542,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # self._residues = None
         # self._residue_indices = None
         # self.secondary_structure = None
-        self.nucleotides_present = False
+        # self.nucleotides_present = False
         self.sasa = None
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -4247,7 +4248,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:
             self.log.debug(f'Adding {length} residue ideal helix to {termini}-terminus of {self.name}')
 
-        alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
+        alpha_helix_15_struct = ContainsResidues.from_atoms(alpha_helix_15_atoms)
 
         if termini == 'n':
             residue = self.n_terminal_residue
@@ -5800,21 +5801,18 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
 
 
-    # copy = __copy__  # Overwrites to use this instance __copy__
-
-
-
-class Structures(Structure, UserList):
-    # Todo mesh inheritance of both Structure and UserClass...
-    #  FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
-    #  are all concatenated Structure methods and attributes accounted for?
-    #  ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
-    data: list[Structure]
+class Structures(ContainsResidues, UserList):
+    # Todo
+    #   mesh inheritance of both Structure and UserClass...
+    #   FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
+    #   are all concatenated Structure methods and attributes accounted for?
+    #   ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
     """A view of a set of Structure instances"""
+    data: list[ContainsResidues]
     dtype: str
     """The type of Structure in instance"""
 
-    def __init__(self, structures: Iterable[Structure], dtype: str = None, **kwargs):
+    def __init__(self, structures: Iterable[ContainsResidues], dtype: str = None, **kwargs):
         """Pass the parent Structure with parent= to initialize .log, .coords, .atoms, and .residues
 
         Args:
@@ -5830,7 +5828,7 @@ class Structures(Structure, UserList):
 
         if not self.data:  # Set up an empty Structures
             self.dtype = dtype if dtype else 'Structure'
-        elif all([True if isinstance(structure, Structure) else False for structure in self]):
+        elif all([True if isinstance(structure, ContainsResidues) else False for structure in self]):
             # self.data = [structure for structure in structures]
             self._atom_indices = []
             for structure in self:
@@ -5867,7 +5865,7 @@ class Structures(Structure, UserList):
     #     self._residues = Residues(residues)
 
     @property
-    def structures(self) -> list[Structure]:
+    def structures(self) -> list[ContainsResidues]:
         """Returns the underlying data in Structures"""
         return self.data
 
@@ -6164,10 +6162,10 @@ class Structures(Structure, UserList):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __iter__(self) -> Structure:
+    def __iter__(self) -> ContainsResidues:
         yield from iter(self.data)
 
-    def __getitem__(self, idx: int) -> Structure:
+    def __getitem__(self, idx: int) -> ContainsResidues:
         return self.data[idx]
 
 
