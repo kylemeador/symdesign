@@ -15,6 +15,7 @@ from typing import Annotated, Any, AnyStr
 import jax
 import psutil
 import tensorflow as tf
+from tqdm.auto import tqdm
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -1311,26 +1312,32 @@ class JobResources:
                     msa_cmds.extend([sto_cmd, fasta_cmd])
 
         if hhblits_cmds:
-            if not os.access(putils.hhblits_exe, os.X_OK):
-                raise RuntimeError(
-                    f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
-                    f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "
-                    f'--no-{flags.use_evolution} OR set up hhblits to run.{utils.guide.hhblits_setup_instructions}')
+            protocol = putils.hhblits
+            logger.info(f"Starting Profile(dtype='{protocol}') generation")
+
+            if protocol == putils.hhblits:
+                if not os.access(putils.hhblits_exe, os.X_OK):
+                    raise RuntimeError(
+                        f"Couldn't locate the {protocol} executable. Ensure the executable file referenced by "
+                        f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "
+                        f'--no-{flags.use_evolution} OR set up hhblits to run.{utils.guide.hhblits_setup_instructions}')
+            else:
+                assert_never(protocol)
 
             putils.make_path(self.profiles)
             putils.make_path(self.sbatch_scripts)
-            hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
+            protocol_log_file = os.path.join(self.profiles, 'generate_profiles.log')
 
             # Run hhblits commands
             if not batch_commands and self.can_process_evolutionary_profiles():
-                logger.info(f'Writing {putils.hhblits} results to file: {hhblits_log_file}')
+                logger.info(f'Writing {protocol} results to file: {protocol_log_file}')
                 # Run commands in this process
                 if self.multi_processing:
                     zipped_args = zip(hhblits_cmds, repeat(hhblits_log_file))
                     utils.mp_starmap(distribute.run, zipped_args, processes=self.cores)
                 else:
-                    for cmd in hhblits_cmds:
-                        logger.info(f'Starting command: {subprocess.list2cmdline(cmd)}')
+                    for cmd in tqdm(hhblits_cmds):
+                        logger.debug(f'Starting command: {subprocess.list2cmdline(cmd)}')
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                         stdout, stderr = p.communicate()
                         if stderr:
@@ -1347,7 +1354,7 @@ class JobResources:
                 msa_cmds = [subprocess.list2cmdline(cmd) for cmd in msa_cmds]
                 all_evolutionary_commands = hhblits_cmds + msa_cmds
                 evolutionary_cmds_file = distribute.write_commands(
-                    all_evolutionary_commands, name=f'{utils.starttime}-{putils.hhblits}', out_path=self.profiles)
+                    all_evolutionary_commands, name=f'{utils.starttime}-{protocol}', out_path=self.profiles)
 
                 if distribute.is_sbatch_available():
                     shell = distribute.sbatch
@@ -1356,18 +1363,19 @@ class JobResources:
                     shell = distribute.default_shell
                     max_jobs = self.evolutionary_profile_processes()
 
-                hhblits_kwargs = dict(out_path=self.sbatch_scripts, scale=putils.hhblits,
-                                      max_jobs=max_jobs, number_of_commands=len(all_evolutionary_commands),
-                                      log_file=hhblits_log_file)
+                # Todo
+                #  distribution.Attrs()
+                protocol_kwargs = dict(out_path=self.sbatch_scripts, scale=protocol,
+                                       max_jobs=max_jobs, number_of_commands=len(all_evolutionary_commands),
+                                       log_file=protocol_log_file)
                 # reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
-                hhblits_script = distribute.distribute(file=evolutionary_cmds_file, **hhblits_kwargs)
+                protocol_script = distribute.distribute(file=evolutionary_cmds_file, **protocol_kwargs)
                 # Format messages
                 info_messages.append(
                     'Please follow the instructions below to generate sequence profiles for input proteins')
-                hhblits_job_info_message = \
-                    f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
-                hhblits_job_info_message += f'{shell} {hhblits_script}'
-                info_messages.append(hhblits_job_info_message)
+                protocol_job_info_message = f'Enter the following to distribute {protocol} jobs:\n\t'
+                protocol_job_info_message += f'{shell} {protocol_script}'
+                info_messages.append(protocol_job_info_message)
         elif msa_cmds:  # These may still be missing
             putils.make_path(self.profiles)
 
