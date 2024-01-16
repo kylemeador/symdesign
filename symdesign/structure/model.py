@@ -1775,16 +1775,33 @@ class ContainsChains(ContainsStructures):
 
 class ContainsEntities(ContainsChains):
     """"""
-    entity_info: dict[str, dict[dict | list | str]] | dict
+
+    @property
+    def entity_info(self) -> dict[str, dict[dict | list | str]] | dict:
+        """Mapping of the Entity name to Metadata describing the Entity instance"""
+        if not self.is_parent():
+            raise NotImplementedError(
+                f"'entity_info' isn't settable for the {repr(self)}"
+            )
+        return self.metadata.entity_info
+
+    @entity_info.setter
+    def entity_info(self, entity_info: dict[str, dict[dict | list | str]] | dict):
+        """"""
+        if not self.is_parent():
+            raise NotImplementedError(
+                f"'entity_info' isn't settable for the {repr(self)}"
+            )
+        self.metadata.entity_info = entity_info
 
     def __init__(self, entities: bool | Sequence[Entity] = True, entity_info: dict[str, dict[dict | list | str]] = None,
                  **kwargs):
         """
 
         Args:
-            entities: Whether to construct the structure from existing Entity instances, or create Entity instances from
-                chain instances
-            entity_info:
+            entities: Existing Entity instances used to construct the Structure, or evaluates False to skip creating
+                Entity instances from the existing '.chains' Chain instances
+            entity_info: Metadata describing the Entity instances
             **kwargs:
         """
         super().__init__(**kwargs)  # ContainsEntities
