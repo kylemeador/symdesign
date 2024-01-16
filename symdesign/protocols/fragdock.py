@@ -609,7 +609,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             # If this was a Pose, this is essentially what is happening
             # model = input_model.assembly
             model = Model.from_chains([chain for entity in input_model.entities for chain in entity.chains],
-                                      entities=False, name=input_model.name)
+                                      name=input_model.name)
             raise NotImplementedError(f"Can't dock 2 Model instances with > 2 total Entity instances")
         else:
             model = input_model.entities[0].assembly

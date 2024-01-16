@@ -5890,7 +5890,7 @@ class Structures(ContainsResidues, UserList):
         return len(self.data)
 
     # @property
-    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
+    # def model_coords(self):
     #     """Return a view of the modeled Coords. These may be symmetric if a SymmetricModel"""
     #     return self._model_coords.coords
     #

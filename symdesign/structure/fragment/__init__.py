@@ -118,10 +118,10 @@ class GhostFragment:
         return self.aligned_fragment.transformation
 
     @property
-    def representative(self) -> 'structure.model.Chain':
+    def representative(self) -> 'structure.model.Model':
         """Access the Representative GhostFragment StructureBase"""
         _representative, paired_chain_id = self._fragment_db.paired_frags[self.ijk]
-        return _representative.get_transformed_copy(*self.aligned_fragment.transformation)
+        return _representative.get_transformed_copy(*self.aligned_fragment.transformation)  # type:ignore
 
     def write(
         self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs

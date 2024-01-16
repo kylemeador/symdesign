@@ -46,7 +46,7 @@ if __name__ == '__main__':
     final_coords = np.array(coords)
     t32_rosetta = Model.from_file(t32_rosetta_file)
     t32_orient = Model.from_file(t32_orient_file)
-    _, rot, tx = superposition3d(t32_orient.entities[0].cb_coords, t32_rosetta.entities[0].cb_coords)
+    _, rot, tx = superposition3d(t32_orient.chains[0].cb_coords, t32_rosetta.chains[0].cb_coords)
     final_coords = np.matmul(final_coords, np.transpose(rot)) + tx
 
     print('%s\n' % '\n'.join(' '.join(','.join(list(map(str, coord_triplet))) for coord_triplet in coord_group) for coord_group in final_coords.tolist()))

@@ -24,7 +24,7 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
                 'This may take awhile...')
     fragment_db.representatives = \
         {int(os.path.splitext(os.path.basename(file))[0]):
-         Representative(base.Structure.from_file(file, log=None), fragment_db=fragment_db)
+         Representative(model.Chain.from_file(file, log=None), fragment_db=fragment_db)
          for file in utils.get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
     fragment_db.paired_frags = load_paired_fragment_representatives(fragment_db.cluster_representatives_path)
     fragment_db.load_cluster_info()
@@ -49,7 +49,7 @@ def load_paired_fragment_representatives(cluster_representatives_path: AnyStr) \
     paired_frags = {}
     for cluster_name, file_path in identified_files.items():
         # The token RELOAD_DB is passed to ensure loading happens without default loading
-        cluster_representative = model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
+        cluster_representative = model.Model.from_file(file_path, log=None, fragment_db=RELOAD_DB)
         # Load as Model as we must look up the partner coords later by using chain_id stored in file_name
         partner_chain_idx = file_path.find(PARTNER_CHAIN)
         ijk_cluster_rep_partner_chain_id = file_path[partner_chain_idx + 13:partner_chain_idx + 14]

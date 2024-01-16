@@ -443,216 +443,11 @@ class MultiModel:
         # yield from self.enumerate_models()
 
 
-class State(Structures):
-    """A collection of Model objects comprising one distinct configuration"""
-    # def __init__(self, structures=None, **kwargs):  # log=None,
-    #     super().__init__(**kwargs)
-    #     # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
-    #     # if log:
-    #     #     self.log = log
-    #     # elif log is None:
-    #     #     self.log = logging.getLogger('null')
-    #     # else:  # When log is explicitly passed as False, use the module logger
-    #     #     self.log = logger
-    #
-    #     if isinstance(structures, list):
-    #         if all([True if isinstance(structure, Model) else False for structure in structures]):
-    #             self.structures = structures
-    #             # self.data = structures
-    #         else:
-    #             self.structures = []
-    #             # self.data = []
-    #     else:
-    #         self.structures = []
-    #         # self.data = []
-    #
-    # @property
-    # def number_of_structures(self):
-    #     return len(self.structures)
-    #
-    # @property
-    # def coords(self):
-    #     """Return a view of the Coords from the Structures"""
-    #     try:
-    #         coords_exist = self._coords.shape  # check on first call for attribute, if not, make, else, replace coords
-    #         total_atoms = 0
-    #         for structure in self.structures:
-    #             new_atoms = total_atoms + structure.number_of_atoms
-    #             self._coords[total_atoms: new_atoms] = structure.coords
-    #             total_atoms += total_atoms
-    #         return self._coords
-    #     except AttributeError:
-    #         coords = [structure.coords for structure in self.structures]
-    #         # coords = []
-    #         # for structure in self.structures:
-    #         #     coords.extend(structure.coords)
-    #         self._coords = np.concatenate(coords)
-    #
-    #         return self._coords
-    #
-    # # @coords.setter
-    # # def coords(self, coords):
-    # #     if isinstance(coords, Coords):
-    # #         self._coords = coords
-    # #     else:
-    # #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    # #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
-    # @property
-    # def model_coords(self):  # Todo RECONCILE with coords, SymmetricModel variation
-    #     """Return a view of the modeled Coords. These may be symmetric if a SymmetricModel"""
-    #     return self._model_coords.coords
-    #
-    # @model_coords.setter
-    # def model_coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._model_coords = coords
-    #     else:
-    #         raise AttributeError(
-    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    # @property
-    # def atoms(self):
-    #     """Return a view of the Atoms from the Structures"""
-    #     try:
-    #         return self._atoms
-    #     except AttributeError:
-    #         atoms = []
-    #         for structure in self.structures:
-    #             atoms.extend(structure.atoms)
-    #         self._atoms = Atoms(atoms)
-    #         return self._atoms
-    #
-    # @property
-    # def number_of_atoms(self):
-    #     return len(self.coords)
-    #
-    # @property
-    # def residues(self):  # Todo Residues iteration
-    #     try:
-    #         return self._residues
-    #     except AttributeError:
-    #         residues = []
-    #         for structure in self.structures:
-    #             residues.extend(structure.residues)
-    #         self._residues = Residues(residues)
-    #         return self._residues
-    #
-    # @property
-    # def number_of_residues(self):
-    #     return len(self.residues)
-    #
-    # @property
-    # def coords_indexed_residues(self):
-    #     try:
-    #         return self._coords_indexed_residues
-    #     except AttributeError:
-    #         self._coords_indexed_residues = \
-    #             [residue for residue in self.residues for _ in residue.range]
-    #         return self._coords_indexed_residues
-    #
-    # @property
-    # def coords_indexed_residue_atoms(self):
-    #     try:
-    #         return self._coords_indexed_residue_atoms
-    #     except AttributeError:
-    #         self._coords_indexed_residue_atoms = \
-    #             [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
-    #         return self._coords_indexed_residue_atoms
-    #
-    # @property
-    # def backbone_indices(self):
-    #     try:
-    #         return self._backbone_indices
-    #     except AttributeError:
-    #         self._backbone_indices = []
-    #         for structure in self.structures:
-    #             self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
-    #         return self._backbone_indices
-    #
-    # @property
-    # def backbone_and_cb_indices(self):
-    #     try:
-    #         return self._backbone_and_cb_indices
-    #     except AttributeError:
-    #         self._backbone_and_cb_indices = []
-    #         for structure in self.structures:
-    #             self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
-    #         return self._backbone_and_cb_indices
-    #
-    # @property
-    # def cb_indices(self):
-    #     try:
-    #         return self._cb_indices
-    #     except AttributeError:
-    #         self._cb_indices = []
-    #         for structure in self.structures:
-    #             self._cb_indices.extend(structure.coords_indexed_cb_indices)
-    #         return self._cb_indices
-    #
-    # @property
-    # def ca_indices(self):
-    #     try:
-    #         return self._ca_indices
-    #     except AttributeError:
-    #         self._ca_indices = []
-    #         for structure in self.structures:
-    #             self._ca_indices.extend(structure.coords_indexed_ca_indices)
-    #         return self._ca_indices
-    #
 
-    def write(self, increment_chains: bool = False, **kwargs) -> AnyStr | None:
-        """Write Structures to a file specified by out_path or with a passed file_handle.
 
-        Keyword Args:
-            out_path: The location where the State should be written to disk
-            file_handle: Used to write to an open FileObject
-            increment_chains: Whether to write each Chain with a new chain name, otherwise write as a new Model
-        Returns:
-            The name of the written file if out_path is used
-        """
-        # Todo implement
-        raise NotImplementedError('The ability to write States to file has not been thoroughly debugged')
-        warning = 'If your State consists of various types of Structure containers (Models, Structures) check your ' \
-                  'file is as expected before preceeding'
-        return super().write(increment_chains=increment_chains, **kwargs)
 
-        # if file_handle:  # Todo handle with multiple Structure containers
-        #     file_handle.write('%s\n' % self.get_atom_record(**kwargs))
-        #     return
-        #
-        # with open(out_path, 'w') as f:
-        #     if header:
-        #         if isinstance(header, str):
-        #             f.write(header)
-        #         # if isinstance(header, Iterable):
-        #
-        #     if increment_chains:
-        #         available_chain_ids = chain_id_generator()
-        #         for structure in self.structures:
-        #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
-        #             chain_id = next(available_chain_ids)
-        #             structure.write(file_handle=f, chain_id=chain_id)
-        #             c_term_residue = structure.c_terminal_residue
-        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
-        #                                                                   c_term_residue.atoms[-1].number + 1,
-        #                                                                   c_term_residue.type, chain_id,
-        #                                                                   c_term_residue.number))
-        #     else:
-        #         for model_number, structure in enumerate(self.structures, 1):
-        #             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-        #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
-        #             structure.write(file_handle=f)
-        #             c_term_residue = structure.c_terminal_residue
-        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
-        #                                                                   c_term_residue.atoms[-1].number + 1,
-        #                                                                   c_term_residue.type, structure.chain_id,
-        #                                                                   c_term_residue.number))
-        #             f.write('ENDMDL\n')
-    #
-    # def __getitem__(self, idx):
-    #     return self.structures[idx]
 
 
 class ParseStructureMixin(abc.ABC):
@@ -1747,7 +1542,7 @@ class ContainsChains(ContainsStructures):
             raise utils.SymDesignException(
                 f"{putils.orient_exe_path} couldn't orient {name}{log_message}")
 
-        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
+        oriented_pdb = Model.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
@@ -3134,7 +2929,7 @@ class SymmetryOpsMixin(abc.ABC):
         # assert cls is Pose, f"Can't {self.get_contacting_asu.__name__} for the class={cls}. Only for Pose"
         return cls.from_entities(
             entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry, rename_chains=rename,
-            biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
+            cryst_record=self.cryst_record, **kwargs)  # , biomt_header=self.format_biomt(),
 
     def set_contacting_asu(self, **kwargs):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
@@ -3674,7 +3469,7 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
         except AttributeError:
             # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             self.log.debug(f'Constructing {repr(self)}.assembly')
-            self._oligomer = Model.from_chains(self.chains, entities=False, name=f'{self.name}-oligomer', log=self.log)
+            self._oligomer = Model.from_chains(self.chains, name=f'{self.name}-oligomer', log=self.log)
             return self._oligomer
 
     def remove_mate_chains(self):
@@ -4502,86 +4297,14 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
         return hash(self._key)
 
 
-class Model(Structure, ContainsEntities):
-    """The base object for Structure file (.pdb/.cif) parsing and manipulation, particularly containing multiple Chain
-    or Entity instances
+class Model(ContainsChains, Structure):
+    """The main class for simple Structure manipulation, particularly containing multiple Chain instances
 
     Can initialize by passing a file, or passing Atom/Residue/Chain/Entity instances
 
+    If your Structure is symmetric, SymmetricModel is required instead
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
-
-    @classmethod
-    def from_structure(cls, structure: ContainsResidues, **kwargs):
-        """Initialize from an existing Structure"""
-        return cls(structure=structure, **kwargs)
-
-    def __init__(self, structure: ContainsResidues = None,
-                 fragment_db: FragmentDatabase = None,
-                 **kwargs):
-        """Process various types of Structure containers to update the Model with the corresponding information
-
-        Args:
-            structure: Whether to create a new instance based on another Structure instance
-        Keyword Args:
-            entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
-                of entities. Names will take precedence over query_by_sequence if passed
-            query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
-                sequence. Only used if entity_names not provided
-            -*Passed to ContainsAtomsMixin*-
-            atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
-            -*Passed to ContainsResidues*-
-            residues: list[Residue] | Residues = None - The Residue instances which should constitute a new
-                instance
-            residue_indices: list[int] = None - The indices which specify the particular Residue instances to make this
-                ContainsResidues instance. Used with a parent to specify a subdivision of a larger structure
-            -*Passed to StructureBase*-
-            parent: StructureBase = None - If another Structure object created this Structure instance, pass the
-                'parent' instance. Will take ownership over Structure containers (coords, atoms, residues) for
-                dependent Structures
-            log: Log | Logger | bool = True - The Log or Logger instance, or the name for the logger to handle parent
-                Structure logging. None or False prevents logging while any True assignment enables it
-            coords: Coords | np.ndarray | list[list[float]] = None - When setting up a parent Structure instance, the
-                coordinates of that Structure
-            name: str = None - The identifier for the Structure instance
-        """
-        if structure:
-            if isinstance(structure, ContainsResidues):
-                model_kwargs = structure.get_base_containers()
-                for key, value in model_kwargs.items():
-                    if key in kwargs:
-                        self.log.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
-                                         f"overwrites the '{key}' argument from the 'model'")
-                new_model_kwargs = {**model_kwargs, **kwargs}
-                super().__init__(**new_model_kwargs)
-            else:
-                raise NotImplementedError(
-                    f"Setting {self.__class__.__name__} with model={type(structure).__name__} isn't supported")
-        else:
-            super().__init__(**kwargs)  # Model
-
-        # After structure containers are created, initialize fragment_db so the db is available to container
-        self.fragment_db = fragment_db
-
-        # if metadata and isinstance(metadata, Model):
-        #     self.copy_metadata(metadata)
-        if not self.atoms:
-            raise ValueError(
-                f"{self.__class__.__name__} received no valid {StructureBase.__name__} instances"
-            )
-
-    @ContainsResidues.fragment_db.setter
-    def fragment_db(self, fragment_db: FragmentDatabase):
-        """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles.
-        Sets fragment_db for each dependent in 'structure_containers' attribute
-        """
-        super(Model, Model).fragment_db.fset(self, fragment_db)
-        if self._fragment_db is not None:
-            for structure_type in self.structure_containers:
-                for structure in self.__getattribute__(structure_type):
-                    structure.fragment_db = self._fragment_db
-        else:  # This is likely the RELOAD_DB token, just reload
-            return
 
 
 # All methods below come with no intention of working with Model, but contain useful code to generate axes and display
@@ -5011,14 +4734,14 @@ class SymmetricModel(SymmetryOpsMixin, Model):
     }
 
     @classmethod
-    def from_assembly(cls, assembly: list[Structure], sym_entry: utils.SymEntry.SymEntry | int = None,
+    def from_assembly(cls, assembly: Model, sym_entry: utils.SymEntry.SymEntry | int = None,
                       symmetry: str = None, **kwargs):
         """Initialize from a symmetric assembly"""
         if symmetry is None and sym_entry is None:
             raise ValueError(
                 "Can't initialize without symmetry. Pass 'symmetry' or 'sym_entry' to "
                 f'{cls.__name__}.{cls.from_assembly.__name__}() constructor')
-        return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
+        return cls(structure=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     def __init__(self, **kwargs):
         """"""
@@ -5481,11 +5204,9 @@ class SymmetricModel(SymmetryOpsMixin, Model):
                 chains.extend(model.entities)
         name = self._generate_assembly_name(minimal=minimal, surrounding_uc=surrounding_uc)
 
-        return Model.from_chains(  # type(self)
-            chains, name=name, log=self.log,
-            entity_info=self.entity_info,  # entities=False
-            biomt_header=self.format_biomt(), cryst_record=self.cryst_record
-        )
+        # type(self)
+        return Model.from_chains(chains, name=name, log=self.log, entity_info=self.entity_info,
+                                 cryst_record=self.cryst_record)  # , biomt_header=self.format_biomt())
 
     @property
     def chains(self) -> list[Entity]:  # list[Chain]:
