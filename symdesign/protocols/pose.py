@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import shutil
-import traceback
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -806,8 +805,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             return self._job_kwargs
         except AttributeError:
-            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log,
-                                    fragment_db=self.job.fragment_db, pose_format=self.job.pose_format)
+            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log, fragment_db=self.job.fragment_db)
             return self._job_kwargs
 
     @property
@@ -817,9 +815,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         for data in self.entity_data:
             entity_info.update(data.entity_info)
 
+        # If this fails with a sqlalchemy.orm.exc.DetachedInstanceError. The PoseJob isn't completely set up
         transformations = [data.transformation for data in self.entity_data]
         # entity_metadata=self.entity_data,
-        return dict(entity_info=entity_info, transformations=transformations, **self.job_kwargs)
+        return dict(entity_info=entity_info, transformations=transformations,
+                    pose_format=self.job.pose_format, **self.job_kwargs)
 
     # @property
     # def pose_transformation(self) -> list[types.TransformationMapping]:
@@ -1133,8 +1133,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             elif self.initial_pose:
                 # This is a fresh Model that was already loaded so reuse
                 # Careful, if processing has occurred to the initial_pose, then this may be wrong!
-                self.pose = Pose.from_model(self.initial_pose, name=self.name, **self.pose_kwargs,
-                                            entity_info=self.initial_pose.entity_info)
+                self.pose = Pose.from_structure(
+                    self.initial_pose, name=self.name, entity_info=self.initial_pose.entity_info, **self.pose_kwargs)
                 # Use entity_info from already parsed
                 self.structure_source = self.source_path
             else:
@@ -1374,8 +1374,7 @@ class PoseProtocol(PoseData):
         # Todo
         #                                    oligomeric_interfaces=self.job.oligomeric_interfaces)
 
-    @handle_design_errors(errors=(SymDesignException,))
-    def orient(self, to_pose_directory: bool = True) -> None:
+    def orient(self, to_pose_directory: bool = True):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         job.symmetry is used to specify the orientation
 
@@ -1386,6 +1385,7 @@ class PoseProtocol(PoseData):
             self.load_initial_pose()
 
         if self.symmetry:
+            # This may raise an error if symmetry is malformed
             self.initial_pose.orient(symmetry=self.symmetry)
 
             if to_pose_directory:
@@ -1396,11 +1396,9 @@ class PoseProtocol(PoseData):
 
             orient_file = self.initial_pose.write(out_path=out_path)
             self.log.info(f'The oriented file was saved to {orient_file}')
-            for entity in self.initial_pose.entities:
-                entity.remove_mate_chains()
 
-            # Load the pose (required to save) then save the oriented version
-            self.load_pose()
+            # Now that symmetry is set, just set the pose attribute
+            self.pose = self.initial_pose
             self.output_pose()
         else:
             raise SymmetryError(

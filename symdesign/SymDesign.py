@@ -295,7 +295,7 @@ def destruct_factories():
 
 
 def main():
-    """Run the SymDesign program"""
+    """Run the program"""
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
@@ -305,7 +305,6 @@ def main():
         designs = []
         directives = []
         if args.poses or args.specification_file:
-            # Todo no --file and --specification-file at the same time
             # These poses are already included in the "program state"
             if not in_root or not args.directory:
                 directory_required = f'A {flags.format_args(flags.directory_args)} must be provided when using '
@@ -316,8 +315,6 @@ def main():
                 elif args.specification_file:
                     raise utils.InputError(
                         f'{directory_required}{flags.format_args(flags.specification_file_args)}{not_in_current}')
-            # Todo, combine this with collect_designs
-            #  this works for file locations as well! should I have a separate mechanism for each?
             if args.poses:
                 # Extend pose_identifiers with each parsed pose_identifiers set
                 job.location = args.poses
@@ -483,7 +480,6 @@ def main():
                     with open(designs_file, 'w') as f_out:
                         f_out.write('%s\n' % '\n'.join(f'{pj}, {design.name}' for pj in successful_pose_jobs
                                                        for design in pj.current_designs))
-                        # Todo ensure .current_designs present ^
                     logger.info(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
                                 f'every design selected by this job. Utilize this file to input these designs in '
                                 f'future'
@@ -520,7 +516,6 @@ def main():
                                       else (putils.structure_background if job.design.structure_background
                                             else flags.interface_design))
                     else:
-                        # Todo make viable rosettascripts
                         scale = flags.design
                         # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]
                 else:
@@ -535,7 +530,6 @@ def main():
                                     protocol=_get_module_specific_protocol(job.module),
                                     out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
 
-                # Todo this mechanism fell out of favor, but really should be suggested to the user
                 # if job.module == flags.design and job.initial_refinement:
                 #     # We should refine before design
                 #     refine_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{flags.refine}.sh')
@@ -585,33 +579,33 @@ def main():
         utils.guide.print_guide()
         sys.exit()
 
-    # ---------------------------------------------------
-    # elif args.flags:  # Todo
-    #     if args.template:
-    #         flags.query_user_for_flags(template=True)
-    #     else:
-    #         flags.query_user_for_flags(mode=args.flags_module)
-    # ---------------------------------------------------
-    # elif args.residue_selector:  # Todo
-    #     def generate_sequence_template(file):
-    #         model = Pose.from_file(file)
-    #         sequence = SeqRecord(Seq(model.sequence), 'Protein'), id=model.name)
-    #         sequence_mask = copy.copy(sequence)
-    #         sequence_mask.id = 'residue_selector'
-    #         sequences = [sequence, sequence_mask]
-    #         raise NotImplementedError('This write_fasta call needs to have its keyword arguments refactored')
-    #         return write_fasta(sequences, file_name=f'{model.name}_residue_selector_sequence')
+    #  ---------------------------------------------------
+    #  elif args.flags:  # Todo
+    #      if args.template:
+    #          flags.query_user_for_flags(template=True)
+    #      else:
+    #          flags.query_user_for_flags(mode=args.flags_module)
+    #  ---------------------------------------------------
+    #  elif args.residue_selector:  # Todo
+    #      def generate_sequence_template(file):
+    #          model = Pose.from_file(file)
+    #          sequence = SeqRecord(Seq(model.sequence), 'Protein'), id=model.name)
+    #          sequence_mask = copy.copy(sequence)
+    #          sequence_mask.id = 'residue_selector'
+    #          sequences = [sequence, sequence_mask]
+    #          raise NotImplementedError('This write_fasta call needs to have its keyword arguments refactored')
+    #          return write_fasta(sequences, file_name=f'{model.name}_residue_selector_sequence')
     #
-    #     if not args.single:
-    #         raise utils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
-    #                                 'residue_selector' % (putils.program_name, putils.program_command))
-    #     fasta_file = generate_sequence_template(args.single)
-    #     logger.info('The residue_selector template was written to %s. Please edit this file so that the '
-    #                 'residue_selector can be generated for protein design. Selection should be formatted as a "*" '
-    #                 'replaces all sequence of interest to be considered in design, while a Mask should be formatted as '
-    #                 'a "-". Ex:\n>pdb_template_sequence\nMAGHALKMLV...\n>residue_selector\nMAGH**KMLV\n\nor'
-    #                 '\n>pdb_template_sequence\nMAGHALKMLV...\n>design_mask\nMAGH----LV\n'
-    #                 % fasta_file)
+    #      if not args.single:
+    #          raise utils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
+    #                                  'residue_selector' % (putils.program_name, putils.program_command))
+    #      fasta_file = generate_sequence_template(args.single)
+    #      logger.info('The residue_selector template was written to %s. Please edit this file so that the '
+    #                  'residue_selector can be generated for protein design. Selection should be formatted as a "*" '
+    #                  'replaces all sequence of interest to be considered in design, while a Mask should be formatted as '
+    #                  'a "-". Ex:\n>pdb_template_sequence\nMAGHALKMLV...\n>residue_selector\nMAGH**KMLV\n\nor'
+    #                  '\n>pdb_template_sequence\nMAGHALKMLV...\n>design_mask\nMAGH----LV\n'
+    #                  % fasta_file)
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
@@ -940,20 +934,6 @@ def main():
 
         terminate(output=False)
     elif job.module in [flags.align_helices, flags.nanohedra]:
-        # Todo
-        #  Expand the definition of SymEntry/Entity to include specifications like:
-        #   T:{T:{C3}{C3}}{C1}
-        #  Where an Entity is composed of multiple Entity (Chain) instances
-        #  This helps with the grouping by input model... not entities such as in Nanohedra pose.output_pose()
-        # Todo
-        #  if job.output_oligomers:
-        #      for entity in pose.entities:
-        #          entity.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
-        #  Which should be
-        #      for model in pose.entities:
-        #          model.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
-        #  Essentially this would make oligomer/assembly keywords the same
-        #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
 
         # Transform input entities to canonical orientation, i.e. "orient" and return their metadata
         if job.module == flags.nanohedra:
@@ -1040,7 +1020,6 @@ def main():
             session.add_all(uniprot_entities)
             initialize_entities(job, uniprot_entities, all_protein_metadata, batch_commands=job.distribute_work)
 
-            # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
             #  then usage for docking pairs below...
 
             # Correct existing ProteinMetadata, now that Entity instances are processed
@@ -1088,24 +1067,6 @@ def main():
         else:
             raise NotImplementedError()
     else:  # Load from existing files, usually Structural files in a directory or in the program already
-        # if args.nanohedra_output:  # Nanohedra directory
-        #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-        #     if file_paths:
-        #         first_pose_path = file_paths[0]
-        #         if first_pose_path.count(os.sep) == 0:
-        #             job.nanohedra_root = args.directory
-        #         else:
-        #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-        #         if not job.sym_entry:  # Get from the Nanohedra output
-        #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-        #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
-        #                             for pose in job.get_range_slice(file_paths)]
-        #         # Copy the master nanohedra log
-        #         project_designs = \
-        #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
-        #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-        #             putils.make_path(project_designs)
-        #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         if job.load_to_db:
             # These are not part of the db, but exist in a program_output
             if args.project or args.single:
@@ -1154,7 +1115,6 @@ def main():
 
         if job.module not in flags.select_modules:  # select_from_directory:
             if not pose_jobs and not select_from_directory:
-                # Todo this needs a more informative error. Is the location of the correct format?
                 #  For instance, a --project provided with the directory of type --single would die without much
                 #  knowledge of why
                 raise utils.InputError(
@@ -1165,7 +1125,7 @@ def main():
             - ProteinMetadata
             Files include:
             - Structure in orient, refined, loop modeled
-            - Profile from hhblits, bmdca?
+            - Profile from hhblits
             """
 
             if job.sym_entry:
@@ -1202,10 +1162,16 @@ def main():
             pose_job: PoseJob
             warn = True
             for idx, pose_job in enumerate(pose_jobs):
-                if pose_job.id is None:  # Not loaded previously
-                    # Todo expand the definition of SymEntry/Entity to include
-                    #  specification of T:{T:{C3}{C3}}{C1}
-                    #  where an Entity is composed of multiple Entity (Chain) instances
+                if pose_job.id is not None:  # PoseJob is initialized
+                    # Add each UniProtEntity to existing_uniprot_entities to limit work
+                    for data in pose_job.entity_data:
+                        existing_protein_metadata.add(data.meta)
+                        for uniprot_entity in data.meta.uniprot_entities:
+                            existing_uniprot_entities.add(uniprot_entity)
+                else:  # Not loaded previously
+                    # Todo
+                    #  Expand the definition of SymEntry/Entity to include specification of T:{T:{C3}{C3}}{C1} where
+                    #  an Entity is composed of multiple Entity (Chain) instances
                     # Need to initialize the local database. Load this model to get required info
                     try:
                         pose_job.load_initial_pose()
@@ -1272,20 +1238,7 @@ def main():
                             if len(entity.name) < wrapapi.uniprot_accession_length:
                                 entity.uniprot_ids = (entity.name,)
                             else:  # Make up an accession
-                                # Todo, one of the following when used for de novo designed sequences with no homologous
-                                #  sequences
-                                #  - BLAST sequence and get genbank id. This is possible, but interface with NCBI not
-                                #  ideal for large data retrieval due to limitations, clustering, etc...
-                                #  >See https://blast.ncbi.nlm.nih.gov/doc/blast-help/developerinfo.html
-                                #  - Using a custom database of hhblits results from prior (and possibly new)
-                                #  sequence inputs as a way to search for sequence alignment. Probably just a search of
-                                #  the new sequence against the most similar hhm in thed database, however, this may
-                                #  take as much time as just searching existing hhblits database
-                                #  >See https://github.com/soedinglab/hh-suite/wiki#building-customized-databases
                                 random_accession = f'Rid{random.randint(0,99999):5d}'
-                                # Todo, make part of a session
-                                #  select_random_ids_stmt = select(wrapapi.UniProtEntity.id)
-                                #  existing_random_ids = session.execute(select_random_ids_stmt).all()
                                 while random_accession in existing_random_ids:
                                     random_accession = f'Rid{random.randint(0,99999):5d}'
                                 else:
@@ -1344,10 +1297,11 @@ def main():
                         #                )
 
                     if not pose_job.pose:
-                        # The pose was never set. Try to orient
-                        _orient_outcome = pose_job.orient()
-                        if _orient_outcome is not None:
-                            # Some aspect of loading didn't work. This may be fine if the molecules are already oriented
+                        # The pose was never set, first try to orient it
+                        try:
+                            pose_job.orient()
+                        except utils.SymDesignException:
+                            # Some aspect of orient() failed. This is fine if the molecules are already oriented
                             if warn:
                                 logger.warning(
                                     f"Couldn't {pose_job.orient.__name__}() {repr(pose_job)}. If the input is passed as"
@@ -1356,19 +1310,6 @@ def main():
                                 warn = False
 
                     pose_jobs_to_commit.append(pose_job)
-                else:  # PoseJob is initialized
-                    # # Add each UniProtEntity to existing_uniprot_entities to limit work
-                    # Todo
-                    # for data in pose_job.entity_data:
-                    #     existing_protein_properties_ids.add(data.properties_id)
-                    #     # Now loading these in sql.initialize_metadata()
-                    #     # for uniprot_id in data.meta.uniprot_ids:
-                    #     #     existing_uniprot_ids.add(uniprot_id)
-                    # Add each UniProtEntity to existing_uniprot_entities to limit work
-                    for data in pose_job.entity_data:
-                        existing_protein_metadata.add(data.meta)
-                        for uniprot_entity in data.meta.uniprot_entities:
-                            existing_uniprot_entities.add(uniprot_entity)
 
             for idx in reversed(remove_pose_jobs):
                 pose_jobs.pop(idx)
@@ -1387,7 +1328,6 @@ def main():
                 session.commit()
 
                 # # Deal with new data compared to existing entries
-                # # Todo
                 # all_uniprot_id_to_prot_data = \
                 #     sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
                 #                             # existing_uniprot_ids=existing_uniprot_ids,
@@ -1403,8 +1343,6 @@ def main():
                 session.add_all(uniprot_entities)
                 initialize_entities(job, uniprot_entities, [],  # all_uniprot_id_to_prot_data.values())
                                     batch_commands=job.distribute_work)
-                # # Todo replace the passed files with the processed versions?
-                # #  See PoseJob.load_pose()
 
                 if pose_jobs_to_commit:
                     # Write new data to the database with correct ProteinMetadata and UniProtEntity entries

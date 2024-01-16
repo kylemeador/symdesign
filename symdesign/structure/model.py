@@ -245,7 +245,7 @@ class MultiModel:
 
         if model is not None:
             if not isinstance(model, Model):
-                model = Model.from_model(model)
+                model = Model.from_structure(model)
 
             self.models = [model]
             # This loads Structure objects present in .models. Ex, the symmetry mates in SymmetricModel
@@ -1666,10 +1666,13 @@ class ContainsChains(ContainsStructures):
     def orient(self, symmetry: str = None):
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
 
-        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
+        Sets the Structure with coordinates as described by a canonical orientation
 
         Args:
             symmetry: The symmetry of the Structure
+        Raises:
+            SymDesignException: When the orient program fails
+            SymmetryError: When the specified symmetry is incompatible with the Structure
         """
         # These notes are obviated by the use of the below protocol with from_file() constructor
         # orient_oligomer.f program notes
@@ -3188,7 +3191,7 @@ class SymmetryOpsMixin(abc.ABC):
     #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')
 
 
-class Chain(Structure, SequenceProfile):
+class Chain(Structure, MetricsMixin):
     """A grouping of Residue, Atom and Coords instances, typically from a sequence that should be a connected polymer"""
     _chain_id: str
     _entity: Entity
@@ -4487,17 +4490,17 @@ class Model(Structure, ContainsEntities):
     """
 
     @classmethod
-    def from_model(cls, model, **kwargs):
-        """Initialize from an existing Model"""
-        return cls(model=model, **kwargs)
+    def from_structure(cls, structure: ContainsResidues, **kwargs):
+        """Initialize from an existing Structure"""
+        return cls(structure=structure, **kwargs)
 
-    def __init__(self, model: ContainsResidues = None,
+    def __init__(self, structure: ContainsResidues = None,
                  fragment_db: FragmentDatabase = None,
                  **kwargs):
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
-            model: Whether to create this Model from another Model instance
+            structure: Whether to create a new instance based on another Structure instance
         Keyword Args:
             entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
                 of entities. Names will take precedence over query_by_sequence if passed
@@ -4520,9 +4523,9 @@ class Model(Structure, ContainsEntities):
                 coordinates of that Structure
             name: str = None - The identifier for the Structure instance
         """
-        if model:
-            if isinstance(model, ContainsResidues):
-                model_kwargs = model.get_base_containers()
+        if structure:
+            if isinstance(structure, ContainsResidues):
+                model_kwargs = structure.get_base_containers()
                 for key, value in model_kwargs.items():
                     if key in kwargs:
                         self.log.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
@@ -4531,7 +4534,7 @@ class Model(Structure, ContainsEntities):
                 super().__init__(**new_model_kwargs)
             else:
                 raise NotImplementedError(
-                    f"Setting {self.__class__.__name__} with model={type(model).__name__} isn't supported")
+                    f"Setting {self.__class__.__name__} with model={type(structure).__name__} isn't supported")
         else:
             super().__init__(**kwargs)  # Model
 
@@ -6234,15 +6237,6 @@ class SymmetricModel(SymmetryOpsMixin, Model):
             return self._assembly_tree
 
     def orient(self, symmetry: str = None):
-        """Orient isn't available for SymmetricModel
-
-        Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
-
-        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
-
-        Args:
-            symmetry: The symmetry of the Structure
-        """
         if self.is_symmetric():
             super().orient(symmetry=self.symmetry)
         else:
