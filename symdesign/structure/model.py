@@ -443,13 +443,6 @@ class MultiModel:
         # yield from self.enumerate_models()
 
 
-
-
-
-
-
-
-
 class ParseStructureMixin(abc.ABC):
 
     @classmethod
@@ -3481,7 +3474,6 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
         try:
             return self._oligomer
         except AttributeError:
-            # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             self.log.debug(f'Constructing {repr(self)}.assembly')
             self._oligomer = Model.from_chains(self.chains, name=f'{self.name}-oligomer', log=self.log)
             return self._oligomer
@@ -4731,7 +4723,7 @@ class Models(UserList):  # (Model):
         return self.data[idx]
 
 
-class SymmetricModel(SymmetryOpsMixin, Model):
+class SymmetricModel(SymmetryOpsMixin, ContainsEntities, Structure):
     _assembly: Model
     _assembly_minimally_contacting: Model
     _assembly_tree: BinaryTree

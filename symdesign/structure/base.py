@@ -3516,12 +3516,19 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
     @classmethod
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
+        """Initialize from existing Residue instances"""
         return cls(residues=residues, **kwargs)
 
-    def __init__(self, residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
-                 pose_format: bool = False, **kwargs):
+    @classmethod
+    def from_structure(cls, structure: ContainsResidues, **kwargs):
+        """Initialize from an existing Structure"""
+        return cls(structure=structure, **kwargs)
+
+    def __init__(self, structure: ContainsResidues = None, residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
+                 pose_format: bool = False, fragment_db: fragment.db.FragmentDatabase = None, **kwargs):
         """
         Args:
+            structure: Create the instance based on an existing Structure instance
             residues: The Residue instances which should constitute a new Structure instance
             residue_indices: The indices which specify the particular Residue instances to make this Structure instance.
                 Used with a parent to specify a subdivision of a larger Structure
@@ -3537,9 +3544,22 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 coordinates of that Structure
             name: str = None - The identifier for the Structure instance
         """
-        super().__init__(**kwargs)  # ContainsResidues
+        if structure:
+            if isinstance(structure, ContainsResidues):
+                model_kwargs = structure.get_base_containers()
+                for key, value in model_kwargs.items():
+                    if key in kwargs:
+                        self.log.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
+                                         f"overwrites the '{key}' argument from the 'model'")
+                new_model_kwargs = {**model_kwargs, **kwargs}
+                super().__init__(**new_model_kwargs)
+            else:
+                raise NotImplementedError(
+                    f"Setting {self.__class__.__name__} with model={type(structure).__name__} isn't supported")
+        else:
+            super().__init__(**kwargs)  # ContainsResidues
+
         # self._coords_indexed_residues_ = None
-        # self._residues = None
         # self._residue_indices = None
         # self.secondary_structure = None
         # self.nucleotides_present = False
@@ -3621,7 +3641,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._fragment_db = fragment_db
 
     # Below properties are considered part of the Structure state
-    # Todo refactor properties to below here for accounting
     def contains_hydrogen(self) -> bool:  # in Residue too
         """Returns whether the Structure contains hydrogen atoms"""
         try:
