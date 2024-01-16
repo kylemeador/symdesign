@@ -1482,6 +1482,11 @@ class Atom(CoordinateOpsMixin):
         return self.coords
 
     @property
+    def radius(self) -> float:
+        """The width of the Atom"""
+        raise NotImplementedError("This isn't finished")
+
+    @property
     def x(self) -> float:
         """Access the value for the x coordinate"""
         return self.coords[0]
@@ -2183,6 +2188,23 @@ class ContainsAtoms(StructureBase, ABC):
             number_of_atoms = self.number_of_atoms
             self._inverse_number_atoms = np.full(number_of_atoms, 1 / number_of_atoms)
             return np.matmul(self._inverse_number_atoms, self.coords)
+
+    @property
+    def radius(self) -> float:
+        """The furthest point from the center of mass of the StructureBase"""
+        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
+
+    @property
+    def radius_of_gyration(self) -> float:
+        """The measurement of the implied radius (Angstroms) affecting how the StructureBase diffuses through solution
+
+        Satisfies the equation:
+            Rg = SQRT(SUM|i->N(Ri**2)/N)
+        Where:
+            - Ri is the radius of the point i from the center of mass point
+            - N is the total number of points
+        """
+        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
 
     @property
     def backbone_coords(self) -> np.ndarray:
