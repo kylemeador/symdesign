@@ -601,18 +601,20 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                 # Remove any unstructured termini from the Entity to allow the best secondary structure docking
                 if job.trim_termini:
                     entity.delete_termini(how='unstructured')
-                # Ensure models are oligomeric with make_oligomer()
+                # Ensure models are oligomeric
                 entity.make_oligomer(symmetry=symmetry)
 
-            if next(entity_count) > 2:
-                # Todo 2 remove able to take more than 2 Entity
-                raise NotImplementedError(f"Can't dock 2 Model instances with > 2 total Entity instances")
-
         # Make, then save a new model based on the symmetric version of each Entity in the Model
-        # model = input_model.assembly  # This is essentially what is happening here
-        model = Model.from_chains([chain for entity in input_model.entities for chain in entity.chains],
-                                  entities=False, name=input_model.name)
-        # model.file_path = input_model.file_path
+        if input_model.number_of_entities > 2:
+            # If this was a Pose, this is essentially what is happening
+            # model = input_model.assembly
+            model = Model.from_chains([chain for entity in input_model.entities for chain in entity.chains],
+                                      entities=False, name=input_model.name)
+            raise NotImplementedError(f"Can't dock 2 Model instances with > 2 total Entity instances")
+        else:
+            model = input_model.entities[0].assembly
+            model.name = input_model.name
+
         model.fragment_db = job.fragment_db
         # # Ensure the .metadata attribute is passed to each entity in the full assembly
         # # This is crucial for sql usage
@@ -3632,7 +3634,6 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             #     cryst_record = generate_cryst1_record(full_uc_dimensions[idx], sym_entry.resulting_symmetry)
             # else:
             #     cryst_record = None
-            # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
             pose_job.pose = pose
             pose_job.calculate_pose_design_metrics(session)
             putils.make_path(pose_job.pose_directory)
