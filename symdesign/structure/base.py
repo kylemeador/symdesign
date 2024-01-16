@@ -482,7 +482,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
              coords=coords if separate_coords else None,
              cryst_record=cryst_record,
              entity_info=entity_info,
-             header=header,
              name=name,
              resolution=resolution,
              reference_sequence=reference_sequence,
@@ -1086,8 +1085,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         if parent is not None:  # Initialize StructureBase from parent
             self._parent = parent
         else:  # This is the parent
-            # self._parent_ = None
-            self._parent_ = self
+            self._parent_ = None
             self.metadata = StructureMetadata(
                 biological_assembly=biological_assembly, cryst_record=cryst_record, entity_info=entity_info,
                 file_path=file_path, reference_sequence=reference_sequence, resolution=resolution
@@ -1146,11 +1144,11 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
 
     def is_dependent(self) -> bool:
         """Is this instance a dependent on a parent StructureBase?"""
-        return self.__parent is not None
+        return self._parent_ is not None
 
     def is_parent(self) -> bool:
         """Is this instance a parent?"""
-        return self.__parent is None
+        return self._parent_ is None
 
     @property
     def log(self) -> Logger:
@@ -1378,7 +1376,6 @@ class Atom(CoordinateOpsMixin):
     def _parent(self, parent: StructureBase):
         """Set the 'parent' of this instance"""
         self._parent_ = None  # parent
-        # self.__parent = None  # parent
         # self._log = parent._log
         self._coords = parent._coords
 
@@ -2393,7 +2390,8 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     state_attributes = ContainsAtoms.state_attributes \
         | {'_contact_order', '_local_density',
            '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
-    ignore_copy_attrs: set[str] = ContainsAtoms.ignore_copy_attrs | {'_next_residue', '_prev_residue'}
+    # ignore_copy_attrs: set[str] =
+    # ContainsAtoms.ignore_copy_attrs | {'_next_residue', '_prev_residue'}
     type: str
 
     def __init__(self, **kwargs):
@@ -4790,8 +4788,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             old_ss = secondary_structure[:n_removed_nterm_res + context_length]
             self.log.debug(f'Found N-term secondary_structure {secondary_structure[:n_removed_nterm_res + 5]}')
             self.log.info(f"Removing {n_removed_nterm_res} N-terminal residues. Resulting secondary structure:\n"
-                          f"\told N:{old_ss}...\n"
-                          f"\tnew N:{'-' * n_removed_nterm_res}{old_ss[n_removed_nterm_res:]}...")
+                          f"\told : {old_ss}...\n"
+                          f"\tnew : {'-' * n_removed_nterm_res}{old_ss[n_removed_nterm_res:]}...")
             _delete_residues += residues[:n_removed_nterm_res]
 
         # Get the number of c-termini removed
@@ -4801,8 +4799,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             old_ss = secondary_structure[c_term_index - context_length:]
             self.log.debug(f'Found C-term secondary_structure {secondary_structure[-(n_removed_cterm_res + 5):]}')
             self.log.info(f"Removing {n_removed_cterm_res} C-terminal residues. Resulting secondary structure:\n"
-                          f"\told C:...{old_ss}\n"
-                          f"\tnew C:...{old_ss[:-n_removed_cterm_res]}{'-' * n_removed_cterm_res}")
+                          f"\told :...{old_ss}\n"
+                          f"\tnew :...{old_ss[:-n_removed_cterm_res]}{'-' * n_removed_cterm_res}")
             _delete_residues += residues[c_term_index:]
 
         self.delete_residues(_delete_residues)
