@@ -3494,7 +3494,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     _ca_indices: list[int]
     _cb_indices: list[int]
     _contains_hydrogen: bool
-    _fragment_db: fragment.db.FragmentDatabase
+    _fragment_db: fragment.db.FragmentDatabase | None
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
@@ -3573,6 +3573,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:  # Set up an empty Structure or let subclass handle population
             return
 
+        self._fragment_db = fragment_db
         if pose_format:
             self.pose_numbering()
 
@@ -3613,8 +3614,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     def fragment_db(self, fragment_db: fragment.db.FragmentDatabase):
         """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles"""
         if not isinstance(fragment_db, fragment.db.FragmentDatabase):
-            self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
-                           f'is not of the required type {fragment.db.FragmentDatabase.__name__}')
+            self.log.debug(f"'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which "
+                           f"isn't the required type {fragment.db.FragmentDatabase.__name__}")
             fragment_db = fragment.db.fragment_factory.get(source=putils.biological_interfaces, token=fragment_db)
 
         self._fragment_db = fragment_db
@@ -5386,21 +5387,18 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         if not residues and not residue_numbers:
             return []
 
-        # residues = self.residues
-        # ca_stretches = [[residues[idx + i].ca for i in range(-2, 3)] for idx, residue in enumerate(residues)]
-        # compare ca_stretches versus monofrag ca_stretches
-        # monofrag_array = repeat([ca_stretch_frag_index1, ca_stretch_frag_index2, ...]
-        # monofrag_indices = filter_euler_lookup_by_zvalue(ca_stretches, monofrag_array, z_value_func=fragment_overlap,
-        #                                                  max_z_value=rmsd_threshold)
         if fragment_db is None:
-            raise ValueError("Can't assign fragments without passing 'fragment_db'")
-        else:
-            try:
-                fragment_db.representatives
-            except AttributeError:
-                raise TypeError(
-                    f"The passed fragment_db is not of the required type "
-                    f"'{fragment.db.FragmentDatabase.__class__.__name__}'")
+            fragment_db = self.fragment_db
+            if fragment_db is None:
+                raise ValueError("Can't assign fragments without passing 'fragment_db' or setting .fragment_db")
+            self.log.warning(f"Without passing 'fragment_db', using the existing .fragment_db={repr(fragment_db)}")
+
+        try:
+            fragment_db.representatives
+        except AttributeError:
+            raise TypeError(
+                f"The passed fragment_db is not of the required type "
+                f"'{fragment.db.FragmentDatabase.__class__.__name__}'")
 
         fragment_length = fragment_db.fragment_length
         fragment_range = range(*fragment_db.fragment_range)
@@ -5432,14 +5430,17 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             The Residue instances that match Fragment representatives from the Structure
         """
         if fragment_db is None:
-            raise ValueError("Can't assign fragments without passing 'fragment_db'")
-        else:
-            try:
-                fragment_db.representatives
-            except AttributeError:
-                raise TypeError(
-                    f"The passed fragment_db is not of the required type "
-                    f"'{fragment.db.FragmentDatabase.__class__.__name__}'")
+            fragment_db = self.fragment_db
+            if fragment_db is None:
+                raise ValueError("Can't assign fragments without passing 'fragment_db' or setting .fragment_db")
+            self.log.warning(f"Without passing 'fragment_db', using the existing .fragment_db={repr(fragment_db)}")
+
+        try:
+            fragment_db.representatives
+        except AttributeError:
+            raise TypeError(
+                f"The passed fragment_db is not of the required type "
+                f"'{fragment.db.FragmentDatabase.__class__.__name__}'")
 
         if residue_numbers is not None:
             residues = self.get_residues(numbers=residue_numbers)
@@ -5501,6 +5502,9 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         """
         if fragment_db is None:
             fragment_db = self.fragment_db
+            if fragment_db is None:
+                raise ValueError("Can't assign fragments without passing 'fragment_db' or setting .fragment_db")
+            self.log.warning(f"Without passing 'fragment_db', using the existing .fragment_db={repr(fragment_db)}")
 
         fragment_time_start = time.time()
         frag_residues = self.get_fragment_residues(fragment_db=fragment_db, **kwargs)

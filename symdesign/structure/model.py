@@ -960,6 +960,20 @@ class ContainsStructures(ContainsResidues, abc.ABC):
             struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
             prior_struct = struct
 
+    @ContainsResidues.fragment_db.setter
+    def fragment_db(self, fragment_db: FragmentDatabase):
+        """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles.
+        Sets .fragment_db for each dependent Structure in 'structure_containers'
+        """
+        # Set this instance then set all dependents
+        super().fragment_db.fset(self, fragment_db)
+        if self._fragment_db is not None:
+            for structure_type in self.structure_containers:
+                for structure in self.__getattribute__(structure_type):
+                    structure.fragment_db = self._fragment_db
+        else:  # This is likely the RELOAD_DB token. Just return.
+            return
+
     def format_header(self, **kwargs) -> str:
         """Returns any super().format_header() along with the SEQRES records
 
@@ -8588,8 +8602,9 @@ class Pose(SymmetricModel, MetricsMixin):
     def fragment_metrics_by_entity_pair(self) -> dict[tuple[Entity, Entity], dict[str, Any]]:
         """Returns the metrics from structural overlapping Fragment observations between pairs of Entity instances"""
         fragment_metrics = {}
+        fragment_db = self.fragment_db
         for entity_pair, fragment_info in self.fragment_queries_by_entity_pair.items():
-            fragment_metrics[entity_pair] = self.fragment_db.calculate_match_metrics(fragment_info)
+            fragment_metrics[entity_pair] = fragment_db.calculate_match_metrics(fragment_info)
 
         return fragment_metrics
 
@@ -8633,7 +8648,8 @@ class Pose(SymmetricModel, MetricsMixin):
         # Todo incorporate 'fragment_cluster_ids': ','.join(clusters),
 
         if fragments is not None:
-            return self.fragment_db.format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))
+            fragment_db = self.fragment_db
+            return fragment_db.format_fragment_metrics(fragment_db.calculate_match_metrics(fragments))
 
         fragment_metrics = self.fragment_metrics_by_entity_pair
 

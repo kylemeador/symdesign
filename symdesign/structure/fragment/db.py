@@ -351,8 +351,9 @@ class FragmentDatabaseFactory:
         pass
         self._databases = {}
 
-    def __call__(self, source: str = putils.biological_interfaces, token: int = None, **kwargs) \
-            -> FragmentDatabase | None:
+    def __call__(
+        self, source: str = putils.biological_interfaces, token: int = None, **kwargs
+    ) -> FragmentDatabase | None:
         """Return the specified FragmentDatabase object singleton
 
         Args:

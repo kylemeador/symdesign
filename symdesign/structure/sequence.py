@@ -1248,8 +1248,12 @@ class GeneEntity(ABC):
         # keep_extras: Whether to keep values for all positions that are missing data
         if self.fragment_map is None:  # Need this for _calculate_alpha()
             raise RuntimeError(
-                f"Must {self.add_fragments_to_profile.__name__} before "
-                f"{self.simplify_fragment_profile.__name__}. No fragments were set")
+                f'Must {self.add_fragments_to_profile.__name__}() before '
+                f'{self.simplify_fragment_profile.__name__}(). No fragments were set')
+        elif not self._fragment_db:
+            raise AttributeError(
+                f"{self.simplify_fragment_profile.__name__}: No fragment database connected. Can't calculate "
+                f'fragment contribution without one')
         database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
         # Fragment profile is correct size for indexing all STRUCTURAL residues
         #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
@@ -1455,6 +1459,10 @@ class GeneEntity(ABC):
         if favor_fragments:
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * sdutils.rosetta.reference_average_residue_weight
+            if not self._fragment_db:
+                raise AttributeError(
+                    f"{self.calculate_profile.__name__}: No fragment database connected. Can't 'favor_fragments' "
+                    'without one')
             database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
 
             null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)

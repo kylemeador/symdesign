@@ -163,7 +163,7 @@ class GhostFragment:
             other.__dict__.pop('aligned_fragment')
         except AttributeError:
             raise structure.utils.ConstructionError(
-                f"The {repr(self)} is missing the 'aligned_fragment' variable an isn't valid"
+                f"The {repr(self)} is missing the '.aligned_fragment' attribute and isn't valid"
             )
 
         return other
@@ -283,7 +283,13 @@ class Fragment(ABC):
                 ContainsAtomsMixin that the Fragment is assigned
             clash_dist: The distance to check for backbone clashes
         """
-        ghost_i_type_arrays = self._fragment_db.indexed_ghosts.get(self.i_type, None)
+        try:
+            ghost_i_type_arrays = self._fragment_db.indexed_ghosts.get(self.i_type, None)
+        except AttributeError:  # _fragment_db is None
+            raise NotImplementedError(
+                f"Can't {self.find_ghost_fragments.__name__} without first setting '.fragment_db' to a "
+                f"{db.FragmentDatabase.__name__}"
+            )
         if ghost_i_type_arrays is None:
             self.ghost_fragments = {}
             return []
@@ -362,9 +368,10 @@ class MonoFragment(Fragment):
         """
         super().__init__(**kwargs)  # MonoFragment
 
+        fragment_db = self.fragment_db
         try:
-            fragment_length = self.fragment_db.fragment_length
-        except AttributeError:  # self.fragment_db is None
+            fragment_length = fragment_db.fragment_length
+        except AttributeError:  # fragment_db is None
             raise ValueError(
                 f"Can't construct {self.__class__.__name__} without passing 'fragment_db'")
 
@@ -374,7 +381,7 @@ class MonoFragment(Fragment):
         self.central_residue = residues[int(fragment_length / 2)]
 
         try:
-            fragment_representatives = self.fragment_db.representatives
+            fragment_representatives = fragment_db.representatives
         except AttributeError:
             raise TypeError(
                 f"The 'fragment_db' is not of the required type '{db.FragmentDatabase.__name__}'")
