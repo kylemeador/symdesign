@@ -2378,8 +2378,6 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     _o_index: int
     _contact_order: float
     _local_density: float
-    _next_residue: Residue
-    _prev_residue: Residue
     _sap: float
     _sasa: float
     _sasa_apolar: float
@@ -2854,32 +2852,21 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     #     self._o_index = index
 
     @property
+    def _residues(self) -> Residues:
+        try:
+            return self.parent.residues
+        except AttributeError as exc:
+            raise stutils.DesignError(
+                f"{repr(self)} isn't a parent and doesn't have have any siblings..."
+            ) from exc
+
+    @property
     def prev_residue(self) -> Residue | None:
         """The previous Residue in the Structure if this Residue is part of a polymer"""
         try:
-            return self._prev_residue
-        except AttributeError:
+            return self._residues[self.index - 1]
+        except IndexError:
             return None
-
-    @prev_residue.setter
-    def prev_residue(self, other: Residue):
-        """Set the prev_residue for this Residue and the next_residue for the other Residue"""
-        self._prev_residue = other
-        try:
-            other._next_residue = self
-        except AttributeError:  # NoneType has no _next_residue
-            return
-
-    @prev_residue.deleter
-    def prev_residue(self):
-        try:
-            del self._prev_residue._next_residue
-        except AttributeError:
-            pass
-        try:
-            del self._prev_residue
-        except AttributeError:
-            pass
 
     def is_n_termini(self) -> bool:
         """Returns whether the Residue is the n-termini of the parent Structure"""
@@ -2889,37 +2876,12 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     def next_residue(self) -> Residue | None:
         """The next Residue in the Structure if this Residue is part of a polymer"""
         try:
-            return self._next_residue
-        except AttributeError:
+            return self._residues[self.index + 1]
+        except IndexError:
             return None
 
-    @next_residue.setter
-    def next_residue(self, other: Residue):
-        """Set the next_residue for this Residue and the prev_residue for the other Residue"""
-        self._next_residue = other
-        try:
-            other._prev_residue = self
-        except AttributeError:  # NoneType has no _prev_residue
-            return
-
-    @next_residue.deleter
-    def next_residue(self):
-        try:
-            del self._next_residue._prev_residue
-        except AttributeError:
-            pass
-        try:
-            del self._next_residue
-        except AttributeError:
-            pass
-
-    def detach_residue(self):
-        """Clear the prev_residue and next_residue attributes"""
-        del self.prev_residue
-        del self.next_residue
-
     def is_c_termini(self) -> bool:
-        """Returns whether the Residue is the n-termini of the parent Structure"""
+        """Returns whether the Residue is the c-termini of the parent Structure"""
         return self.next_residue is None
 
     def get_upstream(self, number: int = None) -> list[Residue]:
@@ -2935,18 +2897,22 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         elif number == 0:
             raise ValueError("Can't get 0 upstream residues. 1 or more must be specified")
 
-        prior_residues = [self.prev_residue]
+        last_prev_residue = self.prev_residue
+        prev_residues = [last_prev_residue]
+        idx = 0
         try:
             for idx in range(abs(number) - 1):
-                prior_residues.append(prior_residues[idx].prev_residue)
+                prev_residue = last_prev_residue.prev_residue
+                prev_residues.append(prev_residue)
+                last_prev_residue = prev_residue
         except AttributeError:  # Hit a termini, where prev_residue is None
-            # logger.critical(f'Stopped at {idx}. with residues {prior_residues}. Popping the last')
-            prior_residues.pop(idx)
+            # logger.debug(f'Stopped at {idx=} with {repr(prev_residues)}. Popping the last')
+            prev_residues.pop(idx)
         else:  # For the edge case where the last added residue is a termini, strip from results
-            if prior_residues[-1] is None:
-                prior_residues.pop()
+            if last_prev_residue is None:
+                prev_residues.pop()
 
-        return prior_residues[::-1]  # Used before .pop() -> [residue for residue in prior_residues[::-1] if residue]
+        return prev_residues[::-1]
 
     def get_downstream(self, number: int = None) -> list[Residue]:
         """Get the Residues downstream of (c-terminal to) the current Residue
@@ -2961,18 +2927,22 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         elif number == 0:
             raise ValueError("Can't get 0 downstream residues. 1 or more must be specified")
 
-        next_residues = [self.next_residue]
+        last_next_residue = self.next_residue
+        next_residues = [last_next_residue]
+        idx = 0
         try:
             for idx in range(abs(number) - 1):
-                next_residues.append(next_residues[idx].next_residue)
+                next_residue = last_next_residue.next_residue
+                next_residues.append(next_residue)
+                last_next_residue = next_residue
         except AttributeError:  # Hit a termini, where next_residue is None
-            # logger.critical(f'Stopped at {idx}. with residues {next_residues}. Popping the last')
+            # logger.debug(f'Stopped at {idx=} with {repr(next_residues)}. Popping the last')
             next_residues.pop(idx)
         else:  # For the edge case where the last added residue is a termini, strip from results
-            if next_residues[-1] is None:
+            if last_next_residue is None:
                 next_residues.pop()
 
-        return next_residues  # Used before .pop() -> [residue for residue in next_residues if residue]
+        return next_residues
 
     def get_neighbors(self, distance: float = 8., **kwargs) -> list[Residue]:
         """If this Residue instance is part of a polymer, find neighboring Residue instances defined by a distance
@@ -3301,8 +3271,6 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
 
     def __copy__(self) -> Residue:  # Todo -> Self: in python 3.11
         other: Residue = super().__copy__()
-        for attr in self.ignore_copy_attrs:
-            other.__dict__.pop(attr, None)
 
 
         return other
@@ -3312,11 +3280,11 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
 
 class Residues(StructureBaseContainer):
 
-    def find_prev_and_next(self):
-        """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
-        structs = self.structs
-        for struct, next_struct in zip(structs[:-1], structs[1:]):
-            struct.next_residue = next_struct
+    # def find_prev_and_next(self):
+    #     """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
+    #     structs = self.structs
+    #     for struct, next_struct in zip(structs[:-1], structs[1:]):
+    #         struct.next_residue = next_struct
 
     def reindex(self, start_at: int = 0):
         """Index the Residue instances and their corresponding Atom/Coords indices according to their position
@@ -3369,9 +3337,6 @@ class Residues(StructureBaseContainer):
 
     def __copy__(self) -> Residues:  # Todo -> Self: in python 3.11
         other: Residues = super().__copy__()
-        other.find_prev_and_next()
-        # other.reindex()
-        # other.set_index()
 
         return other
 
@@ -4143,7 +4108,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._residue_indices = list(range(len(new_residues)))
         self._residues = Residues(new_residues)
         # Set container dependent attributes since this is a fresh Residues instance
-        self._residues.find_prev_and_next()
         self._residues.set_index()
 
         # Remove bad atom_indices
@@ -4442,7 +4406,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:  # Find the Residue indices to delete
             residue_indices = []
             for residue in residues:
-                residue.detach_residue()
                 residue_indices.append(residue.index)
 
         # Remove indices from the Residue, and Structure atom_indices
@@ -4515,9 +4478,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         # Set found attributes
         new_residue._insert = True
-        # new_residue._index = index  # Set in self._residues.reindex()
-        new_residue.prev_residue = prev_residue
-        new_residue.next_residue = next_residue
 
         # Insert the new_residue coords, atoms, and residues into the Structure
         self._coords.insert(atom_start_index, new_residue.coords)
@@ -4637,11 +4597,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # prev_residue, *other_residues = new_residues
         for residue in new_residues:
             residue._insert = True
-            # residues._index = index  # Set in self._residues.reindex()
-            residue.prev_residue = _prev_residue
-            _prev_residue = residue
-
-        residue.next_residue = next_residue
 
         # Insert the new_residue coords, atoms, and residues into the Structure
         self._coords.insert(atom_start_index, np.concatenate([residue.coords for residue in new_residues]))
@@ -4898,16 +4853,16 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         atom_tree = BallTree(self.coords)
         atoms = self.atoms
         measured_clashes, other_clashes = [], []
-        clashes = False
 
         def return_true(): return True
 
-        any_clashes: Callable[[Iterable[int]], bool]
+        clashes = False
+        _any_clashes: Callable[[Iterable[int]], bool]
         """Local helper to separate clash reporting from clash generation"""
-
         clash_msg = f'{self.name} contains Residue {measure} atom clashes at a {distance} A distance'
         if warn:
-            def any_clashes(_clash_indices: Iterable[int]) -> bool:
+
+            def _any_clashes(_clash_indices: Iterable[int]) -> bool:
                 new_clashes = any(_clash_indices)
                 if new_clashes:
                     for clashing_idx in _clash_indices:
@@ -4919,49 +4874,67 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                         elif atom.is_heavy():  # Check if atom is a heavy atom then report if it is
                             other_clashes.append((residue, atom))
 
-                # Set the global clashes (clashes = return ...) while checking global clashes against new_clashes
                 return clashes or new_clashes
-        else:  # Raise a ClashError as we can immediately stop execution if this is the case
-            def any_clashes(_clash_indices: Iterable[int]) -> bool:
+
+            # Using _any_clashes to set the global clashes
+            #     clashes = _any_clashes(): ... return clashes
+            # While checking global clashes against new_clashes
+        else:  # Raise a ClashError to defer to caller
+            def _any_clashes(_clash_indices: Iterable[int]) -> bool:
                 for clashing_idx in _clash_indices:
                     if getattr(atoms[clashing_idx], f'is_{measure}', return_true)():
                         raise stutils.ClashError(clash_msg)
 
                 return clashes
 
+        residues = self.residues
+        # Check first and last residue with different considerations given covalent bonding
         try:
-            # Check first and last residue with different considerations given covalent bonding
-            residue, *other_residues = self.residues
-            # Query each residue with requested coords_type against the atom_tree
-            residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-            # residue_atom_contacts returns as ragged nested array, (array of different sized array)
-            # Reduce the dimensions to all contacts
-            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
-                            for atom_contact in residue_contacts.tolist()}
+            residue, next_residue = residues[:2]
+            # residue, next_residue, *other_residues = self.residues
+        except ValueError:  # Can't unpack
+            # residues < 2. Insufficient to check clashing
+            return False
+
+        # Query each residue with requested coords_type against the atom_tree
+        residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
+        # residue_atom_contacts returns as ragged nested array, (array of different sized array)
+        # Reduce the dimensions to all contacts
+        all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                        for atom_contact in residue_contacts.tolist()}
+        try:
             # Subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
-            clashes = any_clashes(
-                all_contacts.difference(residue.atom_indices + [residue.next_residue.n_atom_index]))
+            clashes = _any_clashes(
+                all_contacts.difference(residue.atom_indices + [next_residue.n_atom_index]))
+            prev_residue = residue
+            residue = next_residue
 
             # Perform routine for all middle residues
-            try:
-                for residue in other_residues:
-                    residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-                    all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
-                                    for atom_contact in residue_contacts.tolist()}
-                    prior_residue = residue.prev_residue
-                    clashes = any_clashes(
-                        all_contacts.difference([prior_residue.o_atom_index,
-                                                 prior_residue.c_atom_index,
-                                                 residue.next_residue.n_atom_index]
-                                                + residue.atom_indices)
-                    )
-            except AttributeError:  # Last residue will raise since no next_residue
-                # self.log.debug(f'c-term residue. {residue.index} = {self.c_terminal_residue.index}')
-                clashes = any_clashes(
-                    all_contacts.difference([prior_residue.o_atom_index, prior_residue.c_atom_index]
-                                            + residue.atom_indices)
-                )
+            for next_residue in zip(residues[:2]):
+                residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
+                all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                                for atom_contact in residue_contacts.tolist()}
+                clashes = _any_clashes(
+                    all_contacts.difference(
+                        [prev_residue.o_atom_index, prev_residue.c_atom_index, next_residue.n_atom_index]
+                        + residue.atom_indices
+                    ))
+                prev_residue = residue
+                residue = next_residue
 
+            residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
+            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                            for atom_contact in residue_contacts.tolist()}
+            clashes = _any_clashes(
+                all_contacts.difference([prev_residue.o_atom_index, prev_residue.c_atom_index]
+                                        + residue.atom_indices)
+            )
+        except stutils.ClashError as error:  # Raised by _any_clashes()
+            if silence_exceptions:
+                return True
+            else:
+                raise error
+        else:
             if clashes:
                 if measured_clashes:
                     bb_info = '\n\t'.join(f'Chain {residue.chain_id} {residue.number:5d}: {atom.get_atom_record()}'
@@ -4974,12 +4947,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                                           for residue, atom in other_clashes)
                     self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                      f'following Residues:\n\t{sc_info}')
-        except stutils.ClashError as error:  # This was raised from any_clashes()
-            if silence_exceptions:
-                return True
-            else:
-                raise error
-
         return False
 
     def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):  # Todo to Residue too? ContainsAtomsMix
