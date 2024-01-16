@@ -3279,9 +3279,15 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
     state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
 
     @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Initialize an Entity from Chain instances"""
-        return cls(chains=chains, **kwargs)
+    def from_chains(cls, chains: list[Chain] | Structures, residue_indices: list[int] = None, **kwargs):
+        """Initialize an Entity from Chain instances
+
+        Args:
+            chains: A list of Chain instances that match the Entity
+            residue_indices: The indices which the new Entity should contain
+        """
+        operators = kwargs.get('operators')
+        return cls(chains=chains, residue_indices=residue_indices, operators=operators, **kwargs)
 
     # @classmethod
     # def from_metadata(cls, chains: list[Chain] | Structures, metadata: EntityData, **kwargs):
@@ -3295,37 +3301,25 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
         Args:
             operators: A set of symmetry operations to designate how to apply symmetry
         """
-        self._captain = None
         self._is_captain = True
+        super().__init__(**kwargs,  # Entity
+                         as_mates=True)  # <- needed when .from_file() w/ self.is_parent()
+        self._captain = None
         self.dihedral_chain = None
         self.mate_rotation_axes = []
 
-        # Set up chain information if Chain instances provided for Structure.__init__()
-        if chains:  # Instance was initialized with .from_chains()
-            # Todo choose most symmetrically average
-            #  Move chain symmetry ops below to here?
-            representative, *additional_chains = chains
-            residue_indices = representative.residue_indices
-        else:  # Initialized with Structure constructor methods, handle using .is_parent() below
-            additional_chains = residue_indices = None
+        if not self.chains:
+            raise DesignError(
+                f"Can't construct a {self.__class__.__name__} without '.chains'. "
+                "Ensure that you didn't construct with chains=False | None"
+            )
 
-        self._chains = []
-        super().__init__(residue_indices=residue_indices, **kwargs)
-        if self.is_parent():  # Todo this logic isn't correct. Could be .from_chains() without parent passed!
-            # This is used when Entity.from_file() is called
-            # Must create all chains after parsing so that instance can be set up correctly
-            self._create_chains(as_mate=True, chain_ids=chain_ids)
-            # Set chains now that _chains is parsed so self.chains can be used for mate chain functionality
-            # Todo choose most symmetrically average chain
-            representative, *additional_chains = self.chains
-            # residue_indices = representative.residue_indices
-            # # Perform init again with newly parsed chains to set the representative attr as this instances attr
-            # super().__init__(residue_indices=residue_indices, parent=representative, **kwargs)
+        representative, *additional_chains = self._chains
+        if self.is_parent():
+            # When this instance is the parent (.from_file(), .from_chains(parent=None))
+            # Set attributes from representative now that _chains is parsed
             self._coords.set(representative.coords)
             self._assign_residues(representative.residues, atoms=representative.atoms)
-        else:
-            # By using extend, set self.original_chain_ids too
-            self.chain_ids.extend([chain.chain_id for chain in chains])
 
         # Indicate that the first self.chain should be this instance
         self._chains[0] = self
@@ -3537,12 +3531,14 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
             # The end of the generator was reached without a success. Try to just use the first chain_ids returned
             chain_gen = chain_id_generator()
 
+        additional_chain_ids = [next(chain_gen) for _ in range(self.number_of_symmetry_mates - 1)]
         # Use the existing chain_id and iterate over the generator for the mate chains
-        self.chain_ids = [first_chain_id] + [next(chain_gen) for _ in range(self.number_of_symmetry_mates - 1)]
-        # Must set .chain_ids first as the .chains property uses .chain_ids to generate .chains.
-        for chain, new_id in zip(self.chains[1:], self.chain_ids[1:]):
-            chain.chain_id = new_id
+        if self.has_mates():
+            # Must set .chain_ids because mate Chain chain_ids are set upon captain Entity .chains property init
+            for chain, new_id in zip(self.chains[1:], additional_chain_ids):
+                chain.chain_id = new_id
 
+        self.chain_ids = [first_chain_id] + additional_chain_ids
         # # Alternative to above "Must set chain_ids first, then chains"
         # for chain in self.chains[1:]:
         #     chain.chain_id = next(chain_gen)
@@ -3617,9 +3613,18 @@ class Entity(ContainsChains, SymmetryOpsMixin, Chain):
     #     self.prior_ca_coords = self.ca_coords
 
     @property
+    def number_of_entities(self) -> int:
+        """Return the number of distinct entities (Gene/Protein products) found in the PoseMetadata"""
+        return 1
+
+    @property
     def entities(self) -> list[Entity]:  # Structures
         """Returns the Entity instance as a list"""
         return [self]
+
+    def has_mates(self) -> bool:
+        """Returns True if this Entity is a captain and has mates"""
+        return len(self._chains) > 1
 
     @property
     def chains(self) -> list[Entity]:  # Todo python3.11 -> list[Self] | Structures
