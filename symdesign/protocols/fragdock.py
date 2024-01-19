@@ -40,7 +40,6 @@ putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
-zero_offset = 1
 TQDM_BAR_FORMAT = '{l_bar}{bar}| {n_fmt}/{total_fmt} [elapsed: {elapsed} ~remaining: {remaining}]'
 
 
@@ -2970,7 +2969,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                     passing_ghost_coords = []
                     passing_surf_coords = []
                     reference_rmsds = []
-                    for entity_pair, fragment_info in pose.fragment_queries_by_entity_pair:
+                    for entity_pair, fragment_info in pose.fragment_info_by_entity_pair:
                         ghost_frag = pose_residues[fragment_info.paired]
                         surf_frag = pose_residues[fragment_info.mapped]
                         passing_ghost_coords.append(ghost_frag.guide_coords)

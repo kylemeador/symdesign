@@ -282,13 +282,12 @@ def parameterize_frag_length(length: int) -> tuple[int, int]:
     """
     if length % 2 == 1:  # fragment length is odd
         index_offset = 1
-        # fragment_range = (0 - _range, 0 + _range + zero_offset)
-        # return 0 - _range, 0 + _range + zero_offset
     else:  # length is even
-        logger.critical(f"{length} is an even integer which isn't symmetric about a single residue. "
-                        'Ensure this is what you want')
+        logger.warning(f"{parameterize_frag_length.__name__}: {length} is an even integer which isn't symmetric about "
+                       'a single residue. Ensure this is what you want')
         index_offset = 0
-        # fragment_range = (0 - _range, 0 + _range)
-    _range = math.floor(length / 2)  # get the number of residues extending to each side
+
+    # Get the number of residues extending to each side
+    _range = math.floor(length / 2)
 
     return 0 - _range, 0 + _range + index_offset

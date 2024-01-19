@@ -30,13 +30,12 @@ from symdesign.sequence import alignment_programs_literal, alignment_programs, h
     get_equivalent_indices, generate_mutations, protein_letters_literal, AminoAcidDistribution
 
 # import dependencies.bmdca as bmdca
-putils = sdutils.path
+putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
-default_fragment_contribution = .5
-zero_offset = 1
-sequence_type_literal = Literal['reference', 'structure']
+ZERO_OFFSET = 1
+sequence_type_literal = Literal['reference_sequence', 'sequence']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
 # aa_counts = dict(zip(utils.protein_letters_alph1, repeat(0)))
 aa_counts_alph3 = dict(zip(protein_letters_alph3, repeat(0)))
@@ -641,9 +640,6 @@ class GeneEntity(ABC):
                         time.sleep(20)
 
         # Set self.evolutionary_profile
-        # Todo
-        #  make dynamic based on hhblits or psiblast or other...
-        # self.evolutionary_profile = getattr(f'parse_{profile_source}_pssm')(pssm_file, null_background=null_background)
         self.evolutionary_profile = parse_hhblits_pssm(pssm_file)
 
     def create_null_profile(self, nan: bool = False, zero_index: bool = False, **kwargs) -> ProfileDict:
@@ -657,7 +653,7 @@ class GeneEntity(ABC):
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        offset = 0 if zero_index else zero_offset
+        offset = 0 if zero_index else ZERO_OFFSET
 
         if nan:
             _profile_entry = nan_profile_entry
@@ -665,7 +661,7 @@ class GeneEntity(ABC):
             _profile_entry = blank_profile_entry
 
         profile = {residue: _profile_entry.copy()
-                   for residue in range(offset, self.number_of_residues + offset)}
+                   for residue in range(offset, offset + self.number_of_residues)}
 
         for residue_data, residue_type in zip(profile.values(), self.sequence):
             residue_data['type'] = residue_type
@@ -685,7 +681,7 @@ class GeneEntity(ABC):
                  2: {}, ...}
             Importantly, there is no 'type' key. This must be added
         """
-        # offset = 0 if zero_index else zero_offset
+        # offset = 0 if zero_index else ZERO_OFFSET
 
         if nan:
             _profile_entry = nan_profile_entry
@@ -711,7 +707,7 @@ class GeneEntity(ABC):
         self.log.debug(f'evolutionary_gaps: {evolutionary_gaps}')
 
         # Insert c-terminal structure residues
-        first_index = zero_offset
+        first_index = ZERO_OFFSET
         last_profile_number = len(evolutionary_profile_sequence)
         # entry_number < first_index removes any structure gaps as these are all >= first_index
         nterm_extra_structure_sequence = [entry_number for entry_number in evolutionary_gaps
@@ -797,11 +793,12 @@ class GeneEntity(ABC):
             self.msa.sequence_indices (np.ndarray)
         """
         msa = self.msa
+        sequence = self.sequence
         # Similar routine in fit_evolutionary_profile_to_structure()
         # See if there are any insertions in the self.sequence that are not in the MSA
         # return_to will give the self.sequence values at the mutation site
         mutations_structure_missing_from_msa = \
-            generate_mutations(msa.query, self.sequence, only_gaps=True, return_to=True, zero_index=True)
+            generate_mutations(msa.query, sequence, only_gaps=True, return_to=True, zero_index=True)
         if mutations_structure_missing_from_msa:  # Two sequences don't align
             self.log.debug(f'mutations_structure_missing_from_msa: {mutations_structure_missing_from_msa}')
 
@@ -860,7 +857,7 @@ class GeneEntity(ABC):
         # Todo consolidate the alignment and generate_mutations call here with the generate_mutations below
         #  mutations = generate_mutations(target, query, keep_gaps=True, return_all=True)
         query_align_indices, reference_align_indices = \
-            get_equivalent_indices(msa.query, self.sequence, mutation_allowed=True)
+            get_equivalent_indices(msa.query, sequence, mutation_allowed=True)
         self.log.debug('For MSA alignment to the .sequence, found the corresponding MSA query indices:'
                        f' {query_align_indices}')
         # Set all indices that align to True, all others are False
@@ -870,29 +867,6 @@ class GeneEntity(ABC):
 
         # Set the updated indices
         msa.sequence_indices = sequence_indices
-
-    # def fit_secondary_structure_profile_to_structure(self):
-    #     """
-    #
-    #     Sets:
-    #         (dict) self.secondary_structure
-    #     """
-    #     # self.retrieve_api_metadata()
-    #     # grab the reference sequence used for translation (expression)
-    #     # if not self.reference_sequence:
-    #     #     self._retrieve_sequence_from_api(entity_id=self.name)
-    #     # generate the disordered indices which are positions in reference that are missing in structure
-    #     # disorder = generate_mutations(self.sequence, self.reference_sequence, only_gaps=True)
-    #     disorder = self.disorder
-    #     # removal of these positions from .evolutionary_profile will produce a properly indexed profile
-    #     secondary_structure = ''
-    #     for index, ss_data in enumerate(self.secondary_structure, 1):
-    #         if index not in disorder:
-    #             secondary_structure += ss_data
-    #     self.log.debug('Different profile lengths requires %s to be performed:\nOld ss:\n\t%s\nNew ss:\n\t%s'
-    #                    % (self.fit_secondary_structure_profile_to_structure.__name__,
-    #                       self.secondary_structure, secondary_structure))
-    #     self.secondary_structure = secondary_structure
 
     # def psiblast(self, out_dir: AnyStr = os.getcwd(), remote: bool = False):
     #     """Generate a position specific scoring matrix using PSI-BLAST subprocess
@@ -904,7 +878,7 @@ class GeneEntity(ABC):
     #         self.pssm_file (str): Name of the file generated by psiblast
     #     """
     #     pssm_file = os.path.join(out_dir, f'{self.name}.pssm')
-    #     sequence_file = self.write_sequence_to_fasta('reference', out_dir=out_dir)
+    #     sequence_file = self.write_sequence_to_fasta(out_dir=out_dir)
     #     cmd = ['psiblast', '-db', putils.alignmentdb, '-query', sequence_file, '-out_ascii_pssm',
     #            pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
     #     if remote:
@@ -963,11 +937,11 @@ class GeneEntity(ABC):
         if result:  # return_command is True
             return result
         # Otherwise, make alignment file(s)
-
+        name = self.name
         # Set file attributes according to logic of hhblits()
-        a3m_file = os.path.join(out_dir, f'{self.name}.a3m')
-        msa_file = os.path.join(out_dir, f'{self.name}.sto')
-        fasta_msa = os.path.join(out_dir, f'{self.name}.fasta')
+        a3m_file = os.path.join(out_dir, f'{name}.a3m')
+        msa_file = os.path.join(out_dir, f'{name}.sto')
+        fasta_msa = os.path.join(out_dir, f'{name}.fasta')
         # Preferred alignment type
         p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
         p.communicate()
@@ -1042,19 +1016,14 @@ class GeneEntity(ABC):
                 per-residue, per-sequence in the profile. The "query" sequence from the MultipleSequenceAlignment.query
                 is located at index 0 on axis=0
         """
-        try:  # Todo ensure that the file hasn't changed...
+        try:
             return self._collapse_profile
         except AttributeError:
-            if not self.msa:
-                # try:
-                self.add_msa_from_file(msa_file)
-                # except FileNotFoundError:
-                #     raise DesignError(f'Ensure that you have set up the .msa for this {self.__class__.__name__}. To '
-                #                       'do this, '
-                #                       f'either link to the Master Database, call {GeneEntity.hhblits.__name__}, '
-                #                       'or pass the location of a multiple sequence alignment. '
-                #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
             msa = self.msa
+            if not msa:
+                self.add_msa_from_file(msa_file)
+                msa = self.msa
+
             # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
             evolutionary_collapse_np = np.zeros((msa.length, msa.number_of_positions + 1))
             evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
@@ -1095,30 +1064,31 @@ class GeneEntity(ABC):
         # Check if required attributes are present
         _raise = False
         missing_attrs = []
-        if not self.msa:
+        msa = self.msa
+        if not msa:
             if msa_file:
                 self.add_msa_from_file(msa_file)
+                msa = self.msa
             else:
-                _raise = True
                 missing_attrs.append('.msa')
-        if not self.h_fields:
-            _raise = True
+        h_fields = self.h_fields
+        if not h_fields:
             missing_attrs.append('.h_fields')
-        if not self.j_couplings:
-            _raise = True
+        j_couplings = self.j_couplings
+        if not j_couplings:
             missing_attrs.append('.j_couplings')
-        if _raise:
+
+        if missing_attrs:
             raise AttributeError(
                 f"The required attribute(s) {', '.join(missing_attrs)} aren't available. Add to the "
                 f'Entity before {self.direct_coupling_analysis.__name__}')
 
-        msa = self.msa
         analysis_length = msa.query_length
         idx_range = np.arange(analysis_length)
         # h_fields = bmdca.load_fields(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_h_final.bin'))
         # h_fields = h_fields.T  # this isn't required when coming in Fortran order, i.e. (21, analysis_length)
         # sum the h_fields values for each sequence position in every sequence
-        h_values = self.h_fields[msa.numerical_alignment, idx_range[None, :]].sum(axis=1)
+        h_values = h_fields[msa.numerical_alignment, idx_range[None, :]].sum(axis=1)
         h_sum = h_values.sum(axis=1)
 
         # coming in as a 4 dimension (analysis_length, analysis_length, alphabet_number, alphabet_number) ndarray
@@ -1129,7 +1099,7 @@ class GeneEntity(ABC):
         j_aa = np.tile(msa.numerical_alignment, msa.query_length)
         j_values = np.zeros((msa.length, len(i_idx)))
         for idx in range(msa.length):
-            j_values[idx] = self.j_couplings[i_idx, j_idx, i_aa, j_aa]
+            j_values[idx] = j_couplings[i_idx, j_idx, i_aa, j_aa]
         # this mask is not necessary when the array comes in as a non-symmetry matrix. All i > j result in 0 values...
         # mask = np.triu(np.ones((analysis_length, analysis_length)), k=1).flatten()
         # j_sum = j_values[:, mask].sum(axis=1)
@@ -1152,23 +1122,27 @@ class GeneEntity(ABC):
         # return -h_sum - j_sum
         return -h_values - j_values
 
-    def write_sequence_to_fasta(self, sequence: str | sequence_type_literal, file_name: AnyStr = None,
+    def write_sequence_to_fasta(self, dtype: sequence_type_literal = 'reference_sequence', file_name: AnyStr = None,
                                 name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr:
         """Write a sequence to a .fasta file with fasta format and return the file location.
         '.fasta' is appended if not specified in the name argument
 
         Args:
-            sequence: The sequence to write. Can be the specified sequence or the keywords 'reference' or 'structure'
+            dtype: The type of sequence to write. Can be the the keywords 'reference_sequence' or 'sequence'
             file_name: The explicit name of the file
             name: The name of the sequence record. If not provided, the instance name will be used.
                 Will be used as the default file_name base name if file_name not provided
             out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
         Returns:
-            The name of the output file
+            The path to the output file
         """
-        if sequence in sequence_types:
+        if dtype in sequence_types:
             # Get the attribute from the instance
-            sequence = getattr(self, f'{sequence}_sequence')
+            sequence = getattr(self, dtype)
+        else:
+            raise ValueError(
+                f"Couldn't find a sequence matching the {dtype=}"
+            )
 
         if name is None:
             name = self.name
@@ -1658,7 +1632,7 @@ def get_cluster_dicts(db: str = putils.biological_interfaces, id_list: list[str]
     """
     info_db = putils.frag_directory[db]
     if id_list is None:
-        directory_list = sdutils.get_base_root_paths_recursively(info_db)
+        directory_list = utils.get_base_root_paths_recursively(info_db)
     else:
         directory_list = []
         for _id in id_list:
@@ -1669,7 +1643,7 @@ def get_cluster_dicts(db: str = putils.biological_interfaces, id_list: list[str]
     cluster_dict = {}
     for cluster in directory_list:
         filename = os.path.join(cluster, os.path.basename(cluster) + '.pkl')
-        cluster_dict[os.path.basename(cluster)] = sdutils.unpickle(filename)
+        cluster_dict[os.path.basename(cluster)] = utils.unpickle(filename)
 
     return cluster_dict
 
@@ -1725,9 +1699,9 @@ def fragment_overlap(residues, interaction_graph, freq_map):
 def offset_index(dictionary: dict[int, Any], to_zero: bool = False) -> dict[int, dict]:
     """Modify the index of a sequence dictionary. Default is to one-indexed. to_zero=True gives zero-indexed"""
     if to_zero:
-        return {residue - zero_offset: dictionary[residue] for residue in dictionary}
+        return {residue - ZERO_OFFSET: dictionary[residue] for residue in dictionary}
     else:
-        return {residue + zero_offset: dictionary[residue] for residue in dictionary}
+        return {residue + ZERO_OFFSET: dictionary[residue] for residue in dictionary}
 
 
 def residue_object_to_number(
@@ -1770,7 +1744,7 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
         for pair in range(len(residue_cluster_dict[cluster])):
             for i, residue_atom in enumerate(residue_cluster_dict[cluster][pair]):
                 # for each residue in map add the same cluster to the range of fragment residue numbers
-                residue_num = residue_atom.residue_number - zero_offset  # zero index
+                residue_num = residue_atom.residue_number - ZERO_OFFSET  # zero index
                 for j in range(*frag_range):
                     if residue_num + j not in cluster_map:
                         if i == 0:
@@ -1894,7 +1868,7 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #                     counts_string += '{:>3d} '.format(pssm_dict[res][aa])
 #             info = pssm_dict[res]['info']
 #             weight = pssm_dict[res]['weight']
-#             line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + zero_offset, aa_type, lod_string,
+#             line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + ZERO_OFFSET, aa_type, lod_string,
 #                                                                              counts_string, round(info, 4),
 #                                                                              round(weight, 4))
 #             f.write(line)
@@ -1919,7 +1893,7 @@ def consensus_sequence(pssm):
             if pssm[residue]['lod'][aa] > max_lod:
                 max_lod = pssm[residue]['lod'][aa]
                 max_res = aa
-        consensus_identities[residue + zero_offset] = max_res
+        consensus_identities[residue + ZERO_OFFSET] = max_res
 
     return consensus_identities
 
@@ -2055,7 +2029,7 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     """
     weaved_dict = {}
     for residue in sorted_freq:
-        final_resi = residue + zero_offset
+        final_resi = residue + ZERO_OFFSET
         weaved_dict[final_resi] = {}
         for aa in sorted_freq[residue]:
             weaved_dict[final_resi][aa] = round(mut_prob[residue][aa], 3)
@@ -2128,20 +2102,20 @@ def window_score(score_dict, window_len: int, score_lambda: float = 0.5):  # UNU
         return score_dict
     else:
         window_scores = {}
-        for i in range(len(score_dict) + zero_offset):
+        for i in range(len(score_dict) + ZERO_OFFSET):
             s, number_terms = 0, 0
             if i <= window_len:
-                for j in range(1, i + window_len + zero_offset):
+                for j in range(1, i + window_len + ZERO_OFFSET):
                     if i != j:
                         number_terms += 1
                         s += score_dict[j]
             elif i + window_len > len(score_dict):
-                for j in range(i - window_len, len(score_dict) + zero_offset):
+                for j in range(i - window_len, len(score_dict) + ZERO_OFFSET):
                     if i != j:
                         number_terms += 1
                         s += score_dict[j]
             else:
-                for j in range(i - window_len, i + window_len + zero_offset):
+                for j in range(i - window_len, i + window_len + ZERO_OFFSET):
                     if i != j:
                         number_terms += 1
                         s += score_dict[j]

@@ -261,6 +261,16 @@ class PoseDirectory:
 
         super().__init__(**kwargs)
 
+    @property
+    @abc.abstractmethod
+    def job(self):
+        """"""
+
+    @property
+    @abc.abstractmethod
+    def refined(self):
+        """"""
+
     # These next two file locations are used to dynamically update whether preprocessing should occur for designs
     @property
     def refined_pdb(self) -> str:
@@ -666,17 +676,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         if designs:
             self.current_designs = designs
-            # Which performs the function of setting as below
-            # specific_design_data_instances = []
-            # for design_name in designs:
-            #     for design in self.designs:
-            #         if design.name == design_name:
-            #             specific_design_data_instances.append(design)
-            #             break
-            #     else:
-            #         raise DesignError(f"Couldn't locate a specific_design matching the name '{design_name}'")
-            #
-            # self.current_designs = specific_design_data_instances
 
         if directives:
             self.directives = directives
@@ -731,14 +730,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def current_designs(self, designs: Iterable[sql.DesignData | str | int]):
         """Configure the current_designs"""
         if designs:
-            self._current_designs = []
+            _current_designs = []
             for potential_design in designs:
                 if isinstance(potential_design, sql.DesignData):
-                    self._current_designs.append(potential_design)
+                    _current_designs.append(potential_design)
                 elif isinstance(potential_design, str):
                     for design in self.designs:
                         if design.name == potential_design:
-                            self._current_designs.append(design)
+                            _current_designs.append(design)
                             break
                     else:
                         raise DesignError(
@@ -747,16 +746,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 elif isinstance(potential_design, int):
                     for design in self.designs:
                         if design.id == potential_design:
-                            self._current_designs.append(design)
+                            _current_designs.append(design)
                             break
                     else:
                         raise DesignError(
                             f"Couldn't set {self}.current_designs as there was no {sql.DesignData.__name__} "
-                            f"matching the name '{potential_design}'")
+                            f"matching the id '{potential_design}'")
                 else:
                     raise ValueError(
                         f"Couldn't set {self}.current_designs with a 'design'={potential_design} of type "
                         f"{type(potential_design).__name__}")
+
+            self._current_designs = _current_designs
             self.log.debug(f'Added {len(self._current_designs)} designs to self.current_designs')
 
     @property
@@ -805,21 +806,22 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             return self._job_kwargs
         except AttributeError:
-            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log, fragment_db=self.job.fragment_db)
+            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log, fragment_db=self.job.fragment_db,
+                                    pose_format=self.job.pose_format)
             return self._job_kwargs
 
     @property
     def pose_kwargs(self) -> dict[str, Any]:
         """Returns the keyword args that initialize the Pose given program input and PoseJob state"""
+        entity_data = self.entity_data
         entity_info = {}
-        for data in self.entity_data:
+        for data in entity_data:
             entity_info.update(data.entity_info)
 
         # If this fails with a sqlalchemy.orm.exc.DetachedInstanceError. The PoseJob isn't completely set up
-        transformations = [data.transformation for data in self.entity_data]
-        # entity_metadata=self.entity_data,
+        transformations = [data.transformation for data in entity_data]
         return dict(entity_info=entity_info, transformations=transformations,
-                    pose_format=self.job.pose_format, **self.job_kwargs)
+                    **self.job_kwargs)
 
     # @property
     # def pose_transformation(self) -> list[types.TransformationMapping]:
@@ -1129,12 +1131,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     rename = True
                 else:
                     rename = False
-                self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
+                self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.job_kwargs)
             elif self.initial_pose:
                 # This is a fresh Model that was already loaded so reuse
                 # Careful, if processing has occurred to the initial_pose, then this may be wrong!
                 self.pose = Pose.from_structure(
-                    self.initial_pose, name=self.name, entity_info=self.initial_pose.entity_info, **self.pose_kwargs)
+                    self.initial_pose, name=self.name, entity_info=self.initial_pose.entity_info, **self.job_kwargs)
                 # Use entity_info from already parsed
                 self.structure_source = self.source_path
             else:
@@ -2033,7 +2035,7 @@ class PoseProtocol(PoseData):
             with self.job.db.session(expire_on_commit=False) as session:
                 self.output_metrics(session, designs=designs_df)
                 output_residues = False
-                if output_residues:  # Todo job.metrics.residues
+                if output_residues:
                     self.output_metrics(session, residues=residues_df)
                 # else:  # Only save the 'design_residue' columns
                 #     residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
@@ -2046,11 +2048,11 @@ class PoseProtocol(PoseData):
             # Get the features for each oligomeric Entity
             # The folding_scores will all be the length of the gene Entity, not oligomer
             # entity_scores_by_design = {design: [] for design in sequences}
+
             # Sort the entity instances by their length to improve compile time.
             entities = self.pose.entities
             # The only compile should be the first prediction
-            entity_number_of_residues = [(entity.number_of_residues, idx)
-                                         for idx, entity in enumerate(self.pose.entities)]
+            entity_number_of_residues = [(entity.number_of_residues, idx) for idx, entity in enumerate(entities)]
             entity_idx_sorted_residue_number_highest_to_lowest = \
                 [idx for _, idx in sorted(entity_number_of_residues, key=lambda pair: pair[0], reverse=True)]
             sorted_entities_and_data = [(entities[idx], self.entity_data[idx])
@@ -2610,7 +2612,7 @@ class PoseProtocol(PoseData):
             #                f"{time.time() - design_start:8f}s total")
             self.output_metrics(session, designs=designs_df)
             output_residues = False
-            if output_residues:  # Todo job.metrics.residues
+            if output_residues:
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
@@ -2685,7 +2687,7 @@ class PoseProtocol(PoseData):
         return metadata
 
     def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:
-        """Update the PoseData with the newly created design identifiers using DesignData and flush to the database
+        """Updates the PoseData with newly created design identifiers using DesignData
 
         Sets:
             self.current_designs (list[DesignData]): Extends with the newly created DesignData instances
@@ -2698,15 +2700,10 @@ class PoseProtocol(PoseData):
         if number is None:
             number = len(self.job.design.number * self.job.design.temperatures)
 
-        # self.number_of_designs += number_of_new_designs  # Now done with self.number_of_designs in SQL
-        # with self.job.db.session(expire_on_commit=False) as session:
         first_new_design_idx = self.number_of_designs  # + 1 <- don't add 1 since the first design is .pose_source
         # design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
-        design_names = [f'{self.name}-{design_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
-                        for design_idx in range(first_new_design_idx,
-                                                first_new_design_idx + number)]
-        # designs = [sql.DesignData(name=name, design_parent=design_parent) for name in design_names]
-        # self.designs.extend(designs)
+        design_names = [f'{self.name}-{design_idx:04d}'
+                        for design_idx in range(first_new_design_idx, first_new_design_idx + number)]
         designs = [sql.DesignData(name=name, pose_id=self.id, design_parent=design_parent)
                    for name in design_names]
         # Set the PoseJob.current_designs for access by subsequent functions/protocols
@@ -3097,8 +3094,8 @@ class PoseProtocol(PoseData):
         # Update the Pose.designs with DesignData for each of the new designs
         with self.job.db.session(expire_on_commit=False) as session:
             session.add(self)
-            new_designs_data = \
-                self.update_design_data(design_parent=self.pose_source, number=len(new_design_paths_to_process))
+            new_designs_data = self.update_design_data(
+                design_parent=self.pose_source, number=len(new_design_paths_to_process))
             session.add_all(new_designs_data)
             # Generate ids for new entries
             session.flush()
@@ -3187,7 +3184,7 @@ class PoseProtocol(PoseData):
             if rosetta_provided_new_design_names:
                 sql.write_dataframe(session, entity_designs=entity_designs_df)
             output_residues = False
-            if output_residues:  # Todo job.metrics.residues
+            if output_residues:
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 if rosetta_provided_new_design_names:
@@ -3211,7 +3208,7 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         # self.identify_interface()
-        if not self.pose.fragment_queries_by_entity_pair:
+        if not self.pose.fragment_info_by_entity_pair:
             self.generate_fragments(interface=True)
 
         def get_metrics():
@@ -3231,6 +3228,7 @@ class PoseProtocol(PoseData):
                 # Todo remove entity.thermophilicity once sql load more streamlined
                 # is_thermophilic.append(1 if entity.thermophilicity else 0)
                 is_thermophilic.append(entity.thermophilicity)
+                # Save entity.metrics to db
                 data.metrics = entity.metrics
             _metrics.pose_thermophilicity = sum(is_thermophilic) / idx
 
@@ -3250,7 +3248,6 @@ class PoseProtocol(PoseData):
                             if attr == '_sa_instance_state':
                                 continue
                             setattr(current_metrics, attr, value)
-                    # Todo back out this code from the session
                     # Update the design_metrics for this Pose
                     self.calculate_pose_design_metrics(session, **kwargs)
                     session.commit()
@@ -3269,7 +3266,6 @@ class PoseProtocol(PoseData):
             # Stack the Series on the columns to turn into a dataframe where the metrics are rows and entity are columns
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
 
-    # Todo remove the session arg?
     def calculate_pose_design_metrics(self, session: Session, scores: dict[str, str | int | float] = None, novel_interface: bool = True):
         """Collects 'design' and per-residue metrics on the reference Pose
 
@@ -3278,12 +3274,11 @@ class PoseProtocol(PoseData):
             scores: Parsed Pose scores from Rosetta output
             novel_interface: Whether the pose interface is novel (i.e. docked) or from a bona-fide input
         """
-        # self.load_pose()
-
-        pose_length = self.pose.number_of_residues
+        pose = self.pose
+        pose_length = pose.number_of_residues
         residue_indices = list(range(pose_length))
 
-        designs = [self.pose]
+        designs = [pose]
         # Todo
         #  This function call is sort of accomplished by the following code
         #  residues_df = self.analyze_residue_metrics_per_design(designs=designs)
@@ -3304,29 +3299,29 @@ class PoseProtocol(PoseData):
         #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
         #     # pose_source_errat = pose_per_residue_errat[:pose_length]
         #     # Get errat measurement
-        #     # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
-        #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+        #     # per_residue_data[pose_source_name].update(self.pose.per_residue_errat())
+        #     pose_source_errat = self.pose.per_residue_errat()['errat_deviation']
 
-        interface_residues = [[residue.index for residue in self.pose.interface_residues]]
-        pose_name = self.pose.name
+        interface_residue_indices = np.array([[residue.index for residue in pose.interface_residues]])
+        pose_name = pose.name
         # pose_source_id = self.pose_source.id
         # Collect reference Structure metrics
         per_residue_data = {pose_name:
-                            {**self.pose.per_residue_interface_surface_area(),
-                             **self.pose.per_residue_contact_order(),
+                            {**pose.per_residue_interface_surface_area(),
+                             **pose.per_residue_contact_order(),
                              # 'errat_deviation': pose_source_errat
-                             **self.pose.per_residue_spatial_aggregation_propensity()
+                             **pose.per_residue_spatial_aggregation_propensity()
                              }}
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                  for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # Construct interface residue array
         interface_residue_bool = np.zeros((len(designs), pose_length), dtype=int)
-        for idx, interface_indices in enumerate(interface_residues):
+        for idx, interface_indices in enumerate(list(interface_residue_indices)):
             interface_residue_bool[idx, interface_indices] = 1
         interface_residue_df = pd.DataFrame(data=interface_residue_bool, index=residues_df.index,
-                                            columns=pd.MultiIndex.from_product((residue_indices,
-                                                                                ['interface_residue'])))
+                                            columns=pd.MultiIndex.from_product(
+                                                (residue_indices, ['interface_residue'])))
         residues_df = residues_df.join(interface_residue_df)
         # Make buried surface area (bsa) columns, and residue classification
         residues_df = metrics.calculate_residue_buried_surface_area(residues_df)
@@ -3337,8 +3332,8 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         if self.job.use_proteinmpnn:
-            sequences = [self.pose.sequence]  # Expected ASU sequence
-            sequences_and_scores = self.pose.score_sequences(
+            sequences = [pose.sequence]  # Expected ASU sequence
+            sequences_and_scores = pose.score_sequences(
                 sequences, model_name=self.job.design.proteinmpnn_model)
             # design_residues = np.zeros((1, pose_length), dtype=bool)
             # design_residues[interface_residue_indices] = 1
@@ -3380,7 +3375,7 @@ class PoseProtocol(PoseData):
         residues_df.index = residues_df.index.map(name_to_id_map)
         self.output_metrics(session, designs=designs_df)
         output_residues = False
-        if output_residues:  # Todo job.metrics.residues
+        if output_residues:
             self.output_metrics(session, residues=residues_df)
         else:  # Only save the 'design_residue' columns
             try:
@@ -3557,7 +3552,7 @@ class PoseProtocol(PoseData):
         """
         residue_indices = list(range(self.pose.number_of_residues))
         mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
-        # logger.debug(mutation_df)
+
         entity_designs = {}
         for entity_data, entity in zip(self.entity_data, self.pose.entities):
             number_mutations = \
@@ -3580,8 +3575,8 @@ class PoseProtocol(PoseData):
         #     pd.MultiIndex.from_tuples(zip(entity_designs.keys(),
         #                                   entity_designs_df.index.map(design_name_to_id_map).tolist()))
         # input(entity_designs_df)
-        entity_designs_df.index = entity_designs_df.index.rename([sql.DesignEntityMetrics.entity_id.name,
-                                                                  sql.DesignEntityMetrics.design_id.name])
+        entity_designs_df.index = entity_designs_df.index.rename(
+            [sql.DesignEntityMetrics.entity_id.name, sql.DesignEntityMetrics.design_id.name])
         # entity_designs_df.reset_index(level=-1, inplace=True)
         return entity_designs_df
 
@@ -3649,7 +3644,7 @@ class PoseProtocol(PoseData):
         # #  row_dict = {row.index: row.errat_deviation for row in rows}
         # #  pd.Series(row_dict, name='errat_Deviation')
         # # pose_source_errat = errat_df.loc[self.pose.name, :]
-        # pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+        # pose_source_errat = self.pose.per_residue_errat()['errat_deviation']
         # # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         # source_errat_inclusion_boolean = \
         #     np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
@@ -3694,7 +3689,7 @@ class PoseProtocol(PoseData):
         # self.identify_interface()
 
         # Load fragment_profile into the analysis
-        if not self.pose.fragment_queries_by_entity_pair:
+        if not self.pose.fragment_info_by_entity_pair:
             self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
@@ -3760,7 +3755,8 @@ class PoseProtocol(PoseData):
                 if self.current_designs:
                     designs = self.current_designs
                 else:
-                    self.current_designs = designs = self.designs
+                    # Slice off the self.pose_source from these
+                    self.current_designs = designs = self.designs[1:]
 
             if not designs:
                 return  # There is nothing to analyze
@@ -3830,7 +3826,7 @@ class PoseProtocol(PoseData):
             sql.write_dataframe(session, entity_designs=entity_designs_df)
             self.output_metrics(session, designs=designs_df)
             output_residues = False
-            if output_residues:  # Todo job.metrics.residues
+            if output_residues:
                 self.output_metrics(session, residues=residues_df)
             # This function doesn't generate any 'design_residue'
             # else:  # Only save the 'design_residue' columns
@@ -3986,7 +3982,7 @@ class PoseProtocol(PoseData):
             per_residue_data[name] = {
                 **pose.per_residue_interface_surface_area(),
                 **pose.per_residue_contact_order(),
-                # **pose.per_residue_interface_errat()
+                # **pose.per_residue_errat()
                 **pose.per_residue_spatial_aggregation_propensity()
             }
 
@@ -4093,7 +4089,7 @@ class PoseProtocol(PoseData):
         # Load fragment_profile into the analysis
         # if self.job.design.term_constraint and not self.pose.fragment_queries:
         # if self.job.design.term_constraint:
-        if not self.pose.fragment_queries_by_entity_pair:
+        if not self.pose.fragment_info_by_entity_pair:
             self.generate_fragments(interface=True)
         if not self.pose.fragment_profile:
             self.pose.calculate_fragment_profile()
@@ -4113,7 +4109,7 @@ class PoseProtocol(PoseData):
         self.pose.calculate_profile()
         profile_background['design'] = design_profile_array = pssm_as_array(self.pose.profile)
         batch_design_profile = np.tile(design_profile_array, (number_of_sequences, 1, 1))
-        if self.pose.fragment_queries_by_entity_pair:
+        if self.pose.fragment_info_by_entity_pair:
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore', category=RuntimeWarning)
                 # np.log causes -inf at 0, so they are corrected to a 'large' number
@@ -4264,7 +4260,7 @@ class PoseProtocol(PoseData):
         # self.identify_interface()
 
         # Load fragment_profile into the analysis
-        if not self.pose.fragment_queries_by_entity_pair:
+        if not self.pose.fragment_info_by_entity_pair:
             self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
@@ -4516,14 +4512,9 @@ class PoseProtocol(PoseData):
         #     # atomic_deviation[pose_name] = sum(source_errat_accuracy) / float(number_of_entities)
         #     pose_source_errat = np.concatenate(source_errat)
         # else:
-        #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-        #     # # atomic_deviation[pose_name], pose_per_residue_errat = \
-        #     # _, pose_per_residue_errat = \
-        #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
-        #     # pose_source_errat = pose_per_residue_errat[:pose_length]
         #     # Get errat measurement
-        #     # per_residue_data[pose_name].update(self.pose.per_residue_interface_errat())
-        #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+        #     # per_residue_data[pose_name].update(self.pose.per_residue_errat())
+        #     pose_source_errat = self.pose.per_residue_errat()['errat_deviation']
         #
         # per_residue_data[pose_name]['errat_deviation'] = pose_source_errat
 
@@ -4534,7 +4525,7 @@ class PoseProtocol(PoseData):
             pose.find_and_split_interface()
             per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
             # Get errat measurement
-            # per_residue_data[pose.name].update(pose.per_residue_interface_errat())
+            # per_residue_data[pose.name].update(pose.per_residue_errat())
             # Todo remove Rosetta
             #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
@@ -5112,7 +5103,7 @@ class PoseProtocol(PoseData):
         with self.job.db.session(expire_on_commit=False) as session:
             self.output_metrics(session, designs=designs_df)
             output_residues = False
-            if output_residues:  # Todo job.metrics.residues
+            if output_residues:
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]

@@ -771,12 +771,13 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
 
 
 class Log:
-    """Responsible for StructureBase logging operations
+    """Responsible for StructureBase logging operations"""
 
-    Args:
-        log: The logging.Logger to handle StructureBase logging. If None is passed a Logger with NullHandler is used
-    """
     def __init__(self, log: Logger | None = logging.getLogger('null')):
+        """
+        Args:
+            log: The logging.Logger to handle StructureBase logging. If None is passed a Logger with NullHandler is used
+        """
         self.log = log
 
     def __copy__(self) -> Log:  # Todo -> Self: in python 3.11
@@ -1100,18 +1101,16 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
                     self._log = Log(utils.start_log(name=f'{__name__}.{self.name}', level=log))
                 else:  # log is True or some other type:  # Use the module logger
                     self._log = Log(logger)
-                # else:
-                #     raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
             else:  # When explicitly passed as None or False, uses the null logger
                 self._log = null_struct_log  # Log()
 
-            # Initialize Coords
+            # Initialize Coordinates
             if coords is None:  # Check this first
                 # Most init occurs from Atom instances that are their own parent until another StructureBase adopts them
-                self._coords = Coordinates()  # null_coords
+                self._coords = Coordinates()
             elif isinstance(coords, Coordinates):
                 self._coords = coords
-            else:  # Create a Coords instance. This assumes the dimensions are correct. Coords() handles if not
+            else:  # Create a Coordinates instance. This assumes the dimensions are correct. Coordinates() handles if not
                 self._coords = Coordinates(coords)
 
         # try:
@@ -3524,7 +3523,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         """Initialize from an existing Structure"""
         return cls(structure=structure, **kwargs)
 
-    def __init__(self, structure: ContainsResidues = None, residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
+    def __init__(self, structure: ContainsResidues = None,
+                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
                  pose_format: bool = False, fragment_db: fragment.db.FragmentDatabase = None, **kwargs):
         """
         Args:
@@ -3549,8 +3549,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 model_kwargs = structure.get_base_containers()
                 for key, value in model_kwargs.items():
                     if key in kwargs:
-                        self.log.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
-                                         f"overwrites the '{key}' argument from the 'model'")
+                        logger.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
+                                       f"overwrites the '{key}' argument from the 'model'")
                 new_model_kwargs = {**model_kwargs, **kwargs}
                 super().__init__(**new_model_kwargs)
             else:
@@ -3563,6 +3563,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # self._residue_indices = None
         # self.secondary_structure = None
         # self.nucleotides_present = False
+        self._fragment_db = fragment_db
         self.sasa = None
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -3593,7 +3594,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:  # Set up an empty Structure or let subclass handle population
             return
 
-        self._fragment_db = fragment_db
         if pose_format:
             self.pose_numbering()
 
@@ -4953,7 +4953,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residue = next_residue
 
             # Perform routine for all middle residues
-            for next_residue in zip(residues[:2]):
+            for next_residue in residues[2:]:
                 residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
                 all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
                                 for atom_contact in residue_contacts.tolist()}

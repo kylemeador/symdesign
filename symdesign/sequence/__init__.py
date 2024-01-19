@@ -21,7 +21,7 @@ putils = utils.path
 
 
 # Globals
-zero_offset = 1
+ZERO_OFFSET = 1
 logger = logging.getLogger(__name__)
 # Types
 protein_letters3_alph1_literal = Literal[
@@ -431,7 +431,7 @@ def write_sequence_to_fasta(sequence: str, file_name: AnyStr, name: str, out_dir
         file_name: The explicit name of the file
         out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
     Returns:
-        The name of the output file
+        The path to the output file
     """
     if file_name is None:
         file_name = os.path.join(out_dir, name)
@@ -693,7 +693,7 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
         offset = find_orf_offset(sequence, mutations)
         logger.info(f'Found ORF. Offset = {offset}')
     else:
-        offset = 0  # zero_offset
+        offset = 0  # ZERO_OFFSET
 
     seq = sequence
     index_errors = []
@@ -766,27 +766,22 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
                     closest_met = met_index
                 else:  # We have passed the identified orf_start_idx
                     if closest_met is not None:
-                        orf_start_idx = closest_met  # + zero_offset # change to one-index
+                        orf_start_idx = closest_met
                     break
             break
 
     return orf_start_idx
 
 
-# class MutationEntry(TypedDict):
-#     to: protein_letters_alph3_gaped_literal
-#     from: protein_letters_alph3_gaped_literal
 MutationEntry = TypedDict('MutationEntry', {'to': protein_letters_literal,
                                             'from': protein_letters_literal})
-# mutation_entry = dict[Literal['to', 'from'], protein_letters_alph3_gaped_literal]
-# mutation_entry = Type[dict[Literal['to', 'from'], protein_letters_alph3_gaped_literal]]
-"""Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'"""
+"""Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'."""
 mutation_dictionary = dict[int, MutationEntry]
 """The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
-type
+type.
 """
 sequence_dictionary = dict[int, protein_letters_literal]
-"""The mapping of a residue number to the corresponding amino acid type"""
+"""The mapping of a residue number to the corresponding amino acid type."""
 
 
 def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, keep_gaps: bool = False,
@@ -820,19 +815,11 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     """
     if offset:
         alignment = generate_alignment(reference, query)
-        # # numeric_to_sequence()
-        # seq_indices1, seq_indices2 = alignment.indices
-        # seq_gaps1 = seq_indices1 == -1
-        # seq_gaps2 = seq_indices2 == -1
-        # align_seq_1 = alignment.target
-        # align_seq_2 = alignment.query
         align_seq_1, align_seq_2 = alignment
-        # # align_seq_1, align_seq_2 = alignment.sequences
-        # # align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
     else:
         align_seq_1, align_seq_2 = reference, query
 
-    idx_offset = 0 if zero_index else zero_offset
+    idx_offset = 0 if zero_index else ZERO_OFFSET
 
     # Get the first matching index of the reference sequence
     starting_idx_of_seq1 = align_seq_1.find(reference[0])

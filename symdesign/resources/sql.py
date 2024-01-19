@@ -413,7 +413,6 @@ class EntityData(Base):
     # poses = relationship('PoseMetadata', secondary='pose_entity_association',
     #                      back_populates='entity_data')
 
-    # Todo set up the loading from database on these relationships
     # Use these accessors to ensure that passing EntityData to Entity.from_chains() can access these variables
     @property
     def name(self):

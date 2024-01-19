@@ -1294,7 +1294,7 @@ class JobResources:
                 if not evolutionary_profile_file:
                     sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
                     if not sequence_file:
-                        sequence_file = entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
+                        sequence_file = entity.write_sequence_to_fasta(out_dir=self.sequences)
 
                     hhblits_cmds.append(entity.hhblits(sequence_file=sequence_file, out_dir=self.profiles,
                                                        return_command=True))

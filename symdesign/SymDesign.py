@@ -838,19 +838,8 @@ def main():
                 f'When running {flags.nanohedra}, the argument {flags.format_args(flags.sym_entry_args)} is required')
     elif job.module == flags.generate_fragments:  # Ensure we write fragments out
         job.output_fragments = True
-    # elif job.module == flags.interface_design:
     else:
         pass
-        # if job.module not in [flags.interface_design, flags.design, flags.refine, flags.optimize_designs,
-        #                       flags.interface_metrics, flags.analysis, flags.process_rosetta_metrics,
-        #                       flags.generate_fragments, flags.expand_asu, flags.rename_chains, flags.check_clashes]:
-        #     # 'custom_script', 'status', 'visualize'
-        #     # No module passed. Print the guide and exit
-        #     utils.guide.print_guide()
-        #     sys.exit()
-        # else:
-        #     # Set up design directories
-        #     pass
     # -----------------------------------------------------------------------------------------------------------------
     #  Report options and Set up Databases
     # -----------------------------------------------------------------------------------------------------------------

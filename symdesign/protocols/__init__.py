@@ -23,7 +23,7 @@ from symdesign.resources import distribute
 from symdesign.resources.job import job_resources_factory  # job has namespace overloaded
 from symdesign.sequence import optimize_protein_sequence, protein_letters_1to3, protein_letters_3to1, \
     read_fasta_file, write_sequences
-from symdesign.structure.model import Models, MultiModel, Pose
+from symdesign.structure.model import Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
@@ -233,7 +233,8 @@ def check_unmodeled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75)
         clashing_threshold: The number of Model instances which have observed clashes
     """
     raise NotImplementedError("This module currently isn't working")
-    models = [Models.from_PDB(job.job.structure_db.full_models.retrieve_data(name=entity), log=job.log)
+    from symdesign.structure.model import MultiModel, Model
+    models = [Model.from_file(job.job.structure_db.full_models.retrieve_data(name=entity), log=job.log)
               for entity in job.entity_names]
     # models = [Models.from_file(job.job.structure_db.full_models.retrieve_data(name=entity))
     #           for entity in job.entity_names]
@@ -793,7 +794,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
                          for idx, count in enumerate(count_list) if count == num_neighbors}
         job.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
-                     # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
+                     # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + 1,
                      % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs_path, _design)}'
                                  for _design, neighbors in final_designs.items()))
 
@@ -804,7 +805,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         # seq_cluster = DBSCAN(eps=epsilon)
         # seq_cluster.fit(pairwise_sequence_diff_np)
         #
-        # seq_pc_df = pd.DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.zero_offset)
+        # seq_pc_df = pd.DataFrame(seq_pc, index=designs, columns=['pc' + str(x + 1)
         #                                                          for x in range(len(seq_pca.components_))])
         # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
 

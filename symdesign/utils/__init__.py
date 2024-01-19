@@ -34,7 +34,6 @@ np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
 np_torch_float_types = (np.float16, np.float32, np.float64,
                         torch.float, torch.float16, torch.float32, torch.float64)
 np_torch_int_float_types = np_torch_int_types + np_torch_float_types
-zero_offset = 1
 rmsd_threshold = 1.
 # from colorbrewer (https://colorbrewer2.org/)
 color_arrays = [
