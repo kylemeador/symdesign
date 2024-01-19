@@ -50,7 +50,6 @@ from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_
 # Globals
 logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
-zero_offset = 1
 idx_slice = pd.IndexSlice
 cst_value = round(0.2 * rosetta.reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
@@ -2110,7 +2109,6 @@ class PoseProtocol(PoseData):
                     # else:
                     structures_to_load = entity_structures.get('unrelaxed', [])
 
-                    # Todo should I limit the .splitlines by the entity.number_of_atoms? Assembly v asu consideration
                     design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **entity_model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
                     # if relaxed:  # Set b-factor data as relaxed get overwritten
@@ -2161,9 +2159,9 @@ class PoseProtocol(PoseData):
                     self.analyze_alphafold_metrics(entity_scores_by_design, entity_sequence_length,
                                                    model_type=model_type, interface_indices=entity_interface_indices)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
-                entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [entity_data.id]],
-                                                                     names=[sql.DesignEntityMetrics.design_id.name,
-                                                                            sql.DesignEntityMetrics.entity_id.name])
+                entity_designs_df.index = pd.MultiIndex.from_product(
+                    [design_ids, [entity_data.id]], names=[sql.DesignEntityMetrics.design_id.name,
+                                                           sql.DesignEntityMetrics.entity_id.name])
                 entity_design_dfs.append(entity_designs_df)
 
                 # These aren't currently written...
