@@ -6,12 +6,12 @@ import os
 import subprocess
 import time
 from abc import ABC
-from collections import UserList, defaultdict
+from collections import UserList
 from collections.abc import Iterable, Sequence
-from copy import deepcopy, copy
+from copy import copy
 from itertools import repeat, count
 from logging import Logger
-from math import exp, floor
+from math import floor
 from pathlib import Path
 from typing import Any, AnyStr, get_args, Literal
 
@@ -20,13 +20,11 @@ from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from .fragment import info
-from .fragment.db import alignment_types_literal, alignment_types, FragmentInfo, FragmentObservation
-from symdesign import metrics, utils as sdutils
-from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, get_lod, \
-    MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
+from symdesign import metrics, utils
+from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, \
+    MultipleSequenceAlignment, mutation_dictionary, numerical_translation_alph1_bytes, \
     numerical_translation_alph1_gaped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
-    protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences, \
+    protein_letters_alph3, write_sequence_to_fasta, write_sequences, \
     get_equivalent_indices, generate_mutations, protein_letters_literal, AminoAcidDistribution
 
 # import dependencies.bmdca as bmdca
@@ -385,21 +383,12 @@ class GeneEntity(ABC):
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
     _evolutionary_profile: dict | ProfileDict
-    _fragment_db: info.FragmentInfo | None
     # _fragment_profile: list[list[set[dict]]] | list[ProfileEntry] | None
     _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
     _sequence_array: np.ndarray
     _sequence_numeric: np.ndarray
     alpha: list[float]
-    fragment_map: list[dict[int, set[FragmentObservation]]] | None
-    """{1: {-2: {FragObservation(), ...}, 
-            -1: {}, ...},
-        2: {}, ...}
-    Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
-        (with fragment_length length) for that residue, where each index in the inner set can have multiple
-        observations
-    """
     fragment_profile: Profile | None
     h_fields: np.ndarray | None
     j_couplings: np.ndarray | None
@@ -409,11 +398,7 @@ class GeneEntity(ABC):
     def __init__(self, **kwargs):
         """"""
         super().__init__(**kwargs)  # GeneEntity
-        self._alpha = default_fragment_contribution
         self._evolutionary_profile = {}  # position specific scoring matrix
-        self.alpha = []
-        self.fragment_map = None
-        self.fragment_profile = None  # fragment specific scoring matrix
         self.h_fields = None
         self.j_couplings = None
         self.profile = {}  # design/structure specific scoring matrix
@@ -421,16 +406,6 @@ class GeneEntity(ABC):
     @property
     @abc.abstractmethod
     def log(self) -> Logger:
-        """"""
-
-    @property
-    @abc.abstractmethod
-    def residues(self) -> list['structure.base.Residue']:
-        """"""
-
-    @property
-    @abc.abstractmethod
-    def number_of_residues(self) -> int:
         """"""
 
     @property
@@ -444,6 +419,11 @@ class GeneEntity(ABC):
         """"""
 
     @property
+    def number_of_residues(self) -> int:
+        """"""
+        return len(self.sequence)
+
+    @property
     def evolutionary_profile(self) -> dict:
         """Access the evolutionary_profile"""
         return self._evolutionary_profile
@@ -454,11 +434,6 @@ class GeneEntity(ABC):
         self._evolutionary_profile = evolutionary_profile
         if not self._verify_evolutionary_profile():
             self._fit_evolutionary_profile_to_structure()
-
-    @property
-    def offset_index(self) -> int:
-        """Return the starting index for the GeneEntity based on pose numbering of the residues. Zero-indexed"""
-        return self.residues[0].index
 
     @property
     def msa(self) -> MultipleSequenceAlignment | None:
@@ -514,33 +489,6 @@ class GeneEntity(ABC):
             self._hydrophobic_collapse = metrics.hydrophobic_collapse_index(self.sequence, **kwargs)
             return self._hydrophobic_collapse
 
-    def get_sequence_probabilities_from_profile(self, dtype: profile_types = None,
-                                                precomputed: numerical_profile = None) -> numerical_profile:
-        """Extract the values from a profile corresponding to the amino acid type of each residue in the sequence
-
-        Args:
-            dtype: The profile type to sample from. Can be one of 'evolutionary', 'fragment', or None which
-                combines 'evolutionary' and 'fragment'
-            precomputed: If the profile is precomputed, pass as precomputed=profile_variable
-        Returns:
-            The array of shape (number_of_residues,) where each element is the value for the amino acid in the profile
-        """
-        if precomputed is None:
-            if dtype is None:
-                profile_of_interest = self.profile
-            else:
-                profile_of_interest = getattr(self, f'{dtype}_profile')
-
-            profile_of_interest = pssm_as_array(profile_of_interest)
-        else:
-            profile_of_interest = precomputed
-
-        # return profile_of_interest[:, self.sequence_numeric]
-        try:
-            return np.take_along_axis(profile_of_interest, self.sequence_numeric[:, None], axis=1).squeeze()
-        except IndexError:  # The profile_of_interest and sequence are different sizes
-            raise IndexError(
-                f'The profile length, {len(profile_of_interest)} != {self.number_of_residues}, the number_of_residues')
 
     def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and ContainsResidues sequences are equivalent"""
@@ -550,13 +498,13 @@ class GeneEntity(ABC):
                            f'{evolutionary_profile_len}, Pose={self.number_of_residues}')
             return False
 
-        # Check sequence from Pose and self.profile to compare identity before proceeding
+        # Check sequence from Pose and _evolutionary_profile to compare identity before proceeding
         warn = False
         mismatch_warnings = []
-        for residue, position_data in zip(self.residues, self._evolutionary_profile.values()):
+        for idx, (aa, position_data) in enumerate(zip(self.sequence, self._evolutionary_profile.values())):
             profile_res_type = position_data['type']
-            pose_res_type = protein_letters_3to1[residue.type]
-            if profile_res_type != pose_res_type:
+            # pose_res_type = protein_letters_3to1[residue.type]
+            if profile_res_type != aa:
                 # This may not be the worst thing in the world... If the profile was made off of an entity
                 # that is not the exact structure, there should be some reality to it. I think the issue would
                 # be with Rosetta loading of the Sequence Profile and not matching. I am trying to mutate the
@@ -565,28 +513,27 @@ class GeneEntity(ABC):
                 # Otherwise, generating evolutionary profiles from individual files will be required which
                 # don't contain a reference sequence and therefore have their own caveats. Warning the user
                 # will allow the user to understand what is happening at least
-                mismatch_warnings.append(f'Residue {residue.number}: .evolutionary_profile={profile_res_type}, '
-                                         f'.sequence={pose_res_type}')
-                if position_data[pose_res_type] > 0:  # The occurrence data indicates this AA is also possible
+                mismatch_warnings.append(f'Sequence {idx=}: .evolutionary_profile={profile_res_type}, '
+                                         f'.sequence={aa}')
+                if position_data[aa] > 0:  # The occurrence data indicates this AA is also possible
                     warn = True
-                    position_data['type'] = pose_res_type
+                    position_data['type'] = aa
                 else:
-                    self.log.critical('The evolutionary profile must have been generated from a different file,'
-                                      " and the evolutionary information contained ISN'T viable")
-                    #                   'Regenerating evolutionary profile from the structure sequence instead'
+                    self.log.critical(f'The {repr(self)}.evolutionary_profile was likely created from a different file,'
+                                      " and the information contained ISN'T viable")
                     break
         else:
             if warn:
-                self.log.warning("The evolutionary profile must've been generated from a different file, "
-                                 'however, the evolutionary information contained is still viable. The '
-                                 'correct residue from the Pose will be substituted for the missing '
-                                 'residue in the profile')
+                self.log.warning(f'The {repr(self)}.evolutionary_profile was likely created from a different file, '
+                                 f'however, the information is still viable. Each of {len(mismatch_warnings)} '
+                                 'mismatched residues in the profile will be substituted for the corresponding '
+                                 '.sequence residue')
                 mismatch_str = "\n\t".join(mismatch_warnings)
                 self.log.info(f'{self.__class__.__name__}.evolutionary_profile and .sequence mismatched:'
                               f'{mismatch_str}')
                 if len(mismatch_warnings) > 3:
-                    self.log.critical(f'This error occurred {len(mismatch_warnings)} times. Your modeling accuracy may '
-                                      f'suffer')
+                    self.log.warning(f'This error occurred {len(mismatch_warnings)} times. Your modeling accuracy may '
+                                     'suffer')
             return True
 
         return False
@@ -614,28 +561,29 @@ class GeneEntity(ABC):
             pssm_file = file
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
-            sequence_file = self.write_sequence_to_fasta('reference', out_dir=out_dir)
-            temp_file = Path(out_dir, f'{self.name}.hold')
-            pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
+            name = self.name
+            sequence_file = self.write_sequence_to_fasta(out_dir=out_dir)
+            temp_file = Path(out_dir, f'{name}.hold')
+            pssm_file = os.path.join(out_dir, f'{name}.hmm')
             if not os.path.exists(pssm_file) or force:
                 if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
                     # Create blocking file to prevent excess work
                     with open(temp_file, 'w') as f:
-                        self.log.info(f'Fetching "{self.name}" sequence data')
+                        self.log.info(f"Fetching '{name}' sequence data")
 
-                    self.log.info(f'Generating Evolutionary Profile for {self.name}')
+                    self.log.info(f'Generating Evolutionary Profile for {name}')
                     getattr(self, profile_source)(sequence_file=sequence_file, out_dir=out_dir)
                     temp_file.unlink(missing_ok=True)
                     # if os.path.exists(temp_file):
                     #     os.remove(temp_file)
                 else:  # Block is in place, another process is working
-                    self.log.info(f'Waiting for "{self.name}" profile generation...')
+                    self.log.info(f"Waiting for '{name}' profile generation...")
                     while not os.path.exists(pssm_file):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
-                            raise sdutils.SymDesignException(
-                                f'{self.add_evolutionary_profile.__name__}: Generation of the profile for {self.name} '
+                            raise utils.SymDesignException(
+                                f'{self.add_evolutionary_profile.__name__}: Generation of the profile for {name} '
                                 'took longer than the time limit\nKilled')
                         time.sleep(20)
 
@@ -1152,422 +1100,6 @@ class GeneEntity(ABC):
                 file_name = f'{file_name}.fasta'
 
         return write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
-
-    def add_fragments_to_profile(self, fragments: Iterable[FragmentInfo],
-                                 alignment_type: alignment_types_literal, **kwargs):
-        """Distribute fragment information to self.fragment_map. Zero-indexed residue array
-
-        Args:
-            fragments: The fragment list to assign to the sequence profile with format
-                [{'mapped': residue_index1 (int), 'paired': residue_index2 (int), 'cluster': tuple(int, int, int),
-                  'match': match_score (float)}]
-            alignment_type: Either 'mapped' or 'paired' indicating how the fragment observation was generated relative
-                to this GeneEntity. Are the fragments mapped to the ContainsResidues or was it paired to it?
-        Sets:
-            self.fragment_map (list[list[dict[str, str | float]]]):
-                [{-2: {FragObservation(), ...},
-                  -1: {}, ...},
-                 {}, ...]
-                Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
-                (with fragment_length length) for that residue, where each index in the inner set can have multiple
-                observations
-        """
-        if alignment_type not in alignment_types:
-            raise ValueError(
-                f"Argument 'alignment_type' must be either 'mapped' or 'paired' not {alignment_type}")
-
-        # Create empty self.fragment_map to store information about each fragment observation in the profile
-        if self.fragment_map is None:
-            interior_keys = range(*self._fragment_db.fragment_range)
-            self.fragment_map = [dict.fromkeys(interior_keys, set()) for _ in range(self.number_of_residues)]
-            self.fragment_map = [defaultdict(set) for _ in range(self.number_of_residues)]
-
-        # Add frequency information to the fragment profile using parsed cluster information. Frequency information is
-        # added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a
-        # new observation is created for that fragment index.
-        for fragment in fragments:
-            # Offset the specified fragment index to the overall index in the ContainsStructures
-            fragment_index = getattr(fragment, alignment_type)
-            cluster = fragment.cluster
-            match = fragment.match
-            residue_index = fragment_index - self.offset_index
-            # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
-            aa_freq = getattr(self._fragment_db.info[cluster], alignment_type)
-            for frag_idx, frequencies in aa_freq.items():  # (lower_bound - upper_bound), [freqs]
-                _frequencies = frequencies.copy()
-                _frag_info = FragmentObservation(source=alignment_type, cluster=cluster, match=match,
-                                                 weight=_frequencies.pop('weight'), frequencies=_frequencies)
-                self.fragment_map[residue_index + frag_idx][frag_idx].add(_frag_info)
-
-    def simplify_fragment_profile(self, evo_fill: bool = False, **kwargs):  # keep_extras: bool = True,
-        """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
-
-        Weight the frequency of each observation by the fragment indexed, average observation weight, proportionally
-        scaled by the match score between the fragment database and the observed fragment overlap
-
-        From the self.fragment_map data, create a fragment profile and add to the GeneEntity
-
-        Args:
-            evo_fill: Whether to fill missing positions with evolutionary profile values
-        Keyword Args:
-            alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
-                0 means no use of fragments in the .profile, while 1 means only use fragments
-        Sets:
-            self.fragment_profile (Profile)
-                [{'A': 0.23, 'C': 0.01, ..., stats': (1, 0.37)}, {...}, ...]
-                list of profile_entry that combines all fragment information at a single residue using a weighted
-                average. 'count' is number of fragment observations at each residue, and 'weight' is the total
-                fragment weight over the entire residue
-        """
-        # keep_extras: Whether to keep values for all positions that are missing data
-        if self.fragment_map is None:  # Need this for _calculate_alpha()
-            raise RuntimeError(
-                f'Must {self.add_fragments_to_profile.__name__}() before '
-                f'{self.simplify_fragment_profile.__name__}(). No fragments were set')
-        elif not self._fragment_db:
-            raise AttributeError(
-                f"{self.simplify_fragment_profile.__name__}: No fragment database connected. Can't calculate "
-                f'fragment contribution without one')
-        database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
-        # Fragment profile is correct size for indexing all STRUCTURAL residues
-        #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
-        #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
-        #  on the full reference sequence. This ensures that the profile is the right length of the structure and
-        #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
-        sequence = self.sequence
-        no_design = []
-        fragment_profile = [[{} for _ in range(self._fragment_db.fragment_length)]
-                            for _ in range(self.number_of_residues)]
-        indexed_observations: dict[int, set[FragmentObservation]]
-        for residue_index, indexed_observations in enumerate(self.fragment_map):
-            total_fragment_observations = total_fragment_weight_x_match = total_fragment_weight = 0
-
-            # Sum the weight for each fragment observation
-            for index, observations in indexed_observations.items():
-                for observation in observations:
-                    total_fragment_observations += 1
-                    observation_weight = observation.weight
-                    total_fragment_weight += observation_weight
-                    total_fragment_weight_x_match += observation_weight * observation.match
-
-            # New style, consolidated
-            residue_frequencies = {'count': total_fragment_observations,
-                                   'weight': total_fragment_weight,
-                                   'info': 0.,
-                                   'type': sequence[residue_index],
-                                   }
-            if total_fragment_weight_x_match > 0:
-                # Combine all amino acid frequency distributions for all observations at each index
-                residue_frequencies.update(**aa_counts_alph3)  # {'A': 0, 'R': 0, ...}
-                for index, observations in indexed_observations.items():
-                    for observation in observations:
-                        # Multiply weight associated with observations by the match of the observation, then
-                        # scale the observation weight by the total. If no weight, side chain isn't significant.
-                        scaled_frag_weight = observation.weight * observation.match / total_fragment_weight_x_match
-                        # Add all occurrences to summed frequencies list
-                        for aa, frequency in observation.frequencies.items():
-                            residue_frequencies[aa] += frequency * scaled_frag_weight
-
-                residue_frequencies['lod'] = get_lod(residue_frequencies, database_bkgnd_aa_freq)
-            else:  # Add to list for removal from the profile
-                no_design.append(residue_index)
-                # {'A': 0, 'R': 0, ...}
-                residue_frequencies.update(lod=aa_nan_counts_alph3.copy(), **aa_nan_counts_alph3)
-
-            # Add results to final fragment_profile residue position
-            fragment_profile[residue_index] = residue_frequencies
-            # Since self.evolutionary_profile is copied or removed, an empty dictionary is fine here
-            # If this changes, maybe the == 0 condition needs an aa_counts_alph3.copy() instead of {}
-
-        if evo_fill and self.evolutionary_profile:
-            # If not an empty dictionary, add the corresponding value from evolution
-            # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
-            # null fragment would result in nothing allowed during design...
-            evolutionary_profile = self.evolutionary_profile
-            for residue_index in no_design:
-                fragment_profile[residue_index] = evolutionary_profile.get(residue_index + zero_offset)
-
-        # Format into fragment_profile Profile object
-        self.fragment_profile = Profile(fragment_profile, dtype='fragment')
-
-        self._calculate_alpha(**kwargs)
-
-    def _calculate_alpha(self, alpha: float = default_fragment_contribution, **kwargs):
-        """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
-        fragment profile during combination with evolutionary profile in calculate_profile
-
-        Takes self.fragment_profile (Profile)
-            [{'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, {...}, ...]
-        self.fragment_map (list[list[dict[str, str | float]]]):
-            [{-2: {FragObservation(), ...},
-            -1: {}, ...},
-            {}, ...]
-            Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
-            (with fragment_length length) for that residue, where each index in the inner set can have multiple
-            observations
-        and self._fragment_db.statistics (dict)
-            {cluster_id1 (str): [[mapped_index_average, paired_index_average,
-                                 {max_weight_counts_mapped}, {_paired}],
-                                 total_fragment_observations],
-            cluster_id2: [], ...,
-            frequencies: {'A': 0.11, ...}}
-        To identify cluster_id and chain thus returning fragment contribution from the fragment database statistics
-
-        Sets:
-            self.alpha: (dict[int, float]) - {0: 0.5, 0: 0.321, ...}
-        Args:
-            alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1].
-                0 means no use of fragments in the .profile, while 1 means only use fragments
-        """
-        if not self._fragment_db:
-            raise AttributeError(
-                f"{self._calculate_alpha.__name__}: No fragment database connected. Can't calculate "
-                f'fragment contribution without one')
-        if alpha <= 0 or 1 <= alpha:
-            raise ValueError(
-                f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
-
-        alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
-        match_score_default_value = 0.5  # When fragment pair RMSD is equal to the mean cluster size RMSD
-        bounded_floor = 0.2
-        default_match_score_floor = match_score_default_value - bounded_floor
-        fragment_stats = self._fragment_db.statistics
-        # self.alpha.clear()  # Reset the data
-        self.alpha = [0 for _ in self.residues]  # Reset the data
-        for entry_idx, (data, fragment_map) in enumerate(zip(self.fragment_profile, self.fragment_map)):
-            # Can't use the match count as the fragment index may have no useful residue information
-            # Instead use number of fragments with SC interactions count from the frequency map
-            frag_count = data.get('count', None)
-            if not frag_count:  # When data is missing 'count' or count is 0
-                continue  # Move on, this isn't a fragment observation, or no observed fragments
-            else:  # Cast as a float
-                frag_count = float(frag_count)
-
-            # Match score 'match' is bounded between [0.2, 1]
-            match_sum = sum(observation.match
-                            for index_observations in fragment_map.values()
-                            for observation in index_observations)
-
-            # Find the match modifier which spans from 0 to 1
-            average_match_score = match_sum / frag_count
-            if average_match_score < match_score_default_value:
-                # The match score is below the mean cluster RMSD match score. Subtract the floor to set a useful value
-                match_modifier = (average_match_score-bounded_floor) / default_match_score_floor
-            else:  # Set modifier to 1, the maximum bound
-                match_modifier = 1.
-
-            # Find the total contribution from a typical fragment of this type
-            typical_fragment_weight_total = sum(
-                fragment_stats[f'{observation.cluster[0]}_{observation.cluster[1]}_0'][0]
-                [alignment_type_to_idx[observation.source]] for index_observations in fragment_map.values()
-                for observation in index_observations)
-
-            # Get the average contribution of each fragment type
-            db_cluster_average = typical_fragment_weight_total / frag_count
-            # Get the average fragment weight for this fragment_profile entry. Total weight/count
-            frag_weight_average = data.get('weight') / frag_count
-
-            # Find the weight modifier which spans from 0 to 1
-            if db_cluster_average > frag_weight_average:
-                # Scale the weight modifier by the difference between the cluster and the observations
-                weight_modifier = frag_weight_average / db_cluster_average
-            else:
-                weight_modifier = 1.
-
-            # Modify alpha proportionally to match_modifier in addition to cluster average weight
-            self.alpha[entry_idx] = self._alpha * match_modifier * weight_modifier
-
-    def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
-        """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
-
-        Using self.evolutionary_profile
-            (ProfileDict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
-                                                 'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
-                           PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
-                                           'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
-        self.fragment_profile
-            (dict[int, dict[str, float | list[float]]]):
-                {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'count': 4, 'weight': 0.274}, 50: {...}, ...}
-        self.alpha
-            (list[float]): [0., 0., 0., 0.5, 0.321, ...]
-        Args:
-            favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
-                Currently this routine is only used for Rosetta designs where the fragments should be favored by a
-                particular weighting scheme. By default, the boltzmann weighting scheme is applied
-            boltzmann: Whether to weight the fragment profile by a Boltzmann probability scaling using the formula
-                lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
-                If False, residues are weighted by the residue local maximum lod score in a linear fashion
-                All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
-        Sets:
-            self.profile: (ProfileDict)
-                {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
-                     'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}, ...}
-        """
-        if self._alpha == 0:
-            # Round up to avoid division error
-            self.log.warning(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
-            self._alpha = 0.000001
-
-        # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
-        self.profile = deepcopy(self.evolutionary_profile)
-        if sum(self.alpha) == 0:  # No fragments to combine
-            return
-
-        # Combine fragment and evolutionary probability profile according to alpha parameter
-        fragment_profile = self.fragment_profile
-        # log_string = []
-        for entry_idx, weight in enumerate(self.alpha):
-            # Weight will be 0 if the fragment_profile is empty
-            if weight:
-                # log_string.append(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight')
-                frag_profile_entry = fragment_profile[entry_idx]
-                inverse_weight = 1 - weight
-                _profile_entry = self.profile[entry_idx + zero_offset]
-                _profile_entry.update({aa: weight*frag_profile_entry[aa] + inverse_weight*_profile_entry[aa]
-                                       for aa in protein_letters_alph3})
-        # if log_string:
-        #     # self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
-        #     #               f'\n\t%s' % '\n\t'.join(log_string))
-        #     pass
-
-        if favor_fragments:
-            boltzman_energy = 1
-            favor_seqprofile_score_modifier = 0.2 * sdutils.rosetta.reference_average_residue_weight
-            if not self._fragment_db:
-                raise AttributeError(
-                    f"{self.calculate_profile.__name__}: No fragment database connected. Can't 'favor_fragments' "
-                    'without one')
-            database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
-
-            null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)
-            # This was needed in the case of domain errors with lod
-            # null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
-
-            # Set all profile entries to a null entry first
-            for entry, data in self.profile.items():
-                data['lod'] = null_residue  # Caution, all reference same object
-
-            for entry, data in self.profile.items():
-                data['lod'] = get_lod(fragment_profile[entry - zero_offset], database_bkgnd_aa_freq, as_int=False)
-                # Adjust scores with particular weighting scheme
-                partition = 0.
-                for aa, value in data['lod'].items():
-                    if boltzmann:  # Boltzmann scaling, sum for the partition function
-                        value = exp(value / boltzman_energy)
-                        partition += value
-                    else:  # if value < 0:
-                        # With linear scaling, remove any lod penalty
-                        value = max(0, value)
-
-                    data['lod'][aa] = value
-
-                # Find the maximum/residue (local) lod score
-                max_lod = max(data['lod'].values())
-                # Takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
-                modified_entry_alpha = (self.alpha[entry - zero_offset]/self._alpha) * favor_seqprofile_score_modifier
-                if boltzmann:
-                    # lods = e ** odds[i]/Z, Z = sum(exp(odds[i]/kT))
-                    modifier = partition
-                    modified_entry_alpha /= (max_lod / partition)
-                else:
-                    modifier = max_lod
-
-                # Weight the final lod score by the modifier and the scaling factor for the chosen method
-                data['lod'] = {aa: value / modifier * modified_entry_alpha for aa, value in data['lod'].items()}
-                # Get percent total (boltzman) or percent max (linear) and scale by alpha score modifier
-
-    def solve_consensus(self, fragment_source=None, alignment_type=None):
-        raise NotImplementedError('This function needs work')
-        # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-
-        # frag_cluster_residue_d = PoseJob.gather_pose_metrics(init=True)  Call this function with it
-        # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
-        # Todo Can also re-score the interface upon Pose loading and return this information
-        # template_pdb = PoseJob.source NOW self.pdb
-
-        # v Used for central pair fragment mapping of the biological interface generated fragments
-        cluster_freq_tuple_d = {cluster: fragment_source[cluster]['freq'] for cluster in fragment_source}
-        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
-        #                         for cluster in cluster_residue_d}
-
-        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
-        # TODO freqs are now separate
-        cluster_freq_d = {cluster: format_frequencies(fragment_source[cluster]['freq'])
-                          for cluster in fragment_source}  # orange mapped to cluster tag
-        cluster_freq_twin_d = {cluster: format_frequencies(fragment_source[cluster]['freq'], flip=True)
-                               for cluster in fragment_source}  # orange mapped to cluster tag
-        frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
-
-        frag_residue_object_d = residue_number_to_object(self, frag_cluster_residue_d)
-
-        # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
-        # # TODO all_frags
-        cluster_residue_pose_d = residue_object_to_number(frag_residue_object_d)
-        # self.log.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
-        # # ^{cluster: [(78, 87, ...), ...]...}
-        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
-                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
-        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
-        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
-        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
-                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
-
-        # Construct CB Tree for full interface atoms to map residue residue contacts
-        # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-        # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atoms])
-        # interface_tree = residue_interaction_graph(interface)
-        # interface_cb_indices = interface.cb_indices
-
-        interface_residue_edges = {}
-        for idx, residue_contacts in enumerate(interface_tree):
-            if interface_tree[idx].tolist() != list():
-                residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
-                contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
-                            for contact_idx in interface_tree[idx]}
-                interface_residue_edges[residue] = contacts - {residue}
-        # ^ {78: [14, 67, 87, 109], ...}  green
-
-        # solve for consensus residues using the residue graph
-        self.add_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
-        consensus_residues = {}
-        all_pose_fragment_pairs = list(residue_freq_map.keys())
-        residue_cluster_map = offset_index(self.cluster_map)  # change so it is one-indexed
-        # for residue in residue_cluster_map:
-        for residue, partner in all_pose_fragment_pairs:
-            for idx, cluster in residue_cluster_map[residue]['cluster']:
-                if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
-                    for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
-                        if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
-                            if residue_cluster_map[residue]['chain'] == 'mapped':
-                                # choose first AA from AA tuple in residue frequency d
-                                aa_i, aa_j = 0, 1
-                            else:  # choose second AA from AA tuple in residue frequency d
-                                aa_i, aa_j = 1, 0
-                            for pair_freq in cluster_freq_tuple_d[cluster]:
-                                # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
-                                if residue in frag_overlap:  # edge case where fragment has no weight but it is center res
-                                    if pair_freq[0][aa_i] in frag_overlap[residue]:
-                                        # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
-                                        if partner in frag_overlap:
-                                            if pair_freq[0][aa_j] in frag_overlap[partner]:
-                                                consensus_residues[residue] = pair_freq[0][aa_i]
-                                                break  # because pair_freq's are sorted we end at the highest matching pair
-
-        # # Set up consensus design # TODO all_frags
-        # # Combine residue fragment information to find residue sets for consensus
-        # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
-        final_issm = offset_index(final_issm)  # change so it is one-indexed
-        frag_overlap = fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
-
-        # consensus = SDUtils.consensus_sequence(dssm)
-        self.log.debug(f'Consensus Residues only:\n{consensus_residues}')
-        self.log.debug(f'Consensus:\n{consensus}')
-        for n, name in enumerate(names):
-            for residue in int_res_numbers[name]:  # one-indexed
-                mutated_pdb.mutate_residue(number=residue)
-        mutated_pdb.write(des_dir.consensus_pdb)
-        # mutated_pdb.write(consensus_pdb)
-        # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
 
 dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
