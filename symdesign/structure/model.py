@@ -746,98 +746,98 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 data['lod'] = {aa: value / modifier * modified_entry_alpha for aa, value in data['lod'].items()}
                 # Get percent total (boltzman) or percent max (linear) and scale by alpha score modifier
 
-    def solve_consensus(self, fragment_source=None, alignment_type=None):
-        raise NotImplementedError('This function needs work')
-        # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-
-        # frag_cluster_residue_d = PoseJob.gather_pose_metrics(init=True)  Call this function with it
-        # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
-        # Todo Can also re-score the interface upon Pose loading and return this information
-        # template_pdb = PoseJob.source NOW self.pdb
-
-        # v Used for central pair fragment mapping of the biological interface generated fragments
-        cluster_freq_tuple_d = {cluster: fragment_source[cluster]['freq'] for cluster in fragment_source}
-        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
-        #                         for cluster in cluster_residue_d}
-
-        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
-        # TODO freqs are now separate
-        cluster_freq_d = {cluster: format_frequencies(fragment_source[cluster]['freq'])
-                          for cluster in fragment_source}  # orange mapped to cluster tag
-        cluster_freq_twin_d = {cluster: format_frequencies(fragment_source[cluster]['freq'], flip=True)
-                               for cluster in fragment_source}  # orange mapped to cluster tag
-        frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
-
-        frag_residue_object_d = residue_number_to_object(self, frag_cluster_residue_d)
-
-        # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
-        # # TODO all_frags
-        cluster_residue_pose_d = residue_object_to_number(frag_residue_object_d)
-        # self.log.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
-        # # ^{cluster: [(78, 87, ...), ...]...}
-        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
-                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
-        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
-        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
-        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
-                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
-
-        # Construct CB Tree for full interface atoms to map residue residue contacts
-        # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-        # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atoms])
-        # interface_tree = residue_interaction_graph(interface)
-        # interface_cb_indices = interface.cb_indices
-
-        interface_residue_edges = {}
-        for idx, residue_contacts in enumerate(interface_tree):
-            if interface_tree[idx].tolist() != list():
-                residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
-                contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
-                            for contact_idx in interface_tree[idx]}
-                interface_residue_edges[residue] = contacts - {residue}
-        # ^ {78: [14, 67, 87, 109], ...}  green
-
-        # solve for consensus residues using the residue graph
-        self.add_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
-        consensus_residues = {}
-        all_pose_fragment_pairs = list(residue_freq_map.keys())
-        residue_cluster_map = offset_index(self.cluster_map)  # change so it is one-indexed
-        # for residue in residue_cluster_map:
-        for residue, partner in all_pose_fragment_pairs:
-            for idx, cluster in residue_cluster_map[residue]['cluster']:
-                if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
-                    for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
-                        if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
-                            if residue_cluster_map[residue]['chain'] == 'mapped':
-                                # choose first AA from AA tuple in residue frequency d
-                                aa_i, aa_j = 0, 1
-                            else:  # choose second AA from AA tuple in residue frequency d
-                                aa_i, aa_j = 1, 0
-                            for pair_freq in cluster_freq_tuple_d[cluster]:
-                                # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
-                                if residue in frag_overlap:  # edge case where fragment has no weight but it is center res
-                                    if pair_freq[0][aa_i] in frag_overlap[residue]:
-                                        # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
-                                        if partner in frag_overlap:
-                                            if pair_freq[0][aa_j] in frag_overlap[partner]:
-                                                consensus_residues[residue] = pair_freq[0][aa_i]
-                                                break  # because pair_freq's are sorted we end at the highest matching pair
-
-        # # Set up consensus design # TODO all_frags
-        # # Combine residue fragment information to find residue sets for consensus
-        # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
-        final_issm = offset_index(final_issm)  # change so it is one-indexed
-        frag_overlap = fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
-
-        # consensus = SDUtils.consensus_sequence(dssm)
-        self.log.debug(f'Consensus Residues only:\n{consensus_residues}')
-        self.log.debug(f'Consensus:\n{consensus}')
-        for n, name in enumerate(names):
-            for residue in int_res_numbers[name]:  # one-indexed
-                mutated_pdb.mutate_residue(number=residue)
-        mutated_pdb.write(des_dir.consensus_pdb)
-        # mutated_pdb.write(consensus_pdb)
-        # mutated_pdb.write(consensus_pdb, cryst1=cryst)
+    # def solve_consensus(self, fragment_source=None, alignment_type=None):
+    #     raise NotImplementedError('This function needs work')
+    #     # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
+    #
+    #     # frag_cluster_residue_d = PoseJob.gather_pose_metrics(init=True)  Call this function with it
+    #     # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
+    #     # Todo Can also re-score the interface upon Pose loading and return this information
+    #     # template_pdb = PoseJob.source NOW self.pdb
+    #
+    #     # v Used for central pair fragment mapping of the biological interface generated fragments
+    #     cluster_freq_tuple_d = {cluster: fragment_source[cluster]['freq'] for cluster in fragment_source}
+    #     # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
+    #     #                         for cluster in cluster_residue_d}
+    #
+    #     # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
+    #     # Todo freqs are now separate
+    #     cluster_freq_d = {cluster: format_frequencies(fragment_source[cluster]['freq'])
+    #                       for cluster in fragment_source}  # orange mapped to cluster tag
+    #     cluster_freq_twin_d = {cluster: format_frequencies(fragment_source[cluster]['freq'], flip=True)
+    #                            for cluster in fragment_source}  # orange mapped to cluster tag
+    #     frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
+    #
+    #     frag_residue_object_d = residue_number_to_object(self, frag_cluster_residue_d)
+    #
+    #     # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
+    #     # # Todo all_frags
+    #     cluster_residue_pose_d = residue_object_to_number(frag_residue_object_d)
+    #     # self.log.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
+    #     # # ^{cluster: [(78, 87, ...), ...]...}
+    #     residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
+    #                         for residue_set in cluster_residue_pose_d[cluster]}  # blue
+    #     # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
+    #     # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
+    #     residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
+    #                              for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
+    #
+    #     # Construct CB Tree for full interface atoms to map residue residue contacts
+    #     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
+    #     # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atoms])
+    #     # interface_tree = residue_interaction_graph(interface)
+    #     # interface_cb_indices = interface.cb_indices
+    #
+    #     interface_residue_edges = {}
+    #     for idx, residue_contacts in enumerate(interface_tree):
+    #         if interface_tree[idx].tolist() != list():
+    #             residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
+    #             contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
+    #                         for contact_idx in interface_tree[idx]}
+    #             interface_residue_edges[residue] = contacts - {residue}
+    #     # ^ {78: [14, 67, 87, 109], ...}  green
+    #
+    #     # solve for consensus residues using the residue graph
+    #     self.add_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
+    #     consensus_residues = {}
+    #     all_pose_fragment_pairs = list(residue_freq_map.keys())
+    #     residue_cluster_map = offset_index(self.cluster_map)  # change so it is one-indexed
+    #     # for residue in residue_cluster_map:
+    #     for residue, partner in all_pose_fragment_pairs:
+    #         for idx, cluster in residue_cluster_map[residue]['cluster']:
+    #             if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+    #                 for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
+    #                     if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+    #                         if residue_cluster_map[residue]['chain'] == 'mapped':
+    #                             # choose first AA from AA tuple in residue frequency d
+    #                             aa_i, aa_j = 0, 1
+    #                         else:  # choose second AA from AA tuple in residue frequency d
+    #                             aa_i, aa_j = 1, 0
+    #                         for pair_freq in cluster_freq_tuple_d[cluster]:
+    #                             # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
+    #                             if residue in frag_overlap:  # edge case where fragment has no weight but it is center res
+    #                                 if pair_freq[0][aa_i] in frag_overlap[residue]:
+    #                                     # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
+    #                                     if partner in frag_overlap:
+    #                                         if pair_freq[0][aa_j] in frag_overlap[partner]:
+    #                                             consensus_residues[residue] = pair_freq[0][aa_i]
+    #                                             break  # because pair_freq's are sorted we end at the highest matching pair
+    #
+    #     # # Set up consensus design # Todo all_frags
+    #     # # Combine residue fragment information to find residue sets for consensus
+    #     # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
+    #     final_issm = offset_index(final_issm)  # change so it is one-indexed
+    #     frag_overlap = fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
+    #
+    #     # consensus = SDUtils.consensus_sequence(dssm)
+    #     self.log.debug(f'Consensus Residues only:\n{consensus_residues}')
+    #     self.log.debug(f'Consensus:\n{consensus}')
+    #     for n, name in enumerate(names):
+    #         for residue in int_res_numbers[name]:  # one-indexed
+    #             mutated_pdb.mutate_residue(number=residue)
+    #     mutated_pdb.write(des_dir.consensus_pdb)
+    #     # mutated_pdb.write(consensus_pdb)
+    #     # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
     @property
     def disorder(self) -> dict[int, dict[str, str]]:
@@ -2859,17 +2859,6 @@ class SymmetryOpsMixin(abc.ABC):
             self.generate_symmetric_coords()
             return self._symmetric_coords.coords
 
-    # @symmetric_coords.setter
-    # def symmetric_coords(self, coords: np.ndarray | list[list[float]]):
-    #     if isinstance(coords, Coords):
-    #         self._symmetric_coords = coords
-    #     else:
-    #         self._symmetric_coords = Coords(coords)
-    #     # Todo make below like StructureBase
-    #     #  once symmetric_coords are handled as a settable property
-    #     #  this requires setting the asu if these are set
-    #     self._models_coords.replace(self.make_indices_symmetric(self._atom_indices), coords)
-
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
         """A view of the symmetric coords split at different symmetric models"""
@@ -4641,22 +4630,6 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         # Once oligomers are specified the ASU can be set properly
         self.set_contacting_asu()
 
-    # Todo this is same as atom_indices_per_entity_symmetric
-    # @property
-    # def atom_indices_per_entity_model(self) -> list[list[int]]:
-    #     # Todo
-    #     #   alternative solution may be quicker by performing the following multiplication then .flatten()
-    #     #   broadcast entity_indices ->
-    #     #   (np.arange(model_number) * coords_length).T
-    #     #   |
-    #     #   v
-    #     number_of_atoms = self.number_of_atoms
-    #     # number_of_atoms = len(self.coords)
-    #     return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
-    #              for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
-    #  Todo this is used in atom_indices_per_entity_symmetric
-    #     return [self.make_indices_symmetric(entity_indices) for entity_indices in self.atom_indices_per_entity]
-
     @property
     def atom_indices_per_entity_symmetric(self):
         # alt solution may be quicker by performing the following addition then .flatten()
@@ -5698,10 +5671,6 @@ class Pose(SymmetricModel, MetricsMixin):
             radius_ratio_sum += 1 - radius_ratio
             min_ratio_sum += 1 - min_ratio
             max_ratio_sum += 1 - max_ratio
-            # Todo
-            #   These could be useful in the PoseMetrics selection section to calculate on the fly
-            #   They are cumbersome and not recommended DB etiquette
-            #    (i.e. take up unnecessary db space, should be a table)
             # residue_ratio_sum += abs(1 - residue_ratio)
             # entity_idx1, entity_idx2 = next(index_combinations)
             # pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
@@ -5893,9 +5862,6 @@ class Pose(SymmetricModel, MetricsMixin):
         if required:
             self.log.debug(f"The 'design_selector' {required=}")
             entity_required, required_atom_indices = grab_indices(**required)  # , start_with_none=True)
-            # Todo
-            #   create a separate variable for required_entities?
-            #   self._required_entities = entity_required
             self._required_atom_indices = list(required_atom_indices)
         else:
             entity_required = set()
@@ -6624,10 +6590,6 @@ class Pose(SymmetricModel, MetricsMixin):
             # This calculation shouldn't depend on oligomers... Only assumes unfolded -> folded
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             entity_residue_contact_order_z = metrics.z_score(contact_order, contact_order.mean(), contact_order.std())
-            # Todo
-            #   Using the median may be a better measure of the contact order due to highly skewed data...
-            #   entity_residue_contact_order_z = \
-            #       utils.z_score(contact_order, np.median(contact_order), contact_order.std())
             contact_order_z.append(entity_residue_contact_order_z)
             # inverse_residue_contact_order_z.append(entity_residue_contact_order_z * -1)
             hydrophobic_collapse.append(entity.hydrophobic_collapse(**kwargs))
@@ -6823,27 +6785,6 @@ class Pose(SymmetricModel, MetricsMixin):
             pose_metrics['symmetric_interface'] = False
         else:
             pose_metrics['symmetric_interface'] = True
-        #  if self.is_symmetric():
-        #      pose_metrics['design_dimension'] = self.dimension
-        #      # for idx, group in enumerate(self.sym_entry.groups, 1):
-        #      #     pose_metrics[f'entity{idx}_symmetry_group'] = group
-        #  else:
-        #      pose_metrics['design_dimension'] = 'asymmetric'
-
-        #  try:
-        #      api_db = resources.wrapapi.api_database_factory()
-        #      is_ukb_thermophilic = api_db.uniprot.thermophilicity
-        #      is_pdb_thermophile = api_db.pdb.entity_thermophilicity
-        #  except AttributeError:
-        #      is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
-        #      is_pdb_thermophile = query.pdb.entity_thermophilicity
-
-        # Todo new-style sql.EntityMetrics
-        #  Todo need to get the secondary structure at each entity interface indices
-        #  for number, topology in interface_ss_topology.items():
-        #      pose_metrics[f'entity{number}_secondary_structure_topology'] = topology
-        #      pose_metrics[f'entity{number}_secondary_structure_fragment_topology'] = \
-        #          interface_ss_fragment_topology.get(number, '-')
 
         return pose_metrics
 
@@ -7373,9 +7314,6 @@ class Pose(SymmetricModel, MetricsMixin):
                 # self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 # self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
-            # Todo
-            #   Alternative (quicker) route could use the assembly_minimally_contacting model indices.
-            #   These are all that is needed to query
             entity2_coords = self.symmetric_coords[entity2_indices]  # Get the symmetric indices from Entity 2
             sym_string = 'symmetric '
         elif entity1 == entity2:
@@ -8301,9 +8239,6 @@ class Pose(SymmetricModel, MetricsMixin):
                     residue_index = (int(metadata[-1])-1) % pose_length
                 except ValueError:
                     continue  # This is a residual metric
-                # Todo
-                #   Remove try: except: after removal of chain information from T33-round2 residue strings
-                #   residue_index = (int(metadata[-1])-1) % pose_length
                 # remove chain_id in rosetta_numbering="False"
                 if metric == 'energysolv':
                     metric_str = f'solv_{metadata[-2]}'  # pose_state - unbound, bound, complex
