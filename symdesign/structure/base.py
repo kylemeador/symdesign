@@ -1228,7 +1228,6 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     # def radius(self) -> float:
     #     """"""
 
-
     def __copy__(self) -> StructureBase:  # Todo -> Self: in python 3.11
         cls = self.__class__
         other = cls.__new__(cls)
@@ -3292,7 +3291,6 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
 
     def __copy__(self) -> Residue:  # Todo -> Self: in python 3.11
         other: Residue = super().__copy__()
-
 
         return other
 
