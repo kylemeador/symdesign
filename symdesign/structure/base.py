@@ -161,8 +161,6 @@ polarity_types_literal = Literal['apolar', 'polar']
 sasa_types_literal = Literal['total', polarity_types_literal]
 sasa_types: tuple[polarity_types_literal, ...] = get_args(sasa_types_literal)
 polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
-# Todo
-#  add nucleotide polarities to this table. The atom types are located above. Polarities in freesasa-2.0.config
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
     'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0,
@@ -517,7 +515,6 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
         if extension[-1].isdigit():
             # If last character is not a letter, then the file is an assembly, or the extension was provided weird
             assembly: str | None = extension.translate(utils.keep_digit_table)
-        # Todo debug reinstate v
         elif 'assembly' in name:
             assembly = name[name.find('assembly'):].translate(utils.keep_digit_table)
         else:
@@ -745,8 +742,6 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
         # coords=coords if separate_coords else None,
         cryst_record=cryst_record,
         entity_info=entity_info,
-        # Todo
-        #  header=header,
         name=name,
         resolution=resolution,
         # reference_sequence=reference_sequence,
@@ -1568,12 +1563,13 @@ class Atom(CoordinateOpsMixin):
                f'{self.code_for_insertion:1s}   {"{}"}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
         # Todo
-        # if self.is_parent():  # return full ATOM record
-        #     return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
-        #         '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        #         .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id,
-        #                 self.residue_number, self.code_for_insertion, *list(self.coords), self.occupancy,
-        #                 self.b_factor, self.element, self.charge)
+        help
+        #  if self.is_parent():  # return full ATOM record
+        #      return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
+        #          '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        #          .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id,
+        #                  self.residue_number, self.code_for_insertion, *list(self.coords), self.occupancy,
+        #                  self.b_factor, self.element, self.charge)
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
@@ -2051,29 +2047,30 @@ class ContainsAtoms(StructureBase, ABC):
         return sorted({idx for contacts in query.tolist() for idx in contacts.tolist()})
         # return np.unique(np.concatenate(query)).tolist()
 
-    #  Todo make this setter function in the same way as self._coords.replace?
-    #  @atoms.setter
-    #  def atoms(self, atoms: Atoms | list[Atom]):
-    #      """Set the Structure atoms to an Atoms object"""
-    #      if isinstance(atoms, Atoms):
-    #          self._atoms = atoms
-    #      else:
-    #          self._atoms = Atoms(atoms)
+    help
+    # Todo make this setter function in the same way as self._coords.replace?
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms | list[Atom]):
+    #     """Set the Structure atoms to an Atoms object"""
+    #     if isinstance(atoms, Atoms):
+    #         self._atoms = atoms
+    #     else:
+    #         self._atoms = Atoms(atoms)
     #
-    #  # Todo enable this type of functionality
-    #  @atoms.setter
-    #  def atoms(self, atoms: Atoms):
-    #      self._atoms.replace(self._atom_indices, atoms)
+    # # Todo enable this type of functionality
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms):
+    #     self._atoms.replace(self._atom_indices, atoms)
     #
-    #  # Todo create add_atoms that is like list append
-    #  def add_atoms(self, atom_list):
-    #      """Add Atoms in atom_list to the Structure instance"""
-    #      raise NotImplementedError('This function (add_atoms) is currently broken')
-    #      atoms = self.atoms.tolist()
-    #      atoms.extend(atom_list)
-    #      self.atoms = atoms
-    #      # Todo need to update all referrers
-    #      # Todo need to add the atoms to coords
+    # # Todo create add_atoms that is like list append
+    # def add_atoms(self, atom_list):
+    #     """Add Atoms in atom_list to the Structure instance"""
+    #     raise NotImplementedError('This function (add_atoms) is currently broken')
+    #     atoms = self.atoms.tolist()
+    #     atoms.extend(atom_list)
+    #     self.atoms = atoms
+    #     # Todo need to update all referrers
+    #     # Todo need to add the atoms to coords
 
     @property
     @abc.abstractmethod
@@ -3676,15 +3673,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             return self._residues[self._residue_indices]
         except AttributeError:  # When self._residues isn't set
             return None
-    #
-    #  Todo make this setter function in the same way as self._coords.replace?
-    #  @residues.setter
-    #  def residues(self, residues: Residues | list[Residue]):
-    #      """Set the Structure atoms to a Residues object"""
-    #      if isinstance(residues, Residues):
-    #          self._residues = residues
-    #      else:
-    #          self._residues = Residues(residues)
 
     def _assign_residues(self, residues: Residues | list[Residue], atoms: Atoms | list[Atom] = None, **kwargs):
         """Assign Residue instances, create Residues instances
@@ -3740,22 +3728,24 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._residues.set_attributes(_parent=self)
         self._residues.reindex()
 
+    help
     # Todo
-    #  @property
-    #  def residue_indexed_atom_indices(self) -> list[list[int]]:
-    #      """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
+    #   @property
+    #   def residue_indexed_atom_indices(self) -> list[list[int]]:
+    #       """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
     #
-    #      Returns:
-    #          Residue objects indexed by the Residue position in the corresponding .coords attribute
-    #      """
-    #      try:
-    #          return self._residue_indexed_atom_indices  # [self._atom_indices]
-    #      except (AttributeError, TypeError):  # Todo self.is_parent()
-    #          raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-    #                               f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the '
-    #                               'Structure that owns these coordinates and therefore owns this Structure')
+    #       Returns:
+    #           Residue objects indexed by the Residue position in the corresponding .coords attribute
+    #       """
+    #       try:
+    #           return self._residue_indexed_atom_indices  # [self._atom_indices]
+    #       except (AttributeError, TypeError):  # Todo self.is_parent()
+    #           raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+    #                                f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the '
+    #                                'Structure that owns these coordinates and therefore owns this Structure')
     #
-    # Todo Move to Coords
+    #  Todo Move to Coords
+    help
     @property
     def alphafold_atom_mask(self) -> np.ndarray:
         """Return an Alphafold mask describing which Atom positions have Coord data"""
@@ -4115,8 +4105,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 found_types.add(atom.type)
             else:
                 if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove [start_idx:idx]
-                    # Todo
-                    #  remove this check when nucleotides can be parsed
                     if dna_sugar_atom_types.intersection(found_types):
                         self.nucleotides_present = True
                     remove_atom_indices.extend(range(start_atom_index, idx))
@@ -4349,26 +4337,20 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             except KeyError:
                 raise KeyError(
                     f"The mutation type '{to}' isn't a viable Residue type")
-
-        # Todo
-        #  using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
-        # Todo
-        #  is the Atom mutation necessary? Put in Residue
         for atom in residue.atoms:
             atom.residue_type = to
 
-        # Todo
-        #  Currently, deleting side-chain indices and letting Rosetta handle building
         # Find the corresponding Residue Atom indices to delete
         delete_indices = residue.side_chain_indices
         if not delete_indices:  # There are no indices
             return []
         else:  # Clear all state variables for all Residue instances
+            help
             # Todo
-            #  create mutate_residues() and only call this once... It is redundant with @Residue.start_index.setter
-            #  in _residues.reindex_atoms()
+            #   create mutate_residues() and only call this once... It is redundant with @Residue.start_index.setter
+            #   in _residues.reindex_atoms()
             self._residues.reset_state()
             # residue.side_chain_indices = []
 
@@ -4731,8 +4713,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # n_removed_nterm_res = number_of_residues - len(no_nterm_disorder_ss)
         # no_cterm_disorder_ss = secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)
         # n_removed_cterm_res = number_of_residues - len(no_cterm_disorder_ss)
-        # Todo Could remove disorder by a relative_sasa threshold.
-        #  A brief investigation shows that ~0.6 could be a reasonable threshold when combined with other ss indicators
         # sasa = self.relative_sasa
         # self.log.debug(f'Found n-term relative sasa {sasa[:n_removed_nterm_res + 10]}')
         # self.log.debug(f'Found c-term relative sasa {sasa[-(n_removed_cterm_res + 10):]}')
