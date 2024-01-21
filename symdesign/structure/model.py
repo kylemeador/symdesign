@@ -168,491 +168,6 @@ class MetricsMixin(abc.ABC):
                 self.__delattr__(attr)
             except AttributeError:
                 continue
-# class MultiModel:
-#     """Class for working with iterables of State objects of macromolecular polymers (proteins for now). Each State
-#     container comprises ContainsResidues instance(s) which can also be accessed as a unique Model by slicing the
-#     MultiModel across each individual State instance.
-#
-#     A more convenient way to think about this scenario is the following table:
-#      _______________________________________________________________
-#     |                State1      State2      State3      StateN     |
-#     |        Index   0           1           2           -1         |
-#     | Model1   0   - Protein1_1, Protein1_2, ...         Protein1_N |
-#     | Model2   1   - Protein2_1, Protein2_2, ...         Protein2_N |
-#     | Model3   2   - DNA1_1,     DNA1_2,     ...         DNA1_N     |
-#
-#     self.models holds each of the individual ContainsResidues instances which are involved in the MultiModel.
-#     As of now, no checks are made whether the identity of these are the same across States
-#     """
-#
-#     @classmethod
-#     def from_model(cls, model, **kwargs):
-#         """Construct a MultiModel from a Model instance with or without multiple states
-#         Ex: [Structure1_State1, Structure1_State2, ...]
-#         """
-#         return cls(model=model, **kwargs)
-#
-#     @classmethod
-#     def from_models(cls, models: Sequence[Model], independent: bool = False, **kwargs):
-#         """Construct a MultiModel from ContainsStructures with or without multiple states
-#         Ex: [Model[Structure1_State1, Structure1_State2, ...], Model[Structure2_State1, ...]]
-#
-#         Keyword Args:
-#             independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
-#         """
-#         return cls(models=models, independent=independent, **kwargs)
-#
-#     @classmethod
-#     def from_state(cls, state, **kwargs):
-#         """Construct a MultiModel from a sequence of ContainsStructures, representing a single Structural state.
-#         For instance, one trajectory in a sequence design with multiple polymers or a SymmetricModel
-#         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
-#         """
-#         return cls(state=state, **kwargs)
-#
-#     @classmethod
-#     def from_states(cls, states, independent=False, **kwargs):
-#         """Construct a MultiModel from a sequence of ContainsStructures, each representing a different state
-#         of the structure. For instance, multiple trajectories in a sequence design
-#         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
-#
-#         Keyword Args:
-#             independent: bool = False - Whether each model is independent (True) of the others (False)
-#         """
-#         return cls(states=states, independent=independent, **kwargs)
-#
-#     dependents: set
-#     # _model_iterator: Iterator
-#     models: list[Model]
-#     """In a 2x2 table of Structures, the models are the rows. These could be different Model instances
-#     from one another entirely. These is no current mechanism to enforce this, for now just a convenience
-#     feature to store multiple related Model instances.
-#     """
-#     states: list[list[State]]
-#     """In a 2x2 table of Structures, the states are the columns. These "should" be the same Model across each
-#     state in the collection of states. These is no current mechanism to enforce this, for now just a convenience feature
-#     to store multiple related Model instances that are related by some common feature.
-#     """
-#
-#     def __init__(self, model: Model = None, models: list[Model] | Structures = None, state=None, states=None,
-#                  independent=False, log=None, **kwargs):
-#         """"""
-#         if log:
-#             self.log = log
-#         elif log is None:
-#             self.log = logging.getLogger('null')
-#         else:  # When log is explicitly passed as False, use the module logger
-#             self.log = logger
-#
-#         if model is not None:
-#             if not isinstance(model, Model):
-#                 model = Model.from_structure(model)
-#
-#             self.models = [model]
-#             # This loads Structure objects present in .models. Ex, the symmetry mates in SymmetricModel
-#             self.states = [[state] for state in model.models]
-#
-#             # self.structures = [[model.states]]
-#
-#         elif isinstance(models, (list, Structures)):
-#             self.models = models.copy()
-#             self.states = [[model[state_idx] for model in models] for state_idx in range(len(models[0].models))]
-#             # self.states = [[] for state in models[0].models]
-#             # for model in models:
-#             #     for state_idx, state in enumerate(model.models):
-#             #         self.states[state_idx].append(state)
-#
-#             # self.structures = [[model.states] for model in models]
-#
-#             # self.structures = models
-#             # structures = [[] for model in models]
-#             # for model in models:
-#             #     for idx, state in enumerate(model):
-#             #         structures[idx].append(state)
-#         # Collect the various structures and corresponding states of separate Structures
-#         elif state:
-#             if not isinstance(state, State):
-#                 state = State(state)
-#
-#             self.states = [state]
-#             self.models = [[structure] for structure in state.structures]
-#             # self.structures = [[structure] for structure in state.structures]
-#         elif isinstance(states, (list, Structures)):
-#             # Modify loop order by separating Model objects in same state to individual Entity containers
-#             self.states = states
-#             self.models = [[state[model_idx] for state in states] for model_idx in range(len(states[0].entities))]
-#             # self.models = [state.structures for state in states]
-#
-#             # self.structures = [[] for structure in states[0]]
-#             # for state in states:
-#             #     for idx, structure in enumerate(state.structures):
-#             #         self.structures[idx].append(structure)
-#         else:
-#             raise NotImplementedError("You must construct with either 'model', 'models', 'state', or 'states'")
-#
-#         # Indicate whether each structure is an independent set of models by setting dependent to corresponding tuple
-#         dependents = [] if independent else range(self.number_of_models)
-#         self.dependents = set(dependents)  # tuple(dependents)
-#
-#     # @property
-#     # def number_of_structures(self):
-#     #     return len(self.structures)
-#     #
-#     # @property
-#     # def number_of_states(self):
-#     #     return max(map(len, self.structures))
-#
-#     @property
-#     def number_of_models(self):
-#         return len(self.models)
-#
-#     @property
-#     def number_of_states(self):
-#         return len(self.states)
-#         # return max(map(len, self.models))
-#
-#     def get_models(self):
-#         return [Models(model, log=self.log) for model in self.models]
-#
-#     def get_states(self):
-#         return [State(state, log=self.log) for state in self.states]
-#
-#     # @property
-#     # def models(self):
-#     #     return [Model(model) for model in self._models]
-#     #
-#     # @models.setter
-#     # def models(self, models):
-#     #     self._models = models
-#     #
-#     # @property
-#     # def states(self):
-#     #     return [State(state) for state in self._states]
-#     #
-#     # @states.setter
-#     # def states(self, states):
-#     #     self._states = states
-#
-#     @property
-#     def independents(self) -> set[int]:
-#         """Retrieve the indices of the Structures whose model information is independent of other Structures"""
-#         return set(range(self.number_of_models)).difference(self.dependents)
-#
-#     def append_state(self, state: Structures):
-#         """From a state, incorporate the Structures in the state into the existing Model
-#
-#         Sets:
-#             self.states
-#             self.models
-#         """
-#         self.states.append(state)  # Todo ensure correct methods once State is subclassed as UserList
-#         try:
-#             for idx, structure in enumerate(self.models):
-#                 structure.append(state[idx])
-#             del self._model_iterator
-#             # delattr(self, '_model_iterator')
-#         except IndexError:  # Todo handle mismatched lengths, either passed or existing
-#             raise IndexError(
-#                 'The added State contains fewer Structures than present in the MultiModel. Only pass a '
-#                 f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
-#
-#     def append(self, model: Model, independent: bool = False):
-#         """From a multiple state Model, add a Model to the end of an existing MultiModel
-#
-#         Sets:
-#             self.states
-#             self.models
-#             self.dependents
-#         """
-#         self.models.append(model)  # Todo ensure correct methods once Model is subclassed as UserList
-#         try:
-#             for idx, state in enumerate(self.states):
-#                 state.append(model[idx])
-#             del self._model_iterator
-#             # delattr(self, '_model_iterator')
-#         except IndexError:  # Todo handle mismatched lengths, either passed or existing
-#             raise IndexError(
-#                 'The added Model contains fewer models than present in the MultiModel. Only pass a Model '
-#                 f'that has the same number of States ({self.number_of_states}) as the MultiModel')
-#
-#         if not independent:
-#             self.dependents.add(self.number_of_models - 1)
-#
-#     def enumerate_models(self) -> list:
-#         """Given the MultiModel Structures and dependents, construct an iterable of all States in the MultiModel"""
-#         # print('enumerating_models, states', self.states, 'models', self.models)
-#         # First, construct tuples of independent structures if available
-#         independents = self.independents
-#         if not independents:  # all dependents are already in order
-#             return self.get_states()
-#             # return zip(self.structures)
-#         else:
-#             independent_sort = sorted(independents)
-#         independent_gen = product(*[self.models[idx] for idx in independent_sort])
-#         # independent_gen = combinations([self.structures[idx] for idx in independents], len(independents))
-#
-#         # Next, construct tuples of dependent structures
-#         dependent_sort = sorted(self.dependents)
-#         if not dependent_sort:  # all independents are already in order and combined
-#             # independent_gen = list(independent_gen)
-#             # print(independent_gen)
-#             return [State(state, log=self.log) for state in independent_gen]
-#             # return list(independent_gen)
-#         else:
-#             dependent_zip = zip(self.models[idx] for idx in dependent_sort)
-#
-#         # Next, get all model possibilities in an unordered fashion
-#         unordered_structure_model_gen = product(dependent_zip, independent_gen)
-#         # unordered_structure_model_gen = combinations([dependent_zip, independent_gen], self.number_of_structures)
-#         # unordered_structure_models = zip(dependents + independents)
-#         unordered_structure_models = \
-#             list(zip(*(dep_structs + indep_structs for dep_structs, indep_structs in unordered_structure_model_gen)))
-#
-#         # Finally, repackage in an ordered fashion
-#         models = []
-#         for idx in range(self.number_of_models):
-#             dependent_index = dependent_sort.index(idx)
-#             if dependent_index == -1:  # no index found, idx is in independents
-#                 independent_index = independent_sort.index(idx)
-#                 if independent_index == -1:  # no index found? Where is it
-#                     raise IndexError(
-#                         'The index was not found in either independent or dependent models!')
-#                 else:
-#                     models.append(unordered_structure_models[len(dependent_sort) + independent_index])
-#             else:  # index found, idx is in dependents
-#                 models.append(unordered_structure_models[dependent_index])
-#
-#         return [State(state, log=self.log) for state in models]
-#
-#     @property
-#     def model_iterator(self) -> Iterator:
-#         try:
-#             return iter(self._model_iterator)
-#         except AttributeError:
-#             self._model_iterator = self.enumerate_models()
-#             return iter(self._model_iterator)
-#
-#     def __len__(self):
-#         try:
-#             return len(self._model_iterator)
-#         except AttributeError:
-#             self._model_iterator = self.enumerate_models()
-#             return len(self._model_iterator)
-#
-#     def __iter__(self) -> Iterator:
-#         yield from self.model_iterator
-#         # yield from self.enumerate_models()
-#
-#
-# class State(Structures):
-#     """A collection of Model objects comprising one distinct configuration"""
-    # def __init__(self, structures=None, **kwargs):  # log=None,
-    #     super().__init__(**kwargs)
-    #     # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
-    #     # if log:
-    #     #     self.log = log
-    #     # elif log is None:
-    #     #     self.log = logging.getLogger('null')
-    #     # else:  # When log is explicitly passed as False, use the module logger
-    #     #     self.log = logger
-    #
-    #     if isinstance(structures, list):
-    #         if all([True if isinstance(structure, Model) else False for structure in structures]):
-    #             self.structures = structures
-    #             # self.data = structures
-    #         else:
-    #             self.structures = []
-    #             # self.data = []
-    #     else:
-    #         self.structures = []
-    #         # self.data = []
-    #
-    #  @property
-    #  def number_of_structures(self):
-    #      return len(self.structures)
-    #
-    #  @property
-    # def coords(self):
-    #     """Return a view of the Coords from the Structures"""
-    #     try:
-    #         coords_exist = self._coords.shape  # check on first call for attribute, if not, make, else, replace coords
-    #         total_atoms = 0
-    #         for structure in self.structures:
-    #             new_atoms = total_atoms + structure.number_of_atoms
-    #             self._coords[total_atoms: new_atoms] = structure.coords
-    #             total_atoms += total_atoms
-    #         return self._coords
-    #     except AttributeError:
-    #         coords = [structure.coords for structure in self.structures]
-    #         # coords = []
-    #         # for structure in self.structures:
-    #         #     coords.extend(structure.coords)
-    #         self._coords = np.concatenate(coords)
-    #
-    #         return self._coords
-    #
-    # # @coords.setter
-    # # def coords(self, coords):
-    # #     if isinstance(coords, Coords):
-    # #         self._coords = coords
-    # #     else:
-    # #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    # #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
-    #
-    #  @property
-    # def model_coords(self):  # Todo RECONCILE with coords, SymmetricModel variation
-    #     """Return a view of the modeled Coords. These may be symmetric if a SymmetricModel"""
-    #     return self._model_coords.coords
-    #
-    # @model_coords.setter
-    # def model_coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._model_coords = coords
-    #     else:
-    #         raise AttributeError(
-    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
-    #
-    #  @property
-    # def atoms(self):
-    #     """Return a view of the Atoms from the Structures"""
-    #     try:
-    #         return self._atoms
-    #     except AttributeError:
-    #         atoms = []
-    #         for structure in self.structures:
-    #             atoms.extend(structure.atoms)
-    #         self._atoms = Atoms(atoms)
-    #         return self._atoms
-    #
-    #  @property
-    # def number_of_atoms(self):
-    #     return len(self.coords)
-    #
-    #  @property
-    # def residues(self):  # Todo Residues iteration
-    #     try:
-    #         return self._residues
-    #     except AttributeError:
-    #         residues = []
-    #         for structure in self.structures:
-    #             residues.extend(structure.residues)
-    #         self._residues = Residues(residues)
-    #         return self._residues
-    #
-    #  @property
-    # def number_of_residues(self):
-    #     return len(self.residues)
-    #
-    #  @property
-    # def coords_indexed_residues(self):
-    #     try:
-    #         return self._coords_indexed_residues
-    #     except AttributeError:
-    #         self._coords_indexed_residues = \
-    #             [residue for residue in self.residues for _ in residue.range]
-    #         return self._coords_indexed_residues
-    #
-    #  @property
-    # def coords_indexed_residue_atoms(self):
-    #     try:
-    #         return self._coords_indexed_residue_atoms
-    #     except AttributeError:
-    #         self._coords_indexed_residue_atoms = \
-    #             [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
-    #         return self._coords_indexed_residue_atoms
-    #
-    #  @property
-    # def backbone_indices(self):
-    #     try:
-    #         return self._backbone_indices
-    #     except AttributeError:
-    #         self._backbone_indices = []
-    #         for structure in self.structures:
-    #             self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
-    #         return self._backbone_indices
-    #
-    #  @property
-    # def backbone_and_cb_indices(self):
-    #     try:
-    #         return self._backbone_and_cb_indices
-    #     except AttributeError:
-    #         self._backbone_and_cb_indices = []
-    #         for structure in self.structures:
-    #             self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
-    #         return self._backbone_and_cb_indices
-    #
-    #  @property
-    # def cb_indices(self):
-    #     try:
-    #         return self._cb_indices
-    #     except AttributeError:
-    #         self._cb_indices = []
-    #         for structure in self.structures:
-    #             self._cb_indices.extend(structure.coords_indexed_cb_indices)
-    #         return self._cb_indices
-    #
-    #  @property
-    # def ca_indices(self):
-    #     try:
-    #         return self._ca_indices
-    #     except AttributeError:
-    #         self._ca_indices = []
-    #         for structure in self.structures:
-    #             self._ca_indices.extend(structure.coords_indexed_ca_indices)
-    #         return self._ca_indices
-    #
-
-    # def write(self, increment_chains: bool = False, **kwargs) -> AnyStr | None:
-    #     """Write Structures to a file specified by out_path or with a passed file_handle.
-    #
-    #     Keyword Args:
-    #         out_path: The location where the State should be written to disk
-    #         file_handle: Used to write to an open FileObject
-    #         increment_chains: Whether to write each Chain with a new chain name, otherwise write as a new Model
-    #     Returns:
-    #         The name of the written file if out_path is used
-    #     """
-    #     # Todo implement
-    #     raise NotImplementedError('The ability to write States to file has not been thoroughly debugged')
-    #     warning = 'If your State consists of various types of Structure containers (Models, Structures) check your ' \
-    #               'file is as expected before preceeding'
-    #     return super().write(increment_chains=increment_chains, **kwargs)
-    #     # if file_handle:  # Todo handle with multiple Structure containers
-    #     #     file_handle.write('%s\n' % self.get_atom_record(**kwargs))
-    #     #     return
-    #     #
-    #     # with open(out_path, 'w') as f:
-    #     #     if header:
-    #     #         if isinstance(header, str):
-    #     #             f.write(header)
-    #     #         # if isinstance(header, Iterable):
-    #     #
-    #     #     if increment_chains:
-    #     #         available_chain_ids = chain_id_generator()
-    #     #         for structure in self.structures:
-    #     #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
-    #     #             chain_id = next(available_chain_ids)
-    #     #             structure.write(file_handle=f, chain_id=chain_id)
-    #     #             c_term_residue = structure.c_terminal_residue
-    #     #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
-    #     #                                                                   c_term_residue.atoms[-1].number + 1,
-    #     #                                                                   c_term_residue.type, chain_id,
-    #     #                                                                   c_term_residue.number))
-    #     #     else:
-    #     #         for model_number, structure in enumerate(self.structures, 1):
-    #     #             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-    #     #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
-    #     #             structure.write(file_handle=f)
-    #     #             c_term_residue = structure.c_terminal_residue
-    #     #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
-    #     #                                                                   c_term_residue.atoms[-1].number + 1,
-    #     #                                                                   c_term_residue.type, structure.chain_id,
-    #     #                                                                   c_term_residue.number))
-    #     #             f.write('ENDMDL\n')
-    #
-    # def __getitem__(self, idx):
-    #     return self.structures[idx]
 
 
 class ParseStructureMixin(abc.ABC):
@@ -790,7 +305,8 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 if data_type == 'reference_sequence':
                     self._reference_sequence = data
                 elif data_type == 'thermophilicity':
-                    # Todo remove self.thermophilicity once sql load more streamlined
+                    # Todo
+                    #  remove self.thermophilicity once sql load more streamlined
                     self.thermophilicity = data
                 elif data_type == 'dbref':
                     if data.get('db') == query.pdb.UKB:
@@ -798,18 +314,11 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         else:
             self.log.warning(f'Entity {self.name}: No information found from PDB API')
 
-    # @hybrid_property Todo wrapapi.UniProtEntity
+    # Todo wrapapi.UniProtEntity
+    # @hybrid_property
     @property
     def uniprot_ids(self) -> tuple[str | None, ...]:
         """The UniProt ID for the Entity used for accessing genomic and homology features"""
-        # Todo wrapapi.UniProtEntity
-        # try:
-        #     return self._uniprot_id.upper()
-        # except AttributeError:
-        #     if not self._search_uniprot_id:
-        #         self._search_uniprot_id = True
-        #         # wrapapi.UniProtEntity set as None, and we haven't tried to find, so lets try
-        # return self._uniprot_id
         try:
             return self._uniprot_ids
         except AttributeError:
@@ -5455,7 +4964,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
     #  reconcile mechanism with Entity.assembly
     def _generate_assembly(
             self, minimal: bool | int | None = False, surrounding_uc: bool = False
-    ) -> Model:  # SymmetricModel:  # Self Todo python 3.11
+    ) -> Model:  # Self Todo python 3.11
         """Creates the Model with all chains from the SymmetricModel
 
         Args:
@@ -5475,9 +4984,8 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                 chains.extend(model.entities)
         name = self._generate_assembly_name(minimal=minimal, surrounding_uc=surrounding_uc)
 
-        # type(self)
         return Model.from_chains(chains, name=name, log=self.log, entity_info=self.entity_info,
-                                 cryst_record=self.cryst_record)  # , biomt_header=self.format_biomt())
+                                 cryst_record=self.cryst_record)
 
     @property
     def chains(self) -> list[Entity]:  # list[Chain]:
@@ -5551,29 +5059,29 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             self.log.info(f'Masking {entity.name} coordinates from models '
                           f'{",".join(map(str, equivalent_models))} due to specified oligomer')
 
-        # Todo
-        #  This version is viable for asymmetric coordinate, symmetric models
-        # number_of_atoms = self.number_of_atoms
-        # for entity in zip(self.entities):
-        #     if not entity.is_symmetric():
-        #         self._oligomeric_model_indices[entity] = []
-        #         continue
+        #  Todo
+        #   This version is viable for asymmetric coordinate, symmetric models
+        #  number_of_atoms = self.number_of_atoms
+        #  for entity in zip(self.entities):
+        #      if not entity.is_symmetric():
+        #          self._oligomeric_model_indices[entity] = []
+        #          continue
         #
-        #     # Prepare slice variables for Entity
-        #     entity_indices = entity.atom_indices
-        #     entity_start, entity_end = entity_indices[0], entity_indices[-1]
-        #     entity_length = entity.number_of_atoms
-        #     entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
-        #     equivalent_models = []
-        #     for chain in entity.chains:
-        #         chain_center_of_mass = chain.center_of_mass
-        #         # Slice through the symmetric coords for that coordinate representation of the Entity
-        #         for model_idx in range(self.number_symmetry_mates):
-        #             sym_model_center_of_mass = \
-        #                 np.matmul(entity_center_of_mass_divisor,
-        #                           self.symmetric_coords[model_idx*number_of_atoms + entity_start:
-        #                                                 1 + model_idx*number_of_atoms + entity_end])
-        #             #                                             have to add 1 for slice ^
+        #      # Prepare slice variables for Entity
+        #      entity_indices = entity.atom_indices
+        #      entity_start, entity_end = entity_indices[0], entity_indices[-1]
+        #      entity_length = entity.number_of_atoms
+        #      entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
+        #      equivalent_models = []
+        #      for chain in entity.chains:
+        #          chain_center_of_mass = chain.center_of_mass
+        #          # Slice through the symmetric coords for that coordinate representation of the Entity
+        #          for model_idx in range(self.number_symmetry_mates):
+        #              sym_model_center_of_mass = \
+        #                  np.matmul(entity_center_of_mass_divisor,
+        #                            self.symmetric_coords[model_idx*number_of_atoms + entity_start:
+        #                                                  1 + model_idx*number_of_atoms + entity_end])
+        #              #                                             have to add 1 for slice ^
 
     def get_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) -> \
             list[int]:
@@ -5659,163 +5167,162 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                                              number_of_atoms * (model_number+1)))
 
         return interacting_indices
-
-    def assign_entities_to_sub_symmetry(self):
-        """From a symmetry entry, find the entities which belong to each sub-symmetry (the component groups) which make
-        the global symmetry. Construct the sub-symmetry by copying each symmetric chain to the Entity's .chains
-        attribute"""
-        raise NotImplementedError('Cannot assign entities to sub symmetry yet! Need to debug this function')
-        if not self.is_symmetric():
-            raise SymmetryError('Must set a global symmetry to assign entities to sub symmetry!')
-
-        # Get the rotation matrices for each group then orient along the setting matrix "axis"
-        if self.sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or self.sym_entry.group2 in ['D2', 'D3', 'D4', 'D6']:
-            group1 = self.sym_entry.group1.replace('D', 'C')
-            group2 = self.sym_entry.group2.replace('D', 'C')
-            rotation_matrices_only1 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group1], 'z', 360)
-            rotation_matrices_only2 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group2], 'z', 360)
-            # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            flip_x = [utils.symmetry.identity_matrix, utils.symmetry.flip_x_matrix]
-            rotation_matrices_group1 = utils.SymEntry.make_rotations_degenerate(rotation_matrices_only1, flip_x)
-            rotation_matrices_group2 = utils.SymEntry.make_rotations_degenerate(rotation_matrices_only2, flip_x)
-            # group_set_rotation_matrices = {1: np.matmul(degen_rot_mat_1, np.transpose(set_mat1)),
-            #                                2: np.matmul(degen_rot_mat_2, np.transpose(set_mat2))}
-            raise SymmetryError('Using dihedral symmetry has not been implemented yet! It is required to change the '
-                                f'code before continuing with design of symmetry entry {self.sym_entry.number}!')
-        else:
-            group1 = self.sym_entry.group1
-            group2 = self.sym_entry.group2
-            # These come in as np.array (rotations, 3, 3)
-            rotation_matrices_group1 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group1], 'z', 360)
-            rotation_matrices_group2 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group2], 'z', 360)
-
-        # Assign each Entity to a symmetry group
-        # entity_coms = [entity.center_of_mass for entity in self.asu]
-        # all_entities_com = np.matmul(np.full(len(entity_coms), 1 / len(entity_coms)), entity_coms)
-        all_entities_com = self.center_of_mass
-        # check if global symmetry is centered at the origin. If not, translate to the origin with ext_tx
-        self.log.debug(f'The symmetric center of mass is: {self.center_of_mass_symmetric}')
-        if np.isclose(self.center_of_mass_symmetric, utils.symmetry.origin):
-            # The com is at the origin
-            self.log.debug('The symmetric center of mass is at the origin')
-            ext_tx = utils.symmetry.origin
-            expand_matrices = self._expand_matrices
-        else:
-            self.log.debug('The symmetric center of mass is NOT at the origin')
-            # Todo find ext_tx from input without Nanohedra input
-            #  In Nanohedra, the origin will work for many symmetries, I believe all! Given the reliance on
-            #  crystallographic tables, their symmetry operations are centered around the lattice point, which I see
-            #  only complicating things to move besides the origin
-            if self.dimension > 0:
-                # Todo we have different set up required here. The expand matrices can be derived from a point group in
-                #  the layer or space setting, however we must ensure that the required external tx is respected
-                #  (i.e. subtracted) at the required steps such as from coms_group1/2 in return_symmetric_coords
-                #  (generated using self._expand_matrices) and/or the entity_com as this is set up within a
-                #  cartesian expand matrix environment is going to yield wrong results on the expand matrix indexing
-                assert self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates, \
-                    f"Can't have more models ({self.number_of_symmetry_mates}) than a single unit cell " \
-                    f"({self.number_of_uc_symmetry_mates})"
-                expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.point_group_symmetry]
-            else:
-                expand_matrices = self._expand_matrices
-            ext_tx = self.center_of_mass_symmetric  # only works for unit cell or point group NOT surrounding UC
-            # This is typically centered at the origin for the symmetric assembly... NEED rigourous testing.
-            # Maybe this route of generation is too flawed for layer/space? Nanohedra framework gives a comprehensive
-            # handle on all these issues though
-
-        # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
-        approx_entity_com_reference_tx = np.linalg.norm(all_entities_com - ext_tx)
-        approx_entity_z_tx = np.array([0., 0., approx_entity_com_reference_tx])
-        # apply the setting matrix for each group to the approximate translation
-        set_mat1 = self.sym_entry.setting_matrix1
-        set_mat2 = self.sym_entry.setting_matrix2
-        # TODO test transform_coordinate_sets has the correct input format (numpy.ndarray)
-        com_group1 = transform_coordinate_sets(utils.symmetry.origin, translation=approx_entity_z_tx,
-                                               rotation2=set_mat1, translation2=ext_tx)
-        com_group2 = transform_coordinate_sets(utils.symmetry.origin, translation=approx_entity_z_tx,
-                                               rotation2=set_mat2, translation2=ext_tx)
-        # expand the tx'd, setting matrix rot'd, approximate coms for each group using self.expansion operators
-        coms_group1 = self.return_symmetric_coords(com_group1)
-        coms_group2 = self.return_symmetric_coords(com_group2)
-
-        # measure the closest distance from each entity com to the setting matrix transformed approx group coms to find
-        # which group the entity belongs to. Save the group and the operation index of the expansion matrices. With both
-        # of these, it is possible to find a new setting matrix that is symmetry equivalent and will generate the
-        # correct sub-symmetry symmetric copies for each provided Entity
-        group_entity_rot_ops = {1: {}, 2: {}}
-        # min_dist1, min_dist2, min_1_entity, min_2_entity = float('inf'), float('inf'), None, None
-        for entity in self.entities:
-            entity_com = entity.center_of_mass
-            min_dist, min_entity_group_operator = float('inf'), None
-            for idx in range(len(expand_matrices)):  # has the length of the symmetry operations
-                com1_distance = np.linalg.norm(entity_com - coms_group1[idx])
-                com2_distance = np.linalg.norm(entity_com - coms_group2[idx])
-                if com1_distance < com2_distance:
-                    if com1_distance < min_dist:
-                        min_dist = com1_distance
-                        min_entity_group_operator = (group2, expand_matrices[idx])
-                    # # entity_min_group = 1
-                    # entity_group_d[1].append(entity)
-                else:
-                    if com2_distance < min_dist:
-                        min_dist = com2_distance
-                        min_entity_group_operator = (group2, expand_matrices[idx])
-                    # # entity_min_group = 2
-                    # entity_group_d[2].append(entity)
-            if min_entity_group_operator:
-                group, operation = min_entity_group_operator
-                group_entity_rot_ops[group][entity] = operation
-                # {1: {entity1: [[],[],[]]}, 2: {entity2: [[],[],[]]}}
-
-        set_mat = {1: set_mat1, 2: set_mat2}
-        inv_set_matrix = {1: np.linalg.inv(set_mat1), 2: np.linalg.inv(set_mat2)}
-        group_rotation_matrices = {1: rotation_matrices_group1, 2: rotation_matrices_group2}
-        # Multiplication is not possible in this way apparently!
-        # group_set_rotation_matrices = {1: np.matmul(rotation_matrices_group1, np.transpose(set_mat1)),
-        #                                2: np.matmul(rotation_matrices_group2, np.transpose(set_mat2))}
-
-        # Apply the rotation matrices to the identified group Entities. First modify the Entity by the inverse expansion
-        # and setting matrices to orient along Z axis. Apply the rotation matrix, then reverse operations back to start
-        for idx, (group, entity_ops) in enumerate(group_entity_rot_ops.items()):
-            for entity, rot_op in entity_ops.items():
-                dummy_rotation = False
-                dummy_translation = False
-                # Todo need to reverse the expansion matrix first to get the entity coords to the "canonical" setting
-                #  matrix as expected by Nanohedra. I can then make_oligomers
-                entity.make_oligomer(symmetry=group, **dict(rotation=dummy_rotation, translation=dummy_translation,
-                                                            rotation2=set_mat[idx], translation2=ext_tx))
-                # # Todo if this is a fractional rot/tx pair this won't work
-                # #  I converted the space group external tx and design_pg_symmetry to rot_matrices so I should
-                # #  test if the change to local point group symmetry in a layer or space group is sufficient
-                # inv_expand_matrix = np.linalg.inv(rot_op)
-                # inv_rotation_matrix = np.linalg.inv(dummy_rotation)
-                # # entity_inv = entity.get_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
-                # # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
-                # centered_coords = transform_coordinate_sets(entity.coords, translation=-ext_tx)
-                # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_expand_matrix,
-                #                                             rotation2=inv_set_matrix[group])
-                # TODO                                        NEED DIHEDRAl rotation v back to canonical
-                # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_rotation_matrix,
-                # TODO                                        as well as v translation (not approx, dihedral won't work)
-                #                                             translation=approx_entity_z_tx)
-                # # now rotate, then undo symmetry expansion matrices
-                # # for rot in group_rotation_matrices[group][1:]:  # exclude the first rotation matrix as it is identity
-                # for rot in group_rotation_matrices[group]:
-                #     temp_coords = transform_coordinate_sets(sym_on_z_coords, rotation=np.array(rot), rotation2=set_mat[group])
-                #     # rot_centered_coords = transform_coordinate_sets(sym_on_z_coords, rotation=rot)
-                #     # final_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation,
-                #     #                                          translation=translation, <-NEED^ for DIHEDRAL
-                #     #                                          rotation2=rotation2, translation2=translation2)
-                #     final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=ext_tx)
-                #     # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
-                #     sub_symmetry_mate_pdb = entity.chain_representative.copy()
-                #     sub_symmetry_mate_pdb.replace_coords(final_coords)
-                #     entity.chains.append(sub_symmetry_mate_pdb)
-                #     # need to take the cyclic system generated and somehow transpose it on the dihedral group.
-                #     # an easier way would be to grab the assembly from the SymDesignOutput/Data/PDBs and set the
-                #     # oligomer onto the ASU. The .chains would then be populated for the non-transposed chains
-                #     # if dihedral:  # TODO
-                #     #     dummy = True
+    # def assign_entities_to_sub_symmetry(self):
+    #     """From a symmetry entry, find the entities which belong to each sub-symmetry (the component groups) which make
+    #     the global symmetry. Construct the sub-symmetry by copying each symmetric chain to the Entity's .chains
+    #     attribute"""
+    #     raise NotImplementedError('Cannot assign entities to sub symmetry yet! Need to debug this function')
+    #     if not self.is_symmetric():
+    #         raise SymmetryError('Must set a global symmetry to assign entities to sub symmetry!')
+    #
+    #     # Get the rotation matrices for each group then orient along the setting matrix "axis"
+    #     if self.sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or self.sym_entry.group2 in ['D2', 'D3', 'D4', 'D6']:
+    #         group1 = self.sym_entry.group1.replace('D', 'C')
+    #         group2 = self.sym_entry.group2.replace('D', 'C')
+    #         rotation_matrices_only1 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group1], 'z', 360)
+    #         rotation_matrices_only2 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group2], 'z', 360)
+    #         # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+    #         flip_x = [utils.symmetry.identity_matrix, utils.symmetry.flip_x_matrix]
+    #         rotation_matrices_group1 = utils.SymEntry.make_rotations_degenerate(rotation_matrices_only1, flip_x)
+    #         rotation_matrices_group2 = utils.SymEntry.make_rotations_degenerate(rotation_matrices_only2, flip_x)
+    #         # group_set_rotation_matrices = {1: np.matmul(degen_rot_mat_1, np.transpose(set_mat1)),
+    #         #                                2: np.matmul(degen_rot_mat_2, np.transpose(set_mat2))}
+    #         raise SymmetryError('Using dihedral symmetry has not been implemented yet! It is required to change the '
+    #                             f'code before continuing with design of symmetry entry {self.sym_entry.number}!')
+    #     else:
+    #         group1 = self.sym_entry.group1
+    #         group2 = self.sym_entry.group2
+    #         # These come in as np.array (rotations, 3, 3)
+    #         rotation_matrices_group1 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group1], 'z', 360)
+    #         rotation_matrices_group2 = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[group2], 'z', 360)
+    #
+    #     # Assign each Entity to a symmetry group
+    #     # entity_coms = [entity.center_of_mass for entity in self.asu]
+    #     # all_entities_com = np.matmul(np.full(len(entity_coms), 1 / len(entity_coms)), entity_coms)
+    #     all_entities_com = self.center_of_mass
+    #     # check if global symmetry is centered at the origin. If not, translate to the origin with ext_tx
+    #     self.log.debug(f'The symmetric center of mass is: {self.center_of_mass_symmetric}')
+    #     if np.isclose(self.center_of_mass_symmetric, utils.symmetry.origin):
+    #         # The com is at the origin
+    #         self.log.debug('The symmetric center of mass is at the origin')
+    #         ext_tx = utils.symmetry.origin
+    #         expand_matrices = self._expand_matrices
+    #     else:
+    #         self.log.debug('The symmetric center of mass is NOT at the origin')
+    #         # Todo find ext_tx from input without Nanohedra input
+    #         #  In Nanohedra, the origin will work for many symmetries, I believe all! Given the reliance on
+    #         #  crystallographic tables, their symmetry operations are centered around the lattice point, which I see
+    #         #  only complicating things to move besides the origin
+    #         if self.dimension > 0:
+    #             # Todo we have different set up required here. The expand matrices can be derived from a point group in
+    #             #  the layer or space setting, however we must ensure that the required external tx is respected
+    #             #  (i.e. subtracted) at the required steps such as from coms_group1/2 in return_symmetric_coords
+    #             #  (generated using self._expand_matrices) and/or the entity_com as this is set up within a
+    #             #  cartesian expand matrix environment is going to yield wrong results on the expand matrix indexing
+    #             assert self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates, \
+    #                 f"Can't have more models ({self.number_of_symmetry_mates}) than a single unit cell " \
+    #                 f"({self.number_of_uc_symmetry_mates})"
+    #             expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.point_group_symmetry]
+    #         else:
+    #             expand_matrices = self._expand_matrices
+    #         ext_tx = self.center_of_mass_symmetric  # only works for unit cell or point group NOT surrounding UC
+    #         # This is typically centered at the origin for the symmetric assembly... NEED rigourous testing.
+    #         # Maybe this route of generation is too flawed for layer/space? Nanohedra framework gives a comprehensive
+    #         # handle on all these issues though
+    #
+    #     # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
+    #     approx_entity_com_reference_tx = np.linalg.norm(all_entities_com - ext_tx)
+    #     approx_entity_z_tx = np.array([0., 0., approx_entity_com_reference_tx])
+    #     # apply the setting matrix for each group to the approximate translation
+    #     set_mat1 = self.sym_entry.setting_matrix1
+    #     set_mat2 = self.sym_entry.setting_matrix2
+    #     # TODO test transform_coordinate_sets has the correct input format (numpy.ndarray)
+    #     com_group1 = transform_coordinate_sets(utils.symmetry.origin, translation=approx_entity_z_tx,
+    #                                            rotation2=set_mat1, translation2=ext_tx)
+    #     com_group2 = transform_coordinate_sets(utils.symmetry.origin, translation=approx_entity_z_tx,
+    #                                            rotation2=set_mat2, translation2=ext_tx)
+    #     # expand the tx'd, setting matrix rot'd, approximate coms for each group using self.expansion operators
+    #     coms_group1 = self.return_symmetric_coords(com_group1)
+    #     coms_group2 = self.return_symmetric_coords(com_group2)
+    #
+    #     # measure the closest distance from each entity com to the setting matrix transformed approx group coms to find
+    #     # which group the entity belongs to. Save the group and the operation index of the expansion matrices. With both
+    #     # of these, it is possible to find a new setting matrix that is symmetry equivalent and will generate the
+    #     # correct sub-symmetry symmetric copies for each provided Entity
+    #     group_entity_rot_ops = {1: {}, 2: {}}
+    #     # min_dist1, min_dist2, min_1_entity, min_2_entity = float('inf'), float('inf'), None, None
+    #     for entity in self.entities:
+    #         entity_com = entity.center_of_mass
+    #         min_dist, min_entity_group_operator = float('inf'), None
+    #         for idx in range(len(expand_matrices)):  # has the length of the symmetry operations
+    #             com1_distance = np.linalg.norm(entity_com - coms_group1[idx])
+    #             com2_distance = np.linalg.norm(entity_com - coms_group2[idx])
+    #             if com1_distance < com2_distance:
+    #                 if com1_distance < min_dist:
+    #                     min_dist = com1_distance
+    #                     min_entity_group_operator = (group2, expand_matrices[idx])
+    #                 # # entity_min_group = 1
+    #                 # entity_group_d[1].append(entity)
+    #             else:
+    #                 if com2_distance < min_dist:
+    #                     min_dist = com2_distance
+    #                     min_entity_group_operator = (group2, expand_matrices[idx])
+    #                 # # entity_min_group = 2
+    #                 # entity_group_d[2].append(entity)
+    #         if min_entity_group_operator:
+    #             group, operation = min_entity_group_operator
+    #             group_entity_rot_ops[group][entity] = operation
+    #             # {1: {entity1: [[],[],[]]}, 2: {entity2: [[],[],[]]}}
+    #
+    #     set_mat = {1: set_mat1, 2: set_mat2}
+    #     inv_set_matrix = {1: np.linalg.inv(set_mat1), 2: np.linalg.inv(set_mat2)}
+    #     group_rotation_matrices = {1: rotation_matrices_group1, 2: rotation_matrices_group2}
+    #     # Multiplication is not possible in this way apparently!
+    #     # group_set_rotation_matrices = {1: np.matmul(rotation_matrices_group1, np.transpose(set_mat1)),
+    #     #                                2: np.matmul(rotation_matrices_group2, np.transpose(set_mat2))}
+    #
+    #     # Apply the rotation matrices to the identified group Entities. First modify the Entity by the inverse expansion
+    #     # and setting matrices to orient along Z axis. Apply the rotation matrix, then reverse operations back to start
+    #     for idx, (group, entity_ops) in enumerate(group_entity_rot_ops.items()):
+    #         for entity, rot_op in entity_ops.items():
+    #             dummy_rotation = False
+    #             dummy_translation = False
+    #             # Todo need to reverse the expansion matrix first to get the entity coords to the "canonical" setting
+    #             #  matrix as expected by Nanohedra. I can then make_oligomers
+    #             entity.make_oligomer(symmetry=group, **dict(rotation=dummy_rotation, translation=dummy_translation,
+    #                                                         rotation2=set_mat[idx], translation2=ext_tx))
+    #             # # Todo if this is a fractional rot/tx pair this won't work
+    #             # #  I converted the space group external tx and design_pg_symmetry to rot_matrices so I should
+    #             # #  test if the change to local point group symmetry in a layer or space group is sufficient
+    #             # inv_expand_matrix = np.linalg.inv(rot_op)
+    #             # inv_rotation_matrix = np.linalg.inv(dummy_rotation)
+    #             # # entity_inv = entity.get_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
+    #             # # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
+    #             # centered_coords = transform_coordinate_sets(entity.coords, translation=-ext_tx)
+    #             # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_expand_matrix,
+    #             #                                             rotation2=inv_set_matrix[group])
+    #             # TODO                                        NEED DIHEDRAl rotation v back to canonical
+    #             # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_rotation_matrix,
+    #             # TODO                                        as well as v translation (not approx, dihedral won't work)
+    #             #                                             translation=approx_entity_z_tx)
+    #             # # now rotate, then undo symmetry expansion matrices
+    #             # # for rot in group_rotation_matrices[group][1:]:  # exclude the first rotation matrix as it is identity
+    #             # for rot in group_rotation_matrices[group]:
+    #             #     temp_coords = transform_coordinate_sets(sym_on_z_coords, rotation=np.array(rot), rotation2=set_mat[group])
+    #             #     # rot_centered_coords = transform_coordinate_sets(sym_on_z_coords, rotation=rot)
+    #             #     # final_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation,
+    #             #     #                                          translation=translation, <-NEED^ for DIHEDRAL
+    #             #     #                                          rotation2=rotation2, translation2=translation2)
+    #             #     final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=ext_tx)
+    #             #     # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
+    #             #     sub_symmetry_mate_pdb = entity.chain_representative.copy()
+    #             #     sub_symmetry_mate_pdb.replace_coords(final_coords)
+    #             #     entity.chains.append(sub_symmetry_mate_pdb)
+    #             #     # need to take the cyclic system generated and somehow transpose it on the dihedral group.
+    #             #     # an easier way would be to grab the assembly from the SymDesignOutput/Data/PDBs and set the
+    #             #     # oligomer onto the ASU. The .chains would then be populated for the non-transposed chains
+    #             #     # if dihedral:  # TODO
+    #             #     #     dummy = True
 
     @property
     def entity_transformations(self) -> list[types.TransformationMapping] | list:
@@ -6013,16 +5520,10 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                             minimal_central_offset = central_offset
                             centrally_disposed_group_height = z_height
                             additional_group_heights = []  # [z_height]
-                            # Todo this might be required to get the correct oligomer
-                            #  additional_group_heights = [z_height]
                             self.log.debug(f'NEW group-{group_idx}, setting-matrix{setting_matrix_idx} '
                                            f'centrally_disposed_group_height = {centrally_disposed_group_height} at '
                                            f'central_offset = {central_offset}')
                         elif central_offset == minimal_central_offset:
-                            # Todo this might be required to get the correct oligomer
-                            #  if centrally_disposed_group_height < 0 < z_height or \
-                            #          centrally_disposed_group_height > z_height > 0:
-                            #      centrally_disposed_group_height = z_height
 
                             # This is the same distance as previously located.
                             self.log.debug(f'EQUAL group-{group_idx}, setting-matrix{setting_matrix_idx} '
@@ -6095,8 +5596,6 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                     dict(translation=translation, rotation2=setting_matrix, translation2=external_tx[group_idx]))
                 oligomeric_indices_groups.append(entity_model_indices)
 
-        # Todo find the particular rotation to orient the Entity oligomer to a canonical orientation. This must
-        #  accompany standards required for the SymDesign Database for actions like refinement
 
         # def set_contacting_asu(from_com: bool = True):
         #     asu_coords = [symmetric_coords_split_by_entity[sym_idx]
@@ -6471,9 +5970,9 @@ class Pose(SymmetricModel, MetricsMixin):
             min_ratio_sum += 1 - min_ratio
             max_ratio_sum += 1 - max_ratio
             # Todo
-            #  These could be useful in the PoseMetrics selection section to calculate on the fly
-            #  They are cumbersome and not recommended DB etiquette
-            #   (i.e. take up unnecessary db space, should be a table)
+            #   These could be useful in the PoseMetrics selection section to calculate on the fly
+            #   They are cumbersome and not recommended DB etiquette
+            #    (i.e. take up unnecessary db space, should be a table)
             # residue_ratio_sum += abs(1 - residue_ratio)
             # entity_idx1, entity_idx2 = next(index_combinations)
             # pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
@@ -6666,8 +6165,8 @@ class Pose(SymmetricModel, MetricsMixin):
             self.log.debug(f"The 'design_selector' {required=}")
             entity_required, required_atom_indices = grab_indices(**required)  # , start_with_none=True)
             # Todo
-            #  create a separate variable for required_entities?
-            #  self._required_entities = entity_required
+            #   create a separate variable for required_entities?
+            #   self._required_entities = entity_required
             self._required_atom_indices = list(required_atom_indices)
         else:
             entity_required = set()
@@ -6834,23 +6333,20 @@ class Pose(SymmetricModel, MetricsMixin):
         residue_mask = np.zeros(number_of_residues, dtype=np.int32)  # (number_of_residues,)
         residue_mask[design_indices] = 1
 
-        # Todo resolve these data structures as flags
+        # Todo
+        #  resolve these data structures as flags
         omit_AAs_np = np.zeros(ml.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
         bias_AAs_np = np.zeros_like(omit_AAs_np)  # (alphabet_length,)
         omit_AA_mask = np.zeros((number_of_residues, ml.mpnn_alphabet_length),
                                 dtype=np.int32)  # (number_of_residues, alphabet_length)
-        # Todo what is enough bias?
-        #  This needs to be on a scale with the magnitude of a typical logit for a decoded position
-        #  From ProteinMPNN/examples/submit_example_8.sh
-        #  #Adding global polar amino acid bias (Doug Tischer)
-        #  AA_list="D E H K N Q R S T W Y"
-        #  bias_list="1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39"
         bias_by_res = np.zeros(omit_AA_mask.shape, dtype=np.float32)  # (number_of_residues, alphabet_length)
 
         # Get sequence profile to include for design bias
-        # Todo parameterize _threshold, _coef
+        # Todo
+        #  parameterize _threshold, _coef
         pssm_threshold = 0.  # Must be a greater probability than wild-type
-        # Todo I think these need a gap value, so 21 along axis=1
+        # Todo
+        #  I think these need a gap value, so 21 along axis=1
         pssm_log_odds = pssm_as_array(self.profile, lod=True)  # (number_of_residues, 20)
         pssm_log_odds_mask = np.where(pssm_log_odds >= pssm_threshold, 1., 0.)  # (number_of_residues, 20)
         pssm_coef = np.ones(residue_mask.shape, dtype=np.float32)  # (number_of_residues,)
@@ -6979,7 +6475,8 @@ class Pose(SymmetricModel, MetricsMixin):
             pose_length *= self.number_of_symmetry_mates
 
         if core_first:
-            # Todo set up core residues to be higher in value that other designable residues
+            # Todo
+            #  set up core residues to be higher in value that other designable residues
             raise NotImplementedError(f'core_first is not available yet')
         else:  # random decoding order
             decode_order = np.random.rand(pose_length)
@@ -7407,9 +6904,9 @@ class Pose(SymmetricModel, MetricsMixin):
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             entity_residue_contact_order_z = metrics.z_score(contact_order, contact_order.mean(), contact_order.std())
             # Todo
-            #  Using the median may be a better measure of the contact order due to highly skewed data...
-            #  entity_residue_contact_order_z = \
-            #      utils.z_score(contact_order, np.median(contact_order), contact_order.std())
+            #   Using the median may be a better measure of the contact order due to highly skewed data...
+            #   entity_residue_contact_order_z = \
+            #       utils.z_score(contact_order, np.median(contact_order), contact_order.std())
             contact_order_z.append(entity_residue_contact_order_z)
             # inverse_residue_contact_order_z.append(entity_residue_contact_order_z * -1)
             hydrophobic_collapse.append(entity.hydrophobic_collapse(**kwargs))
@@ -7606,27 +7103,27 @@ class Pose(SymmetricModel, MetricsMixin):
         else:
             pose_metrics['symmetric_interface'] = True
 
-        # if self.is_symmetric():
-        #     pose_metrics['design_dimension'] = self.dimension
-        #     # for idx, group in enumerate(self.sym_entry.groups, 1):
-        #     #     pose_metrics[f'entity{idx}_symmetry_group'] = group
-        # else:
-        #     pose_metrics['design_dimension'] = 'asymmetric'
+        #  if self.is_symmetric():
+        #      pose_metrics['design_dimension'] = self.dimension
+        #      # for idx, group in enumerate(self.sym_entry.groups, 1):
+        #      #     pose_metrics[f'entity{idx}_symmetry_group'] = group
+        #  else:
+        #      pose_metrics['design_dimension'] = 'asymmetric'
 
-        # try:
-        #     api_db = resources.wrapapi.api_database_factory()
-        #     is_ukb_thermophilic = api_db.uniprot.thermophilicity
-        #     is_pdb_thermophile = api_db.pdb.entity_thermophilicity
-        # except AttributeError:
-        #     is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
-        #     is_pdb_thermophile = query.pdb.entity_thermophilicity
+        #  try:
+        #      api_db = resources.wrapapi.api_database_factory()
+        #      is_ukb_thermophilic = api_db.uniprot.thermophilicity
+        #      is_pdb_thermophile = api_db.pdb.entity_thermophilicity
+        #  except AttributeError:
+        #      is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
+        #      is_pdb_thermophile = query.pdb.entity_thermophilicity
 
-        # Todo new-style sql.EntityMetrics
-        # # Todo need to get the secondary structure at each entity interface indices
-        # # for number, topology in interface_ss_topology.items():
-        # #     pose_metrics[f'entity{number}_secondary_structure_topology'] = topology
-        # #     pose_metrics[f'entity{number}_secondary_structure_fragment_topology'] = \
-        # #         interface_ss_fragment_topology.get(number, '-')
+        #  Todo  new-style sql.EntityMetrics
+        #  # Todo need to get the secondary structure at each entity interface indices
+        #  # for number, topology in interface_ss_topology.items():
+        #  #     pose_metrics[f'entity{number}_secondary_structure_topology'] = topology
+        #  #     pose_metrics[f'entity{number}_secondary_structure_fragment_topology'] = \
+        #  #         interface_ss_fragment_topology.get(number, '-')
 
         return pose_metrics
 
@@ -8157,8 +7654,8 @@ class Pose(SymmetricModel, MetricsMixin):
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 # self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
             # Todo
-            #  Alternative (quicker) route could use the assembly_minimally_contacting model indices.
-            #  These are all that is needed to query
+            #   Alternative (quicker) route could use the assembly_minimally_contacting model indices.
+            #   These are all that is needed to query
             entity2_coords = self.symmetric_coords[entity2_indices]  # Get the symmetric indices from Entity 2
             sym_string = 'symmetric '
         elif entity1 == entity2:
@@ -8180,8 +7677,6 @@ class Pose(SymmetricModel, MetricsMixin):
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified
         entity1_tree = BallTree(entity1_coords)
-        # Todo
-        #  entity1_tree = entity1.balltree(atom_type='cb').query_radius(entity2_coords, distance)
 
         self.log.debug(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
                        f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
@@ -8505,7 +8000,8 @@ class Pose(SymmetricModel, MetricsMixin):
         if self._interface_residue_indices_by_interface:
             self.log.debug("Interface residues weren't set as they're already set. If they've been changed, the "
                            "attribute 'interface_residues_by_interface' should be reset")
-            # Todo add to reset_state()/reset_pose()
+            # Todo
+            #  add to reset_state()/reset_pose()
             return
 
         active_entities = self.active_entities
@@ -9059,13 +8555,7 @@ class Pose(SymmetricModel, MetricsMixin):
                  ...}
         """
         res_slice = slice(0, 4)
-        # energy_template = {'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
-        #                    'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
-        #                    'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.}
-        # residue_template = {'energy': {'complex': 0., 'fsp': 0., 'cst': 0.,
-        #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
-        # c_term_residue_numbers = [entity.c_terminal_residue.number for entity in self.entities]
         # Adjust the energy based on pose specifics
         pose_energy_multiplier = self.number_of_symmetry_mates  # Will be 1 if not self.is_symmetric()
         entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
@@ -9075,21 +8565,17 @@ class Pose(SymmetricModel, MetricsMixin):
             'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
             'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.})
 
-        # keep_digit_table = utils.keep_digit_table
-        # warn = True
         warn_additional = True
         parsed_design_residues = {}
         for design, scores in design_scores.items():
             residue_data = defaultdict(get_template)
             for key, value in scores.items():
-                if key[res_slice] != 'res_':  # 'res_' not in key:  # if not key.startswith('per_res_'):
+                if key[res_slice] != 'res_':
                     continue
-                # try:
-                # per_res_energysolv_complex_15W or per_res_energysolv_2_bound_415B
+                # key contains: 'per_res_energysolv_complex_15W' or 'per_res_energysolv_2_bound_415B'
                 res, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')
-                # metadata = key.strip('_').split('_')
-                # metric = metadata[1]  # energy [or sasa]
-                # entity_or_complex = metadata[2]  # 1,2,3,... or complex
+                # metadata[1] is energy [or sasa]
+                # metadata[2] is entity designation or complex such as '1','2','3',... or 'complex'
 
                 # Take the "possibly" symmetric Rosetta residue index (one-indexed) and convert to python,
                 # then take the modulus for the pose numbering
@@ -9098,46 +8584,19 @@ class Pose(SymmetricModel, MetricsMixin):
                 except ValueError:
                     continue  # This is a residual metric
                 # Todo
-                #  Remove try: except: after removal of chain information from T33-round2 residue strings
-                #  residue_index = (int(metadata[-1])-1) % pose_length
+                #   Remove try: except: after removal of chain information from T33-round2 residue strings
+                #   residue_index = (int(metadata[-1])-1) % pose_length
                 # remove chain_id in rosetta_numbering="False"
-                # # If there are enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
-                # # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
-                # try:
-                #     residue_number = int(metadata[-1].translate(keep_digit_table))
-                # except ValueError as error:
-                #     self.log.debug(f'{self.rosetta_residue_processing.__name__}: Found the following error converting '
-                #                    f'to int(): {error}\n\tAssociated Key -> {key}')
-                #     continue
-                # if all(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
-                #     if warn:
-                #         warn = False
-                #         logger.warning(
-                #             f'Encountered {key} which has residue number > the pose length ({pose_length}). If this '
-                #             "system ISN'T a large symmetric system and output_as_pdb_nums="
-                #             '"true" was used in Rosetta PerResidue SimpleMetrics, there is an error in processing that '
-                #             'requires debugging. Otherwise, this is likely a numerical chain and will be treated under '
-                #             'that assumption. Always ensure that output_as_pdb_nums="true" is set'
-                #         )
-                #     # This assumes that the chain identifier is only 1 character long...
-                #     residue_number = int(metadata[-1].translate(keep_digit_table)[:-1])
-                # if residue_index not in residue_data:
-                #     residue_data[residue_index] = deepcopy(energy_template)  # deepcopy(residue_template)
-
-                # if metric == 'energy':
-                #     # pose_state could have either fsp (favor_sequence_profile) or cst (constraint) as well
-                #     metric_str = metadata[-2]  # pose_state - un, bound, complex
                 if metric == 'energysolv':
                     metric_str = f'solv_{metadata[-2]}'  # pose_state - unbound, bound, complex
                 elif metric == 'energy':
                     metric_str = metadata[-2]  # pose_state - unbound, bound, complex
-                else:  # Other residual...
+                else:  # Other residual such as sasa or something else old/new
                     if warn_additional:
                         warn_additional = False
                         logger.warning(f"Found additional metrics that aren't being processed. Ex {key}={value}")
                     continue
-                # else:  # sasa or something else old
-                #     pass
+
                 # Use += because instances of symmetric residues from symmetry related chains are summed
                 try:  # To convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
                     entity = int(entity_or_complex) - ZERO_OFFSET
@@ -9145,18 +8604,8 @@ class Pose(SymmetricModel, MetricsMixin):
                     residue_data[residue_index][metric_str] += (value / pose_energy_multiplier)
                 else:
                     residue_data[residue_index][metric_str][entity] += (value / entity_energy_multiplier[entity])
-            # # Turn the residue_data into Residue.index values
-            # parsed_residue_numbers = list(residue_data.keys())
-            # clean_residue_data = \
-            #     {residue.index: residue_data.pop(original_number)
-            #      for original_number, residue in zip(parsed_residue_numbers, self.get_residues(parsed_residue_numbers))}
 
             parsed_design_residues[design] = residue_data
-            # # Finally, check that we are cleaned for sanity
-            # if residue_data:
-            #     raise DesignError(
-            #         f"Found a design that couldn't be cleaned from the input. Remaining contents:\n{residue_data}")
-            # parsed_design_residues[design] = clean_residue_data
 
         return parsed_design_residues
 
