@@ -5333,6 +5333,35 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                 list(self.return_symmetric_coords(entity.center_of_mass)) for entity in self.entities]
             return self._center_of_mass_symmetric_entities
 
+    def _generate_assembly_name(self, minimal: bool | int | None = False, surrounding_uc: bool = False) -> str:
+        """Provide a name for a generated assembly depending on the symmetry
+
+        Args:
+            minimal: Whether to create the minimally contacting assembly model
+            surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly models
+        Returns:
+            The name of the assembly based on the symmetry
+        """
+        if minimal is None:
+            # When the Pose is asymmetric
+            name = f'{self.name}-copy'
+        else:
+            if self.dimension:
+                if surrounding_uc:
+                    symmetry_type_str = 'surrounding-uc-'
+                else:
+                    symmetry_type_str = 'uc-'
+            else:
+                symmetry_type_str = ''
+
+            if minimal:  # Only return contacting
+                name = f'{self.name}-minimal-assembly'
+            else:
+                name = f'{self.name}-{symmetry_type_str}assembly'
+
+        return name
+
+    # Todo Entity expansion
     @property
     def assembly(self) -> Model:
         """Provides the Structure object containing all symmetric chains in the assembly unless the design is 2- or 3-D
@@ -5369,95 +5398,56 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         Returns:
             A Model instance for each of the symmetric mates. These are transformed copies of the SymmetricModel
         """
-        if minimal is None:
-            # When the Pose is asymmetric
-            name = f'{self.name}-copy'
-            models = [self.copy()]
-        else:  # Check for the surrounding_uc and minimial assembly flags
-            # surrounding_uc needs to be made before get_asu_interaction_model_indices()
-            if self.dimension:
-                if surrounding_uc:
-                    # When the surrounding_uc is requested, .symmetric_coords might need to be regenerated
-                    symmetry_type_str = 'surrounding-uc-'
-                    if not self.is_surrounding_uc():
-                        # The surrounding coords don't exist as the number of mates is equal to the unit cell
-                        self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
-                    number_of_symmetry_mates = self.number_of_symmetry_mates
-                else:  # Enforce number_of_uc_symmetry_mates is used
-                    number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-                    symmetry_type_str = 'uc-'
-            else:
-                number_of_symmetry_mates = self.number_of_symmetry_mates
-                symmetry_type_str = ''
-
-            if minimal:  # Only return contacting
-                name = f'{self.name}-minimal-assembly'
-                # Add the ASU index to the model first
-                model_indices = [0] + self.get_asu_interaction_model_indices()  # calculate_contacts=False)
-            else:
-                name = f'{self.name}-{symmetry_type_str}assembly'
-                model_indices = range(number_of_symmetry_mates)
-
-            self.log.debug(f'Found selected models {model_indices} for assembly')
-
-            # Update all models with the symmetric_coords
-            number_of_atoms = self.number_of_atoms
-            symmetric_coords = self.symmetric_coords
-            models = []
-            for model_idx in model_indices:
-                asu_copy = self.copy()
-                asu_copy.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx + 1) * number_of_atoms]
-                models.append(asu_copy)
-
+        models = self._generate_models(minimal=minimal, surrounding_uc=surrounding_uc)
+        name = self._generate_assembly_name(minimal=minimal, surrounding_uc=surrounding_uc)
         return Models(models, name=name)
 
-    def _generate_assembly(self, minimal: bool = False, surrounding_uc: bool = False) -> Model:
-        """Creates the Model with all chains from the SymmetricModel"""
+    def _generate_models(
+            self, minimal: bool | int | None = False, surrounding_uc: bool = False
+    ) -> list[SymmetricModel]:  # Self Todo python 3.11
+        """Create a group of instance copies for a specified symmetry specification
+
+        Args:
+            minimal: Whether to create the minimally contacting models. This is advantageous in crystalline
+                symmetries to minimize the size of the "assembly"
+            surrounding_uc: Whether to generate the surrounding unit cells as part of the models
+        Returns:
+            A "mate" instance for each of the specified symmetric mates. These are transformed copies of the instance
+        """
         if minimal is None:
             # When the Pose is asymmetric
-            return self.copy()
+            coords_to_slice = self.coords
+            model_indices = [0]
         else:  # Check for the surrounding_uc and minimal assembly flags
             # surrounding_uc needs to be made before get_asu_interaction_model_indices()
             if self.dimension:
                 if surrounding_uc:
                     # When the surrounding_uc is requested, .symmetric_coords might need to be regenerated
-                    symmetry_type_str = 'surrounding-uc-'
                     if not self.is_surrounding_uc():
                         # The surrounding coords don't exist as the number of mates is equal to the unit cell
                         self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
                     number_of_symmetry_mates = self.number_of_symmetry_mates
                 else:  # Enforce number_of_uc_symmetry_mates is used
                     number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-                    symmetry_type_str = 'uc-'
             else:
                 number_of_symmetry_mates = self.number_of_symmetry_mates
-                symmetry_type_str = ''
 
             if minimal:  # Only return contacting
-                name = f'{self.name}-minimal-assembly'
                 # Add the ASU index to the model first
                 model_indices = [0] + self.get_asu_interaction_model_indices()
             else:
-                name = f'{self.name}-{symmetry_type_str}assembly'
                 model_indices = list(range(number_of_symmetry_mates))
 
             self.log.debug(f'Found selected models {model_indices} for assembly')
+            coords_to_slice = self.symmetric_coords
 
-            # Update all models with the symmetric_coords
-            number_of_atoms = self.number_of_atoms
-            symmetric_coords = self.symmetric_coords
-            chains = []
-            for model_idx in model_indices:
-                asu_copy = self.copy()
-                asu_copy.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx + 1) * number_of_atoms]
-                chains.extend(asu_copy.entities)
-            # self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
-            # models = self.models
-            # for idx in model_indices:
-            #     chains.extend(models[idx].entities)
-
-            return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
-                                     cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
+        # Update all models with their coordinates
+        number_of_atoms = self.number_of_atoms
+        models = []
+        for model_idx in model_indices:
+            asu_copy = self.copy()
+            asu_copy.coords = coords_to_slice[model_idx * number_of_atoms: (model_idx + 1) * number_of_atoms]
+            models.append(asu_copy)
 
         return models
 
