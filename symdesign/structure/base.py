@@ -3695,8 +3695,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._residues.set_attributes(_parent=self)
         self._residues.reindex()
 
-    help
-    help
     @property
     def alphafold_atom_mask(self) -> np.ndarray:
         """Return an Alphafold mask describing which Atom positions have Coord data"""
