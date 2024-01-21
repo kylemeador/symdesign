@@ -61,7 +61,7 @@ S:high curvature (where the angle between i-2, i, and i+2 is at least 70°)
 SS_DISORDER_IDENTIFIERS = ' '
 SS_TURN_IDENTIFIERS = 'TS'
 """
-SS_HELIX_IDENTIFIERS = 'H'  # Todo is 310 helix desired?
+SS_HELIX_IDENTIFIERS = 'H'
 SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
 directives = Literal[
@@ -161,7 +161,8 @@ polarity_types_literal = Literal['apolar', 'polar']
 sasa_types_literal = Literal['total', polarity_types_literal]
 sasa_types: tuple[polarity_types_literal, ...] = get_args(sasa_types_literal)
 polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
-# Todo add nucleotide polarities to this table. The atom types are located above. Polarities in freesasa-2.0.config
+# Todo
+#  add nucleotide polarities to this table. The atom types are located above. Polarities in freesasa-2.0.config
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
     'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0,
@@ -511,9 +512,6 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
     if file is not None:
         path, extension = os.path.splitext(file)
         name = os.path.basename(path)
-        # Todo
-        #  Add all fields that are not:
-        #  '_atom_site', '_cell', '_symmetry', '_reflns', '_entity_poly', '_struct_ref', '_pdbx_struct_oper_list'
         ignore_fields = []
         data: dict[str, dict[str, Any]] = cif_reader.read(file, ignore=ignore_fields)
         if extension[-1].isdigit():
@@ -527,106 +525,105 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
     else:
         raise ValueError(
             f"{read_mmcif_file.__name__}: Must provide the argument 'file'"
-            # f" or 'lines'")
         )
 
-    # name = kwargs.pop('name', None)
-    # if not name:
-    #     name = os.path.basename(os.path.splitext(file)[0])
-
-    # input(data.keys())
-    # for k, v_ in data.items():
-    #     # input(f'{list(v_.keys())}')
-    #     # ['_entry', '_audit_conform', '_database_2', '_pdbx_database_PDB_obs_spr', '_pdbx_database_related',
-    #     #  '_pdbx_database_status', '_audit_author', '_citation', '_citation_author', '_cell', '_symmetry',
-    #     #  '_entity', '_entity_poly', '_entity_poly_seq', '_entity_src_gen', '_struct_ref', '_struct_ref_seq',
-    #     #  '_struct_ref_seq_dif', '_chem_comp', '_exptl', '_exptl_crystal', '_exptl_crystal_grow', '_diffrn',
-    #     #  '_diffrn_detector', '_diffrn_radiation', '_diffrn_radiation_wavelength', '_diffrn_source', '_reflns',
-    #     #  '_reflns_shell', '_refine', '_refine_hist', '_refine_ls_restr', '_refine_ls_shell', '_pdbx_refine',
-    #     #  '_struct', '_struct_keywords', '_struct_asym', '_struct_biol', '_struct_conf', '_struct_conf_type',
-    #     #  '_struct_mon_prot_cis', '_struct_sheet', '_struct_sheet_order', '_struct_sheet_range',
-    #     #  '_pdbx_struct_sheet_hbond', '_atom_sites', '_atom_type', '_atom_site', '_atom_site_anisotrop',
-    #     #  '_pdbx_poly_seq_scheme', '_pdbx_struct_assembly', '_pdbx_struct_assembly_gen',
-    #     #  '_pdbx_struct_assembly_prop', '_pdbx_struct_oper_list', '_pdbx_audit_revision_history',
-    #     #  '_pdbx_audit_revision_details', '_pdbx_audit_revision_group', '_pdbx_refine_tls',
-    #     #  '_pdbx_refine_tls_group', '_pdbx_phasing_MR', '_phasing', '_software', '_pdbx_validate_torsion',
-    #     #  '_pdbx_unobs_or_zero_occ_atoms', '_pdbx_unobs_or_zero_occ_residues', '_space_group_symop']
-    #     for idx, (k, v) in enumerate(v_.items()):
-    #         # if k == '_atom_sites':
-    #         #     input(v.keys())
-    #         # if k in ['_database_2', '_pdbx_database_PDB_obs_spr', '_pdbx_database_related', '_pdbx_database_status']:
-    #         #     print('Database key', k)
-    #         #     input(v)
-    #         # if k in ['_entity', '_entity_poly', '_entity_poly_seq', '_struct_ref']:  # '_entity_src_gen', '_struct_ref_seq'
-    #         #     print('Sequence key', k)
-    #         #     input(v)
-    #         # if k in ['_cell', '_symmetry',
-    #         #          # '_space_group_symop'
-    #         #          ]:
-    #         #     print('Symmetry key', k)
-    #         #     input(v)
-    #         # if k in ['_reflns', '_reflns_shell', '_refine', '_refine_hist', '_refine_ls_restr', '_refine_ls_shell', '_pdbx_refine',]:
-    #         #     print('Diffraction key', k)
-    #         #     input(v)
-    #         # if k in [
-    #         #     # '_struct', '_struct_keywords', '_struct_asym', '_struct_biol',
-    #         #     '_pdbx_struct_assembly', '_pdbx_struct_assembly_gen',
-    #         #     # '_pdbx_struct_assembly_prop',
-    #         #     '_pdbx_struct_oper_list',
-    #         # ]:
-    #         #     print('struct key', k)
-    #         #     input(v)
-    #         # if k == '_atom_site':
-    #         #     """
-    #         #     key group_PDB
-    #         #     values ['ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM']
-    #         #     key id
-    #         #     values ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-    #         #     key type_symbol
-    #         #     values ['N', 'C', 'C', 'O', 'C', 'O', 'N', 'C', 'C', 'O']
-    #         #     key label_atom_id
-    #         #     values ['N', 'CA', 'C', 'O', 'CB', 'OG', 'N', 'CA', 'C', 'O']
-    #         #     key label_alt_id
-    #         #     values ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.']
-    #         #     key label_comp_id
-    #         #     values ['SER', 'SER', 'SER', 'SER', 'SER', 'SER', 'VAL', 'VAL', 'VAL', 'VAL']
-    #         #     key label_asym_id
-    #         #     values ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A']
-    #         #     key label_entity_id
-    #         #     values ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
-    #         #     key label_seq_id
-    #         #     values ['3', '3', '3', '3', '3', '3', '4', '4', '4', '4']
-    #         #     key pdbx_PDB_ins_code
-    #         #     values ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?']
-    #         #     key Cartn_x
-    #         #     values ['25.947', '25.499', '24.208', '23.310', '26.585', '27.819', '24.126', '22.943', '22.353', '23.081']
-    #         #     key Cartn_y
-    #         #     values ['8.892', '10.149', '9.959', '10.800', '10.734', '10.839', '8.851', '8.533', '7.200', '6.224']
-    #         #     key Cartn_z
-    #         #     values ['43.416', '42.828', '42.038', '42.084', '41.925', '42.615', '41.310', '40.519', '40.967', '41.152']
-    #         #     key occupancy
-    #         #     values ['1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00']
-    #         #     key B_iso_or_equiv
-    #         #     values ['67.99', '79.33', '61.67', '60.15', '81.39', '86.58', '62.97', '56.54', '56.17', '85.78']
-    #         #     key pdbx_formal_charge
-    #         #     values ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?']
-    #         #     key auth_seq_id
-    #         #     values ['3', '3', '3', '3', '3', '3', '4', '4', '4', '4']
-    #         #     key auth_comp_id
-    #         #     values ['SER', 'SER', 'SER', 'SER', 'SER', 'SER', 'VAL', 'VAL', 'VAL', 'VAL']
-    #         #     key auth_asym_id
-    #         #     values ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A']
-    #         #     key auth_atom_id
-    #         #     values ['N', 'CA', 'C', 'O', 'CB', 'OG', 'N', 'CA', 'C', 'O']
-    #         #     key pdbx_PDB_model_num
-    #         #     values ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
-    #         #     """
-    #         #     for k__, v__ in v.items():
-    #         #         # ['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id', 'label_entity_id', 'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv', 'pdbx_formal_charge', 'auth_seq_id', 'auth_comp_id', 'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num']
-    #         #         print('key', k__)
-    #         #         input(f'values {v__[:10]}')
-    #         #     input('DONE')
-    #         pass
+    #  name = kwargs.pop('name', None)
+    #  if not name:
+    #      name = os.path.basename(os.path.splitext(file)[0])
+    #
+    #  input(data.keys())
+    #  for k, v_ in data.items():
+    #      # input(f'{list(v_.keys())}')
+    #      # ['_entry', '_audit_conform', '_database_2', '_pdbx_database_PDB_obs_spr', '_pdbx_database_related',
+    #      #  '_pdbx_database_status', '_audit_author', '_citation', '_citation_author', '_cell', '_symmetry',
+    #      #  '_entity', '_entity_poly', '_entity_poly_seq', '_entity_src_gen', '_struct_ref', '_struct_ref_seq',
+    #      #  '_struct_ref_seq_dif', '_chem_comp', '_exptl', '_exptl_crystal', '_exptl_crystal_grow', '_diffrn',
+    #      #  '_diffrn_detector', '_diffrn_radiation', '_diffrn_radiation_wavelength', '_diffrn_source', '_reflns',
+    #      #  '_reflns_shell', '_refine', '_refine_hist', '_refine_ls_restr', '_refine_ls_shell', '_pdbx_refine',
+    #      #  '_struct', '_struct_keywords', '_struct_asym', '_struct_biol', '_struct_conf', '_struct_conf_type',
+    #      #  '_struct_mon_prot_cis', '_struct_sheet', '_struct_sheet_order', '_struct_sheet_range',
+    #      #  '_pdbx_struct_sheet_hbond', '_atom_sites', '_atom_type', '_atom_site', '_atom_site_anisotrop',
+    #      #  '_pdbx_poly_seq_scheme', '_pdbx_struct_assembly', '_pdbx_struct_assembly_gen',
+    #      #  '_pdbx_struct_assembly_prop', '_pdbx_struct_oper_list', '_pdbx_audit_revision_history',
+    #      #  '_pdbx_audit_revision_details', '_pdbx_audit_revision_group', '_pdbx_refine_tls',
+    #      #  '_pdbx_refine_tls_group', '_pdbx_phasing_MR', '_phasing', '_software', '_pdbx_validate_torsion',
+    #      #  '_pdbx_unobs_or_zero_occ_atoms', '_pdbx_unobs_or_zero_occ_residues', '_space_group_symop']
+    #      for idx, (k, v) in enumerate(v_.items()):
+    #          # if k == '_atom_sites':
+    #          #     input(v.keys())
+    #          # if k in ['_database_2', '_pdbx_database_PDB_obs_spr', '_pdbx_database_related', '_pdbx_database_status']:
+    #          #     print('Database key', k)
+    #          #     input(v)
+    #          # if k in ['_entity', '_entity_poly', '_entity_poly_seq', '_struct_ref']:  # '_entity_src_gen', '_struct_ref_seq'
+    #          #     print('Sequence key', k)
+    #          #     input(v)
+    #          # if k in ['_cell', '_symmetry',
+    #          #          # '_space_group_symop'
+    #          #          ]:
+    #          #     print('Symmetry key', k)
+    #          #     input(v)
+    #          # if k in ['_reflns', '_reflns_shell', '_refine', '_refine_hist', '_refine_ls_restr', '_refine_ls_shell', '_pdbx_refine',]:
+    #          #     print('Diffraction key', k)
+    #          #     input(v)
+    #          # if k in [
+    #          #     # '_struct', '_struct_keywords', '_struct_asym', '_struct_biol',
+    #          #     '_pdbx_struct_assembly', '_pdbx_struct_assembly_gen',
+    #          #     # '_pdbx_struct_assembly_prop',
+    #          #     '_pdbx_struct_oper_list',
+    #          # ]:
+    #          #     print('struct key', k)
+    #          #     input(v)
+    #          # if k == '_atom_site':
+    #          #     """
+    #          #     key group_PDB
+    #          #     values ['ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM']
+    #          #     key id
+    #          #     values ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    #          #     key type_symbol
+    #          #     values ['N', 'C', 'C', 'O', 'C', 'O', 'N', 'C', 'C', 'O']
+    #          #     key label_atom_id
+    #          #     values ['N', 'CA', 'C', 'O', 'CB', 'OG', 'N', 'CA', 'C', 'O']
+    #          #     key label_alt_id
+    #          #     values ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.']
+    #          #     key label_comp_id
+    #          #     values ['SER', 'SER', 'SER', 'SER', 'SER', 'SER', 'VAL', 'VAL', 'VAL', 'VAL']
+    #          #     key label_asym_id
+    #          #     values ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A']
+    #          #     key label_entity_id
+    #          #     values ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+    #          #     key label_seq_id
+    #          #     values ['3', '3', '3', '3', '3', '3', '4', '4', '4', '4']
+    #          #     key pdbx_PDB_ins_code
+    #          #     values ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?']
+    #          #     key Cartn_x
+    #          #     values ['25.947', '25.499', '24.208', '23.310', '26.585', '27.819', '24.126', '22.943', '22.353', '23.081']
+    #          #     key Cartn_y
+    #          #     values ['8.892', '10.149', '9.959', '10.800', '10.734', '10.839', '8.851', '8.533', '7.200', '6.224']
+    #          #     key Cartn_z
+    #          #     values ['43.416', '42.828', '42.038', '42.084', '41.925', '42.615', '41.310', '40.519', '40.967', '41.152']
+    #          #     key occupancy
+    #          #     values ['1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00']
+    #          #     key B_iso_or_equiv
+    #          #     values ['67.99', '79.33', '61.67', '60.15', '81.39', '86.58', '62.97', '56.54', '56.17', '85.78']
+    #          #     key pdbx_formal_charge
+    #          #     values ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?']
+    #          #     key auth_seq_id
+    #          #     values ['3', '3', '3', '3', '3', '3', '4', '4', '4', '4']
+    #          #     key auth_comp_id
+    #          #     values ['SER', 'SER', 'SER', 'SER', 'SER', 'SER', 'VAL', 'VAL', 'VAL', 'VAL']
+    #          #     key auth_asym_id
+    #          #     values ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A']
+    #          #     key auth_atom_id
+    #          #     values ['N', 'CA', 'C', 'O', 'CB', 'OG', 'N', 'CA', 'C', 'O']
+    #          #     key pdbx_PDB_model_num
+    #          #     values ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+    #          #     """
+    #          #     for k__, v__ in v.items():
+    #          #         # ['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id', 'label_entity_id', 'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv', 'pdbx_formal_charge', 'auth_seq_id', 'auth_comp_id', 'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num']
+    #          #         print('key', k__)
+    #          #         input(f'values {v__[:10]}')
+    #          #     input('DONE')
+    #          pass
 
     provided_dataname, *_ = data.keys()
     if _:
@@ -698,16 +695,6 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
                        }
     else:
         entity_info = {}
-    # Todo
-    #  'rcsb_polymer_entity_container_identifiers' 'asym_id'
-    # struct key _struct_asym
-    # {'id': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'BA', 'CA', 'DA', 'EA', 'FA', 'GA', 'HA', 'IA', 'JA', 'KA', 'LA', 'MA', 'NA', 'OA', 'PA', 'QA', 'RA', 'SA', 'TA', 'UA', 'VA', 'WA', 'XA', 'YA', 'ZA', 'AB', 'BB', 'CB', 'DB', 'EB', 'FB', 'GB', 'HB', 'IB', 'JB', 'KB', 'LB', 'MB', 'NB', 'OB', 'PB', 'QB', 'RB', 'SB', 'TB', 'UB', 'VB', 'WB', 'XB', 'YB', 'ZB', 'AC', 'BC', 'CC', 'DC', 'EC', 'FC', 'GC', 'HC', 'IC', 'JC', 'KC', 'LC', 'MC', 'NC', 'OC', 'PC', 'QC', 'RC'],
-    # struct key _struct_biol
-    # {'id': '1', 'details': 'The biological assembly is a protein cage with tetrahedral point group symmetry that comprises twenty-four subunits, where twelve each are a total of four homotrimers.'}
-    # struct key _pdbx_struct_assembly
-    # {'id': ['1', '2', '3', '4'], 'details': ['author_and_software_defined_assembly', 'author_and_software_defined_assembly', 'author_and_software_defined_assembly', 'author_and_software_defined_assembly'], 'method_details': ['PISA', 'PISA', 'PISA', 'PISA'], 'oligomeric_details': ['24-meric', '24-meric', '24-meric', '24-meric'], 'oligomeric_count': ['24', '24', '24', '24']}
-    # struct key _pdbx_struct_assembly_gen
-    # {'assembly_id': ['1', '2', '3', '4'], 'oper_expression': ['1', '1', '1', '1'], 'asym_id_list': ['A,B,C,D,E,F,G,H,I,J,K,L,M,XA,YA,ZA,AB,BB,CB,DB,EB,FB,GB,HB', 'N,O,P,Q,R,S,T,U,V,W,X,Y,IB,JB,KB,LB,MB,NB,OB,PB,QB,RB,SB,TB', 'Z,AA,BA,CA,DA,EA,FA,GA,HA,IA,JA,KA,UB,VB,WB,XB,YB,ZB,AC,BC,CC,DC,EC,FC', 'LA,MA,NA,OA,PA,QA,RA,SA,TA,UA,VA,WA,GC,HC,IC,JC,KC,LC,MC,NC,OC,PC,QC,RC']}
     operations = data.get('_pdbx_struct_oper_list')
     if operations:
         biomt = np.array(
@@ -758,7 +745,8 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
         # coords=coords if separate_coords else None,
         cryst_record=cryst_record,
         entity_info=entity_info,
-        # header=header,  # Todo
+        # Todo
+        #  header=header,
         name=name,
         resolution=resolution,
         # reference_sequence=reference_sequence,
@@ -1579,12 +1567,13 @@ class Atom(CoordinateOpsMixin):
         return f'ATOM  {"{}"} {self._type_str}{self.alt_location:1s}{"{}"}{"{}"}{"{}"}' \
                f'{self.code_for_insertion:1s}   {"{}"}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
-        # Todo if parent:  # return full ATOM record
-        # return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
-        #     '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        #     .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id, self.residue_number,
-        #             self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element,
-        #             self.charge)
+        # Todo
+        # if self.is_parent():  # return full ATOM record
+        #     return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
+        #         '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        #         .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id,
+        #                 self.residue_number, self.code_for_insertion, *list(self.coords), self.occupancy,
+        #                 self.b_factor, self.element, self.charge)
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
@@ -2062,29 +2051,29 @@ class ContainsAtoms(StructureBase, ABC):
         return sorted({idx for contacts in query.tolist() for idx in contacts.tolist()})
         # return np.unique(np.concatenate(query)).tolist()
 
-    # @atoms.setter
-    # def atoms(self, atoms: Atoms | list[Atom]):
-    #     """Set the Structure atoms to an Atoms object"""
-    #     # Todo make this setter function in the same way as self._coords.replace?
-    #     if isinstance(atoms, Atoms):
-    #         self._atoms = atoms
-    #     else:
-    #         self._atoms = Atoms(atoms)
-
-    # # Todo enable this type of functionality
-    # @atoms.setter
-    # def atoms(self, atoms: Atoms):
-    #     self._atoms.replace(self._atom_indices, atoms)
-
-    # # Todo create add_atoms that is like list append
-    # def add_atoms(self, atom_list):
-    #     """Add Atoms in atom_list to the Structure instance"""
-    #     raise NotImplementedError('This function (add_atoms) is currently broken')
-    #     atoms = self.atoms.tolist()
-    #     atoms.extend(atom_list)
-    #     self.atoms = atoms
-    #     # Todo need to update all referrers
-    #     # Todo need to add the atoms to coords
+    #  Todo make this setter function in the same way as self._coords.replace?
+    #  @atoms.setter
+    #  def atoms(self, atoms: Atoms | list[Atom]):
+    #      """Set the Structure atoms to an Atoms object"""
+    #      if isinstance(atoms, Atoms):
+    #          self._atoms = atoms
+    #      else:
+    #          self._atoms = Atoms(atoms)
+    #
+    #  # Todo enable this type of functionality
+    #  @atoms.setter
+    #  def atoms(self, atoms: Atoms):
+    #      self._atoms.replace(self._atom_indices, atoms)
+    #
+    #  # Todo create add_atoms that is like list append
+    #  def add_atoms(self, atom_list):
+    #      """Add Atoms in atom_list to the Structure instance"""
+    #      raise NotImplementedError('This function (add_atoms) is currently broken')
+    #      atoms = self.atoms.tolist()
+    #      atoms.extend(atom_list)
+    #      self.atoms = atoms
+    #      # Todo need to update all referrers
+    #      # Todo need to add the atoms to coords
 
     @property
     @abc.abstractmethod
@@ -2350,8 +2339,6 @@ class ContainsAtoms(StructureBase, ABC):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
 
-    # Todo
-    #  self.atom_indices isn't long term sustainable...
     @property
     def _key(self) -> tuple[str, int, ...]:
         return self.name, *self.atom_indices
@@ -2468,7 +2455,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
                     f"Invalid {self.__class__.__name__}. The {repr(atom)} at index {idx} doesn't have the same "
                     f'properties as prior Atom instances, such as {repr(first_atom)}')
 
-        if protein_backbone_atom_types.difference(found_types):  # Todo Modify if building NucleotideResidue
+        if protein_backbone_atom_types.difference(found_types):
             raise ValueError(
                 f"Invalid {self.__class__.__name__}. The provided Atom instances don't contain the required "
                 f"types, i.e. '{', '.join(protein_backbone_atom_types)}' for construction")
@@ -3689,15 +3676,15 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             return self._residues[self._residue_indices]
         except AttributeError:  # When self._residues isn't set
             return None
-
-    # @residues.setter
-    # def residues(self, residues: Residues | list[Residue]):
-    #     """Set the Structure atoms to a Residues object"""
-    #     # Todo make this setter function in the same way as self._coords.replace?
-    #     if isinstance(residues, Residues):
-    #         self._residues = residues
-    #     else:
-    #         self._residues = Residues(residues)
+    #
+    #  Todo make this setter function in the same way as self._coords.replace?
+    #  @residues.setter
+    #  def residues(self, residues: Residues | list[Residue]):
+    #      """Set the Structure atoms to a Residues object"""
+    #      if isinstance(residues, Residues):
+    #          self._residues = residues
+    #      else:
+    #          self._residues = Residues(residues)
 
     def _assign_residues(self, residues: Residues | list[Residue], atoms: Atoms | list[Atom] = None, **kwargs):
         """Assign Residue instances, create Residues instances
@@ -3753,25 +3740,25 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._residues.set_attributes(_parent=self)
         self._residues.reindex()
 
-    # @property
-    # def residue_indexed_atom_indices(self) -> list[list[int]]:
-    #     """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
+    # Todo
+    #  @property
+    #  def residue_indexed_atom_indices(self) -> list[list[int]]:
+    #      """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
     #
-    #     Returns:
-    #         Residue objects indexed by the Residue position in the corresponding .coords attribute
-    #     """
-    #     try:
-    #         return self._residue_indexed_atom_indices  # [self._atom_indices]
-    #     except (AttributeError, TypeError):  # Todo self.is_parent()
-    #         raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-    #                              f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the Structure '
-    #                              f'object that owns these coordinates and therefore owns this Structure')
-
+    #      Returns:
+    #          Residue objects indexed by the Residue position in the corresponding .coords attribute
+    #      """
+    #      try:
+    #          return self._residue_indexed_atom_indices  # [self._atom_indices]
+    #      except (AttributeError, TypeError):  # Todo self.is_parent()
+    #          raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+    #                               f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the '
+    #                               'Structure that owns these coordinates and therefore owns this Structure')
+    #
+    # Todo Move to Coords
     @property
     def alphafold_atom_mask(self) -> np.ndarray:
         """Return an Alphafold mask describing which Atom positions have Coord data"""
-        # Todo Fix naming errors in arginine residues where NH2 is incorrectly
-        #  assigned to be closer to CD than NH1...
         # This works except for the off case that we sum to 0, which may be hard given float precision
         return (self.alphafold_coords.sum(axis=-1) != 0).astype(dtype=np.int32)
 
@@ -3781,8 +3768,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         try:
             return self._af_coords
         except AttributeError:
-            # Todo Fix naming errors in arginine residues where NH2 is incorrectly
-            #  assigned to be closer to CD than NH1...
             # af_coords = np.zeros((self.number_of_residues, atom_type_num, 3), dtype=np.float32)
             # residue_template_array = np.zeros((atom_type_num, 3), dtype=np.float32)
             structure_array = [[] for _ in range(self.number_of_residues)]
@@ -4130,7 +4115,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 found_types.add(atom.type)
             else:
                 if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove [start_idx:idx]
-                    # Todo remove this check when nucleotides can be parsed
+                    # Todo
+                    #  remove this check when nucleotides can be parsed
                     if dna_sugar_atom_types.intersection(found_types):
                         self.nucleotides_present = True
                     remove_atom_indices.extend(range(start_atom_index, idx))
@@ -4364,22 +4350,25 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 raise KeyError(
                     f"The mutation type '{to}' isn't a viable Residue type")
 
-        # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
+        # Todo
+        #  using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
-        # Todo is the Atom mutation necessary? Put in Residue
+        # Todo
+        #  is the Atom mutation necessary? Put in Residue
         for atom in residue.atoms:
             atom.residue_type = to
 
-        # Todo Currently, deleting side-chain indices and letting Rosetta handle building
+        # Todo
+        #  Currently, deleting side-chain indices and letting Rosetta handle building
         # Find the corresponding Residue Atom indices to delete
         delete_indices = residue.side_chain_indices
         if not delete_indices:  # There are no indices
             return []
-        else:
-            # Clear all state variables for all Residue instances
-            # Todo create mutate_residues() and only call this once...
-            #  It is redundant with @Residue.start_index.setter in _residues.reindex_atoms()
+        else:  # Clear all state variables for all Residue instances
+            # Todo
+            #  create mutate_residues() and only call this once... It is redundant with @Residue.start_index.setter
+            #  in _residues.reindex_atoms()
             self._residues.reset_state()
             # residue.side_chain_indices = []
 
@@ -4742,9 +4731,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # n_removed_nterm_res = number_of_residues - len(no_nterm_disorder_ss)
         # no_cterm_disorder_ss = secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)
         # n_removed_cterm_res = number_of_residues - len(no_cterm_disorder_ss)
-        # Todo
-        #  Could remove disorder by a relative_sasa threshold. A brief investigation shows that ~0.6 could be a
-        #  reasonable threshold when combined with other ss indicators
+        # Todo Could remove disorder by a relative_sasa threshold.
+        #  A brief investigation shows that ~0.6 could be a reasonable threshold when combined with other ss indicators
         # sasa = self.relative_sasa
         # self.log.debug(f'Found n-term relative sasa {sasa[:n_removed_nterm_res + 10]}')
         # self.log.debug(f'Found c-term relative sasa {sasa[-(n_removed_cterm_res + 10):]}')
@@ -4990,7 +4978,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                                      f'following Residues:\n\t{sc_info}')
         return False
 
-    def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):  # Todo to Residue too? ContainsAtomsMix
+    def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
 
         Args:
@@ -5821,14 +5809,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         return self.name, *self._residue_indices
 
 
-
 class Structures(ContainsResidues, UserList):
-    # Todo
-    #   mesh inheritance of both Structure and UserClass...
-    #   FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
-    #   are all concatenated Structure methods and attributes accounted for?
-    #   ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
-    """A view of a set of Structure instances"""
+    """A view of a set of Structure instances. This isn't used at the moment"""
     data: list[ContainsResidues]
     dtype: str
     """The type of Structure in instance"""
@@ -5841,7 +5823,7 @@ class Structures(ContainsResidues, UserList):
             dtype: If an empty Structures, the specific subclass of Structure that Structures contains
         """
         super().__init__(initlist=structures, **kwargs)  # initlist sets UserList.data to Iterable[Structure]
-
+        raise NotImplementedError("This class isn't functional yet")
         if self.is_parent():
             raise stutils.ConstructionError(
                 f"Couldn't create {Structures.__name__} without passing 'parent' argument"
