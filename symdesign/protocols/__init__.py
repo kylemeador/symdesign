@@ -55,95 +55,95 @@ def predict_structure(job: pose.PoseJob):
 
     job.predict_structure()
 
-
-@protocol_decorator()
-def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None, suffix=None,
-                          score_only=None, variables=None, **kwargs):
-    """Generate a custom script to dispatch to the design using a variety of parameters
-
-    Args:
-        job: The PoseJob for which the protocol should be performed on
-        script:
-        file_list:
-        native:
-        suffix:
-        score_only:
-        variables:
-    """
-    # Todo reflect modern metrics collection
-    raise NotImplementedError('This module is outdated, please update it if you would like to use it')
-    job.identify_interface()
-
-    cmd = rosetta.script_cmd.copy()
-    script_name = os.path.splitext(os.path.basename(script))[0]
-
-    job.prepare_rosetta_flags(out_dir=job.scripts_path)
-
-    if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
-        cmd += ['-symmetry_definition', 'CRYST1']
-
-    if file_list:
-        pdb_input = os.path.join(job.scripts_path, 'design_files.txt')
-        generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', pdb_input, '-e', '.pdb']
-    else:
-        pdb_input = job.refined_pdb
-        generate_files_cmd = []  # empty command
-
-    if native:
-        native = getattr(job, native, 'refined_pdb')
-    else:
-        native = job.refined_pdb
-
-    # if isinstance(suffix, str):
-    #     suffix = ['-out:suffix', '_%s' % suffix]
-    # if isinstance(suffix, bool):
-    if suffix:
-        suffix = ['-out:suffix', f'_{script_name}']
-    else:
-        suffix = []
-
-    if score_only:
-        score = ['-out:file:score_only', job.scores_file]
-    else:
-        score = []
-
-    if job.job.design.number:
-        trajectories = ['-nstruct', str(job.job.design.number)]
-    else:
-        trajectories = ['-no_nstruct_label true']
-
-    if variables:
-        for idx, var_val in enumerate(variables):
-            variable, value = var_val.split('=')
-            variables[idx] = '%s=%s' % (variable, getattr(job.pose, value, ''))
-        variables = ['-parser:script_vars'] + variables
-    else:
-        variables = []
-
-    cmd += [f'@{flags_file}', f'-in:file:{"l" if file_list else "s"}', pdb_input, '-in:file:native', native] \
-        + score + suffix + trajectories + ['-parser:protocol', script] + variables
-    if job.job.mpi > 0:
-        cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + cmd
-
-    # Create executable to gather interface Metrics on all Designs
-    if job.job.distribute_work:
-        analysis_cmd = job.get_cmd_process_rosetta_metrics()
-        job.current_script = distribute.write_script(
-            list2cmdline(generate_files_cmd), name=f'{starttime}_{script_name}.sh', out_path=job.scripts_path,
-            additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
-        # Todo metrics: [list2cmdline(command) for command in metric_cmds]
-    else:
-        list_all_files_process = Popen(generate_files_cmd)
-        list_all_files_process.communicate()
-        # Todo
-        # for metric_cmd in metric_cmds:
-        #     metrics_process = Popen(metric_cmd)
-        #     metrics_process.communicate()  # wait for command to complete
-
-        # Gather metrics for each design produced from this procedure
-        if os.path.exists(job.scores_file):
-            job.process_rosetta_metrics()
-
+#
+# @protocol_decorator()
+# def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None, suffix=None,
+#                           score_only=None, variables=None, **kwargs):
+#     """Generate a custom script to dispatch to the design using a variety of parameters
+#
+#     Args:
+#         job: The PoseJob for which the protocol should be performed on
+#         script:
+#         file_list:
+#         native:
+#         suffix:
+#         score_only:
+#         variables:
+#     """
+#     # Todo reflect modern metrics collection
+#     raise NotImplementedError('This module is outdated, please update it if you would like to use it')
+#     job.identify_interface()
+#
+#     cmd = rosetta.script_cmd.copy()
+#     script_name = os.path.splitext(os.path.basename(script))[0]
+#
+#     job.prepare_rosetta_flags(out_dir=job.scripts_path)
+#
+#     if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
+#         cmd += ['-symmetry_definition', 'CRYST1']
+#
+#     if file_list:
+#         pdb_input = os.path.join(job.scripts_path, 'design_files.txt')
+#         generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', pdb_input, '-e', '.pdb']
+#     else:
+#         pdb_input = job.refined_pdb
+#         generate_files_cmd = []  # empty command
+#
+#     if native:
+#         native = getattr(job, native, 'refined_pdb')
+#     else:
+#         native = job.refined_pdb
+#
+#     # if isinstance(suffix, str):
+#     #     suffix = ['-out:suffix', '_%s' % suffix]
+#     # if isinstance(suffix, bool):
+#     if suffix:
+#         suffix = ['-out:suffix', f'_{script_name}']
+#     else:
+#         suffix = []
+#
+#     if score_only:
+#         score = ['-out:file:score_only', job.scores_file]
+#     else:
+#         score = []
+#
+#     if job.job.design.number:
+#         trajectories = ['-nstruct', str(job.job.design.number)]
+#     else:
+#         trajectories = ['-no_nstruct_label true']
+#
+#     if variables:
+#         for idx, var_val in enumerate(variables):
+#             variable, value = var_val.split('=')
+#             variables[idx] = '%s=%s' % (variable, getattr(job.pose, value, ''))
+#         variables = ['-parser:script_vars'] + variables
+#     else:
+#         variables = []
+#
+#     cmd += [f'@{flags_file}', f'-in:file:{"l" if file_list else "s"}', pdb_input, '-in:file:native', native] \
+#         + score + suffix + trajectories + ['-parser:protocol', script] + variables
+#     if job.job.mpi > 0:
+#         cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + cmd
+#
+#     # Create executable to gather interface Metrics on all Designs
+#     if job.job.distribute_work:
+#         analysis_cmd = job.get_cmd_process_rosetta_metrics()
+#         job.current_script = distribute.write_script(
+#             list2cmdline(generate_files_cmd), name=f'{starttime}_{script_name}.sh', out_path=job.scripts_path,
+#             additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
+#         # Todo metrics: [list2cmdline(command) for command in metric_cmds]
+#     else:
+#         list_all_files_process = Popen(generate_files_cmd)
+#         list_all_files_process.communicate()
+#         # Todo
+#         # for metric_cmd in metric_cmds:
+#         #     metrics_process = Popen(metric_cmd)
+#         #     metrics_process.communicate()  # wait for command to complete
+#
+#         # Gather metrics for each design produced from this procedure
+#         if os.path.exists(job.scores_file):
+#             job.process_rosetta_metrics()
+#
 
 @protocol_decorator()
 def interface_metrics(job: pose.PoseJob):
@@ -188,8 +188,9 @@ def interface_metrics(job: pose.PoseJob):
     # generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
     #     + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
     main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
-                 # Todo out:file:score_only file is not respected if out:path:score_file given
-                 #  -run:score_only true?
+                 # Todo
+                 #  out:file:score_only file is not respected if out:path:score_file given
+                 #   -run:score_only true?
                  '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
     #              '-in:file:native', job.refined_pdb,
     if job.job.mpi > 0:
@@ -342,8 +343,6 @@ def refine(job: pose.PoseJob):
     """
     job.identify_interface()
     job.protocol = job.job.module
-    # Todo
-    #  Make a common helper. PoseJob.get_active_structure_paths()...
     if job.current_designs:
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
@@ -392,18 +391,13 @@ def design(job: pose.PoseJob):
                 f"Can't perform module 'design' using Rosetta. Try '{flags.interface_design}' instead")
         favor_fragments = evo_fill = True
         if job.job.design.term_constraint:
-            # Todo
-            #  Need to get oligomeric type frags
             job.generate_fragments(interface=True)  # job.job.design.interface
     elif job.job.design.method == putils.consensus:
         raise NotImplementedError('Consensus calculation needs work')
-        # -------------------------------------------------------------------------
-        # Todo job.solve_consensus()
-        # -------------------------------------------------------------------------
+        # Todo
+        #  job.solve_consensus()
     else:
         favor_fragments = evo_fill = False
-        # Todo
-        #  The information isn't really used. Also need to get oligomeric type frags
         job.generate_fragments(interface=True)  # job.job.design.interface
 
     job.pose.calculate_fragment_profile(evo_fill=evo_fill)
@@ -475,13 +469,14 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     """
     job.protocol = protocol_xml1 = flags.optimize_designs._
     # job.protocol = putils.pross
-    # Todo Notes for PROSS implementation
-    #  I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
-    #  mutational space. Using these measurements, I then need to choose only those ones which make a particular
-    #  energetic contribution to the structure and test these out using a FastDesign protocol where each is tried.
-    #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
-    #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
-    #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
+    # Todo
+    #   Notes for PROSS implementation
+    #   I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
+    #   mutational space. Using these measurements, I then need to choose only those ones which make a particular
+    #   energetic contribution to the structure and test these out using a FastDesign protocol where each is tried.
+    #   This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
+    #   bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
+    #   heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
 
     generate_files_cmd = pose.null_cmd
 
@@ -512,7 +507,6 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #     job.identify_interface()
 
     # Format all amino acids in design with frequencies above the threshold to a set
-    # Todo, make threshold and return set of strings a property of a profile object
     # Locate the desired background profile from the pose
     background_profile = getattr(job.pose, job.job.background_profile)
     raise NotImplementedError("Chain.*_profile all need to be zero-index to account for residue.index")
@@ -531,12 +525,6 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         raise NotImplementedError(
             f"Must only use the background amino acid types for the positions that were marked as "
             f"designable for each design in job.current_designs")
-        # Todo
-        #  with job.job.db.session(expire_on_commit=False) as session:
-        #      designable_residues_stmt = select((sql.DesignResidues.design_id, sql.DesignResidues.index)) \
-        #          .where(sql.DesignResidues.design_id.in_(design_ids)) \
-        #          .where(sql.DesignResidues.design_residue == True)
-        #      designable_residues = session.execute(designable_residues_stmt).all()
         design_directive = {residue: background[residue] for residue in design_designed_residues}
         design_directive.update({residue: directive[residue.index]
                                 for residue in design_pose.get_residues(directive.keys())})
@@ -560,14 +548,15 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     job.prepare_rosetta_flags(out_dir=job.scripts_path)
 
     # DESIGN: Prepare command and flags file
-    # Todo - Has this been solved?
-    #  must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+    # Todo
+    #  Has this been solved?
+    #   must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
     profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
         if os.path.exists(job.evolutionary_profile_file) else []
     design_cmds = []
     for res_file, design_ in zip(res_files, job.current_designs):
         design_cmds.append(
-            main_cmd + profile_cmd + infile  # Todo this must be 'in:file:s'
+            main_cmd + profile_cmd + infile  # <- infile must be 'in:file:s'
             + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file, '-parser:protocol',
                os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')]
             + nstruct_instruct + ['-parser:script_vars', f'{putils.design_parent}={design_.name}'])
