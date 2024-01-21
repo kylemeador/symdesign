@@ -99,9 +99,6 @@ def interface_metrics(job: pose.PoseJob):
     # generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
     #     + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
     main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
-                 # Todo
-                 #  out:file:score_only file is not respected if out:path:score_file given
-                 #   -run:score_only true?
                  '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
     #              '-in:file:native', job.refined_pdb,
     if job.job.mpi > 0:
@@ -305,8 +302,6 @@ def design(job: pose.PoseJob):
             job.generate_fragments(interface=True)  # job.job.design.interface
     elif job.job.design.method == putils.consensus:
         raise NotImplementedError('Consensus calculation needs work')
-        # Todo
-        #  job.solve_consensus()
     else:
         favor_fragments = evo_fill = False
         job.generate_fragments(interface=True)  # job.job.design.interface
@@ -353,7 +348,8 @@ def design(job: pose.PoseJob):
             job.refine(gather_metrics=False)
         if job.job.design.interface:
             raise NotImplementedError('Need to generate job.number_of_designs matching job.proteinmpnn_design()...')
-            # Todo update upon completion given results of designs list file...
+            # Todo
+            #  update upon completion given results of designs list file...
             job.rosetta_interface_design()  # Sets job.protocol
         else:
             raise NotImplementedError(f'No function for all residue Rosetta design yet')
@@ -380,14 +376,6 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     """
     job.protocol = protocol_xml1 = flags.optimize_designs._
     # job.protocol = putils.pross
-    # Todo
-    #   Notes for PROSS implementation
-    #   I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
-    #   mutational space. Using these measurements, I then need to choose only those ones which make a particular
-    #   energetic contribution to the structure and test these out using a FastDesign protocol where each is tried.
-    #   This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
-    #   bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
-    #   heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
 
     generate_files_cmd = pose.null_cmd
 
@@ -459,9 +447,6 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     job.prepare_rosetta_flags(out_dir=job.scripts_path)
 
     # DESIGN: Prepare command and flags file
-    # Todo
-    #  Has this been solved?
-    #   must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
     profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
         if os.path.exists(job.evolutionary_profile_file) else []
     design_cmds = []
