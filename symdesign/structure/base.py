@@ -1562,14 +1562,6 @@ class Atom(CoordinateOpsMixin):
         return f'ATOM  {"{}"} {self._type_str}{self.alt_location:1s}{"{}"}{"{}"}{"{}"}' \
                f'{self.code_for_insertion:1s}   {"{}"}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
-        # Todo
-        help
-        #  if self.is_parent():  # return full ATOM record
-        #      return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
-        #          '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        #          .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id,
-        #                  self.residue_number, self.code_for_insertion, *list(self.coords), self.occupancy,
-        #                  self.b_factor, self.element, self.charge)
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
@@ -2046,31 +2038,6 @@ class ContainsAtoms(StructureBase, ABC):
 
         return sorted({idx for contacts in query.tolist() for idx in contacts.tolist()})
         # return np.unique(np.concatenate(query)).tolist()
-
-    help
-    # Todo make this setter function in the same way as self._coords.replace?
-    # @atoms.setter
-    # def atoms(self, atoms: Atoms | list[Atom]):
-    #     """Set the Structure atoms to an Atoms object"""
-    #     if isinstance(atoms, Atoms):
-    #         self._atoms = atoms
-    #     else:
-    #         self._atoms = Atoms(atoms)
-    #
-    # # Todo enable this type of functionality
-    # @atoms.setter
-    # def atoms(self, atoms: Atoms):
-    #     self._atoms.replace(self._atom_indices, atoms)
-    #
-    # # Todo create add_atoms that is like list append
-    # def add_atoms(self, atom_list):
-    #     """Add Atoms in atom_list to the Structure instance"""
-    #     raise NotImplementedError('This function (add_atoms) is currently broken')
-    #     atoms = self.atoms.tolist()
-    #     atoms.extend(atom_list)
-    #     self.atoms = atoms
-    #     # Todo need to update all referrers
-    #     # Todo need to add the atoms to coords
 
     @property
     @abc.abstractmethod
@@ -3729,22 +3696,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._residues.reindex()
 
     help
-    # Todo
-    #   @property
-    #   def residue_indexed_atom_indices(self) -> list[list[int]]:
-    #       """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
-    #
-    #       Returns:
-    #           Residue objects indexed by the Residue position in the corresponding .coords attribute
-    #       """
-    #       try:
-    #           return self._residue_indexed_atom_indices  # [self._atom_indices]
-    #       except (AttributeError, TypeError):  # Todo self.is_parent()
-    #           raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-    #                                f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the '
-    #                                'Structure that owns these coordinates and therefore owns this Structure')
-    #
-    #  Todo Move to Coords
     help
     @property
     def alphafold_atom_mask(self) -> np.ndarray:
@@ -4347,10 +4298,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         if not delete_indices:  # There are no indices
             return []
         else:  # Clear all state variables for all Residue instances
-            help
-            # Todo
-            #   create mutate_residues() and only call this once... It is redundant with @Residue.start_index.setter
-            #   in _residues.reindex_atoms()
             self._residues.reset_state()
             # residue.side_chain_indices = []
 
