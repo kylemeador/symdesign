@@ -1,7 +1,14 @@
-"""
-Module for distribution of SymDesign commands. Includes pose initialization, distribution of Rosetta commands to
-SLURM computational clusters, analysis of designed poses, and sequence selection of completed structures.
+"""Model and design proteins with inherent consideration for local and global symmetry
 
+Modules exported by this package:
+
+- `metrics`: Perform calculations on a protein pose
+- `protocols`: Implement a defined set of instructions for a protein pose
+- `resources`: Common methods and variable to connect job instructions to protocol implementation during job runtime
+- `sequence`: Handle biological sequences as python objects
+- `structure`: Handle biological structures as python objects
+- `third_party`: External dependencies that are installed by this package
+- `utils`: Miscellaneous functions, methods, and tools for all modules
 """
 from __future__ import annotations
 
@@ -40,7 +47,8 @@ from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
-from symdesign.structure.model import Entity, Pose
+from symdesign.structure import Entity, Pose
+from symdesign.structure.utils import StructureException
 import symdesign.utils.guide
 
 
