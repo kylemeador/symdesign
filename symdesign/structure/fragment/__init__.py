@@ -6,16 +6,17 @@ import os
 from abc import ABC
 from collections.abc import Iterable
 from itertools import repeat
-from typing import IO, Sequence, AnyStr
+from typing import AnyStr, IO, Sequence, Union
 
 import numpy as np
-from sklearn.neighbors._ball_tree import BinaryTree, BallTree
+from sklearn.neighbors import BallTree, KDTree
 
 from symdesign import utils, structure
 from . import db, info, metrics
 from ..coordinates import guide_superposition, superposition3d, transform_coordinate_sets
 
 # Globals
+BinaryTreeType = Union[BallTree, KDTree]
 logger = logging.getLogger(__name__)
 
 
@@ -275,7 +276,7 @@ class Fragment(ABC):
     #     else:
     #         return None
 
-    def find_ghost_fragments(self, clash_tree: BinaryTree = None, clash_dist: float = 2.1) -> list[GhostFragment]:
+    def find_ghost_fragments(self, clash_tree: BinaryTreeType = None, clash_dist: float = 2.1) -> list[GhostFragment]:
         """Find all the GhostFragments associated with the Fragment
 
         Args:
@@ -328,7 +329,7 @@ class Fragment(ABC):
         Optionally, check clashing with the original structure backbone by passing clash_tree
 
         Keyword Args:
-            clash_tree: sklearn.neighbors._ball_tree.BinaryTree = None - Allows clash prevention during search.
+            clash_tree: BinaryTreeType = None - Allows clash prevention during search.
                 Typical use is the backbone and CB coordinates of the ContainsAtomsMixin that the Fragment is assigned
             clash_dist: float = 2.1 - The distance to check for backbone clashes
         Returns:

@@ -473,17 +473,13 @@ def setup(args):
     # Write the config file
     utils.write_json(config, putils.config_file)
 
-    # Todo
-    #  Set up the module to be found in the PYTHONPATH variable
-    #  python -m symdesign or symdesign capability?
-    print(f"Set up complete, {putils.program_name} is now operational. Run the command '{putils.program_command}' for "
-          f"usage instructions or visit '{putils.git_url}' for more info")
+    print(f"\nSet up complete, {putils.program_name} is now operational.\n"
+          f"Run the command '{putils.program_command}' for "
+          f"usage instructions or visit '{putils.git_url}' for documentation.\n")
     # print(f'All {putils.program_name} files are located in {putils.git_source}')
 
 
 if __name__ == '__main__':
-    # Todo
-    #  setuptools.py aware
     # ---- setup.py specific args ----
     # alphafold_database = 'alphafold_database'
     # hhsuite_database = 'hhsuite_database'

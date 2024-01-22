@@ -26,6 +26,7 @@ from symdesign.sequence import alignment_programs_literal, alignment_programs, h
     numerical_translation_alph1_gaped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
     protein_letters_alph3, write_sequence_to_fasta, write_sequences, \
     get_equivalent_indices, generate_mutations, protein_letters_literal, AminoAcidDistribution
+from symdesign.structure.utils import StructureException
 
 # import dependencies.bmdca as bmdca
 putils = utils.path
@@ -582,7 +583,7 @@ class GeneEntity(ABC):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
-                            raise utils.SymDesignException(
+                            raise StructureException(
                                 f'{self.add_evolutionary_profile.__name__}: Generation of the profile for {name} '
                                 'took longer than the time limit\nKilled')
                         time.sleep(20)

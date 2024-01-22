@@ -4,8 +4,6 @@ import logging
 from collections.abc import Generator
 from typing import Literal, get_args
 
-from symdesign import utils
-putils = utils.path
 logger = logging.getLogger(__name__)
 available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
@@ -31,19 +29,23 @@ def chain_id_generator() -> Generator[str, None, None]:
             list(getattr(available_letters, 'lower')()))
 
 
-class DesignError(utils.SymDesignException):
+class StructureException(Exception):
     pass
 
 
-class ConstructionError(DesignError):
+class DesignError(StructureException):
     pass
 
 
-class ClashError(DesignError):
+class ConstructionError(StructureException):
     pass
 
 
-class SymmetryError(DesignError):
+class ClashError(StructureException):
+    pass
+
+
+class SymmetryError(StructureException):
     pass
 
 

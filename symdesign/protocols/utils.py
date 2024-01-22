@@ -10,6 +10,7 @@ from typing import Any, Type
 
 from symdesign import flags
 from symdesign.resources import distribute
+from symdesign.structure.utils import StructureException
 from symdesign.utils import SymDesignException, ReportException, path as putils, starttime
 
 # Globals
@@ -42,7 +43,10 @@ def remove_structure_memory(func):
     return wrapped
 
 
-def handle_design_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
+catch_exceptions = (SymDesignException, StructureException)
+
+
+def handle_design_errors(errors: tuple[Type[Exception], ...] = catch_exceptions) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
@@ -65,7 +69,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (SymDesignExcepti
     return wrapper
 
 
-def handle_job_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
+def handle_job_errors(errors: tuple[Type[Exception], ...] = catch_exceptions) -> Callable:
     """Wrap a function/method with try/except `errors`
 
     Args:
@@ -85,7 +89,7 @@ def handle_job_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,
     return wrapper
 
 
-def protocol_decorator(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
+def protocol_decorator(errors: tuple[Type[Exception], ...] = catch_exceptions) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute

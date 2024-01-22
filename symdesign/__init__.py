@@ -1297,7 +1297,7 @@ def main():
                         # The pose was never set, first try to orient it
                         try:
                             pose_job.orient()
-                        except utils.SymDesignException:
+                        except (utils.SymDesignException, StructureException):
                             # Some aspect of orient() failed. This is fine if the molecules are already oriented
                             if warn:
                                 logger.warning(
@@ -1704,7 +1704,7 @@ def app(*args):
     except KeyboardInterrupt:
         print('\nJob Ended By KeyboardInterrupt\n')
         exit_code = 1
-    except utils.SymDesignException:
+    except (utils.SymDesignException, StructureException):
         exit_code = 1
         print(''.join(traceback.format_exc()))
     except Exception:

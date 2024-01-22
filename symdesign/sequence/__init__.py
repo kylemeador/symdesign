@@ -633,7 +633,7 @@ def optimize_protein_sequence(sequence: str, species: optimization_species_liter
             EnforceTranslation
     except ModuleNotFoundError:
         raise RuntimeError(
-            f"Can't {optimize_protein_sequence.__name__} as the dependency DnaChisel is not available")
+            f"Can't {optimize_protein_sequence.__name__} as the dependency `DnaChisel` isn`t available")
 
     try:
         dna_sequence = reverse_translate(sequence)

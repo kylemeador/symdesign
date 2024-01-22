@@ -12,7 +12,8 @@ import ipywidgets as widgets
 from IPython.core.display_functions import display
 
 from .. import flags
-from ..SymDesign import app
+from .. import app
+from ..structure.utils import StructureException
 from ..utils import SymDesignException
 
 # Load and set up job distribution widgets
@@ -619,7 +620,7 @@ def run_app(module_tags: MultipleModule, button) -> None:
         app()
     except SystemExit:
         return
-    except SymDesignException as error:
+    except (SymDesignException, StructureException) as error:
         print(error)
 
 

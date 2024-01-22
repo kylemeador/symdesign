@@ -20,8 +20,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.cluster import KMeans
-from sklearn.neighbors import BallTree
-from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
+from sklearn.neighbors import BallTree, KDTree
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from .base import ContainsResidues, Residue, Structures, StructureBase, atom_or_residue_literal, \
@@ -34,7 +33,7 @@ from .fragment.visuals import write_fragments_as_multimodel
 from .sequence import GeneEntity, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
     sequence_to_one_hot, aa_counts_alph3, aa_nan_counts_alph3
 from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, \
-    default_clash_distance, DesignError, design_programs_literal, SymmetryError
+    default_clash_distance, DesignError, design_programs_literal, StructureException, SymmetryError
 from symdesign import metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
@@ -50,6 +49,7 @@ import symdesign.third_party.alphafold.alphafold.data.pipeline_multimer as af_pi
 from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 from symdesign.utils import types
 
+BinaryTreeType = Union[BallTree, KDTree]
 putils = utils.path
 
 # Globals
@@ -1518,8 +1518,8 @@ class ContainsChains(ContainsStructures):
         Args:
             symmetry: The symmetry of the Structure
         Raises:
-            SymDesignException: When the orient program fails
             SymmetryError: When the specified symmetry is incompatible with the Structure
+            StructureException: When the orient program fails
         """
         # These notes are obviated by the use of the below protocol with from_file() constructor
         # orient_oligomer.f program notes
@@ -1589,7 +1589,7 @@ class ContainsChains(ContainsStructures):
             log_message = f'. Check {log_file} for more information' if log_file else \
                 f': {stderr.decode()}' if stderr else ''
             clean_orient_input_output()
-            raise utils.SymDesignException(
+            raise StructureException(
                 f"{putils.orient_exe_path} couldn't orient {name}{log_message}")
 
         oriented_pdb = Model.from_file(str(orient_output), name=self.name, log=self.log)
@@ -2954,7 +2954,7 @@ class SymmetryOpsMixin(abc.ABC):
     #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')
 
 
-class Chain(StructuredGeneEntity, MetricsMixin):
+class Chain(Structure, MetricsMixin):
     """A grouping of Residue, Atom and Coords instances, typically from a sequence that should be a connected polymer"""
     _chain_id: str
     _entity: Entity
@@ -4385,7 +4385,7 @@ class Models(UserList):  # (Model):
 class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
     _assembly: Model
     _assembly_minimally_contacting: Model
-    _assembly_tree: BinaryTree
+    _assembly_tree: BinaryTreeType
     """Stores a sklearn tree for coordinate searching"""
     _center_of_mass_symmetric_entities: list[list[np.ndarray]]  # list[np.ndarray]
     _oligomeric_model_indices: dict[Entity, list[int]]
@@ -5340,7 +5340,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             return False  # No clash
 
     @property
-    def assembly_tree(self) -> BinaryTree:
+    def assembly_tree(self) -> BinaryTreeType:
         """Holds the tree structure of the backbone and cb symmetric_coords not including the asu coords"""
         try:
             return self._assembly_tree

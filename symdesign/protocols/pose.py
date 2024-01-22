@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, reconstructor
 from sqlalchemy.orm.exc import DetachedInstanceError
 import torch
 
-from .utils import handle_design_errors, warn_missing_symmetry
+from .utils import warn_missing_symmetry
 from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
@@ -60,7 +60,6 @@ missing_pose_transformation = "The design couldn't be transformed as it is missi
                               '"pose_transformation" attribute. Was this generated properly?'
 
 
-# def load_evolutionary_profile(job: resources.job.JobResources, pose: Pose, warn_metrics: bool = False) \
 def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: ContainsEntities,
                               warn_metrics: bool = False) -> tuple[bool, bool]:
     """Add evolutionary profile information to the provided Entity
@@ -408,6 +407,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     """Contains the Pose object"""
     protocol: str | None
     """The name of the currently utilized protocol for file naming and metric results"""
+    job: 'resources.job.JobResources' = None
     # specific_designs_file_paths: list[AnyStr] = []
     # """Contains the various file paths for each design of interest according to self.specific_designs"""
 

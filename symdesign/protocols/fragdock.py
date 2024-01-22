@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterable
 from itertools import repeat, count
 from math import prod
+from typing import Union
 from warnings import catch_warnings, simplefilter
 
 import numpy as np
@@ -14,8 +15,7 @@ import pandas as pd
 import scipy
 import torch
 from sklearn.cluster import DBSCAN
-from sklearn.neighbors import BallTree
-from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
+from sklearn.neighbors import BallTree, KDTree
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from tqdm.auto import tqdm
@@ -37,6 +37,7 @@ from symdesign.structure.utils import chain_id_generator
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import identity_matrix
 putils = utils.path
+BinaryTreeType = Union[BallTree, KDTree]
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -427,7 +428,7 @@ def make_contiguous_ghosts(ghost_frags_by_residue: list[list[GhostFragment]], re
 
 
 def check_tree_for_query_overlap(batch_slice: slice,
-                                 binarytree: BinaryTree = None, query_points: np.ndarray = None,
+                                 binarytree: BinaryTreeType = None, query_points: np.ndarray = None,
                                  rotation: np.ndarray = None, translation: np.ndarray = None,
                                  rotation2: np.ndarray = None, translation2: np.ndarray = None,
                                  rotation3: np.ndarray = None, translation3: np.ndarray = None,
