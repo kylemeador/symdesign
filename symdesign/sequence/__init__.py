@@ -628,9 +628,8 @@ def optimize_protein_sequence(sequence: str, species: optimization_species_liter
     seq_length = len(sequence)
     species = species.lower()
     try:
-        from symdesign.third_party.DnaChisel.dnachisel import reverse_translate, DnaOptimizationProblem, \
-            CodonOptimize, EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, \
-            EnforceTranslation
+        from dnachisel import reverse_translate, AvoidHairpins, AvoidPattern, AvoidRareCodons, CodonOptimize, \
+        DnaOptimizationProblem, EnforceGCContent, EnforceTranslation,  UniquifyAllKmers
     except ModuleNotFoundError:
         raise RuntimeError(
             f"Can't {optimize_protein_sequence.__name__} as the dependency `DnaChisel` isn`t available")
