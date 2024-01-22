@@ -815,8 +815,6 @@ def main():
         sys.exit()
 
     # Set up module specific arguments
-    # Todo we should run this check before every module used as in the case of universal protocols
-    #  See if it can be detached here and made into function in main() scope
     select_from_directory = False
     # if job.module in (flags.cluster_poses,) + flags.select_modules:
     #     # # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
@@ -1325,10 +1323,6 @@ def main():
                 session.commit()
 
                 # # Deal with new data compared to existing entries
-                # all_uniprot_id_to_prot_data = \
-                #     sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
-                #                             # existing_uniprot_ids=existing_uniprot_ids,
-                #                             existing_protein_metadata_ids=existing_protein_properties_ids)
 
                 # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
                 uniprot_entities = []
