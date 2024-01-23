@@ -641,12 +641,12 @@ def run_app(module_tags: MultipleModule, button) -> None:
 #     flags.select_poses,
 #     flags.select_designs,
 # ]
-submit_protocol = 'Process Input Options'
+process_module = 'Process Module(s)'
 module_help = widgets.Label(
     value="Please input the module(s) you would like to include with this job, "
-          f"then click '{submit_protocol}'")
-submit_protocol_button = widgets.Button(
-    description=submit_protocol,
+          f"then click '{process_module}'")
+process_module_button = widgets.Button(
+    description=process_module,
     disabled=False,
     button_style='success',  # 'success', 'info', 'warning', 'danger' or ''
     tooltip='To enter options for the specified job(s), click this button',
