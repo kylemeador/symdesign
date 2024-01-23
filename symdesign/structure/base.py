@@ -27,7 +27,7 @@ from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, pr
     protein_letters_3to1_extended, protein_letters3_alph1_literal
 from symdesign import utils
 from symdesign.metrics import default_sasa_burial_threshold
-from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
+from pdbecif.mmcif_io import CifFileReader
 putils = utils.path
 
 # Globals
