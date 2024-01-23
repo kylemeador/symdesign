@@ -9,8 +9,4 @@ import sys
 # because of the use of python_codon_tables as a dependency for DnaChisel (not in conda though...)
 third_party_dir = os.path.dirname(os.path.abspath(__file__))
 alphafold_dir = os.path.join(third_party_dir, 'alphafold')
-pdbecif_dir = os.path.join(third_party_dir, 'pdbecif')
-pdbecif_src_dir = os.path.join(pdbecif_dir, 'src')
-sys.path.extend([third_party_dir, alphafold_dir,
-                 pdbecif_src_dir
-                 ])
+sys.path.extend([third_party_dir, alphafold_dir])
