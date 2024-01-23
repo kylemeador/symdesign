@@ -3046,6 +3046,14 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             residue_indices: The indices which the new Entity should contain
         """
         operators = kwargs.get('operators')
+        if residue_indices is None:
+                pass
+            # No check
+            else:
+                representative, *additional_chains = chains
+
+            residue_indices = representative.residue_indices
+
         return cls(chains=chains, residue_indices=residue_indices, operators=operators, **kwargs)
 
     # @classmethod

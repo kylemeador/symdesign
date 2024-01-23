@@ -25,7 +25,7 @@ from .pose import insert_pose_jobs, load_evolutionary_profile, PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
-from symdesign.structure.base import Structure, Residue
+from symdesign.structure.base import Residue
 from symdesign.structure.coordinates import transform_coordinate_sets, superposition3d, Coordinates
 from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.db import fragment_factory, TransformHasher
