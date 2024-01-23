@@ -130,23 +130,23 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     # shutil.mkdir -p conda/lib/python3.8/site-packages/alphafold/common/
     # shutil.copy('/content/stereo_chemical_props.txt /opt/conda/lib/python3.8/site-packages/alphafold/common/
 
-    # Make the openmm patch
-    conda_env_path = os.environ['CONDA_PREFIX']
-    vers = sys.version_info
-    openmm_path = os.path.join(conda_env_path, 'lib', f'python{vers.major}.{vers.minor}', 'site-packages')
-
-    os.chdir(openmm_path)
-    patch_openmm_cmd = ['patch', '-p0', f'--input={putils.alphafold_openmm_patch}']
-    # '<', putils.alphafold_openmm_patch]
-    logger.debug(f'patch command:\n\t{subprocess.list2cmdline(patch_openmm_cmd)}')
-    if dry_run:
-        pass
-    else:
-        # with open(putils.alphafold_openmm_patch, 'rb') as f:
-        #     path_lines = f.read()
-        patch_p = subprocess.Popen(patch_openmm_cmd)  # , stdin=subprocess.PIPE)
-        patch_out, patch_err = patch_p.communicate()  # input=path_lines)  # .encode('utf-8'))
-        logger.debug(f'patch stdout:\n{patch_out}\n\ndownload stderr:\n{patch_err}')
+    # # Make the openmm patch
+    # conda_env_path = os.environ['CONDA_PREFIX']
+    # vers = sys.version_info
+    # openmm_path = os.path.join(conda_env_path, 'lib', f'python{vers.major}.{vers.minor}', 'site-packages')
+    #
+    # os.chdir(openmm_path)
+    # patch_openmm_cmd = ['patch', '-p0', f'--input={putils.alphafold_openmm_patch}']
+    # # '<', putils.alphafold_openmm_patch]
+    # logger.debug(f'patch command:\n\t{subprocess.list2cmdline(patch_openmm_cmd)}')
+    # if dry_run:
+    #     pass
+    # else:
+    #     # with open(putils.alphafold_openmm_patch, 'rb') as f:
+    #     #     path_lines = f.read()
+    #     patch_p = subprocess.Popen(patch_openmm_cmd)  # , stdin=subprocess.PIPE)
+    #     patch_out, patch_err = patch_p.communicate()  # input=path_lines)  # .encode('utf-8'))
+    #     logger.debug(f'patch stdout:\n{patch_out}\n\ndownload stderr:\n{patch_err}')
 
     return downloaded_file
 
@@ -414,7 +414,6 @@ def setup(args):
     }
     for idx, (command_type, command) in enumerate(commands.items(), 1):
         logger.debug(f'Command{idx} {command_type}:\n\t{subprocess.list2cmdline(command)}')
-        print(f'Command{idx} {command_type}:\n\t{subprocess.list2cmdline(command)}')
         if dry_run:
             pass
         else:
