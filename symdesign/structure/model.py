@@ -3091,6 +3091,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             self._assign_residues(representative.residues, atoms=representative.atoms)
 
         # Indicate that the first self.chain should be this instance
+        self._chains.clear()
         self._chains[0] = self
 
         _expand_matrices = []
