@@ -4554,7 +4554,10 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
     def coords(self, coords: np.ndarray | list[list[float]]):
         self.log.debug(f'Setting {self.__class__.__name__} coords')
         if self.is_symmetric():  # Set the symmetric coords according to the ASU
+            pass
         super(ContainsAtoms, ContainsAtoms).coords.fset(self, coords)
+
+        if self.is_symmetric():  # Set the symmetric coords according to the ASU
 
             self.log.debug(f'Updating symmetric coords')
             self.generate_symmetric_coords(surrounding_uc=self.is_surrounding_uc())
