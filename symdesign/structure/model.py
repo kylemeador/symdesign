@@ -3091,8 +3091,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             self._assign_residues(representative.residues, atoms=representative.atoms)
 
         # Indicate that the first self.chain should be this instance
-        self._chains.clear()
-        self._chains[0] = self
+        self.reset_chains()
 
         _expand_matrices = []
         _expand_translations = []
@@ -4424,22 +4423,6 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                      rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      crystal: bool = False, cryst_record: str = None, **kwargs):
-        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
-        notation (in CRYST1 format, ex P432) for the Model assembly. If the assembly is a point group, only the symmetry
-        notation is required
-
-        Args:
-            sym_entry: The SymEntry which specifies all symmetry parameters
-            symmetry: The name of a symmetry to be searched against compatible symmetries
-            uc_dimensions: The unit cell dimensions for the crystalline symmetry
-            operators: A set of custom expansion matrices
-            rotations: A set of rotation matrices used to recapitulate the SymmetricModel from the asymmetric unit
-            translations: A set of translation vectors used to recapitulate the SymmetricModel from the asymmetric unit
-            transformations: Transformation operations that reproduce the oligomeric state for each Entity
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-            crystal: Whether crystalline symmetry should be used
-            cryst_record: If a CRYST1 record is known and should be used
-        """
         super().set_symmetry(
             sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
             operators=operators, rotations=rotations, translations=translations, transformations=transformations,
