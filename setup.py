@@ -414,6 +414,7 @@ def setup(args):
     }
     for idx, (command_type, command) in enumerate(commands.items(), 1):
         logger.debug(f'Command{idx} {command_type}:\n\t{subprocess.list2cmdline(command)}')
+        print(f'Command{idx} {command_type}:\n\t{subprocess.list2cmdline(command)}')
         if dry_run:
             pass
         else:
