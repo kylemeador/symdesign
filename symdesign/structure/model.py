@@ -3047,6 +3047,8 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         """
         operators = kwargs.get('operators')
         if residue_indices is None:
+            asymmetry = False
+            if asymmetry:
                 pass
             # No check
             else:
