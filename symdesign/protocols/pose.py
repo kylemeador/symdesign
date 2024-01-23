@@ -6,7 +6,7 @@ import re
 import shutil
 import warnings
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, MutableMapping
 from glob import glob
 from itertools import combinations, repeat, count
 from math import sqrt
@@ -40,7 +40,6 @@ from symdesign.structure.coordinates import superposition3d
 from symdesign.structure.model import ContainsEntities, Entity, Structure, Pose, PoseSpecification
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
-# import symdesign.third_party.alphafold.alphafold as af
 import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
 from symdesign.third_party.alphafold.alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
@@ -48,6 +47,7 @@ from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_c
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 
 # Globals
+FeatureDict = MutableMapping[str, np.ndarray]
 logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 idx_slice = pd.IndexSlice
@@ -1731,8 +1731,7 @@ class PoseProtocol(PoseData):
                                                           num_ensemble=num_ensemble,
                                                           development=self.job.development)
 
-        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) \
-                -> af_pipeline.FeatureDict:
+        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) -> FeatureDict:
             """Set up a sequence that has similar features to the Pose, but different sequence, say from design output
 
             Args:
@@ -1748,8 +1747,8 @@ class PoseProtocol(PoseData):
             #  symmetrize the sequence before passing to af_predict(). This would occur by entity, where the first
             #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
             #  as all_atom_mask would be able to be made here
-            _seq_features = af_pipeline.make_sequence_features(sequence=seq_of_interest, description='',
-                                                               num_res=sequence_length)
+            _seq_features = af_pipeline.make_sequence_features(
+                sequence=seq_of_interest, description='', num_res=sequence_length)
             # Always use the outer "domain_name" feature if there is one
             _seq_features.pop('domain_name')
             if multimer_length is not None:

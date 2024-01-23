@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 from collections import UserList, defaultdict
-from collections.abc import Container, Generator, Iterable, Iterator, Sequence
+from collections.abc import Container, Generator, Iterable, Iterator, Sequence, MutableMapping
 from copy import deepcopy
 from itertools import combinations_with_replacement, combinations, product, count
 from pathlib import Path
@@ -49,6 +49,7 @@ import symdesign.third_party.alphafold.alphafold.data.pipeline_multimer as af_pi
 from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 from symdesign.utils import types
 
+FeatureDict = MutableMapping[str, np.ndarray]
 BinaryTreeType = Union[BallTree, KDTree]
 putils = utils.path
 
@@ -3670,7 +3671,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         }
 
     def get_alphafold_template_features(self, symmetric: bool = False, heteromer: bool = False, **kwargs) \
-            -> af_pipeline.FeatureDict:
+            -> FeatureDict:
         # if symmetric or heteromer:
         #     # raise NotImplementedError("Can't get multimeric features in "
         #     #                           f"{self.get_alphafold_template_features.__name__}")
@@ -3701,7 +3702,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         return template_features
 
     def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, msas: Sequence = tuple(),
-                               no_msa: bool = False, templates: bool = False, **kwargs) -> af_pipeline.FeatureDict:
+                               no_msa: bool = False, templates: bool = False, **kwargs) -> FeatureDict:
         # multimer: bool = False,
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
@@ -3736,9 +3737,8 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         # This ^ runs
         number_of_residues = self.number_of_residues
         sequence = self.sequence
-        sequence_features = af_pipeline.make_sequence_features(sequence=sequence,
-                                                               description=self.name,  # input_description,
-                                                               num_res=number_of_residues)
+        sequence_features = af_pipeline.make_sequence_features(
+            sequence=sequence, description=self.name, num_res=number_of_residues)
         # sequence_features = {
         #     'aatype': ,  # MAKE ONE HOT with X i.e.unknown are X
         #     'between_segment_residues': np.zeros((number_of_residues,), dtype=np.int32),
@@ -3748,7 +3748,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         #     'sequence': np.array([sequence.encode('utf-8')], dtype=np.object_)
         # }
 
-        def make_msa_features_multimeric(msa_feats: af_pipeline.FeatureDict) -> af_pipeline.FeatureDict:
+        def make_msa_features_multimeric(msa_feats: FeatureDict) -> FeatureDict:
             """Create the feature names for Alphafold heteromeric inputs run in multimer mode"""
             valid_feats = af_msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
             return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
@@ -5786,7 +5786,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
     def get_alphafold_features(
             self, symmetric: bool = False, multimer: bool = False, **kwargs
-    ) -> af_pipeline.FeatureDict:
+    ) -> FeatureDict:
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
         Args:

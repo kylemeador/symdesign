@@ -12,7 +12,7 @@ import ipywidgets as widgets
 from IPython.core.display_functions import display
 
 from .. import flags
-from .. import app
+from ..run import app
 from ..structure.utils import StructureException
 from ..utils import SymDesignException
 

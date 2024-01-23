@@ -8,12 +8,10 @@ import random
 import sys
 import time
 import traceback
-import warnings
-from collections.abc import Callable, Container, Iterable, Sequence
+from collections.abc import Callable, Container, Iterable, Sequence, MutableMapping
 from math import ceil
 from typing import Annotated, Any, Literal, Type
 
-from Bio import BiopythonDeprecationWarning
 import jax.numpy as jnp
 import numpy as np
 import torch
@@ -21,17 +19,13 @@ import torch
 # import symdesign.third_party.alphafold.alphafold as af
 from symdesign.third_party.alphafold.alphafold.model import config as afconfig, data as afdata
 from symdesign.third_party.alphafold.alphafold.common import protein as afprotein, residue_constants
-with warnings.catch_warnings():
-    # Cause all warnings to always be ignored
-    warnings.simplefilter('ignore', category=BiopythonDeprecationWarning)
-    from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict
 from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as af_relax_utils
 from .config import relax_options_literal
 from symdesign.third_party.ProteinMPNN.protein_mpnn_utils import ProteinMPNN
 from symdesign.sequence import numerical_translation_alph1_unknown_bytes
 from symdesign import utils
 putils = utils.path
-
+FeatureDict = MutableMapping[str, np.ndarray]
 logger = logging.getLogger(__name__)
 proteinmpnn_default_translation_table = numerical_translation_alph1_unknown_bytes
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # structure.utils.protein_letters_alph1_unknown
