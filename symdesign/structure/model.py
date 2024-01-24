@@ -1345,6 +1345,10 @@ class ContainsChains(ContainsStructures):
         """Returns the Chain instances which are contained in the instance"""
         return self._chains
 
+    def has_dependent_chains(self) -> bool:
+        """Returns True if the .chains are dependents, otherwise Returns False if .chains are symmetry mates"""
+        return '_chains' in self.structure_containers
+
     def is_parsed_multimodel(self) -> bool:
         """Returns True if parsing located multiple MODEL records, aka a 'multimodel' or multistate Structure"""
         return self.chain_ids != self.original_chain_ids
@@ -2480,6 +2484,10 @@ class SymmetryOpsMixin(abc.ABC):
             )
         self.sym_entry = sym_entry
 
+    def reset_state(self):
+        super().reset_state()
+        self.reset_chains()
+
     def reset_chains(self):
         """Remove oligomeric chains. They should be generated fresh"""
         self._chains.clear()
@@ -2498,6 +2506,10 @@ class SymmetryOpsMixin(abc.ABC):
         self.reset_symmetry_state()
         if self.is_symmetric():
             self.reset_chains()
+        else:
+            if self.has_dependent_chains():
+                self.structure_containers.remove('_chains')
+                # self._chains will be dependent on self._entities now
 
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             self._sym_entry = sym_entry
@@ -2888,6 +2900,8 @@ class SymmetryOpsMixin(abc.ABC):
     def set_contacting_asu(self, **kwargs):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
 
+        Args:
+            from_assembly: Whether the ASU should be set fresh from the entire assembly instances
         Keyword Args:
             distance: float = 8.0 - The distance to check for contacts
         Sets:
@@ -2902,9 +2916,8 @@ class SymmetryOpsMixin(abc.ABC):
             return  # This can't be set any better
 
         # Check to see if the parsed Model is already represented symmetrically
-        number_of_symmetry_mates = self.number_of_symmetry_mates
-        number_of_chain_ids = len(self.chain_ids)
-        if number_of_entities * number_of_symmetry_mates == number_of_chain_ids:
+        if from_assembly:  # or self.has_dependent_chains():
+            # If .from_chains() or .from_file(), ensure the SymmetricModel is an asu
             self.log.debug(f'Setting the {repr(self)} to an ASU from a symmetric representation. '
                            "This method hasn't been thoroughly debugged")
             # Essentially performs,
@@ -2931,7 +2944,7 @@ class SymmetryOpsMixin(abc.ABC):
             self.reset_structures_states(self.entities)
             # Recurse this call to ensure that the entities are contacting
             self.set_contacting_asu()
-        elif number_of_entities == number_of_chain_ids:
+        else:  # number_of_entities == number_of_chains:
             self.log.debug(f'Finding the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
 
@@ -2941,11 +2954,6 @@ class SymmetryOpsMixin(abc.ABC):
             del self._no_reset
             # If imperfect symmetry, adapting below may provide some benefit
             # self.assign_residues_from_structures(entities)
-        else:
-            raise SymmetryError(
-                f"Couldn't {self.set_contacting_asu.__name__}() with the number of parsed chains, "
-                f"{number_of_chain_ids}, isn't divisible by {self.number_of_entities} 'number_of_entities'"
-            )
 
     # def report_symmetric_coords(self, func_name: str):
     #     """Debug the symmetric coords for equality across instances"""
@@ -3077,13 +3085,14 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         self.dihedral_chain = None
         self.mate_rotation_axes = []
 
-        if not self.chains:
+        chains = self.chains
+        if not chains:
             raise DesignError(
-                f"Can't construct a {self.__class__.__name__} without '.chains'. "
+                f"Can't construct {self.__class__.__name__} instance without 'chains'. "
                 "Ensure that you didn't construct with chains=False | None"
             )
 
-        representative, *additional_chains = self._chains
+        representative, *additional_chains = chains
         if self.is_parent():
             # When this instance is the parent (.from_file(), .from_chains(parent=None))
             # Set attributes from representative now that _chains is parsed
@@ -4423,6 +4432,12 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                      rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      crystal: bool = False, cryst_record: str = None, **kwargs):
+        # Check if the Structure has asymmetric chains in order to set up symmetry operations using orient
+        if self.has_dependent_chains() and self.number_of_entities * self.number_of_symmetry_mates == self.number_of_chains:
+            parsed_assembly = True
+        else:
+            parsed_assembly = False
+
         super().set_symmetry(
             sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
             operators=operators, rotations=rotations, translations=translations, transformations=transformations,
@@ -4482,7 +4497,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                     f"Expected {_arg_type}translation vectors with 2 dimensions, not {translations.ndim} "
                     "dimensions. Ensure the passed translations have a shape of (N symmetry operations, 3)"
                 )
-        else:  # The symmetry is either canonical or needs to be found.
+        else:  # The symmetry operators are either canonical or need to be found.
             if self.dimension == 0:
                 # The _expand_matrices rotation matrices are pre-transposed to avoid repetitive operations
                 _expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.symmetry]
@@ -4496,22 +4511,16 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         # Set the symmetry operations
         self._expand_matrices = _expand_matrices
         self._expand_translations = _expand_translations
-        # Check to see if the Structure was parsed as a symmetric assembly
-        clean = True
-        if self.number_of_entities * self.number_of_symmetry_mates == len(self.chain_ids):
-            if not np.allclose(self.center_of_mass, utils.symmetry.origin):
-                # This structure isn't canonically placed at the origin
-                # Save the original position for subsequent reversion
-                ca_coords = self.ca_coords.copy()
-                # Transform to canonical using orient
-                self.orient()  # symmetry=self.symmetry)
-                clean = False
-
-        if not clean:  # Revert position while updating symmetry operations
-            # Set the symmetry operations again as they are now wrong
+        # If the Structure was parsed as a symmetric assembly and isn't canonically located at the origin
+        if parsed_assembly and not np.allclose(self.center_of_mass, utils.symmetry.origin):
+            # Save the original position for subsequent reversion
+            ca_coords = self.ca_coords.copy()
+            # Transform to canonical orientation.
+            self.orient()
+            # Set the symmetry operations again as they are incorrect after orient()
             self._expand_matrices = _expand_matrices
             self._expand_translations = _expand_translations
-            # Transform back
+            # Next, transform back to original and carry the correctly situated symmetry operations along.
             _, rot, tx = superposition3d(ca_coords, self.ca_coords)
             self.transform(rotation=rot, translation=tx)
 
@@ -4520,16 +4529,15 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         except AttributeError:
             self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
 
-        # Generate oligomers for each entity in the pose
+        # Check if the oligomer is constructed for each entity
         for entity, subunit_number in zip(self.entities, self.sym_entry.group_subunit_numbers):
             if entity.number_of_symmetry_mates != subunit_number:
+                # Generate oligomers for each entity
+                self.make_oligomers(transformations=transformations)
                 break
-        else:
-            return
-        self.make_oligomers(transformations=transformations)
 
         # Once oligomers are specified the ASU can be set properly
-        self.set_contacting_asu()
+        self.set_contacting_asu(from_assembly=parsed_assembly)
 
     @property
     def atom_indices_per_entity_symmetric(self):
@@ -4752,20 +4760,15 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                                  cryst_record=self.cryst_record)
 
     @property
-    def chains(self) -> list[Entity]:  # list[Chain]:
-        """Returns transformed copies, i.e. mate chains of the instance"""
-        if not self._chains:
-            self.log.debug(f"{repr(self)} is generating chains")
-            chains = []
+    def chains(self) -> list[Entity]:
+        chains = self._chains
+        if not chains:
+            self.log.debug(f"{repr(self)} is generating .chains")
             models = self._generate_models()
-            # print(f"{len(models)} models were generated")
             for model in models:
                 chains.extend(model.entities)
 
-            # print(f"{len(chains)} chains were generated")
-            self._chains = chains
-
-        return self._chains
+        return chains
 
     @property
     def oligomeric_model_indices(self) -> dict[Entity, list[int]] | dict:
