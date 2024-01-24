@@ -1057,13 +1057,12 @@ class ContainsStructures(Structure):
             for structure in self.__getattribute__(structure_type):
                 if residue_found:  # The Structure the Residue belongs to is already accounted for, just offset
                     structure._offset_indices(start_at=0, offset=-delete_length, dtype='atom')
-                    structure.reset_state()
                 else:
                     try:
                         structure_atom_indices = structure.atom_indices
                         atom_delete_index = structure_atom_indices.index(delete_indices[0])
                     except ValueError:  # When delete_indices[0] isn't in structure_atom_indices
-                        pass  # Haven't reached the correct Structure yet
+                        continue  # Haven't reached the correct Structure yet
                     else:
                         try:
                             for idx in iter(delete_indices):
@@ -1075,7 +1074,8 @@ class ContainsStructures(Structure):
                         else:
                             structure._offset_indices(start_at=atom_delete_index, offset=-delete_length, dtype='atom')
                             residue_found = True
-                        structure.reset_state()
+
+                structure.reset_state()
 
         return delete_indices
 
@@ -1113,15 +1113,15 @@ class ContainsStructures(Structure):
                         # The Structure the Residue belongs to is already accounted for, just offset the indices
                         structure._offset_indices(start_at=0, offset=-delete_length, dtype='atom')
                         structure._offset_indices(start_at=0, offset=-1, dtype='residue')
-                        structure.reset_state()
                     # try:  # Remove atom_delete_indices, residue_indices from Structure
                     elif residue_index not in structure._residue_indices:
                         pass  # This structure is not the one of interest
                     else:  # Remove atom_delete_indices, residue_index from Structure
                         structure._delete_indices(atom_delete_indices, dtype='atom')
                         structure._delete_indices([residue_index], dtype='residue')
-                        structure.reset_state()
                         residue_found = True
+
+                    structure.reset_state()
 
         return residues
 
@@ -1147,27 +1147,32 @@ class ContainsStructures(Structure):
             idx = 0
             # Iterate over Structures in each structure_container
             for idx, structure in enumerate(structures, idx):
-                structure.reset_state()
-                try:  # Update each Structures _residue_ and _atom_indices with additional indices
-                    structure._insert_indices(structure.residue_indices.index(index), [index], dtype='residue')
+                try:  # Update each Structure _residue_indices and _atom_indices with additional indices
+                    structure._insert_indices(
+                        structure.residue_indices.index(index), [index], dtype='residue')
                     structure._insert_indices(
                         structure.atom_indices.index(new_residue.start_index), new_residue_atom_indices, dtype='atom')
-                    break  # Move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):
                     # This should happen if the index isn't in the StructureBase.*_indices of interest
                     # Edge case where the index is being appended to the c-terminus
                     if index - 1 == structure.residue_indices[-1] and new_residue.chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, [index], dtype='residue')
                         structure._insert_indices(structure.number_of_atoms, new_residue_atom_indices, dtype='atom')
-                        break  # Must move to the next container to update the indices by a set increment
-            else:  # No matching structure found. The container may be empty
+                    else:
+                        continue
+
+                # This was the Structure with insertion and insert_indices proceeded successfully
+                structure.reset_state()
+                break
+            else:  # No matching structure found. The structure_type container should be empty...
                 continue
-            # For each subsequent structure in the structure container, update the indices with the last indices from
+            # For each subsequent structure in the structure container, update the indices with the last index from
             # the prior structure
             prior_structure = structure
             for structure in structures[idx + 1:]:
                 structure._start_indices(at=prior_structure.atom_indices[-1] + 1, dtype='atom')
                 structure._start_indices(at=prior_structure.residue_indices[-1] + 1, dtype='residue')
+                structure.reset_state()
                 prior_structure = structure
 
         self.reset_state()
@@ -1203,7 +1208,6 @@ class ContainsStructures(Structure):
             idx = 0
             # Iterate over Structures in each structure_container
             for idx, structure in enumerate(structures, idx):
-                structure.reset_state()
                 try:  # Update each Structure _residue_indices and _atom_indices with additional indices
                     structure._insert_indices(
                         structure.residue_indices.index(index), [index], dtype='residue')
@@ -1216,17 +1220,23 @@ class ContainsStructures(Structure):
                     if index - 1 == structure.residue_indices[-1] and new_residues_chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, new_residue_indices, dtype='residue')
                         structure._insert_indices(structure.number_of_atoms, new_residue_atom_indices, dtype='atom')
-                        break  # Must move to the next container to update the indices by a set increment
+                    else:
+                        continue
+
+                # This was the Structure with insertion and insert_indices proceeded successfully
+                structure.reset_state()
+                break
             else:  # The target structure wasn't found
                 raise DesignError(
                     f"{self.insert_residues.__name__}: Couldn't locate the Structure to be modified by the inserted "
                     f"residues")
-            # For each subsequent structure in the structure container, update the indices with the last indices from
+            # For each subsequent structure in the structure container, update the indices with the last index from
             # the prior structure
             prior_structure = structure
             for structure in structures[idx + 1:]:
                 structure._start_indices(at=prior_structure.atom_indices[-1] + 1, dtype='atom')
                 structure._start_indices(at=prior_structure.residue_indices[-1] + 1, dtype='residue')
+                structure.reset_state()
                 prior_structure = structure
 
         # self.log.debug(f'Deleted {number_new_residues} Residue instances')
@@ -2897,7 +2907,7 @@ class SymmetryOpsMixin(abc.ABC):
             entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry, rename_chains=rename,
             cryst_record=self.cryst_record, **kwargs)  # , biomt_header=self.format_biomt(),
 
-    def set_contacting_asu(self, **kwargs):
+    def set_contacting_asu(self, from_assembly: bool = False, **kwargs):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
 
         Args:
