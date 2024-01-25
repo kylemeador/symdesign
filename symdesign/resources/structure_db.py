@@ -450,7 +450,7 @@ class StructureDatabase(Database):
                     orient_file = self.oriented.retrieve_file(name=structure_identifier)
                     # These name=structure_identifier should be the default parsing method anyway...
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
-                    pose.set_contacting_asu()
+
                     if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
                                                         distance=self.job.design.clash_distance, warn=True):
                         if not self.job.design.ignore_symmetric_clashes:
@@ -487,9 +487,8 @@ class StructureDatabase(Database):
                             orient_logger.error(str(error))
                             non_viable_structures.append(structure_identifier)
                             continue
+
                         pose.set_symmetry(sym_entry=sym_entry)
-                        # set_contacting_asu() is called when the number of chains doesn't match the number of entities
-                        # pose.set_contacting_asu()
                         assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                         # Write out files for the orient database
                         base_file_name = f'{structure_identifier}.pdb{assembly_integer}'
