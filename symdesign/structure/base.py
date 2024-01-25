@@ -800,25 +800,29 @@ class SymmetryBase(ABC):
     @symmetry.setter
     def symmetry(self, symmetry: str | None):
         try:
-            self._symmetry = symmetry.upper()
+            _symmetry = symmetry.upper()
         except AttributeError:  # Not a string
             if symmetry is None:
-                self.reset_symmetry_state()
+                _symmetry = 'C1'
             else:
                 raise ValueError(
                     f"Can't set '.symmetry' with {type(symmetry).__name__}. Must be 'str' or NoneType")
+
+        self.reset_symmetry_state()
+        if _symmetry == 'C1':
+            self._symmetry = None
         else:
-            if self._symmetry == 'C1':
-                self._symmetry = None
+            self._symmetry = _symmetry
 
     def reset_symmetry_state(self) -> None:
         """Remove any state variable associated with the instance"""
-        # self.log.debug(f"Removing symmetric attributes from {repr(self)}")
-        for attribute in self.symmetry_state_attributes:
-            try:
-                delattr(self, attribute)
-            except AttributeError:
-                continue
+        if self.is_symmetric():
+            # self.log.debug(f"Removing symmetric attributes from {repr(self)}")
+            for attribute in self.symmetry_state_attributes:
+                try:
+                    delattr(self, attribute)
+                except AttributeError:
+                    continue
 
     def is_symmetric(self) -> bool:
         """Query whether the Structure is symmetric. Returns True if self.symmetry is not None"""
@@ -1188,18 +1192,18 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         self._coords = Coordinates(self.coords)
 
     def reset_state(self):
-        """Remove attributes that are valid for the current state
+        """Removes attributes that are valid for the current state. Additionally, resets the symmetry state if symmetric
 
         This is useful for transfer of ownership, or changes in the state that should be overwritten
         """
+        # self.log.debug(f'Resetting {repr(self)} state_attributes')
         for attr in self.state_attributes:
             try:
                 self.__delattr__(attr)
             except AttributeError:
                 continue
 
-        if self.is_symmetric():
-            self.reset_symmetry_state()
+        self.reset_symmetry_state()
 
     # @property
     # @abc.abstractmethod

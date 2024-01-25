@@ -1547,10 +1547,9 @@ class ContainsChains(ContainsStructures):
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
-            SymmetryError(
+            raise SymmetryError(
                 f"{self.orient.__name__}: Symmetry {symmetry} isn't a valid symmetry. Please try one of: "
                 f'{", ".join(utils.symmetry.valid_symmetries)}')
-            return
 
         number_of_subunits = self.number_of_chains
         multicomponent = False
@@ -2387,11 +2386,8 @@ class SymmetryOpsMixin(abc.ABC):
         return super().format_header(**kwargs) + self.format_biomt()
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                     uc_dimensions: list[float] = None,
-                     operators: tuple[np.ndarray | list[list[float]], np.ndarray | list[float]] | np.ndarray = None,
-                     rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
-                     transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
-                     crystal: bool = False, cryst_record: str = None, **kwargs):
+                     crystal: bool = False, cryst_record: str = None, uc_dimensions: list[float] = None,
+                     **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
         notation (in CRYST1 format, ex P432) for the Model assembly. If the assembly is a point group, only the symmetry
         notation is required
@@ -2399,6 +2395,8 @@ class SymmetryOpsMixin(abc.ABC):
         Args:
             sym_entry: The SymEntry which specifies all symmetry parameters
             symmetry: The name of a symmetry to be searched against compatible symmetries
+            crystal: Whether crystalline symmetry should be used
+            cryst_record: If a CRYST1 record is known and should be used
             uc_dimensions: The unit cell dimensions for the crystalline symmetry
             operators: A set of custom expansion matrices
             rotations: A set of rotation matrices used to recapitulate the SymmetricModel from the asymmetric unit
@@ -2417,14 +2415,16 @@ class SymmetryOpsMixin(abc.ABC):
         if cryst_record:
             self.cryst_record = cryst_record
             crystal = True
-        elif uc_dimensions and symmetry:
-            crystal_symmetry = symmetry
-            crystal = True
+        else:
+            cryst_record = self.cryst_record  # Populated above or from file parsing
+            if uc_dimensions and symmetry:
+                crystal_symmetry = symmetry
+                crystal = True
 
-        if self.cryst_record:  # Populated above or from file parsing
-            self.log.debug(f'Parsed record: {self.cryst_record.strip()}')
+        if cryst_record:  # Populated above or from file parsing
+            self.log.debug(f'Parsed record: {cryst_record.strip()}')
             if uc_dimensions is None and symmetry is None:  # Only if didn't provide either
-                uc_dimensions, crystal_symmetry = parse_cryst_record(self.cryst_record)
+                uc_dimensions, crystal_symmetry = parse_cryst_record(cryst_record)
                 crystal_symmetry = ''.join(crystal_symmetry)
             self.log.debug(f'Found uc_dimensions={uc_dimensions}, symmetry={crystal_symmetry}')
 
@@ -2466,18 +2466,6 @@ class SymmetryOpsMixin(abc.ABC):
             )
         else:  # No symmetry was provided
             # self.sym_entry/self.symmetry can be None
-            if operators is not None or rotations is not None or translations is not None:
-                passed_args = []
-                if operators:
-                    passed_args.append('operators')
-                if rotations:
-                    passed_args.append('rotations')
-                if translations:
-                    passed_args.append('translations')
-                raise ConstructionError(
-                    f"Couldn't set_symmetry() using {', '.join(passed_args)} without explicitly passing "
-                    "'symmetry' or 'sym_entry'"
-                )
             return
 
         # Ensure the number of Entity instances matches the SymEntry groups
@@ -2494,11 +2482,25 @@ class SymmetryOpsMixin(abc.ABC):
             )
         self.sym_entry = sym_entry
 
-    def reset_state(self):
-        super().reset_state()
-        self.reset_chains()
+    # # Todo this seems to introduce errors during Pose.get_interface_residues()
+    # def reset_state(self):
+    def reset_symmetry_state(self):
+        if self.is_symmetric():
+            super().reset_symmetry_state()
+            self.reset_mates()
+            # for structure_type in self.structure_containers:
+            #     # Iterate over each Structure in each structure_container
+            #     for structure in self.__getattribute__(structure_type):
+            #         structure.reset_symmetry_state()
 
-    def reset_chains(self):
+    @SymmetryBase.symmetry.setter
+    def symmetry(self, symmetry):
+        super(SymmetryBase, SymmetryBase).symmetry.fset(self, symmetry)
+        if self.is_symmetric() and self.has_dependent_chains():
+            self.structure_containers.remove('_chains')
+            # self._chains will be dependent on self._entities now
+
+    def reset_mates(self):
         """Remove oligomeric chains. They should be generated fresh"""
         self._chains.clear()
 
@@ -2513,14 +2515,6 @@ class SymmetryOpsMixin(abc.ABC):
 
     @sym_entry.setter
     def sym_entry(self, sym_entry: utils.SymEntry.SymEntry | int):
-        self.reset_symmetry_state()
-        if self.is_symmetric():
-            self.reset_chains()
-        else:
-            if self.has_dependent_chains():
-                self.structure_containers.remove('_chains')
-                # self._chains will be dependent on self._entities now
-
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             self._sym_entry = sym_entry
         else:  # Try to convert
@@ -2568,7 +2562,7 @@ class SymmetryOpsMixin(abc.ABC):
         try:
             return self._expand_matrices.swapaxes(-2, -1)
         except AttributeError:
-            return np.array([])  # None
+            return np.array([])
 
     @property
     def expand_translations(self) -> np.ndarray:
@@ -2926,7 +2920,7 @@ class SymmetryOpsMixin(abc.ABC):
             return  # This can't be set any better
 
         # Check to see if the parsed Model is already represented symmetrically
-        if from_assembly:  # or self.has_dependent_chains():
+        if from_assembly or self.has_dependent_chains():  # and self.is_asymmetric_mates() and not preserve_asymmetry:
             # If .from_chains() or .from_file(), ensure the SymmetricModel is an asu
             self.log.debug(f'Setting the {repr(self)} to an ASU from a symmetric representation. '
                            "This method hasn't been thoroughly debugged")
@@ -2953,7 +2947,14 @@ class SymmetryOpsMixin(abc.ABC):
             # Update entities to reflect new indices
             self.reset_structures_states(self.entities)
             # Recurse this call to ensure that the entities are contacting
-            self.set_contacting_asu()
+            self.set_contacting_asu(**kwargs)
+            # else:
+            #     raise SymmetryError(
+            #         f"Couldn't {self.set_contacting_asu.__name__}() with the number of parsed chains, "
+            #         f"{self.number_of_chains}. When symmetry={self.symmetry} and the number of entities is "
+            #         f"{self.number_of_entities}, the number of symmetric chains should be "
+            #         f'{number_of_entities * self.number_of_symmetry_mates}'
+            #     )
         else:  # number_of_entities == number_of_chains:
             self.log.debug(f'Finding the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
@@ -3081,12 +3082,17 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
     #     """Initialize an Entity from a set of Chain objects and EntityData"""
     #     return cls(chains=chains, metadata=metadata, **kwargs)
 
-    def __init__(self, operators: tuple[np.ndarray | list[list[float]], np.ndarray | list[float]] | np.ndarray = None,
+    def __init__(self,
+                 operators: tuple[np.ndarray | list[list[float]], np.ndarray | list[float]] | np.ndarray = None,
+                 rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
+                 # transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                  **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated
 
         Args:
             operators: A set of symmetry operations to designate how to apply symmetry
+            rotations: A set of rotation matrices used to recapitulate the SymmetricModel from the asymmetric unit
+            translations: A set of translation vectors used to recapitulate the SymmetricModel from the asymmetric unit
         """
         self._is_captain = True
         super().__init__(**kwargs,  # Entity
@@ -3109,76 +3115,151 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             self._coords.set(representative.coords)
             self._assign_residues(representative.residues, atoms=representative.atoms)
 
-        # Indicate that the first self.chain should be this instance
-        self.reset_chains()
-
-        _expand_matrices = []
-        _expand_translations = []
-        if operators is not None:
-            for rot, tx in operators:
-                _expand_matrices.append(rot)
-                _expand_translations.append(tx)
-            symmetry_source = 'operators'
-        else:
-            symmetry_source = 'chains'
-            _expand_matrices.append(utils.symmetry.identity_matrix)
-            _expand_translations.append(utils.symmetry.origin)
-            if additional_chains:
-                self_seq = self.sequence
-                ca_coords = self.ca_coords
-                for chain in additional_chains:
-                    chain_seq = chain.sequence
-                    additional_chain_coords = chain.ca_coords
-                    first_chain_coords = ca_coords
-                    if chain_seq != self_seq:
-                        # Get aligned indices, then follow with superposition
-                        self.log.debug(f'{repr(chain)} and {repr(self)} require alignment to symmetrize')
-                        fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
-                        additional_chain_coords = additional_chain_coords[fixed_indices]
-                        first_chain_coords = first_chain_coords[moving_indices]
-
-                    _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
-                    _expand_matrices.append(rot)
-                    _expand_translations.append(tx)
-
-        if _expand_matrices:
-            _expand_matrices = np.array(_expand_matrices)
-            if _expand_matrices.ndim == 3:
-                self._expand_matrices = _expand_matrices.swapaxes(-2, -1)
-            else:
-                raise SymmetryError(
-                    f"Couldn't set the symmetry rotation operations from the provided '{symmetry_source}'"
-                )
-            _expand_translations = np.array(_expand_translations)
-            if _expand_translations.ndim == 2:
-                self._expand_translations = _expand_translations[:, None, :]
-            else:
-                raise SymmetryError(
-                    f"Couldn't set the symmetry translation operations from the provided {symmetry_source}"
-                )
-        else:
-            raise ConstructionError(
-                f"Couldn't construct {repr(self)} with 'operators'={operators}"
-            )
+        # Set up the chain copies
+        number_of_symmetry_mates = len(chains)
+        symmetry = None
+        if number_of_symmetry_mates > 1:
+            if self.is_dihedral():
+                symmetry = f'D{int(number_of_symmetry_mates / 2)}'
+            elif self.is_cyclic():
+                symmetry = f'C{number_of_symmetry_mates}'
+            else:  # Higher than D, probably T, O, I, or asymmetric
+                try:
+                    symmetry = utils.symmetry.subunit_number_to_symmetry[number_of_symmetry_mates]
+                except KeyError:
+                    self.log.warning(f"Couldn't find a compatible symmetry for the Entity with "
+                                     f"{number_of_symmetry_mates} chain copies")
+                    # symmetry = None
+                    # self.symmetry = "Unknown-symmetry"
+        self.set_symmetry(symmetry=symmetry)
 
         if not self.is_symmetric():
-            # symmetry = 'C1'  # This is accurate but not handled when expecting self.symmetry=None
-            symmetry = None
-            number_of_symmetry_mates = len(_expand_matrices)
-            if number_of_symmetry_mates > 1:
-                if self.is_dihedral():
-                    symmetry = f'D{int(number_of_symmetry_mates / 2)}'
-                elif self.is_cyclic():
-                    symmetry = f'C{number_of_symmetry_mates}'
-                else:  # Higher than D, probably T, O, I, or asymmetric
-                    try:
-                        symmetry = utils.symmetry.subunit_number_to_symmetry[number_of_symmetry_mates]
-                    except KeyError:
-                        self.log.warning(f"Couldn't find a compatible symmetry for the Entity with "
-                                         f"{number_of_symmetry_mates} chain copies")
-                        # symmetry = None
-                        # self.symmetry = "Unknown-symmetry"
-            self.set_symmetry(symmetry=symmetry)
+            # No symmetry keyword args were passed
+            if operators is not None or rotations is not None or translations is not None:
+                passed_args = []
+                if operators:
+                    passed_args.append('operators')
+                if rotations:
+                    passed_args.append('rotations')
+                if translations:
+                    passed_args.append('translations')
+                raise ConstructionError(
+                    f"Couldn't set_symmetry() using {', '.join(passed_args)} without explicitly passing "
+                    "'symmetry' or 'sym_entry'"
+                )
+            return
+
+        # Set rotations and translations to the correct symmetry operations
+        # where operators, rotations, and translations are user provided from some sort of BIOMT (fiber, other)
+        if operators is not None:
+            symmetry_source_arg = "'operators' "
+
+            num_operators = len(operators)
+            if isinstance(operators, tuple) and num_operators == 2:
+                self.log.warning("Providing custom symmetry 'operators' may result in improper symmetric "
+                                 'configuration. Proceed with caution')
+                rotations, translations = operators
+            elif isinstance(operators, Sequence) and num_operators == number_of_symmetry_mates:
+                rotations = []
+                translations = []
+                try:
+                    for rot, tx in operators:
+                        rotations.append(rot)
+                        translations.append(tx)
+                except TypeError:  # Unpack failed
+                    raise ValueError(
+                        f"Couldn't parse the 'operators'={repr(operators)}.\n\n"
+                        "Expected a Sequence[rotation shape=(3,3). translation shape=(3,)] pairs."
+                    )
+            elif isinstance(operators, np.ndarray):
+                if operators.shape[1:] == (3, 4):
+                    # Parse from a single input of 3 row by 4 column style, like BIOMT
+                    rotations = operators[:, :, :3]
+                    translations = operators[:, :, 3:].squeeze()
+                elif operators.shape[1:] == 3:  # Assume just rotations
+                    rotations = operators
+                    translations = np.tile(utils.symmetry.origin, len(rotations))
+                else:
+                    raise ConstructionError(
+                        f"The 'operators' form {repr(operators)} isn't supported.")
+            else:
+                raise ConstructionError(
+                    f"The 'operators' form {repr(operators)} isn't supported. Must provide a tuple of "
+                    'array-like objects with the order (rotation matrices, translation vectors) or use the '
+                    "'rotations' and 'translations' keyword args")
+        else:
+            symmetry_source_arg = ''
+
+        # Now that symmetry is set, check if the Structure parsed all symmetric chains
+        if len(chains) == self.number_of_entities * number_of_symmetry_mates:
+            parsed_assembly = True
+        else:
+            parsed_assembly = False
+
+        # Set the symmetry operations
+        if rotations is not None and translations is not None:
+            if not isinstance(rotations, np.ndarray):
+                rotations = np.ndarray(rotations)
+            if rotations.ndim == 3:
+                # Assume operators were provided in a standard orientation and transpose for subsequent efficiency
+                # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
+                self._expand_matrices = rotations.swapaxes(-2, -1)
+            else:
+                raise SymmetryError(
+                    f"Expected {symmetry_source_arg}rotation matrices with 3 dimensions, not {rotations.ndim} "
+                    "dimensions. Ensure the passed rotation matrices have a shape of (N symmetry operations, 3, 3)"
+                )
+
+            if not isinstance(translations, np.ndarray):
+                translations = np.ndarray(translations)
+            if translations.ndim == 2:
+                # Assume operators were provided in a standard orientation each vector needs to be in own array on dim=2
+                self._expand_translations = translations[:, None, :]
+            else:
+                raise SymmetryError(
+                    f"Expected {symmetry_source_arg}translation vectors with 2 dimensions, not {translations.ndim} "
+                    "dimensions. Ensure the passed translations have a shape of (N symmetry operations, 3)"
+                )
+        else:
+            symmetry_source_arg = "'chains' "
+            if self.dimension == 0:
+                # The _expand_matrices rotation matrices are pre-transposed to avoid repetitive operations
+                _expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.symmetry]
+                # The _expand_translations vectors are pre-sliced to enable numpy operations
+                _expand_translations = \
+                    np.tile(utils.symmetry.origin, (self.number_of_symmetry_mates, 1))[:, None, :]
+
+                if parsed_assembly:
+                    # The Structure should have symmetric chains
+                    # This routine is essentially orient(). However, with one Entity, no extra need for orient
+                    _expand_matrices = [utils.symmetry.identity_matrix]
+                    _expand_translations = [utils.symmetry.origin]
+                    self_seq = self.sequence
+                    ca_coords = self.ca_coords
+                    # Todo match this mechanism with the symmetric chain index
+                    for chain in additional_chains:
+                        chain_seq = chain.sequence
+                        additional_chain_coords = chain.ca_coords
+                        first_chain_coords = ca_coords
+                        if chain_seq != self_seq:
+                            # Get aligned indices, then follow with superposition
+                            self.log.debug(f'{repr(chain)} and {repr(self)} require alignment to symmetrize')
+                            fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
+                            additional_chain_coords = additional_chain_coords[fixed_indices]
+                            first_chain_coords = first_chain_coords[moving_indices]
+
+                        _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
+                        _expand_matrices.append(rot)
+                        _expand_translations.append(tx)
+                else:
+                    self._expand_matrices = _expand_matrices
+                    self._expand_translations = _expand_translations
+            else:
+                self._expand_matrices, self._expand_translations = \
+                    utils.symmetry.space_group_symmetry_operatorsT[self.symmetry]
+
+        # Removed parsed chain information
+        self.reset_mates()
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -3443,7 +3524,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
         self._expand_matrices = self._expand_translations = None
-        self.reset_chains()
+        self.reset_mates()
         self._is_captain = False
         self.chain_ids = [self.chain_id]
 
@@ -3586,7 +3667,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         self._expand_translations = np.array(_expand_translations)[:, None, :]
 
         # Set the new properties
-        self.reset_chains()
+        self.reset_mates()
         self._set_chain_ids()
 
     def get_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
@@ -3962,10 +4043,6 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             self.find_chain_symmetry()
             return self._max_symmetry_chain_idx
 
-    # @max_symmetry_chain_idx.setter
-    # def max_symmetry_chain_idx(self, max_symmetry_chain_idx):
-    #     self._max_symmetry_chain_idx = max_symmetry_chain_idx
-
     @property
     def max_symmetry(self) -> int:
         """The maximum symmetry order present"""
@@ -3974,10 +4051,6 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         except AttributeError:
             self.find_chain_symmetry()
             return self._max_symmetry
-
-    # @max_symmetry.setter
-    # def max_symmetry(self, max_symmetry):
-    #     self._max_symmetry = max_symmetry
 
     def is_cyclic(self) -> bool:
         """Report whether the symmetry is cyclic
@@ -4017,7 +4090,6 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                         pass  # This won't work in the make_symmdef.pl script, should choose orthogonal y-axis
                     else:
                         return self.chains[chain_idx]
-
         return None
 
     def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr:
@@ -4161,15 +4233,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                           'modeling may be affected')
         return to_file
 
-    def reset_state(self):
-        """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
-
-        This is useful for transfer of ownership, or changes in the Structure state that should be overwritten
-        """
-        super().reset_state()
-        self.reset_chains()
-
-    def reset_chains(self):
+    def reset_mates(self):
         """Remove oligomeric chains. They should be generated fresh"""
         self._chains.clear()
         self._chains.append(self)
@@ -4437,33 +4501,57 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         return cls(structure=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                     uc_dimensions: list[float] = None,
+                     crystal: bool = False, cryst_record: str = None, uc_dimensions: list[float] = None,
                      operators: tuple[np.ndarray | list[list[float]], np.ndarray | list[float]] | np.ndarray = None,
                      rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
-                     crystal: bool = False, cryst_record: str = None, **kwargs):
-        # Check if the Structure has asymmetric chains in order to set up symmetry operations using orient
-        if self.has_dependent_chains() and self.number_of_entities * self.number_of_symmetry_mates == self.number_of_chains:
-            parsed_assembly = True
-        else:
-            parsed_assembly = False
-
+                     **kwargs):
+        """Todo"""
+        chains = self._chains
         super().set_symmetry(
-            sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
-            operators=operators, rotations=rotations, translations=translations, transformations=transformations,
-            surrounding_uc=surrounding_uc, crystal=crystal, cryst_record=cryst_record
+            sym_entry=sym_entry, symmetry=symmetry,
+            crystal=crystal, cryst_record=cryst_record, uc_dimensions=uc_dimensions,
         )
+        number_of_symmetry_mates = self.number_of_symmetry_mates
+
         if not self.is_symmetric():
             # No symmetry keyword args were passed
+            if operators is not None or rotations is not None or translations is not None:
+                passed_args = []
+                if operators:
+                    passed_args.append('operators')
+                if rotations:
+                    passed_args.append('rotations')
+                if translations:
+                    passed_args.append('translations')
+                raise ConstructionError(
+                    f"Couldn't set_symmetry() using {', '.join(passed_args)} without explicitly passing "
+                    "'symmetry' or 'sym_entry'"
+                )
             return
 
-        # Set the correct symmetry operations
-        # operators, rotations, and translations could be from a fiber or some sort of BIOMT
+        # Set rotations and translations to the correct symmetry operations
+        # where operators, rotations, and translations are user provided from some sort of BIOMT (fiber, other)
         if operators is not None:
-            if isinstance(operators, tuple) and len(operators) == 2:
+            symmetry_source_arg = "'operators' "
+
+            num_operators = len(operators)
+            if isinstance(operators, tuple) and num_operators == 2:
                 self.log.warning("Providing custom symmetry 'operators' may result in improper symmetric "
                                  'configuration. Proceed with caution')
                 rotations, translations = operators
+            elif isinstance(operators, Sequence) and num_operators == number_of_symmetry_mates:
+                rotations = []
+                translations = []
+                try:
+                    for rot, tx in operators:
+                        rotations.append(rot)
+                        translations.append(tx)
+                except TypeError:  # Unpack failed
+                    raise ValueError(
+                        f"Couldn't parse the 'operators'={repr(operators)}.\n\n"
+                        "Expected a Sequence[rotation shape=(3,3). translation shape=(3,)] pairs."
+                    )
             elif isinstance(operators, np.ndarray):
                 if operators.shape[1:] == (3, 4):
                     # Parse from a single input of 3 row by 4 column style, like BIOMT
@@ -4480,59 +4568,72 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                     f"The 'operators' form {repr(operators)} isn't supported. Must provide a tuple of "
                     'array-like objects with the order (rotation matrices, translation vectors) or use the '
                     "'rotations' and 'translations' keyword args")
-            _arg_type = "'operators' "
         else:
-            _arg_type = ''
+            symmetry_source_arg = ''
 
+        # Now that symmetry is set, check if the Structure parsed all symmetric chains
+        if len(chains) == self.number_of_entities * number_of_symmetry_mates:
+            parsed_assembly = True
+        else:
+            parsed_assembly = False
+
+        # Set the symmetry operations
         if rotations is not None and translations is not None:
             if not isinstance(rotations, np.ndarray):
                 rotations = np.ndarray(rotations)
             if rotations.ndim == 3:
                 # Assume operators were provided in a standard orientation and transpose for subsequent efficiency
                 # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
-                _expand_matrices = rotations.swapaxes(-2, -1)
+                self._expand_matrices = rotations.swapaxes(-2, -1)
             else:
                 raise SymmetryError(
-                    f"Expected {_arg_type}rotation matrices with 3 dimensions, not {rotations.ndim} dimensions"
-                    ". Ensure the passed rotation matrices have a shape of (N symmetry operations, 3, 3)"
+                    f"Expected {symmetry_source_arg}rotation matrices with 3 dimensions, not {rotations.ndim} "
+                    "dimensions. Ensure the passed rotation matrices have a shape of (N symmetry operations, 3, 3)"
                 )
 
             if not isinstance(translations, np.ndarray):
                 translations = np.ndarray(translations)
             if translations.ndim == 2:
                 # Assume operators were provided in a standard orientation each vector needs to be in own array on dim=2
-                _expand_translations = translations[:, None, :]
+                self._expand_translations = translations[:, None, :]
             else:
                 raise SymmetryError(
-                    f"Expected {_arg_type}translation vectors with 2 dimensions, not {translations.ndim} "
+                    f"Expected {symmetry_source_arg}translation vectors with 2 dimensions, not {translations.ndim} "
                     "dimensions. Ensure the passed translations have a shape of (N symmetry operations, 3)"
                 )
-        else:  # The symmetry operators are either canonical or need to be found.
+        else:  # The symmetry operators must be possible to find or canonical.
+            symmetry_source_arg = "'chains' "
+            # Get canonical operators
             if self.dimension == 0:
                 # The _expand_matrices rotation matrices are pre-transposed to avoid repetitive operations
                 _expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.symmetry]
-                # The _expand_matrices rotation matrices are pre-sliced to enable numpy operations
+                # The _expand_translations vectors are pre-sliced to enable numpy operations
                 _expand_translations = \
                     np.tile(utils.symmetry.origin, (self.number_of_symmetry_mates, 1))[:, None, :]
+
+                if parsed_assembly:
+                    # The Structure should have symmetric chains
+                    # Set up symmetry operations using orient
+
+                    # Save the original position for subsequent reversion
+                    ca_coords = self.ca_coords.copy()
+                    # Transform to canonical orientation.
+                    self.orient()
+                    # Set the symmetry operations again as they are incorrect after orient()
+                    self._expand_matrices = _expand_matrices
+                    self._expand_translations = _expand_translations
+                    # Next, transform back to original and carry the correctly situated symmetry operations along.
+                    _, rot, tx = superposition3d(ca_coords, self.ca_coords)
+                    self.transform(rotation=rot, translation=tx)
+                else:
+                    self._expand_matrices = _expand_matrices
+                    self._expand_translations = _expand_translations
             else:
-                _expand_matrices, _expand_translations = \
+                self._expand_matrices, self._expand_translations = \
                     utils.symmetry.space_group_symmetry_operatorsT[self.symmetry]
 
-        # Set the symmetry operations
-        self._expand_matrices = _expand_matrices
-        self._expand_translations = _expand_translations
-        # If the Structure was parsed as a symmetric assembly and isn't canonically located at the origin
-        if parsed_assembly and not np.allclose(self.center_of_mass, utils.symmetry.origin):
-            # Save the original position for subsequent reversion
-            ca_coords = self.ca_coords.copy()
-            # Transform to canonical orientation.
-            self.orient()
-            # Set the symmetry operations again as they are incorrect after orient()
-            self._expand_matrices = _expand_matrices
-            self._expand_translations = _expand_translations
-            # Next, transform back to original and carry the correctly situated symmetry operations along.
-            _, rot, tx = superposition3d(ca_coords, self.ca_coords)
-            self.transform(rotation=rot, translation=tx)
+        # Removed parsed chain information
+        self.reset_mates()
 
         try:
             self._symmetric_coords.coords
@@ -4578,7 +4679,6 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         try:  # To see if setting doesn't require attribute reset in the case this instance is performing .coords set
             self._no_reset
         except AttributeError:
-            # self.log.debug(f'Resetting {self.__class__.__name__} state_attributes')
             self.reset_state()
 
     @property
