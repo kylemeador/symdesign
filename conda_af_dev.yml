@@ -50,11 +50,6 @@ dependencies:
 #    - scipy==1.7.0 Coming from conda
 #    - tensorflow # kaiku =2.5.1 # Trying to get from conda
     - tensorflow-cpu==2.11.0
-# Personally useful though not required
-#  - ipykernel
-#  - seaborn
-#  - numba
-#  - jupyterlab
 variables:
   TF_FORCE_UNIFIED_MEMORY: 1
   XLA_PYTHON_CLIENT_MEM_FRACTION: 4.0
