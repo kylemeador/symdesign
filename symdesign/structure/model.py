@@ -2482,20 +2482,12 @@ class SymmetryOpsMixin(abc.ABC):
     # # Todo this seems to introduce errors during Pose.get_interface_residues()
     # def reset_state(self):
     def reset_symmetry_state(self):
-        if self.is_symmetric():
-            super().reset_symmetry_state()
-            self.reset_mates()
             # for structure_type in self.structure_containers:
             #     # Iterate over each Structure in each structure_container
             #     for structure in self.__getattribute__(structure_type):
             #         structure.reset_symmetry_state()
-
-    @SymmetryBase.symmetry.setter
-    def symmetry(self, symmetry):
-        super(SymmetryBase, SymmetryBase).symmetry.fset(self, symmetry)
-        if self.is_symmetric() and self.has_dependent_chains():
-            self.structure_containers.remove('_chains')
-            # self._chains will be dependent on self._entities now
+        super().reset_symmetry_state()
+        self.reset_mates()
 
     def reset_mates(self):
         """Remove oligomeric chains. They should be generated fresh"""
@@ -3234,7 +3226,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                 _expand_matrices = utils.symmetry.point_group_symmetry_operatorsT[self.symmetry]
                 # The _expand_translations vectors are pre-sliced to enable numpy operations
                 _expand_translations = \
-                    np.tile(utils.symmetry.origin, (self.number_of_symmetry_mates, 1))[:, None, :]
+                    np.tile(utils.symmetry.origin, (number_of_symmetry_mates, 1))[:, None, :]
 
                 if parsed_assembly:
                     # The Structure should have symmetric chains
@@ -3445,7 +3437,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
     @SymmetryBase.symmetry.setter
     def symmetry(self, symmetry: str | None):
         super(StructureBase, StructureBase).symmetry.fset(self, symmetry)
-        if symmetry and self.is_dependent():
+        if self.is_symmetric() and self.is_dependent():
             # Set the parent StructureBase.symmetric_dependents to the 'entities' container
             self.parent.symmetric_dependents = 'entities'
 
@@ -4496,6 +4488,13 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                 "Can't initialize without symmetry. Pass 'symmetry' or 'sym_entry' to "
                 f'{cls.__name__}.{cls.from_assembly.__name__}() constructor')
         return cls(structure=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
+
+    @SymmetryBase.symmetry.setter
+    def symmetry(self, symmetry):
+        super(StructureBase, StructureBase).symmetry.fset(self, symmetry)
+        if self.is_symmetric() and self.has_dependent_chains():
+            self.structure_containers.remove('_chains')
+            # self._chains will be dependent on self._entities now
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                      crystal: bool = False, cryst_record: str = None, uc_dimensions: list[float] = None,

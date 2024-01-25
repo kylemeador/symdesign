@@ -816,13 +816,12 @@ class SymmetryBase(ABC):
 
     def reset_symmetry_state(self) -> None:
         """Remove any state variable associated with the instance"""
-        if self.is_symmetric():
-            # self.log.debug(f"Removing symmetric attributes from {repr(self)}")
-            for attribute in self.symmetry_state_attributes:
-                try:
-                    delattr(self, attribute)
-                except AttributeError:
-                    continue
+        # self.log.debug(f"Removing symmetric attributes from {repr(self)}")
+        for attribute in self.symmetry_state_attributes:
+            try:
+                delattr(self, attribute)
+            except AttributeError:
+                continue
 
     def is_symmetric(self) -> bool:
         """Query whether the Structure is symmetric. Returns True if self.symmetry is not None"""
