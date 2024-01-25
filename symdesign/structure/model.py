@@ -2328,8 +2328,8 @@ class SymmetryOpsMixin(abc.ABC):
     _sym_entry: utils.SymEntry.SymEntry | None
     _symmetric_coords: Coordinates  # np.ndarray
     _symmetric_coords_split: list[np.ndarray]
-    _expand_matrices: np.ndarray | list[list[float]] | None
-    _expand_translations: np.ndarray | list[float] | None
+    _expand_matrices: np.ndarray | list[list[float]]
+    _expand_translations: np.ndarray | list[float]
     symmetry_state_attributes: set[str] = SymmetryBase.symmetry_state_attributes | {
         '_asu_indices', '_asu_model_idx', '_center_of_mass_symmetric_models',
         '_number_of_symmetry_mates', '_symmetric_coords', '_symmetric_coords_split'
@@ -2395,13 +2395,6 @@ class SymmetryOpsMixin(abc.ABC):
             crystal: Whether crystalline symmetry should be used
             cryst_record: If a CRYST1 record is known and should be used
             uc_dimensions: The unit cell dimensions for the crystalline symmetry
-            operators: A set of custom expansion matrices
-            rotations: A set of rotation matrices used to recapitulate the SymmetricModel from the asymmetric unit
-            translations: A set of translation vectors used to recapitulate the SymmetricModel from the asymmetric unit
-            transformations: Transformation operations that reproduce the oligomeric state for each Entity
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-            crystal: Whether crystalline symmetry should be used
-            cryst_record: If a CRYST1 record is known and should be used
         """
         # Try to solve for symmetry as uc_dimensions are needed for cryst ops, if available
         crystal_symmetry = None
@@ -2550,7 +2543,7 @@ class SymmetryOpsMixin(abc.ABC):
         """The symmetry rotations to generate each of the symmetry mates"""
         try:
             return self._expand_matrices.swapaxes(-2, -1)
-        except AttributeError:
+        except AttributeError:  # list has no attribute 'swapaxes'
             return np.array([])
 
     @property
@@ -2558,7 +2551,7 @@ class SymmetryOpsMixin(abc.ABC):
         """The symmetry translations to generate each of the symmetry mates"""
         try:
             return self._expand_translations.squeeze()
-        except AttributeError:
+        except AttributeError:  # list has no attribute 'squeeze'
             return np.array([])
 
     @property
@@ -2721,9 +2714,6 @@ class SymmetryOpsMixin(abc.ABC):
                     np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
                 return self.frac_to_cart(surrounding_frac_coords)
             else:
-                # must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
-                # self._number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-                # uc_number = 1
                 return self.return_unit_cell_coords(coords)
         else:  # self.dimension = 0 or None
             return (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
@@ -3248,8 +3238,11 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                             first_chain_coords = first_chain_coords[moving_indices]
 
                         _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
-                        _expand_matrices.append(np.transpose(rot))
+                        _expand_matrices.append(rot)
                         _expand_translations.append(tx)
+
+                    self._expand_matrices = np.array(_expand_matrices).swapaxes(-2, -1)
+                    self._expand_translations = np.array(_expand_translations)[:, None, :]
                 else:
                     self._expand_matrices = _expand_matrices
                     self._expand_translations = _expand_translations
@@ -3312,7 +3305,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                 chain.coords = np.matmul(coords, rot_t) + tx
                 # self.log.debug(f'Setting coords on mate chain {chain.chain_id}')
 
-            self._expand_matrices = np.array(_expand_matrices)  # .swapaxes(-2, -1)
+            self._expand_matrices = np.array(_expand_matrices)
             self._expand_translations = np.array(_expand_translations)[:, None, :]
         else:  # Accept the new coords
             super(ContainsAtoms, ContainsAtoms).coords.fset(self, coords)
@@ -3512,7 +3505,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
 
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
-        self._expand_matrices = self._expand_translations = None
+        self._expand_matrices = self._expand_translations = []
         self.reset_mates()
         self._is_captain = False
         self.chain_ids = [self.chain_id]
@@ -3525,9 +3518,9 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         """
         # self.log.debug(f'Designating Entity as mate')
         self._captain = captain
+        self._expand_matrices = self._expand_translations = []
         self._is_captain = False
         self.chain_ids = [captain.chain_id]  # Set for a length of 1, using the captain.chain_id
-        self._expand_matrices = self._expand_translations = None
 
     def _make_captain(self):
         """Turn the Entity into a "captain" Entity if it isn't already"""
@@ -4502,7 +4495,24 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                      rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      **kwargs):
-        """Todo"""
+        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
+        notation (in CRYST1 format, ex P432) for the Model assembly. If the assembly is a point group, only the symmetry
+        notation is required
+
+        Args:
+            sym_entry: The SymEntry which specifies all symmetry parameters
+            symmetry: The name of a symmetry to be searched against compatible symmetries
+            crystal: Whether crystalline symmetry should be used
+            cryst_record: If a CRYST1 record is known and should be used
+            uc_dimensions: The unit cell dimensions for the crystalline symmetry
+            operators: A set of custom expansion matrices
+            rotations: A set of rotation matrices used to recapitulate the SymmetricModel from the asymmetric unit
+            translations: A set of translation vectors used to recapitulate the SymmetricModel from the asymmetric unit
+            transformations: Transformation operations that reproduce the oligomeric state for each Entity
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+            crystal: Whether crystalline symmetry should be used
+            cryst_record: If a CRYST1 record is known and should be used
+        """
         chains = self._chains
         super().set_symmetry(
             sym_entry=sym_entry, symmetry=symmetry,
