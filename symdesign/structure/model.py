@@ -1175,8 +1175,6 @@ class ContainsStructures(Structure):
                 structure.reset_state()
                 prior_structure = structure
 
-        self.reset_state()
-
         return new_residue
 
     def insert_residues(self, index: int, new_residues: Iterable[Residue], chain_id: str = None) -> list[Residue]:
@@ -1240,7 +1238,6 @@ class ContainsStructures(Structure):
                 prior_structure = structure
 
         # self.log.debug(f'Deleted {number_new_residues} Residue instances')
-        self.reset_state()
 
         return new_residues
 
