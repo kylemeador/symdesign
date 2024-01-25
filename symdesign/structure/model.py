@@ -2475,10 +2475,6 @@ class SymmetryOpsMixin(abc.ABC):
     # # Todo this seems to introduce errors during Pose.get_interface_residues()
     # def reset_state(self):
     def reset_symmetry_state(self):
-            # for structure_type in self.structure_containers:
-            #     # Iterate over each Structure in each structure_container
-            #     for structure in self.__getattribute__(structure_type):
-            #         structure.reset_symmetry_state()
         super().reset_symmetry_state()
         self.reset_mates()
 
@@ -3605,7 +3601,8 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             rotation_matrices, degeneracy_matrices)
 
         assert self.number_of_symmetry_mates == len(degeneracy_rotation_matrices), \
-            f"The {self.number_of_symmetry_mates=} != {len(degeneracy_rotation_matrices)}, the number of operations"
+            (f"The number of symmetry mates, {self.number_of_symmetry_mates} != {len(degeneracy_rotation_matrices)}, "
+             "the number of operations")
 
         if rotation is None:
             rotation = inv_rotation = utils.symmetry.identity_matrix
