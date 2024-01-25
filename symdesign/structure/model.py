@@ -2570,7 +2570,17 @@ class SymmetryOpsMixin(abc.ABC):
         try:
             return self._expand_translations.squeeze()
         except AttributeError:
-            return np.array([])  # None
+            return np.array([])
+
+    @property
+    def chain_transforms(self) -> list[types.TransformationMapping]:
+        """Returns the transformation operations for each of the symmetry mates (excluding the ASU)"""
+        chain_transforms = []
+        # Skip the first given the mechanism for symmetry mate creation
+        for idx, (rot, tx) in enumerate(zip(list(self.expand_matrices[1:]), list(self.expand_translations[1:]))):
+            chain_transforms.append(types.TransformationMapping(rotation=rot, translation=tx))
+
+        return chain_transforms
 
     @property
     def number_of_symmetric_residues(self) -> int:
@@ -3249,7 +3259,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                             first_chain_coords = first_chain_coords[moving_indices]
 
                         _, rot, tx = superposition3d(additional_chain_coords, first_chain_coords)
-                        _expand_matrices.append(rot)
+                        _expand_matrices.append(np.transpose(rot))
                         _expand_translations.append(tx)
                 else:
                     self._expand_matrices = _expand_matrices
@@ -3293,7 +3303,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             _expand_translations = [utils.symmetry.origin]
             # Find the transform between the new coords and the current mate chain coords
             # for chain, transform in zip(mate_chains, current_chain_transforms):
-            for chain, transform in zip(mate_chains, self.chain_transforms):
+            for chain in mate_chains:
                 # self.log.debug(f'Updated transform of mate {chain.chain_id}')
                 # In liu of using chain.coords as lengths might be different
                 # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
@@ -3434,16 +3444,6 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
     # @chain_ids.setter
     # def chain_ids(self, chain_ids: list[str]):
     #     self._chain_ids = chain_ids
-
-    @property
-    def chain_transforms(self) -> list[types.TransformationMapping]:
-        """Returns the transformation operations for each of the SymmetryMates"""
-        chain_transforms = []
-        # Skip the first given the mechanism for symmetry mate creation
-        for idx, (rot, tx) in enumerate(zip(list(self.expand_matrices[1:]), list(self.expand_translations[1:]))):
-            chain_transforms.append(types.TransformationMapping(rotation=rot, translation=tx))
-
-        return chain_transforms
 
     @SymmetryBase.symmetry.setter
     def symmetry(self, symmetry: str | None):
