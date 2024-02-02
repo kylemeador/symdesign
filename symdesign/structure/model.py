@@ -3032,6 +3032,7 @@ class Chain(Structure, MetricsMixin):
         """The Entity ID associated with the instance"""
         return getattr(self._entity, 'name', None)
 
+    @property
     def reference_sequence(self) -> str:
         """Return the entire sequence, constituting all described residues, not just structurally modeled ones
 
