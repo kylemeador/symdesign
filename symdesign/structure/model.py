@@ -231,9 +231,9 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                  thermophilicity: bool = None, reference_sequence: str = None, **kwargs):
         """
         Args:
-            metadata: Unique database references for the Entity
+            metadata: Unique database references
             uniprot_ids: The UniProtID(s) that describe this protein sequence
-            thermophilicity: The extent to which the Entity is deemed thermophilic
+            thermophilicity: The extent to which the sequence is deemed thermophilic
             reference_sequence: The reference sequence (according to expression sequence or reference database)
         """
         super().__init__(**kwargs)  # StructuredGeneEntity
@@ -260,13 +260,13 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 self.uniprot_ids = metadata.uniprot_ids
 
     def clear_api_data(self):
-        """Remove any state information associated with the Entity from the PDB API"""
+        """Removes any state information from the PDB API"""
         del self._reference_sequence
         self.uniprot_ids = (None,)
         self.thermophilicity = None
 
     def retrieve_api_metadata(self):
-        """Try to set attributes about the Entity from PDB API query information
+        """Try to set attributes from PDB API
 
         Sets:
             self._api_data: dict[str, Any]
@@ -278,12 +278,12 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             self._reference_sequence: str
             self.thermophilicity: bool
         """
-        name = self.name
+        entity_id = self.entity_id
         try:
             retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
         except AttributeError:
             retrieve_api_info = query.pdb.query_pdb_by
-        api_return = retrieve_api_info(entity_id=name)
+        api_return = retrieve_api_info(entity_id=entity_id)
         """Get the data on it's own since retrieve_api_info returns
         {'EntityID':
            {'chains': ['A', 'B', ...],
@@ -293,8 +293,8 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         ...}
         """
         if api_return:
-            if name.lower() in api_return:
-                self.name = name = name.lower()
+            if entity_id.lower() in api_return:
+                self.name = name = entity_id.lower()
 
             self._api_data = api_return.get(name, {})
         else:
@@ -311,7 +311,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                     if data.get('db') == query.pdb.UKB:
                         self.uniprot_ids = data.get('accession')
         else:
-            self.log.warning(f'Entity {self.name}: No information found from PDB API')
+            self.log.warning(f'{repr(self)}: No information found from PDB API')
 
     # @hybrid_property
     @property
@@ -353,8 +353,8 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                     return self._reference_sequence
                 except AttributeError:
                     pass
-            # else:  # retrieve_api_metadata() was already attempted
-            self._reference_sequence = self._retrieve_reference_sequence_from_name(self.name)
+
+            self._reference_sequence = self._retrieve_reference_sequence_from_name(self.entity_id)
             if self._reference_sequence is None:
                 self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
                 self._reference_sequence = self.sequence
@@ -366,29 +366,32 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         Args:
             name: The EntityID to search for a reference sequence
         Returns:
-            The sequence (if located) from the PDB API otherwise None
+            The sequence (if located) from the PDB API, otherwise None
         """
-        def _query_sequence_for_entity_id():
-            self.log.debug(f"{self._retrieve_reference_sequence_from_name.__name__}: The provided {name=} isn't the "
-                           'correct format (1abc_1), and PDB API query will fail. Retrieving closest entity_id by PDB'
-                           ' API structure sequence using the default sequence similarity parameters: '
-                           f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
-            return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
-
         try:
             entry, entity_integer, *_ = name.split('_')
+        except ValueError:  # Couldn't unpack correct number of values
+            entity_id = self._retrieve_entity_id_from_sequence()
+        else:
             if len(entry) == 4 and entity_integer.isdigit():
                 entity_id = f'{entry}_{entity_integer}'
             else:
-                entity_id = _query_sequence_for_entity_id()
-        except ValueError:  # Couldn't unpack correct number of values
-            entity_id = _query_sequence_for_entity_id()
+                self.log.debug(
+                    f"{self._retrieve_reference_sequence_from_name.__name__}: The provided {name=} isn't the "
+                    'correct format (1abc_1), and PDB API query will fail.')
+                entity_id = self._retrieve_entity_id_from_sequence()
 
         if entity_id is None:
             return None
         else:
             self.log.debug(f'Querying {entity_id} reference sequence from PDB')
             return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
+
+    def _retrieve_entity_id_from_sequence(self) -> str | None:
+        """Attempts to retrieve the EntityID from the sequence"""
+        self.log.debug('Retrieving closest entity_id by PDB API structure sequence using the sequence similarity '
+                       f'parameters: {", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
+        return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
 
     def _format_seqres(self, chain_id: str = None) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
@@ -413,7 +416,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
     @property
     def offset_index(self) -> int:
-        """Return the starting index for the GeneEntity based on pose numbering of the residues. Zero-indexed"""
+        """The starting Residue index for the instance. Zero-indexed"""
         return self.residues[0].index
 
     def add_fragments_to_profile(self, fragments: Iterable[FragmentInfo],
@@ -437,7 +440,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         """
         if alignment_type not in alignment_types:
             raise ValueError(
-                f"Argument 'alignment_type' must be either 'mapped' or 'paired' not {alignment_type}")
+                f"Argument 'alignment_type' must be one of '{', '.join(alignment_types)}' not {alignment_type}")
 
         fragment_db = self.fragment_db
         fragment_map = self.fragment_map
@@ -3028,6 +3031,18 @@ class Chain(Structure, MetricsMixin):
     def entity_id(self) -> str:
         """The Entity ID associated with the instance"""
         return getattr(self._entity, 'name', None)
+
+    def reference_sequence(self) -> str:
+        """Return the entire sequence, constituting all described residues, not just structurally modeled ones
+
+        Returns:
+            The sequence according to the Entity reference, or the Structure sequence if no reference available
+        """
+        try:
+            return self.entity.reference_sequence
+        except AttributeError:  # .entity isn't set
+            self.log.debug(f"The reference sequence couldn't be found. Using the {repr(self)} sequence instead")
+            return self.sequence
 
     def calculate_metrics(self, **kwargs) -> dict[str, Any]:
         """"""
