@@ -4024,9 +4024,33 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         self.mate_rotation_axes.clear()
         self.mate_rotation_axes.append({'sym': 1, 'axis': utils.symmetry.origin})
         self.log.debug(f'Reference chain is {self.chain_id}')
+        if self.is_symmetric():
+
+            def _get_equivalent_coords(
+                self_ca_coords: np.ndarray, self_seq: str, chain_: Chain
+            ) -> tuple[np.ndarray, np.ndarray]:
+                return self_ca_coords, chain_.ca_coords
+        else:
+
+            def _get_equivalent_coords(
+                self_ca_coords: np.ndarray, self_seq: str, chain_: Chain
+            ) -> tuple[np.ndarray, np.ndarray]:
+                chain_seq = chain_.sequence
+                additional_chain_coords = chain_.ca_coords
+                if chain_seq != self_seq:
+                    # Get aligned indices, then follow with superposition
+                    self.log.debug(f'{repr(chain_)} and {repr(self)} require alignment to symmetrize')
+                    fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
+                    additional_chain_coords = additional_chain_coords[fixed_indices]
+                    self_ca_coords = self_ca_coords[moving_indices]
+
+                return self_ca_coords, additional_chain_coords
+
         ca_coords = self.ca_coords
+        sequence = self.sequence
         for chain in self.chains[1:]:
-            rmsd, quat, tx = superposition3d_quat(ca_coords, chain.ca_coords)
+            self_coords, chain_coords = _get_equivalent_coords(ca_coords, sequence, chain)
+            rmsd, quat, tx = superposition3d_quat(self_coords, chain_coords)
             # rmsd, quat, tx = superposition3d_quat(cb_coords-center_of_mass, chain.cb_coords-center_of_mass)
             self.log.debug(f'rmsd={rmsd} quaternion={quat} translation={tx}')
             w = abs(quat[3])
