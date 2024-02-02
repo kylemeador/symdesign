@@ -1377,6 +1377,9 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+pd.set_option('future.no_silent_downcasting', True)
+
+
 def write_dataframe(session: Session, designs: pd.DataFrame = None,
                     design_residues: pd.DataFrame = None, entity_designs: pd.DataFrame = None,
                     poses: pd.DataFrame = None, pose_residues: pd.DataFrame = None, residues: pd.DataFrame = None,
