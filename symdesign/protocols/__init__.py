@@ -537,7 +537,7 @@ def helix_bending(job: pose.PoseJob):
     """
     job.load_pose()
     if job.job.joint_chain:  # A chain designation was provided
-        model_to_select = job.pose.chain(job.job.joint_chain)
+        model_to_select = job.pose.get_chain(job.job.joint_chain)
     else:  # Just use the residue number to select
         model_to_select = job.pose
 

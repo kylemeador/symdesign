@@ -361,18 +361,18 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             return self._reference_sequence
 
     def _retrieve_reference_sequence_from_name(self, name: str) -> str | None:
-        """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence
+        """Using the EntityID, fetch information from the PDB API and set the instance .reference_sequence
 
         Args:
-            name:
+            name: The EntityID to search for a reference sequence
         Returns:
-            The sequence (if located) from the PDB API
+            The sequence (if located) from the PDB API otherwise None
         """
         def _query_sequence_for_entity_id():
-            self.log.warning(f"{self._retrieve_reference_sequence_from_name.__name__}: The provided {name=} isn't the "
-                             'correct format (1abc_1), and PDB API query will fail. Retrieving closest entity_id by PDB'
-                             ' API structure sequence using the default sequence similarity parameters: '
-                             f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
+            self.log.debug(f"{self._retrieve_reference_sequence_from_name.__name__}: The provided {name=} isn't the "
+                           'correct format (1abc_1), and PDB API query will fail. Retrieving closest entity_id by PDB'
+                           ' API structure sequence using the default sequence similarity parameters: '
+                           f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
             return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
 
         try:
@@ -1461,7 +1461,7 @@ class ContainsChains(ContainsStructures):
         for chain in self.chains:
             chain.renumber_residues()
 
-    def chain(self, chain_id: str) -> Chain | None:
+    def get_chain(self, chain_id: str) -> Chain | None:
         """Return the Chain object specified by the passed chain ID from the Structure object
 
         Args:
@@ -2190,7 +2190,7 @@ class ContainsEntities(ContainsChains):
 
             # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
             data_chains = utils.remove_duplicates(data.get('chains', []))
-            chains = [self.chain(chain_id) if isinstance(chain_id, str) else chain_id
+            chains = [self.get_chain(chain_id) if isinstance(chain_id, str) else chain_id
                       for chain_id in data_chains]
             entity_chains = [chain for chain in chains if chain]
             entity_data = {
@@ -2230,7 +2230,7 @@ class ContainsEntities(ContainsChains):
         """Return the index where each of the Entity instances ends, i.e. at the c-terminal Residue"""
         return [entity.c_terminal_residue.index for entity in self.entities]
 
-    def entity(self, entity_id: str) -> Entity | None:
+    def get_entity(self, entity_id: str) -> Entity | None:
         """Retrieve an Entity by name
 
         Args:
@@ -5719,7 +5719,7 @@ class Pose(SymmetricModel, MetricsMixin):
     @property
     def active_entities(self) -> list[Entity]:
         """The Entity instances that are available for design calculations given a design selector"""
-        return [self.entity(name) for name in self._design_selection_entity_names]
+        return [self.get_entity(name) for name in self._design_selection_entity_names]
 
     @property
     def interface_residues(self) -> list[Residue]:
@@ -5745,7 +5745,7 @@ class Pose(SymmetricModel, MetricsMixin):
         residues = self.residues
         interface_residues_by_entity_pair = {}
         for (name1, name2), (indices1, indices2) in self._interface_residue_indices_by_entity_name_pair.items():
-            interface_residues_by_entity_pair[(self.entity(name1), self.entity(name2))] = (
+            interface_residues_by_entity_pair[(self.get_entity(name1), self.get_entity(name2))] = (
                 [residues[ridx] for ridx in indices1],
                 [residues[ridx] for ridx in indices2],
             )
@@ -5828,7 +5828,7 @@ class Pose(SymmetricModel, MetricsMixin):
             # All selectors could be a set() or None.
             if entities:
                 for entity_name in entities:
-                    entity = self.entity(entity_name)
+                    entity = self.get_entity(entity_name)
                     if entity is None:
                         raise NameError(
                             f"No entity named '{entity_name}'")
@@ -5837,7 +5837,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
             if chains:
                 for chain_id in chains:
-                    chain = self.chain(chain_id)
+                    chain = self.get_chain(chain_id)
                     if chain is None:
                         raise NameError(
                             f"No chain named '{chain_id}'")
@@ -7550,8 +7550,8 @@ class Pose(SymmetricModel, MetricsMixin):
         """Returns the FragmentInfo present as the result of structural overlap between pairs of Entity instances"""
         fragment_queries = {}
         for (entity1_name, entity2_name), fragment_info in self._fragment_info_by_entity_pair.items():
-            entity1 = self.entity(entity1_name)
-            entity2 = self.entity(entity2_name)
+            entity1 = self.get_entity(entity1_name)
+            entity2 = self.get_entity(entity2_name)
             fragment_queries[(entity1, entity2)] = fragment_info
 
         return fragment_queries

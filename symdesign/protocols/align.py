@@ -292,7 +292,7 @@ def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples
     Returns:
         A list of the transformed pose coordinates at the bent site
     """
-    residue_chain = pose.chain(joint_residue.chain_id)
+    residue_chain = pose.get_chain(joint_residue.chain_id)
     bending_entity = residue_chain.entity
 
     if direction == 'n':
@@ -305,7 +305,7 @@ def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples
     additional_entities = []
     if additional_entity_ids:
         for name in additional_entity_ids:
-            entity = pose.entity(name)
+            entity = pose.get_entity(name)
             if entity is None:
                 raise ValueError(
                     f"The entity_id '{name}' wasn't found in the {repr(pose)}. "
@@ -505,7 +505,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
         selected_models1 = model1.entities
         remaining_entities1 = [entity for entity in model1.entities]
     else:
-        selected_chain1 = model1.chain(job.target_chain)
+        selected_chain1 = model1.get_chain(job.target_chain)
         if not selected_chain1:
             raise ValueError(
                 f"The provided {flags.format_args(flags.target_chain_args)} '{job.target_chain}' wasn't found in the "
@@ -745,7 +745,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
             selected_models2 = model2.entities
             remaining_entities2 = [entity for entity in model2.entities]
         else:
-            selected_chain2 = model2.chain(job.aligned_chain)
+            selected_chain2 = model2.get_chain(job.aligned_chain)
             if not selected_chain2:
                 raise ValueError(
                     f"The provided {flags.format_args(flags.aligned_chain_args)} '{job.aligned_chain}' wasn't found in "
@@ -1126,7 +1126,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
                         name = fusion_name
                         # name = f'{termini}-term_{aligned_idx + 1}-{helix_start_index + 1}'
                         if job.bend:
-                            central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
+                            central_aligned_residue = pose.get_chain(chain_id).residue(joint_residue.number)
                             if central_aligned_residue is None:
                                 logger.warning("Couldn't locate the joint_residue with residue number "
                                                f"{joint_residue.number} from chain {chain_id}")

@@ -265,8 +265,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     num_bb_atoms = 4  # Todo ensure handles hydrogens correctly
 
     # Creating PDB instance for mapped and paired chains
-    pdb_mapped = Structure.from_residues(pdb.chain(mapped_chain).residues)
-    pdb_paired = Structure.from_residues(pdb.chain(paired_chain).residues)
+    pdb_mapped = Chain.from_residues(pdb.get_chain(mapped_chain).residues)
+    pdb_paired = Chain.from_residues(pdb.get_chain(paired_chain).residues)
     # pdb_mapped.read_atom_list(pdb.get_chain_atoms(mapped_chain))
     # pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 

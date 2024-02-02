@@ -199,7 +199,7 @@ def download_structures(
         if entity_integer is not None:
             # Replace the Pose from fetched file with the Entity
             # structure_identifier is formatted the exact same as the desired EntityID
-            entity = pose.entity(structure_identifier)
+            entity = pose.get_entity(structure_identifier)
             if entity:
                 # Set the file_path attribute on the Entity
                 file_path = pose.file_path
@@ -844,9 +844,8 @@ class StructureDatabase(Database):
                                 model_runners = monomer_runners
                                 previous_position_coords = jnp.asarray(entity.alphafold_coords)
                             # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
-                            features = entity.get_alphafold_features(symmetric=af_symmetric,
-                                                                     no_msa=not alignment_loaded,
-                                                                     templates=True)
+                            features = entity.get_alphafold_features(
+                                symmetric=af_symmetric, no_msa=not alignment_loaded, templates=True)
                             # Put the entity oligomeric coordinates in as a prior to bias the prediction
                             features['prev_pos'] = previous_position_coords
                             # Run the prediction

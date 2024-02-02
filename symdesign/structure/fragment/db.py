@@ -113,8 +113,8 @@ class FragmentDatabase(info.FragmentInfo):
         for ijk in ijk_types:
             frag_model, frag_paired_chain_id = paired_frags[ijk]
             # Look up the partner coords by using stored frag_paired_chain
-            stacked_bb_coords.append(frag_model.chain(frag_paired_chain_id).backbone_coords)
-            stacked_guide_coords.append(frag_model.chain('9').coords)
+            stacked_bb_coords.append(frag_model.get_chain(frag_paired_chain_id).backbone_coords)
+            stacked_guide_coords.append(frag_model.get_chain('9').coords)
         logger.debug(f'Last representative file: {frag_model}, Paired chain: {frag_paired_chain_id}')
 
         stacked_bb_coords = np.array(stacked_bb_coords)

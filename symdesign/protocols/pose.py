@@ -1873,7 +1873,7 @@ class PoseProtocol(PoseData):
             pose_copy: Pose = self.pose.copy()
             # Choose which Structure to iterate over residues
             if entity is not None:
-                structure = pose_copy.entity(entity)
+                structure = pose_copy.get_entity(entity)
             else:
                 structure = pose_copy
 
