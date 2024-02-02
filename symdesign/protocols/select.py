@@ -882,7 +882,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     Returns:
         The matching PoseJob instances
     """
-    from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
+    from dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
     job = job_resources_factory.get()
     results = designs(pose_jobs)
     # Set up output_file pose_jobs for __main__.terminate()
@@ -1887,7 +1887,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     Returns:
         The matching PoseJob instances
     """
-    from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
+    from dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
     job = job_resources_factory.get()
     pose_jobs = sql_designs(pose_jobs, return_pose_jobs=True)
     # Ensure each design has relevant database features loaded
