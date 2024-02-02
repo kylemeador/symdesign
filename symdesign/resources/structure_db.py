@@ -122,7 +122,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
 def download_structures(
     structure_identifiers: Iterable[str], out_dir: str = os.getcwd(), asu: bool = False
 ) -> list[Structure]:
-    """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a ContainsEntities for each identifier
+    """Retrieves/saves structure model files, given EntryIDs/EntityIDs, then returns a Structure for each identifier
 
     Defaults to fetching the biological assembly file, prioritizing the assemblies as predicted very high/high from
     QSBio, then using the first assembly if QSBio is missing
@@ -204,7 +204,7 @@ def download_structures(
                 # Set the file_path attribute on the Entity
                 file_path = pose.file_path
                 pose = entity
-                pose.file_path = file_path
+                pose.tmp_file_path = file_path
             else:  # Couldn't find the specified EntityID
                 logger.warning(f"For {structure_identifier}, couldn't locate the specified {Entity.__name__} "
                                f"'{structure_identifier}'. The available {Entity.__name__} instances are "
@@ -322,7 +322,7 @@ class StructureDatabase(Database):
                     reference_sequence=entity.reference_sequence,
                     thermophilicity=entity.thermophilicity,
                     symmetry_group=entity.symmetry,
-                    model_source=entity.file_path
+                    model_source=entity.tmp_file_path
                 )
                 entity.calculate_secondary_structure(to_file=self.stride.path_to(name=entity.name))
                 protein_metadata.n_terminal_helix = entity.is_termini_helical()
@@ -355,15 +355,15 @@ class StructureDatabase(Database):
                     f'The structure{plural_str} able to be oriented properly')
 
         def write_entities_and_asu(model: ContainsEntities, assembly_integer: str):
-            """Write the overall ASU, each Entity as an ASU and oligomer, and set the model.file_path attribute
+            """Write the overall ASU, each Entity as an ASU and oligomer, and set the model.tmp_file_path attribute
 
             Args:
                 model: The ContainsEntities instance being oriented
                 assembly_integer: The integer representing the assembly number (provided from ".pdb1" type extensions)
             """
             # Save .file_path attribute
-            model.file_path = os.path.join(self.oriented_asu.location, f'{model.name}.pdb{assembly_integer}')
-            with open(model.file_path, 'w') as f:
+            model.tmp_file_path = os.path.join(self.oriented_asu.location, f'{model.name}.pdb{assembly_integer}')
+            with open(model.tmp_file_path, 'w') as f:
                 f.write(model.format_header())
                 # Write out each Entity in model to form the ASU
                 for entity in model.entities:
@@ -374,8 +374,8 @@ class StructureDatabase(Database):
                     entity.write(assembly=True, out_path=oligomer_path)
                     # And asu
                     asu_path = os.path.join(self.oriented_asu.location, f'{entity.name}.pdb{assembly_integer}')
-                    # Set the Entity.file_path for ProteinMetadata
-                    entity.file_path = entity.write(out_path=asu_path)
+                    # Set the Entity.tmp_file_path for ProteinMetadata
+                    entity.tmp_file_path = entity.write(out_path=asu_path)
 
         def _orient_existing_files(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None) -> None:
             """Return the structure identifier for a file that is loaded and oriented
@@ -392,10 +392,10 @@ class StructureDatabase(Database):
                 pose = Pose.from_file(file)
                 if resulting_symmetry == CRYST:
                     pose.set_symmetry(sym_entry=sym_entry)
-                    pose.file_path = pose.write(out_path=self.models.path_to(name=pose.name))
-                    # Set each Entity.file_path
+                    pose.tmp_file_path = pose.write(out_path=self.models.path_to(name=pose.name))
+                    # Set each Entity.tmp_file_path
                     for entity in pose.entities:
-                        entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
+                        entity.tmp_file_path = entity.write(out_path=self.models.path_to(name=entity.name))
                 else:
                     try:
                         pose.orient(symmetry=resulting_symmetry)
@@ -439,13 +439,14 @@ class StructureDatabase(Database):
                                             f"in the symmetry {resulting_symmetry}. Couldn't initialize")
                             continue
 
-                    # Write each Entity as well
+                    pose.tmp_file_path = pose.file_path
+                    # Write each Entity in addition
                     for entity in pose.entities:
                         entity_asu_file = self.oriented_asu.retrieve_file(name=entity.name)
                         if entity_asu_file is None:
                             entity.write(out_path=self.oriented_asu.path_to(name=entity.name))
-                        # Set the Entity.file_path for ProteinMetadata
-                        entity.file_path = entity_asu_file
+                        # Set the Entity.tmp_file_path for ProteinMetadata
+                        entity.tmp_file_path = entity_asu_file
                 elif structure_identifier in orient_names:  # ASU files don't exist. Load oriented and save asu
                     orient_file = self.oriented.retrieve_file(name=structure_identifier)
                     # These name=structure_identifier should be the default parsing method anyway...
@@ -476,10 +477,10 @@ class StructureDatabase(Database):
 
                     if resulting_symmetry == CRYST:
                         pose.set_symmetry(sym_entry=sym_entry)
-                        # pose.file_path is already set
-                        # Set each Entity.file_path
+                        pose.tmp_file_path = pose.file_path
+                        # Set each Entity.tmp_file_path
                         for entity in pose.entities:
-                            entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
+                            entity.tmp_file_path = entity.write(out_path=self.models.path_to(name=entity.name))
                     else:
                         try:  # Orient the Pose
                             pose.orient(symmetry=resulting_symmetry)
@@ -500,8 +501,8 @@ class StructureDatabase(Database):
                             pose.write(assembly=True, out_path=orient_file)
                             # Write out ASU file
                             asu_path = os.path.join(self.oriented_asu.location, base_file_name)
-                            # Set the Entity.file_path for ProteinMetadata
-                            pose.file_path = pose.write(out_path=asu_path)
+                            # Set the Entity.tmp_file_path for ProteinMetadata
+                            pose.tmp_file_path = pose.write(out_path=asu_path)
                         else:
                             pose.write(out_path=orient_file)
                             write_entities_and_asu(pose, assembly_integer)
