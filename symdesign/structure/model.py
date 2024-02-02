@@ -981,6 +981,30 @@ class ContainsStructures(Structure):
         super().__init__(**kwargs)  # ContainsStructures
         self.structure_containers = []
 
+    @property
+    def biological_assembly(self) -> str | None:
+        """The integer which maps the structure to an assembly state from the PDB"""
+        try:
+            return self.metadata.biological_assembly
+        except AttributeError:
+            raise f"This {repr(self)} isn't the parent and has no metadata 'biological_assembly'"
+
+    @property
+    def file_path(self) -> str | None:
+        """The integer which maps the structure to an assembly state from the PDB"""
+        try:
+            return self.metadata.file_path
+        except AttributeError:
+            raise f"This {repr(self)} isn't the parent and has no metadata 'file_path'"
+
+    @property
+    def resolution(self) -> float | None:
+        """The integer which maps the structure to an assembly state from the PDB"""
+        try:
+            return self.metadata.resolution
+        except AttributeError:
+            raise f"This {repr(self)} isn't the parent and has no metadata 'resolution'"
+
     @staticmethod
     def reset_and_reindex_structures(structs: Sequence[ContainsResidues] | Structures):
         """Given ContainsResidues instances, reset the states and renumber indices in the order passed"""
@@ -1462,7 +1486,7 @@ class ContainsChains(ContainsStructures):
             chain.renumber_residues()
 
     def get_chain(self, chain_id: str) -> Chain | None:
-        """Return the Chain object specified by the passed chain ID from the Structure object
+        """Return the Chain object specified by the passed ChainID from the Structure
 
         Args:
             chain_id: The name of the Chain to query
