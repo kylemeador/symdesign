@@ -389,6 +389,7 @@ class FragmentDatabaseFactory:
         Keyword Args:
             source: str = putils.biological_interfaces - The FragmentDatabase source name
             token: int = None - Provide the initialization token to skip construction
+
         Returns:
             The instance of the specified FragmentDatabase
         """
@@ -422,9 +423,18 @@ def nanohedra_fragment_match_score(per_residue_match_scores: Iterable[Iterable[f
 
 
 class TransformHasher:
+    """Constructs a 6D mapping of transformation bins"""
+
     def __init__(self, max_width: float, translation_bin_width: float = 0.2, rotation_bin_width: float = 0.5,
                  dimensions: int = 6):
-        """"""
+        """Construct the instance
+
+        Args:
+            max_width: The radius of a box to define the boundaries of the transformation bin space
+            translation_bin_width: The size of the translation bins
+            rotation_bin_width:  The size of the rotation bins
+            dimensions: The number of dimensions to construct
+        """
         half_box_width = max_width
         self.box_width = 2 * half_box_width
         self.dimensions = dimensions
@@ -603,7 +613,14 @@ class TransformHasher:
 
 # @jitclass
 class EulerLookup:
+    """Handle the lookup of Euler angles which are roughly segregated into similar rotational bins"""
+
     def __init__(self, scale: float = 3.):
+        """Construct the instance
+
+        Args:
+            scale: The size of the vectors used to describe the basis vectors
+        """
         # 6-d bool array [[[[[[True, False, ...], ...]]]]] with shape (37, 19, 37, 37, 19, 37)
         self.eul_lookup_40 = np.load(putils.binary_lookup_table_path)['a']
         """Indicates whether two sets of triplet integer values for each Euler angle are within an acceptable angular 

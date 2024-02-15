@@ -83,13 +83,12 @@ def classify_slurm_error_type(job_file):
     return
 
 
-def link_pair(pair, force=False):
+def link_pair(pair: tuple[str, str], force: bool = False) -> None:
     """Combine docking files of one docking combination with another
 
     Args:
-        pair (tuple): source file, destination file (link)
-    Keyword Args:
-        force=False (bool): Whether to remove links before creation
+        pair: source file, destination file (link)
+        force: Whether to remove links before creation
     """
     if force:
         os.remove(pair[1])

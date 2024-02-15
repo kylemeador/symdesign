@@ -427,9 +427,11 @@ def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) -> di
 
     Args:
         compositions: The group of PoseJob objects to pull transformation data from
+
     Keyword Args:
         distance: float = 1. - The distance to query neighbors in transformational space
         minimum_members: int = 2 - The minimum number of members in each cluster
+
     Returns:
         Cluster with representative pose as the key and matching poses as the values
     """
@@ -475,9 +477,11 @@ def cluster_by_transformations(*transforms: tuple[dict[str, np.ndarray]], values
             takes the form {'rotation': rot_array, 'translation': tx_array,
                             'rotation2': rot2_array, 'translation2': tx2_array}
         values: The group of objects to cluster
+
     Keyword Args:
         distance: float = 1. - The distance to query neighbors in transformational space
         minimum_members: int = 2 - The minimum number of members in each cluster
+
     Returns:
         Clustered objects with representative as the key and members as the values
     """

@@ -311,6 +311,7 @@ def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
         protocol: The type of protocol to distribute
         out_path: Where should the distributed script be written?
         commands_out_path: Where should the commands file be written? If not specified, is written to out_path
+
     Keyword Args:
         success_file: AnyStr = None - What file to write the successful jobs to for job organization
         failure_file: AnyStr = None - What file to write the failed jobs to for job organization
@@ -319,6 +320,7 @@ def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
         mpi: bool = False - The number of processes to run concurrently with MPI
         finishing_commands: Iterable[str] = None - Commands to run once all sbatch processes are completed
         batch: bool = is_sbatch_available() - Whether the distribution file should be formatted as a SLURM sbatch script
+
     Returns:
         The name of the distribution script that was written
     """

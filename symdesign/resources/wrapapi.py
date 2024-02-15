@@ -23,9 +23,19 @@ logger = logging.getLogger(__name__)
 
 
 class APIDatabase(Database):
+    """A Database which stores general API queries"""
     def __init__(self, sequences: AnyStr | Path = None,
                  hhblits_profiles: AnyStr | Path = None, pdb: AnyStr | Path = None,
                  uniprot: AnyStr | Path = None, **kwargs):
+        """Construct the instance
+
+        Args:
+            sequences: The path the data stored for these particular queries
+            hhblits_profiles: The path the data stored for these particular queries
+            pdb: The path the data stored for these particular queries
+            uniprot: The path the data stored for these particular queries
+            **kwargs:
+        """
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
@@ -114,6 +124,7 @@ class APIDatabaseFactory:
         Keyword Args:
             source: str = 'current_working_directory/Data' - The APIDatabase source path, or name if SQL database
             sql: bool = False - Whether the Database is a SQL database
+
         Returns:
             The instance of the specified Database
         """

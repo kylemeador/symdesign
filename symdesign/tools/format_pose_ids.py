@@ -63,7 +63,7 @@ if __name__ == '__main__':
         project = ''
 
     # # extract only pose_ids from the input pose_id_lines
-    # pose_ids = list(filter(re.compile('.*(\w{4})_(\w{4})[/-]'
+    # pose_ids = list(filter(re.compile(r'.*(\w{4})_(\w{4})[/-]'
     #                                   '.*_?[0-9]_[0-9][/-]'
     #                                   '.*_?([0-9]+)_([0-9]+)[/-]'
     #                                   '[tT][xX]_([0-9]+).*').match, pose_id_lines))
@@ -97,7 +97,7 @@ if __name__ == '__main__':
             lines = file.readlines()
             selection_id_lines = list(map(str.strip, lines))
 
-        selection_ids = list(filter(re.compile('.*(\w{4})_(\w{4})[/-]'
+        selection_ids = list(filter(re.compile(r'.*(\w{4})_(\w{4})[/-]'
                                                '.*_?[0-9]_[0-9][/-]'
                                                '.*_?([0-9]+)_([0-9]+)[/-]'
                                                '[tT][xX]_([0-9]+).*').match, selection_id_lines))

@@ -69,6 +69,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Cont
         api_db: The database which store all information pertaining to evolutionary information
         model: The ContainsEntities instance to check for Entity instances to load evolutionary information
         warn_metrics: Whether to warn the user about missing files for metric collection
+
     Returns:
         A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
         the Entity instances
@@ -178,7 +179,7 @@ class PoseDirectory:
     # pose_file: str | Path
 
     def __init__(self, root_directory: AnyStr = None, project: str = None, name: str = None, **kwargs):
-        """
+        """Construct the instance
 
         Args:
             root_directory: The base of the directory tree that houses all project directories
@@ -375,6 +376,7 @@ class PoseDirectory:
 
         Args:
             design_type: Specify if a particular type of design should be selected by a "type" string
+
         Returns:
             The sorted design files found in the designs directory with an absolute path
         """
@@ -420,6 +422,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Args:
             path: The path where the PoseJob instance should load structural data
             project: The project where the file should be included
+
         Returns:
             The PoseJob instance
         """
@@ -458,6 +461,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Args:
             file: The file where the PoseJob instance should load structure files
             project: The project where the file should be included
+
         Returns:
             The PoseJob instance
         """
@@ -500,6 +504,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         Args:
             source_path: The path to the directory where PoseJob information is stored
+
         Returns:
             The PoseJob instance
         """
@@ -515,9 +520,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     @classmethod
     def from_name(cls, name: str = None, project: str = None, **kwargs):
         """Load the PoseJob from the name and project
+
         Args:
             name: The name to identify this PoseJob
             project: The project where the file should be included
+
         Returns:
             The PoseJob instance
         """
@@ -526,8 +533,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     @classmethod
     def from_pose_identifier(cls, pose_identifier: str, **kwargs):
         """Load the PoseJob from the name and project
+
         Args:
             pose_identifier: The project and the name concatenated that identify this PoseJob
+
         Returns:
             The PoseJob instance
         """
@@ -546,6 +555,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Args:
             pose: The Pose to initialize the PoseJob with
             project: The project where the file should be included
+
         Returns:
             The PoseJob instance
         """
@@ -617,7 +627,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                  # entity_names: Sequence[str] = None,
                  # specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                  **kwargs):
-        """
+        """Construct the instance
 
         Args:
             name: The identifier
@@ -2535,14 +2545,16 @@ class PoseProtocol(PoseData):
             if os.path.exists(self.scores_file):
                 self.process_rosetta_metrics()
 
-    def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
+    def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False) -> None:
         """Perform design based on the ProteinMPNN graph encoder/decoder network
 
         Sets:
             self.protocol = 'proteinmpnn'
+
         Args:
             interface: Whether to only specify the interface as designable, otherwise, use all residues
             neighbors: Whether to design interface neighbors
+
         Returns:
             None
         """
@@ -2689,9 +2701,11 @@ class PoseProtocol(PoseData):
 
         Sets:
             self.current_designs (list[DesignData]): Extends with the newly created DesignData instances
+
         Args:
             design_parent: The design whom all new designs are based
             number: The number of designs. If not provided, set according to job.design.number * job.design.temperature
+
         Returns:
             The new instances of the DesignData
         """

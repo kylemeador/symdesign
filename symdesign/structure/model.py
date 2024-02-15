@@ -66,6 +66,7 @@ def softmax(x: np.ndarray) -> np.ndarray:
 
     Args:
         x: The array to calculate softmax on. Uses the axis=-1
+
     Returns:
         The array with a softmax performed
     """
@@ -103,6 +104,7 @@ def split_number_pairs_and_sort(pairs: list[tuple[int, int]]) -> tuple[list, lis
 
 def parse_cryst_record(cryst_record: str) -> tuple[list[float], str]:
     """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
+
     Args:
         cryst_record: The CRYST1 record as found in .pdb file format
     """
@@ -217,6 +219,7 @@ default_fragment_contribution = .5
 
 
 class StructuredGeneEntity(ContainsResidues, GeneEntity):
+    """Implements methods to map a Structure to a GeneEntity"""
     _disorder: dict[int, dict[str, str]]
     fragment_map: list[dict[int, set[FragmentObservation]]] | None
     """{1: {-2: {FragObservation(), ...}, 
@@ -229,7 +232,8 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
     def __init__(self, metadata: sql.ProteinMetadata = None, uniprot_ids: tuple[str, ...] = None,
                  thermophilicity: bool = None, reference_sequence: str = None, **kwargs):
-        """
+        """Construct the instance
+
         Args:
             metadata: Unique database references
             uniprot_ids: The UniProtID(s) that describe this protein sequence
@@ -270,10 +274,10 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
         Sets:
             self._api_data: dict[str, Any]
-            {'chains': [],
-             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
-             'reference_sequence': 'MSLEHHHHHH...',
-             'thermophilicity': True
+                {'chains': [],
+                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
+                 'reference_sequence': 'MSLEHHHHHH...',
+                 'thermophilicity': True
             self._uniprot_id: str | None
             self._reference_sequence: str
             self.thermophilicity: bool
@@ -316,7 +320,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
     # @hybrid_property
     @property
     def uniprot_ids(self) -> tuple[str | None, ...]:
-        """The UniProt ID for the Entity used for accessing genomic and homology features"""
+        """The UniProtID(s) used for accessing external protein level features"""
         try:
             return self._uniprot_ids
         except AttributeError:
@@ -365,6 +369,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
         Args:
             name: The EntityID to search for a reference sequence
+
         Returns:
             The sequence (if located) from the PDB API, otherwise None
         """
@@ -398,6 +403,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
         Args:
             chain_id: The identifier used to name this instances reference sequences
+
         Returns:
             The .pdb formatted SEQRES record
         """
@@ -429,6 +435,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                   'match': match_score (float)}]
             alignment_type: Either 'mapped' or 'paired' indicating how the fragment observation was generated relative
                 to this GeneEntity. Are the fragments mapped to the ContainsResidues or was it paired to it?
+
         Sets:
             self.fragment_map (list[list[dict[str, str | float]]]):
                 [{-2: {FragObservation(), ...},
@@ -475,9 +482,11 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
         Args:
             evo_fill: Whether to fill missing positions with evolutionary profile values
+
         Keyword Args:
             alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
+
         Sets:
             self.fragment_profile (Profile)
                 [{'A': 0.23, 'C': 0.01, ..., stats': (1, 0.37)}, {...}, ...]
@@ -569,8 +578,8 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             [{'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, {...}, ...]
         self.fragment_map (list[list[dict[str, str | float]]]):
             [{-2: {FragObservation(), ...},
-            -1: {}, ...},
-            {}, ...]
+              -1: {}, ...},
+             {}, ...]
             Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
             (with fragment_length length) for that residue, where each index in the inner set can have multiple
             observations
@@ -578,15 +587,16 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             {cluster_id1 (str): [[mapped_index_average, paired_index_average,
                                  {max_weight_counts_mapped}, {_paired}],
                                  total_fragment_observations],
-            cluster_id2: [], ...,
-            frequencies: {'A': 0.11, ...}}
+             cluster_id2: [], ...,
+             frequencies: {'A': 0.11, ...}}
         To identify cluster_id and chain thus returning fragment contribution from the fragment database statistics
 
-        Sets:
-            self.alpha: (dict[int, float]) - {0: 0.5, 0: 0.321, ...}
         Args:
             alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
+
+        Sets:
+            self.alpha: (list[float]) - [0.5, 0.321, ...]
         """
         fragment_db = self.fragment_db
         if not fragment_db:
@@ -662,6 +672,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'count': 4, 'weight': 0.274}, 50: {...}, ...}
         self.alpha
             (list[float]): [0., 0., 0., 0.5, 0.321, ...]
+
         Args:
             favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
                 Currently this routine is only used for Rosetta designs where the fragments should be favored by a
@@ -670,6 +681,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
+
         Sets:
             self.profile: (ProfileDict)
                 {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
@@ -774,6 +786,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term: Whether to exclude the N-termini from modeling due to Remodel Bug
             ignore_termini: Whether to ignore terminal loops in the loop file
+
         Returns:
             Pairs of indices where each loop starts and ends, adjacent indices (not all indices are disordered) mapped
                 to their disordered residue indices, and the n-terminal residue index
@@ -851,11 +864,13 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
         Args:
             out_path: The location the file should be written
+
         Keyword Args:
             max_loop_length=12 (int): The max length for loop modeling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
             ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
+
         Returns:
             The path of the file if one was written
         """
@@ -917,11 +932,13 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
         Args:
             out_path: The location the file should be written
+
         Keyword Args:
             max_loop_length=12 (int): The max length for loop modeling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
             ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
+
         Returns:
             The path of the file if one was written
         """
@@ -974,13 +991,19 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
 
 
 class Structure(StructuredGeneEntity, ParseStructureMixin):
-    """"""
+    """The base class to handle structural manipulation of groups of Residue instances"""
 
 
 class ContainsStructures(Structure):
+    """Implements methods to interact with a Structure which contains other Structure instances"""
     structure_containers: list | list[str]
 
     def __init__(self, **kwargs):
+        """Construct the instance
+
+        Args:
+            **kwargs:
+        """
         super().__init__(**kwargs)  # ContainsStructures
         self.structure_containers = []
 
@@ -1008,6 +1031,7 @@ class ContainsStructures(Structure):
         except AttributeError:
             raise f"This {repr(self)} isn't the parent and has no metadata 'resolution'"
 
+    # def reset_and_reindex_structures(struct: ContainsResidues, *other_structs: Sequence[ContainsResidues]):
     @staticmethod
     def reset_and_reindex_structures(structs: Sequence[ContainsResidues] | Structures):
         """Given ContainsResidues instances, reset the states and renumber indices in the order passed"""
@@ -1067,6 +1091,7 @@ class ContainsStructures(Structure):
             index: A Residue index to select the Residue instance of interest
             number: A Residue number to select the Residue instance of interest
             to: The type of amino acid to mutate to
+
         Returns:
             The indices of the Atoms being removed from the Structure
         """
@@ -1114,6 +1139,7 @@ class ContainsStructures(Structure):
             residues: Residue instances to delete
             indices: Residue indices to select the Residue instances of interest
             numbers: Residue numbers to select the Residue instances of interest
+
         Returns:
             Each deleted Residue
         """
@@ -1211,6 +1237,7 @@ class ContainsStructures(Structure):
             index: The index to perform the insertion at
             new_residues: The Residue instances to insert
             chain_id: The chain identifier to associate the new Residue instances with
+
         Returns:
             The newly inserted Residue instances
         """
@@ -1307,7 +1334,7 @@ class ContainsStructures(Structure):
 
 
 class ContainsChains(ContainsStructures):
-    """Initializes and enables stuctural operations on a collection of Chain instances"""
+    """Implements methods to interact with a Structure which contains Chain instances"""
     chain_ids: list[str]
     chains: list[Chain] | Structures
     original_chain_ids: list[str]
@@ -1319,7 +1346,8 @@ class ContainsChains(ContainsStructures):
 
     def __init__(self, chains: bool | Sequence[Chain] = True, chain_ids: Iterable[str] = None,
                  rename_chains: bool = False, as_mates: bool = False, **kwargs):
-        """
+        """Construct the instance
+
         Args:
             chain_ids: A list of identifiers to assign to each Chain instance
             chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
@@ -1392,6 +1420,7 @@ class ContainsChains(ContainsStructures):
 
         Args:
             chain_ids: The desired chain_ids, used in order, for the new chains. Padded if shorter than Chain instances
+
         Sets:
             self.chain_ids (list[str])
             self.chains (list[Chain] | Structures)
@@ -1467,6 +1496,7 @@ class ContainsChains(ContainsStructures):
 
         Args:
             exclude_chains: The chains which shouldn't be modified
+
         Sets:
             self.chain_ids (list[str])
         """
@@ -1493,6 +1523,7 @@ class ContainsChains(ContainsStructures):
 
         Args:
             chain_id: The name of the Chain to query
+
         Returns:
             The Chain if one was found
         """
@@ -1657,7 +1688,7 @@ class ContainsChains(ContainsStructures):
 
 
 class ContainsEntities(ContainsChains):
-    """"""
+    """Implements methods to interact with a Structure which contains Entity instances"""
 
     @classmethod
     def from_entities(cls, entities: list[Entity] | Structures, rename_chains: bool = True, **kwargs):
@@ -1689,7 +1720,7 @@ class ContainsEntities(ContainsChains):
 
     def __init__(self, entities: bool | Sequence[Entity] = True, entity_info: dict[str, dict[dict | list | str]] = None,
                  **kwargs):
-        """
+        """Construct the instance
 
         Args:
             entities: Existing Entity instances used to construct the Structure, or evaluates False to skip creating
@@ -1771,6 +1802,7 @@ class ContainsEntities(ContainsChains):
 
         Keyword Args:
             assembly: bool = False - Whether to write header details for the assembly
+
         Returns:
             The .pdb file header string
         """
@@ -1781,6 +1813,7 @@ class ContainsEntities(ContainsChains):
 
         Args:
             assembly: Whether to write header details for the assembly
+
         Returns:
             The .pdb formatted SEQRES record
         """
@@ -1803,6 +1836,7 @@ class ContainsEntities(ContainsChains):
             length_difference: A percentage expressing the maximum length difference acceptable for a matching entity.
                 Where the difference in lengths is calculated by the magnitude difference between them divided by the
                 larger. For example, 100 and 111 and 100 and 90 would both be ~10% length difference
+
         Sets:
             self.entity_info
         """
@@ -1927,6 +1961,7 @@ class ContainsEntities(ContainsChains):
 
         Args:
             biological_assembly: The number of the biological assembly that is associated with this structural state
+
         Sets:
             self.api_entry (dict[str, dict[Any] | float] | dict):
                 {'assembly': [['A', 'B'], ...],
@@ -2023,6 +2058,7 @@ class ContainsEntities(ContainsChains):
         file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
         biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
         instance using a specified threshold of sequence homology
+
         Args:
             entity_names: Names explicitly passed for the Entity instances. Length must equal number of entities.
                 Names will take precedence over query_by_sequence if passed
@@ -2262,6 +2298,7 @@ class ContainsEntities(ContainsChains):
 
         Args:
             entity_id: The name of the Entity to query
+
         Returns:
             The Entity if one was found
         """
@@ -2290,7 +2327,8 @@ class ContainsEntities(ContainsChains):
             tolerance: The acceptable difference between sequences to consider them the same Entity.
                 Tuning this parameter is necessary if you have sequences which should be considered different entities,
                 but are fairly similar
-        Returns
+
+        Returns:
             The matching Entity if one was found
         """
         for entity in self.entities:
@@ -2346,6 +2384,7 @@ class ContainsEntities(ContainsChains):
 
 
 class SymmetryOpsMixin(abc.ABC):
+    """Implements methods to interact with symmetric Structure instances"""
     _asu_indices: slice  # list[int]
     _asu_model_idx: int
     _center_of_mass_symmetric_models: np.ndarray
@@ -2366,7 +2405,7 @@ class SymmetryOpsMixin(abc.ABC):
                  transformations: list[types.TransformationMapping] = None, uc_dimensions: list[float] = None,
                  symmetry_operators: np.ndarray | list = None, rotation_matrices: np.ndarray | list = None,
                  translation_matrices: np.ndarray | list = None, surrounding_uc: bool = True, **kwargs):
-        """
+        """Construct the instance
 
         Args:
             sym_entry: The SymEntry which specifies all symmetry parameters
@@ -2627,6 +2666,7 @@ class SymmetryOpsMixin(abc.ABC):
         Args:
             indices: The asymmetric indices to symmetrize
             dtype: The type of indices to perform symmetrization with
+
         Returns:
             The symmetric indices of the asymmetric input
         """
@@ -2645,6 +2685,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             structure: A StructureBase instance containing .coords method/attribute
+
         Returns:
             The symmetric copies of the input structure
         """
@@ -2688,6 +2729,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             cart_coords: The cartesian coordinates of a unit cell
+
         Returns:
             The fractional coordinates of a unit cell
         """
@@ -2703,6 +2745,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             frac_coords: The fractional coordinates of a unit cell
+
         Returns:
             The cartesian coordinates of a unit cell
         """
@@ -2717,6 +2760,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             coords: The coordinates to symmetrize
+
         Returns:
             The symmetrized coordinates
         """
@@ -2748,6 +2792,7 @@ class SymmetryOpsMixin(abc.ABC):
         Args:
             coords: The cartesian coordinates to expand to the unit cell
             fractional: Whether to return coordinates in fractional or cartesian (False) unit cell frame
+
         Returns:
             All unit cell coordinates
         """
@@ -2831,6 +2876,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             distance: The distance to check for contacts
+
         Returns:
             The minimal set of Entities containing the maximally touching configuration
         """
@@ -2894,6 +2940,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             distance: The distance to check for contacts
+
         Returns:
             A new Model with the minimal set of Entity instances. Will also be symmetric
         """
@@ -2918,8 +2965,10 @@ class SymmetryOpsMixin(abc.ABC):
 
         Args:
             from_assembly: Whether the ASU should be set fresh from the entire assembly instances
+
         Keyword Args:
             distance: float = 8.0 - The distance to check for contacts
+
         Sets:
             self: To a SymmetricModel with the minimal set of Entities containing the maximally touching configuration
         """
@@ -2987,13 +3036,13 @@ class SymmetryOpsMixin(abc.ABC):
 
 
 class Chain(Structure, MetricsMixin):
-    """A grouping of Residue, Atom and Coords instances, typically from a sequence that should be a connected polymer"""
+    """A grouping of Atom, Coordinates, and Residue instances, typically from a connected polymer"""
     _chain_id: str
     _entity: Entity
     _metrics_table = None
 
     def __init__(self, chain_id: str = None, name: str = None, **kwargs):
-        """
+        """Construct the instance
 
         Args:
             chain_id: The name of the Chain identifier to use for this instance
@@ -3058,8 +3107,7 @@ class Chain(Structure, MetricsMixin):
 
 
 class Entity(SymmetryOpsMixin, ContainsChains, Chain):
-    """
-    """
+    """Maps a biological instance of a Structure which ContainsChains(1-N) and is a Complex, to a single GeneProduct"""
     _captain: Entity | None
     """The specific transformation operators to generate all mate chains of the Oligomer"""
     _chains: list | list[Entity]
@@ -3351,6 +3399,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
 
         Args:
             assembly: Whether to write header details for the assembly
+
         Returns:
             The .pdb formatted SEQRES record
         """
@@ -3612,6 +3661,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             translation: The first translation to apply, expected array shape (3,)
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
+
         Sets:
             self.symmetry (str)
             self.sym_entry (SymEntry)
@@ -3703,6 +3753,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             translation: The first translation to apply, expected array shape (3,)
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
+
         Returns:
             A transformed copy of the original object
         """
@@ -3735,12 +3786,14 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
             assembly: Whether to write the oligomeric form of the Entity
+
         Keyword Args:
             increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
                 a new Model
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed.
                 Not used if assembly=True
+
         Returns:
             The name of the written file if out_path is used
         """
@@ -3783,6 +3836,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
 
         Args:
             reference: The reference where the point should be measured from
+
         Returns:
             {'radius'
              'min_radius'
@@ -3843,6 +3897,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             msas: A sequence of multiple sequence alignments if they should be included in the features
             no_msa: Whether multiple sequence alignments should be included in the features
             templates: Whether the Entity should be returned with it's template features
+
         Returns:
             The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
         """
@@ -4015,6 +4070,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             self.mate_rotation_axes (list[dict[str, int | np.ndarray]])
             self._max_symmetry (int)
             self.max_symmetry_chain_idx (int)
+
         Returns:
             The name of the file written for symmetry definition file creation
         """
@@ -4143,9 +4199,11 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         Args:
             struct_file: The location of the input .pdb file
             out_path: The location the symmetry definition file should be written
+
         Keyword Args:
             modify_sym_energy_for_cryst: bool = False - Whether the symmetric energy in the file should be modified
             energy: int = 2 - Scalar to modify the Rosetta energy by
+
         Returns:
             Symmetry definition filename
         """
@@ -4201,6 +4259,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             out_path: The location the symmetry definition file should be written
             modify_sym_energy_for_cryst: Whether the symmetric energy should match crystallographic systems
             energy: Scalar to modify the Rosetta energy by
+
         Returns:
             The location the symmetry definition file was written
         """
@@ -4383,20 +4442,14 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
 class Model(ContainsChains):
     """The main class for simple Structure manipulation, particularly containing multiple Chain instances
 
-    Can initialize by passing a file, or passing Atom/Residue/Chain/Entity instances
-
-    If your Structure is symmetric, SymmetricModel is required instead
-
-    If you have multiple Models or States, use the MultiModel class to store and retrieve that data
+    Can initialize by passing a file, or passing Atom/Residue/Chain instances. If your Structure is symmetric, a
+    SymmetricModel should be used instead. If you have multiple Model instances, use the MultiModel class.
     """
 
 
 # class Models(Structures):
 class Models(UserList):  # (Model):
-    """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
-    symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
-    PDB files that share a common element.
-    """
+    """Container for Model instances. Primarily used for writing [symmetric] multimodel-like Structure instances"""
     # _models_coords: Coords
     models: list[Model]  # Could be SymmetricModel/Pose
     # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
@@ -4456,8 +4509,10 @@ class Models(UserList):  # (Model):
             multimodel: Whether MODEL and ENDMDL records should be added at the end of each Model
             increment_chains: Whether to write each Chain with an incrementing chain ID,
                 otherwise use the chain IDs present, repeating for each Model
+
         Keyword Args
             assembly: bool = False - Whether to write an assembly representation of each Model instance
+
         Returns:
             The name of the written file if out_path is used
         """
@@ -4800,6 +4855,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         Args:
             minimal: Whether to create the minimally contacting assembly model
             surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly models
+
         Returns:
             The name of the assembly based on the symmetry
         """
@@ -4855,6 +4911,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             minimal: Whether to create the minimally contacting assembly model. This is advantageous in crystalline
                 symmetries to minimize the size of the "assembly"
             surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly models
+
         Returns:
             A Model instance for each of the symmetric mates. These are transformed copies of the SymmetricModel
         """
@@ -4871,6 +4928,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             minimal: Whether to create the minimally contacting models. This is advantageous in crystalline
                 symmetries to minimize the size of the "assembly"
             surrounding_uc: Whether to generate the surrounding unit cells as part of the models
+
         Returns:
             A "mate" instance for each of the specified symmetric mates. These are transformed copies of the instance
         """
@@ -4920,6 +4978,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             minimal: Whether to create the minimally contacting assembly. This is advantageous in crystalline
                 symmetries to minimize the size of the "assembly"
             surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly
+
         Returns:
             A Model instance for each of the symmetric mates. These are transformed copies of the SymmetricModel
         """
@@ -5033,6 +5092,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             calculate_contacts: Whether to calculate interacting models by atomic contacts
             distance: When calculate_contacts is True, the CB distance which nearby symmetric models should be found
                 When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
+
         Returns:
             The indices of the models that contact the asu
         """
@@ -5082,6 +5142,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
 
         Args:
             entity: The Entity with oligomeric chains to query for corresponding symmetry mates
+
         Returns:
             The indices in the SymmetricModel where the intra-oligomeric contacts are located
         """
@@ -5099,6 +5160,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             calculate_contacts: bool = True - Whether to calculate interacting models by atomic contacts
             distance: float = 8.0 - When calculate_contacts is True, the CB distance which nearby symmetric models
                  should be found. When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
+
         Returns:
             The indices in the SymmetricModel where the asu contacts other models
         """
@@ -5131,6 +5193,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
 
         Sets:
             self.coords (np.ndarray) - To the most contacting asymmetric unit
+
         Returns:
             The entity_transformations dictionaries that places each Entity with a proper symmetry axis in the Pose
         """
@@ -5500,6 +5563,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             measure: The atom type to measure clashing by
             distance: The distance which clashes should be checked
             warn: Whether to emit warnings about identified clashes
+
         Returns:
             True if the symmetric assembly clashes with the asu, False otherwise
         """
@@ -5548,11 +5612,13 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
             assembly: Whether to write the full assembly. Default writes only the ASU
+
         Keyword Args:
             increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
                 a new Model
             surrounding_uc: bool = False - Whether the 3x3 layer group, or 3x3x3 space group should be written when
                 assembly is True and self.dimension > 1
+
         Returns:
             The name of the written file if out_path is used
         """
@@ -5664,7 +5730,11 @@ class Pose(SymmetricModel, MetricsMixin):
     #      }
 
     def __init__(self, **kwargs):
-        """"""
+        """Construct the instance
+
+        Args:
+            **kwargs:
+        """
         super().__init__(**kwargs)  # Pose
         self._design_selection_entity_names = {entity.name for entity in self.entities}
         self._design_selector_atom_indices = set(self._atom_indices)
@@ -5681,39 +5751,40 @@ class Pose(SymmetricModel, MetricsMixin):
         """Calculate metrics for the instance
 
         Returns:
-            {'entity_max_radius_average_deviation',
-             'entity_min_radius_average_deviation',
-             'entity_radius_average_deviation',
-             'interface_b_factor',
-             'interface1_secondary_structure_fragment_topology',
-             'interface1_secondary_structure_fragment_count',
-             'interface1_secondary_structure_topology',
-             'interface1_secondary_structure_count',
-             'interface2_secondary_structure_fragment_topology',
-             'interface2_secondary_structure_fragment_count',
-             'interface2_secondary_structure_topology',
-             'interface2_secondary_structure_count',
-             'maximum_radius',
-             'minimum_radius',
-             'multiple_fragment_ratio',
-             'nanohedra_score_normalized',
-             'nanohedra_score_center_normalized',
-             'nanohedra_score',
-             'nanohedra_score_center',
-             'number_residues_interface_fragment_total',
-             'number_residues_interface_fragment_center',
-             'number_fragments_interface',
-             'number_residues_interface',
-             'number_residues_interface_non_fragment',
-             'percent_fragment_helix',
-             'percent_fragment_strand',
-             'percent_fragment_coil',
-             'percent_residues_fragment_interface_total',
-             'percent_residues_fragment_interface_center',
-             'percent_residues_non_fragment_interface',
-             'pose_length',
-             'symmetric_interface'
-             }
+            {
+                'entity_max_radius_average_deviation',
+                'entity_min_radius_average_deviation',
+                'entity_radius_average_deviation',
+                'interface_b_factor',
+                'interface1_secondary_structure_fragment_topology',
+                'interface1_secondary_structure_fragment_count',
+                'interface1_secondary_structure_topology',
+                'interface1_secondary_structure_count',
+                'interface2_secondary_structure_fragment_topology',
+                'interface2_secondary_structure_fragment_count',
+                'interface2_secondary_structure_topology',
+                'interface2_secondary_structure_count',
+                'maximum_radius',
+                'minimum_radius',
+                'multiple_fragment_ratio',
+                'nanohedra_score_normalized',
+                'nanohedra_score_center_normalized',
+                'nanohedra_score',
+                'nanohedra_score_center',
+                'number_residues_interface_fragment_total',
+                'number_residues_interface_fragment_center',
+                'number_fragments_interface',
+                'number_residues_interface',
+                'number_residues_interface_non_fragment',
+                'percent_fragment_helix',
+                'percent_fragment_strand',
+                'percent_fragment_coil',
+                'percent_residues_fragment_interface_total',
+                'percent_residues_fragment_interface_center',
+                'percent_residues_non_fragment_interface',
+                'pose_length',
+                'symmetric_interface'
+            }
         """
         minimum_radius, maximum_radius = float('inf'), 0.
         entity_metrics = []
@@ -5879,6 +5950,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 entities: The Entity identifiers to include in selection schemes
                 chains: The Chain identifiers to include in selection schemes
                 residues: The Residue identifiers to include in selection schemes
+
             Returns:
                 A tuple with the names of Entity instances and the indices of the Atom/Coord instances that are parsed
             """
@@ -5970,9 +6042,11 @@ class Pose(SymmetricModel, MetricsMixin):
             symmetric: Whether the symmetric version of the Pose should be used for feature production
             multimer: Whether to run as a multimer. If multimer is True while symmetric is False, the Pose will
                 be processed according to the ASU
+
         Keyword Args:
             msas: Sequence - A sequence of multiple sequence alignments if they should be included in the features
             no_msa: bool = False - Whether multiple sequence alignments should be included in the features
+
         Returns:
             The alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
         """
@@ -6079,8 +6153,10 @@ class Pose(SymmetricModel, MetricsMixin):
                 Creates pssm_log_odds_mask based on the threshold
             interface: Whether to design the interface
             neighbors: Whether to design interface neighbors
+
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
+
         Returns:
             A mapping of the ProteinMPNN parameter names to their data, typically arrays
         """
@@ -6240,6 +6316,7 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             to_device: Whether the decoding order should be transferred to the device that a ProteinMPNN model is on
             core_first: Whether the core residues (identified as fragment pairs) should be decoded first
+
         Returns:
             The decoding order to be used in ProteinMPNN graph decoding
         """
@@ -6262,6 +6339,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+
         Returns:
             The Pose coords where each Entity has been translated away from other entities
         """
@@ -6299,6 +6377,7 @@ class Pose(SymmetricModel, MetricsMixin):
             method: Whether to score using ProteinMPNN or Rosetta
             measure_unbound: Whether the protein should be scored in the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+
         Keyword Args:
             model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
                 where X is neighbor distance and Y is noise
@@ -6313,6 +6392,7 @@ class Pose(SymmetricModel, MetricsMixin):
             # neighbors: Whether to design interface neighbors
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
+
         Returns:
             A mapping of the design score type name to the per-residue output data which is a ndarray with shape
             (number of sequences, pose_length).
@@ -6455,6 +6535,7 @@ class Pose(SymmetricModel, MetricsMixin):
             neighbors: Whether to design interface neighbors
             measure_unbound: Whether the protein should be designed with concern for the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+
         Keyword Args:
             neighbors: bool = False - Whether to design interface neighbors
             model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
@@ -6468,6 +6549,7 @@ class Pose(SymmetricModel, MetricsMixin):
             bias_pssm_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
+
         Returns:
             A mapping of the design score type to the per-residue output data which is a ndarray with shape
             (number*temperatures, pose_length).
@@ -6569,6 +6651,7 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             entity: The Structure to query which originates in the pose
             report_if_helix: Whether the query should additionally report on the helicity of the termini
+
         Returns:
             A dictionary with the mapping from termini to True if the termini is exposed
                 Ex: {'n': True, 'c': False}
@@ -6628,6 +6711,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             oligomeric_interfaces: Whether to query oligomeric interfaces
+
         Returns:
             The dictionary of {'contact_order': array of shape (number_of_residues,)}
         """
@@ -6641,14 +6725,16 @@ class Pose(SymmetricModel, MetricsMixin):
 
         return {'contact_order': np.concatenate(contact_order)}
 
-    def get_folding_metrics(self, profile_type: profile_types = 'evolutionary', **kwargs) \
-            -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_folding_metrics(
+        self, profile_type: profile_types = 'evolutionary', **kwargs
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Calculate metrics relating to the Pose folding, separating calculation for chain breaks. These include
         contact_order, hydrophobic_collapse, and hydrophobic_collapse_profile (each Entity MUST have a .*_profile
         attribute to return the hydrophobic collapse profile!)
 
         Args:
             profile_type: The type of profile to use to calculate the hydrophobic collapse profile
+
         Keyword Args:
             hydrophobicity: str = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
                 'expanded' (FMILYVW), or provide one with 'custom' keyword argument
@@ -6658,6 +6744,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 characters
             lower_window: int = 3 – The smallest window used to measure
             upper_window: int = 9 – The largest window used to measure
+
         Returns:
             The per-residue contact_order_z_score (number_of_residues),
                 a per-residue hydrophobic_collapse (number_of_residues),
@@ -6738,45 +6825,45 @@ class Pose(SymmetricModel, MetricsMixin):
         Calls self.get_fragment_metrics(), self.calculate_secondary_structure()
 
         Returns:
-            Metrics measured as:
-            {'entity_max_radius_average_deviation',
-             'entity_min_radius_average_deviation',
-             'entity_radius_average_deviation',
-             'interface_b_factor',
-             'interface1_secondary_structure_fragment_topology',
-             'interface1_secondary_structure_fragment_count',
-             'interface1_secondary_structure_topology',
-             'interface1_secondary_structure_count',
-             'interface2_secondary_structure_fragment_topology',
-             'interface2_secondary_structure_fragment_count',
-             'interface2_secondary_structure_topology',
-             'interface2_secondary_structure_count',
-             'maximum_radius',
-             'minimum_radius',
-             'multiple_fragment_ratio',
-             'nanohedra_score_normalized',
-             'nanohedra_score_center_normalized',
-             'nanohedra_score',
-             'nanohedra_score_center',
-             'number_residues_interface_fragment_total',
-             'number_residues_interface_fragment_center',
-             'number_fragments_interface',
-             'number_residues_interface',
-             'number_residues_interface_non_fragment',
-             'percent_fragment_helix',
-             'percent_fragment_strand',
-             'percent_fragment_coil',
-             'percent_residues_fragment_interface_total',
-             'percent_residues_fragment_interface_center',
-             'percent_residues_non_fragment_interface',
-             'pose_length',
-             'symmetric_interface'
-             }
-             # 'entity_radius_ratio_#v#',
-             # 'entity_min_radius_ratio_#v#',
-             # 'entity_max_radius_ratio_#v#',
-             # 'entity_number_of_residues_ratio_#v#',
-             # 'entity_number_of_residues_average_deviation,
+            Metrics measured as: {
+                'entity_max_radius_average_deviation',
+                'entity_min_radius_average_deviation',
+                'entity_radius_average_deviation',
+                'interface_b_factor',
+                'interface1_secondary_structure_fragment_topology',
+                'interface1_secondary_structure_fragment_count',
+                'interface1_secondary_structure_topology',
+                'interface1_secondary_structure_count',
+                'interface2_secondary_structure_fragment_topology',
+                'interface2_secondary_structure_fragment_count',
+                'interface2_secondary_structure_topology',
+                'interface2_secondary_structure_count',
+                'maximum_radius',
+                'minimum_radius',
+                'multiple_fragment_ratio',
+                'nanohedra_score_normalized',
+                'nanohedra_score_center_normalized',
+                'nanohedra_score',
+                'nanohedra_score_center',
+                'number_residues_interface_fragment_total',
+                'number_residues_interface_fragment_center',
+                'number_fragments_interface',
+                'number_residues_interface',
+                'number_residues_interface_non_fragment',
+                'percent_fragment_helix',
+                'percent_fragment_strand',
+                'percent_fragment_coil',
+                'percent_residues_fragment_interface_total',
+                'percent_residues_fragment_interface_center',
+                'percent_residues_non_fragment_interface',
+                'pose_length',
+                'symmetric_interface'
+            }
+                # 'entity_radius_ratio_#v#',
+                # 'entity_min_radius_ratio_#v#',
+                # 'entity_max_radius_ratio_#v#',
+                # 'entity_number_of_residues_ratio_#v#',
+                # 'entity_number_of_residues_average_deviation,
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
         # Remove *_indices from further analysis
@@ -7031,10 +7118,12 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
                 'support'. Default cutoff percent is based on Levy, E. 2010
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The per-residue DataFrame with columns containing residue indices in level=0 and metrics in level=1
         """
@@ -7058,10 +7147,12 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
                 'core'. Default cutoff percent is based on Levy, E. 2010
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The core Residue instances
         """
@@ -7079,10 +7170,12 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
                 'rim'. Default cutoff percent is based on Levy, E. 2010
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The rim Residue instances
         """
@@ -7100,10 +7193,12 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
                 'support'. Default cutoff percent is based on Levy, E. 2010
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The support Residue instances
         """
@@ -7170,6 +7265,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             distance: The distance in angstroms to measure Atom instances in contact
+
         Returns:
             The dictionary of metrics mapped to arrays of values with shape (number_of_residues,)
                 Metrics include 'spatial_aggregation_propensity' and 'spatial_aggregation_propensity_unbound'
@@ -7199,6 +7295,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             distance: The distance across the interface to query for Residue contacts
+
         Returns:
             The Structure containing only the Residues in the interface
         """
@@ -7365,6 +7462,7 @@ class Pose(SymmetricModel, MetricsMixin):
             entity2: Second entity to measure interface between
             distance: The distance to query the interface in Angstroms
             oligomeric_interfaces: Whether to query oligomeric interfaces
+
         Returns:
             A list of interface residue numbers across the interface
         """
@@ -7481,9 +7579,11 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
+
         Keyword Args:
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
             distance: float = 8. - The distance to measure Residues across an interface
+
         Returns:
             The Entity1 and Entity2 interface Residue instances
         """
@@ -7521,13 +7621,16 @@ class Pose(SymmetricModel, MetricsMixin):
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
             distance: The distance to measure contacts between atoms
+
         Keyword Args:
             by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             residue_distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
+
         Sets:
             self._interface_residues_by_entity_pair (dict[tuple[str, str], tuple[list[int], list[int]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
+
         Returns:
             The pairs of Atom indices for the interface
         """
@@ -7578,9 +7681,11 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             distance: The cutoff distance with which Atoms should be included in local density
             atom_distance: The distance to measure contacts between atoms. By default, uses default_atom_count_distance
+
         Keyword Args:
             residue_distance: float = 8. - The distance to residue contacts in the interface. Uses the default if None
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
+
         Returns:
             The local atom density around the interface
         """
@@ -7628,9 +7733,11 @@ class Pose(SymmetricModel, MetricsMixin):
             entity1: The first Entity to measure for interface fragments
             entity2: The second Entity to measure for interface fragments
             oligomeric_interfaces: Whether to query oligomeric interfaces
+
         Keyword Args:
             by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             distance: float = 8. - The distance to measure Residues across an interface
+
         Sets:
             self._fragment_info_by_entity_pair (dict[tuple[str, str], list[FragmentInfo]])
         """
@@ -7728,9 +7835,11 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             by_distance: Whether interface Residue instances should be found by inter-residue Cb distance
+
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
+
         Sets:
             self._interface_residues_by_entity_pair (dict[tuple[str, str], tuple[list[int], list[int]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
@@ -8043,6 +8152,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             interface: Whether to return fragment observations from only the Pose interface
+
         Returns:
             The fragment observations
         """
@@ -8088,9 +8198,11 @@ class Pose(SymmetricModel, MetricsMixin):
             by_entity: Return fragment metrics for each Entity found in the Pose
             entity1: The first Entity object to identify the interface if per_interface=True
             entity2: The second Entity object to identify the interface if per_interface=True
+
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
+
         Returns:
             A mapping of the following metrics for the requested structural region -
                 {'center_indices',
@@ -8222,6 +8334,7 @@ class Pose(SymmetricModel, MetricsMixin):
             design_scores: {'001': {'buns': 2.0, 'res_energy_complex_15A': -2.71, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
             columns: ['per_res_energy_complex_5', 'per_res_energy_1_unbound_5', ...]
+
         Returns:
             {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...},
              ...}
@@ -8283,6 +8396,7 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             design_scores: {'001': {'buns': 2.0, 'res_energy_complex_15A': -2.71, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
+
         Returns:
             The parsed design information where the outer key is the design alias, and the next key is the Residue.index
             where the corresponding information belongs. Only returns Residue metrics for those positions where metrics
@@ -8350,10 +8464,12 @@ class Pose(SymmetricModel, MetricsMixin):
         """Process Hydrogen bond Metrics from Rosetta score dictionary
 
         if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
+
         Args:
             design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
                                     'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
                                     'hbonds_res_selection_1_bound': '26A'}, ...}
+
         Returns:
             {'001': {34, 54, 67, 68, 106, 178}, ...}
         """
@@ -8387,6 +8503,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         Args:
             oligomeric_interfaces: Whether to query oligomeric interfaces
+
         Keyword Args:
             by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             distance: float = 8. - The distance to measure Residues across an interface
@@ -8425,6 +8542,7 @@ class Pose(SymmetricModel, MetricsMixin):
         Args:
             out_path: The path to the directory to output files to
             multimodel: Whether to write all fragments as a multimodel file. File written to "'out_path'/all_frags.pdb"
+
         Returns:
             The path to the written file if one was written
         """

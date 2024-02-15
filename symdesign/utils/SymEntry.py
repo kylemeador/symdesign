@@ -283,8 +283,9 @@ def construct_uc_matrix(string_vector: Iterable[str]) -> np.ndarray:
 
     Args:
         string_vector: The string vector as parsed from the symmetry combination table
+
     Returns:
-        3x3 float array with the values to specify unit cell dimensions from basis vector constraints
+        Float array with shape (3, 3) the values to specify unit cell dimensions from basis vector constraints
     """
     string_position = {'e': 0, 'f': 1, 'g': 2}
     variable_matrix = np.zeros((3, 3))  # default is float
@@ -312,6 +313,8 @@ def construct_uc_matrix(string_vector: Iterable[str]) -> np.ndarray:
 
 
 class SymEntry:
+    """Stores information for a particular symmetry definition which derives from a standard definition of a global
+    symmetry type and provides access to operators and attributes which allow symmetric manipulation."""
     __external_dof: list[np.ndarray]
     _cryst_record: str | None
     _degeneracy_matrices: np.ndarray | None
@@ -347,6 +350,13 @@ class SymEntry:
         return cls(0, space_group=space_group, **kwargs)
 
     def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
+        """Construct the instance
+
+        Args:
+            entry: The entry integer which uniquely identifies this instance information
+            sym_map: The mapping of individual groups to construct this instance
+            **kwargs:
+        """
         try:
             self.group_info, result_info = parsed_symmetry_combinations[entry]
             # group_info, result_info = parsed_symmetry_combinations[entry]

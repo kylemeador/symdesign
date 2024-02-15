@@ -12,13 +12,15 @@ from symdesign.utils.symmetry import identity_matrix
 class Coordinates:
     """Responsible for handling StructureBase coordinates by storing in a numpy.ndarray with shape (n, 3) where n is the
      number of atoms in the structure and the 3 dimensions represent x, y, and z coordinates
-
-    Args:
-        coords: The coordinates to store. If none are passed an empty container will be generated
     """
     coords: np.ndarray
 
     def __init__(self, coords: np.ndarray | list[list[float]] = None):
+        """Construct the instance
+
+        Args:
+            coords: The coordinates to store with shape (N, 3). If none are passed an empty container will be generated
+        """
         if coords is None:
             self.coords = np.array([])
         elif not isinstance(coords, (np.ndarray, list)):
@@ -28,44 +30,36 @@ class Coordinates:
             self.coords = np.array(coords, np.float_)
 
     def delete(self, indices: Sequence[int]):
-        """Delete coordinates from the Coords container
+        """Delete coordinates from the instance
 
         Args:
             indices: The indices to delete from the Coords array
-        Sets:
-            self.coords = numpy.delete(self.coords, indices)
         """
         self.coords = np.delete(self.coords, indices, axis=0)
 
     def insert(self, at: int, new_coords: np.ndarray | list[list[float]]):
-        """Insert additional coordinates into the Coords container
+        """Insert additional coordinates into the instance
 
         Args:
             at: The index to perform the insert at
             new_coords: The coordinate values to insert into Coords
-        Sets:
-            self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
         """
         self.coords = np.concatenate((self.coords[:at], new_coords, self.coords[at:]))
 
     def append(self, new_coords: np.ndarray | list[list[float]]):
-        """Append additional coordinates into the Coords container
+        """Append additional coordinates onto the instance
 
         Args:
             new_coords: The coordinate values to append to Coords
-        Sets:
-            self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
         """
         self.coords = np.concatenate((self.coords, new_coords))
 
     def replace(self, indices: Sequence[int], new_coords: np.ndarray | list[list[float]]):
-        """Replace existing coordinates in the Coords container with new coordinates
+        """Replace existing coordinates in the instance with new coordinates
 
         Args:
             indices: The indices to replace in the Coords array
             new_coords: The coordinate values to replace in Coords
-        Sets:
-            self.coords[indices] = new_coords
         """
         try:
             self.coords[indices] = new_coords
@@ -82,8 +76,6 @@ class Coordinates:
 
         Args:
             coords: The coordinate values to set
-        Sets:
-            self.coords = coords
         """
         self.coords = coords
 

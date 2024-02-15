@@ -567,6 +567,7 @@ def remove_duplicates(iter_: Iterable[Any]) -> list[Any]:
 #
 #     Args:
 #         original (str): Location on disk of file
+#
 #     Keyword Args:
 #         new=None (str): The filename to replace the file with
 #         increment=None (int): The number to increment each decoy by
@@ -595,8 +596,10 @@ def remove_duplicates(iter_: Iterable[Any]) -> list[Any]:
 #
 #     Args:
 #         file (str): Location on disk of scorefile
+#
 #     Keyword Args:
 #         increment=None (int): The number to increment each decoy by
+#
 #     Returns:
 #         score_dict (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
 #     """

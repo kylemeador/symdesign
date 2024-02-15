@@ -63,6 +63,7 @@ def compute_ij_type_lookup(indices1: np.ndarray | Iterable, indices2: np.ndarray
     Args:
         indices1: The array elements from group 1
         indices2: The array elements from group 2
+
     Returns:
         A 2D boolean array where the first index maps to the input 1, second index maps to index 2
     """
@@ -81,6 +82,7 @@ def get_perturb_matrices(rotation_degrees: float, number: int = 10) -> np.ndarra
     Args:
         rotation_degrees: The range of degrees to create matrices for. Will be centered at the identity perturbation
         number: The number of steps to take
+
     Returns:
         A 3D numpy array where each subsequent rotation is along axis=0,
             and each 3x3 rotation matrix is along axis=1/2
@@ -117,6 +119,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations
             Expected type is an iterable of length comparable to the number of rotational degrees of freedom
         translation_steps: The step to sample translations +/- the identified translation in Angstroms
             Expected type is an iterable of length comparable to the number of translational degrees of freedom
+
     Returns:
         A mapping between the perturbation type and the corresponding transformation operation
     """
@@ -290,6 +293,7 @@ def make_contiguous_ghosts(ghost_frags_by_residue: list[list[GhostFragment]], re
         distance: The distance to measure neighbors between residues
         initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification. \
             Smaller values lead to more stringent matching criteria
+
     Returns:
         The indices of the ghost fragments (when the ghost_frags_by_residue) is unstacked such as by itertool.chain
         chained
@@ -450,6 +454,7 @@ def check_tree_for_query_overlap(batch_slice: slice,
         rotation4:
         translation4:
         clash_distance: The distance to measure for query_point overlap, i.e. clashing
+
     Returns:
         The number of overlaps found at each transformed query point as a dictionary
     """
@@ -499,6 +504,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
     Args:
         input_models: The Structures to be used in docking
+
     Returns:
         The resulting Poses satisfying docking criteria
     """
@@ -1524,7 +1530,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         """Responsible for updating docking transformation parameters for transform operations. Will set the
         transformation in the order of the passing_indices
 
-        These include:
+        Includes:
             full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_optimal_ext_dof_shifts, full_ext_tx1, and
             full_ext_tx2
 

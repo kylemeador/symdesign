@@ -31,7 +31,7 @@ rcsb_download_url = 'https://files.rcsb.org/download/'
 
 
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
-                        **kwargs) -> list[AnyStr]:  # Todo mmcif
+                        **kwargs) -> list[AnyStr]:
     """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
     Can download a specific biological assembly if asu=False.
     Ex: _fetch_pdb_from_api('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
@@ -41,6 +41,7 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
         assembly: The integer of the assembly to fetch
         asu: Whether to download the asymmetric unit file
         out_dir: The location to save downloaded files to
+
     Returns:
         Filenames of the retrieved files
     """
@@ -66,8 +67,6 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
                 failed_download.unlink(missing_ok=False)
 
                 cif_file = f'{clean_pdb}-assembly{assembly}.cif'
-                # download_cif_file = cif_file
-                # Todo debug reinstate v
                 download_cif_file = f'{clean_pdb}.cif{assembly}'
                 file_name = os.path.join(out_dir, download_cif_file)
                 cmd = ['wget', '-q', '-O', file_name, f'{rcsb_download_url}{cif_file}']
@@ -90,9 +89,11 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
         pdb_code: The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
         asu: Whether to fetch the ASU
         location: Location of a local PDB mirror if one is linked on disk
+
     Keyword Args:
         assembly: int = None - Location of a local PDB mirror if one is linked on disk
         out_dir: AnyStr = os.getcwd() - The location to save retrieved files if fetched from PDB
+
     Returns:
         The path to the file if located successfully
     """
@@ -131,6 +132,7 @@ def download_structures(
         structure_identifiers: The names of all entity_ids requiring orientation
         out_dir: The directory to write downloaded files to
         asu: Whether to get the asymmetric unit from the PDB instead of the biological assembly
+
     Returns:
         The requested Pose/Entity instances
     """
@@ -221,6 +223,7 @@ def query_qs_bio(entry_id: str) -> int:
 
     Args:
         entry_id: The 4 character PDB EntryID (code) to query
+
     Returns:
         The integer of the corresponding PDB Assembly ID according to QSBio
     """
@@ -238,9 +241,21 @@ def query_qs_bio(entry_id: str) -> int:
 
 
 class StructureDatabase(Database):
+    """A Database which holds structural data in particular"""
     def __init__(self, models: AnyStr | Path = None, full_models: AnyStr | Path = None, oriented: AnyStr | Path = None,
                  oriented_asu: AnyStr | Path = None, refined: AnyStr | Path = None, stride: AnyStr | Path = None,
                  **kwargs):
+        """Construct the instance
+
+        Args:
+            models: The path to the specified directory with stores these particular files
+            full_models: The path to the specified directory with stores these particular files
+            oriented: The path to the specified directory with stores these particular files
+            oriented_asu: The path to the specified directory with stores these particular files
+            refined: The path to the specified directory with stores these particular files
+            stride: The path to the specified directory with stores these particular files
+            **kwargs:
+        """
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
@@ -272,6 +287,7 @@ class StructureDatabase(Database):
             structure_identifiers: The names of all entity_ids requiring orientation
             sym_entry: The SymEntry used to treat each passed Entity as symmetric. Default assumes no symmetry
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID/EntityID
+
         Returns:
             The tuple consisting of (
                 A map of the entire Pose name to each contained Entity name,
@@ -384,6 +400,7 @@ class StructureDatabase(Database):
                 files: The files to orient in the canonical symmetry
                 resulting_symmetry: The symmetry to use during orient
                 sym_entry: The symmetry to use during orient protocol
+
             Returns:
                 None
             """
@@ -525,6 +542,7 @@ class StructureDatabase(Database):
     #             file_path, symmetry, name, make_loop_file(), make_blueprint_file()
     #         script_out_path: Where should Entity processing commands be written?
     #         batch_commands: Whether commands should be made for batch submission
+    #
     #     Returns:
     #         Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
     #         occurred (True) or if files are not reported as having this modeling yet
@@ -1124,6 +1142,7 @@ class StructureDatabaseFactory:
         Keyword Args:
             source: str = None - The StructureDatabase source path, or name if SQL database
             sql: bool = False - Whether the StructureDatabase is a SQL database
+
         Returns:
             The instance of the specified StructureDatabase
         """

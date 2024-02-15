@@ -36,6 +36,7 @@ def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
 
     Args:
         fasta_file: The path to a file with fasta information
+
     Returns:
         The residue numbers (in pose format) that should be ignored in design
     """
@@ -1468,8 +1469,8 @@ class JobResourcesFactory:
         Returns:
             The instance of the specified JobResources
         """
-        #         Keyword Args:
-        #             source: The JobResource source name
+        # Keyword Args:
+        #     source: The JobResource source name
         return self.__call__(**kwargs)
 
 

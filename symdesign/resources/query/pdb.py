@@ -133,6 +133,7 @@ def retrieve_entity_id_by_sequence(sequence: str) -> str | None:
 
     Args:
         sequence: The sequence used to query for the EntityID
+
     Returns:
         '1ABC_1'
     """
@@ -152,6 +153,7 @@ def find_matching_entities_by_sequence(sequence: str = None, return_id: return_t
     Args:
         sequence: The sequence used to query for EntityID's
         return_id: The type of value to return
+
     Returns:
         The EntityID's matching the sequence
     """
@@ -176,6 +178,7 @@ def parse_pdb_response_for_ids(response: dict[str, dict[str, str]], groups: bool
     Args:
         response:
         groups: Whether the identifiers are clustered by group
+
     Returns:
         The list of identifiers from the response
     """
@@ -230,9 +233,11 @@ def query_pdb(query_: dict[Any] | str, json_formatted: bool = False) -> dict[str
                     ...
                   ]
     }
+
     Args:
         query_: The query formatted as a dictionary or a JSON string
         json_formatted: Whether the query is already formatted as a JSON string
+
     Returns:
         The response formatted as a dictionary from the JSON format or None if the query failed
     """
@@ -294,6 +299,7 @@ def pdb_id_matching_uniprot_id(uniprot_id, return_id: return_types_literal = 'po
     Args:
         uniprot_id: The UniProt ID of interest
         return_id: The type of value to return
+
     Returns:
         The list of matching IDs
     """
@@ -383,6 +389,7 @@ def generate_query(search: dict, return_id: return_types_literal = 'entry', clus
         cluster_sequence: Whether the query generated is clustered by sequence similarity
         return_groups: Whether to return results as group IDs
         all_matching: Whether to get all matching IDs
+
     Returns:
         The formatted query to be sent via HTTP GET
     """
@@ -436,6 +443,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         assembly:
         chain:
         entry:
+
     Returns:
 
     """
@@ -2003,6 +2011,7 @@ def get_entity_uniprot_id(**kwargs) -> str | None:
         entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         chain=None (str): The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of
             interest
+
     Returns:
         The UniProt ID
     """
@@ -2022,6 +2031,7 @@ def get_entity_reference_sequence(**kwargs) -> str | None:
         entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         chain=None (str): The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of
             interest
+
     Returns:
         One letter amino acid sequence
     """

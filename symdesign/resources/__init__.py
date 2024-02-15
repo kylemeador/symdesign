@@ -12,8 +12,19 @@ logger = logging.getLogger(__name__)
 
 
 class OptimalTx:
+    """Identifies the translation(s) that optimally satisfies two overlapping translational spaces"""
+
     def __init__(self, dof_ext: np.ndarray = None, zshift1: np.ndarray = None, zshift2: np.ndarray = None,
                  max_z_value: float = 1., number_of_coordinates: int = 3):
+        """Construct the instance
+
+        Args:
+            dof_ext: The degrees of freedom that are external to the two translational spaces
+            zshift1: The translational shift of the first space
+            zshift2: The translational shift of the second space
+            max_z_value: The largest z-value considered acceptable
+            number_of_coordinates: The dimension of the search
+        """
         self.max_z_value = max_z_value
         self.number_of_coordinates = number_of_coordinates
         if dof_ext is None:  # Todo include np.zeros((1, 3)) like in SymEntry

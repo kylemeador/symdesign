@@ -16,6 +16,7 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
 
     Args:
         source: Which database to use?
+
     Returns:
         The loaded FragmentDatabase
     """
@@ -39,6 +40,7 @@ def load_paired_fragment_representatives(cluster_representatives_path: AnyStr) \
 
     Args:
         cluster_representatives_path: The directory containing the paired fragment representative model files
+
     Returns:
         A mapping between the cluster type and the loaded representative model
     """

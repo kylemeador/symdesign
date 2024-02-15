@@ -273,6 +273,7 @@ def format_for_cmdline(string) -> str:
 
     Args:
         string: The string to format as a commandline flag
+
     Returns:
         The string formatted by replacing any underscores '_' with a dash '-'
     """
@@ -284,6 +285,7 @@ def format_from_cmdline(string) -> str:
 
     Args:
         string: The string to format as a python string
+
     Returns:
         The flag formatted by replacing any dash '-' with an underscore '_'
     """
@@ -323,6 +325,7 @@ def format_args(flag_args: Sequence[str]) -> str:
 
     Args:
         flag_args: Typically a tuple of allowed flag "keywords" specified using "-" or "--"
+
     Returns:
         The flag arguments formatted with a "/" between each allowed version
     """
@@ -651,6 +654,7 @@ def parse_weights(weights: list[str] = None, file: AnyStr = None) \
     Args:
         weights: The command line collected weight arguments as specified in the weights --help
         file: The path to a file specifying weights in JSON as specified in the weights --help
+
     Returns:
         The parsed metric mapping linking each metric to a specified operation
     """
@@ -679,6 +683,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
     Args:
         filters: The command line collected filter arguments as specified in the filters --help
         file: The path to a file specifying filters in JSON as specified in the filters --help
+
     Returns:
         The parsed metric mapping linking each metric to a specified operation
     """
@@ -738,6 +743,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
 
             Args:
                 _value: The string to format
+
             Returns:
                 The value formatted from a string input to the correct python type for filter evaluation
             """

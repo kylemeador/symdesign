@@ -62,11 +62,14 @@ point_group_symmetry_operatorT_location = os.path.join(sym_op_location, 'point_g
 point_group_symmetry_operatorsT = unpickle(point_group_symmetry_operatorT_location)
 
 
-def get_all_file_paths(dir, suffix='', extension=None, sort=True):
+def get_all_file_paths(dir: str, suffix: str = '', extension: str = None, sort: bool = True) -> list[str]:
     """Return all files in a directory with specified extensions and suffixes
 
-    Keyword Args:
-        sorted=True (bool): Whether to return the files in alphanumerically sorted order
+    Args:
+        dir: The directory to retrieve filepaths from
+        suffix: If a suffix should be appended to the files in the dir
+        extension: If a particular extension should be used to search for files
+        sort: Whether to return the files in alphanumerically sorted order
     """
     if not extension:
         extension = '.pdb'
@@ -116,17 +119,17 @@ def expand(name=None, symmetry=None):
     generate_symmetry_mates_pymol(name, rotation_matrices)
 
 
-def save_group(group='all', one_file=True, out_dir=os.getcwd()):
+def save_group(group: str = 'all', one_file: bool = True, out_dir: str = os.getcwd()) -> None:
     """Save all files inside a group to either one file or a list of files.
     Assumes the groups were generated using 'expand'
 
-    Keyword Args:
-        group='all' (str): name of the group to save
-        one_file=True (bool): Saves each protein in the group to one file, if False, then saves all members individually
-        out_dir=os.get_cwd() (str): The directory location to save the files to
+    Args:
+        group: name of the group to save
+        one_file: Saves each protein in the group to one file, if False, then saves all members individually
+        out_dir: The directory location to save the files to
 
     Returns:
-        (None)
+        None
     """
     if group == 'all':
         # remove appended symmetry mate number '_#' from the group instances and take the set of structures

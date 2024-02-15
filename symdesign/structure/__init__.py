@@ -6,7 +6,7 @@ This module allows you to load protein structural files, manipulate their
  shape properties. Additionally, identify structural symmetry and inherently
 model symmetric relationships, including their interfaces.
 
-## [Structure][structure]
+## [structure][]
 
 * An [Atom][structure.base.Atom] has a [Coordinate][structure.coordinates.Coordinates].
 ```
@@ -42,7 +42,7 @@ model symmetric relationships, including their interfaces.
 
 ### Loading a [Structure][structure.model.Structure]
 
-## [Sequence][sequence]
+## [sequence][]
 
 * Every [Structure][structure.model.Structure] is a [GeneProduct][structure.model.StructuredGeneEntity].
 ```
@@ -89,7 +89,7 @@ model symmetric relationships, including their interfaces.
 |Fragment - - - - - - - - - - - - - - - -|                     <- Structure
  [Residue|Residue|Residue|Residue|Residue]                     <- Structure
 ```
-# Each [Fragment][structure.fragment.Fragment] can map to other [Fragment][structure.fragment.Fragment] instances so that larger [Structure][structure.model.Structure] can be broken down into pairs of [Fragment][structure.fragment.Fragment]. Such [Fragment][structure.fragment.Fragment] overlap with neighboring [Fragment][structure.fragment.Fragment] such as those that aare mapped to a separate "sliding window" register.
+#### Each [Fragment][structure.fragment.Fragment] can map to other [Fragment][structure.fragment.Fragment] instances so that larger [Structure][structure.model.Structure] can be broken down into pairs of [Fragment][structure.fragment.Fragment]. Such [Fragment][structure.fragment.Fragment] overlap with neighboring [Fragment][structure.fragment.Fragment] such as those that aare mapped to a separate "sliding window" register.
 ```
 |Structure - - - - - - - - - - - - - - - - - - - - - - - - - | <- Structure
  Fragment- - - |Fragment - - -|Fragment- - - |Fragment - - - | <- Structure

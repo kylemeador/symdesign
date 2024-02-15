@@ -73,6 +73,7 @@ class ClusterInfo:
 
 
 class FragmentInfo:
+    """Stores all Fragment metadata for a particular FragmentDatabase"""
     info: dict[tuple[int, int, int], ClusterInfo]
     fragment_length: int
     fragment_range: tuple[int, int]
@@ -81,6 +82,14 @@ class FragmentInfo:
 
     def __init__(self, source: str = utils.path.biological_interfaces, fragment_length: int = 5, sql: bool = False,
                  **kwargs):
+        """Construct the instance
+
+        Args:
+            source: Which type of information to use
+            fragment_length: What is the length of the fragment database
+            sql: Whether the database is stored in SQL table
+            **kwargs:
+        """
         super().__init__()  # object
         self.cluster_info_path = utils.path.intfrag_cluster_info_dirpath
         self.fragment_length = fragment_length
@@ -92,8 +101,7 @@ class FragmentInfo:
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
 
         if sql:
-            raise NotImplementedError("Can't connect to MySQL database yet")
-            self.start_mysql_connection()  # sets self.fragdb  # Todo work out mechanism
+            raise NotImplementedError("Can't connect to SQL database yet")
             self.db = True
         else:  # self.source == 'directory':
             # Todo initialize as local directory
@@ -183,8 +191,9 @@ class FragmentInfo:
 
         Args:
             ids: ['1_2_123', ...]
+
         Sets:
-            self.info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
+            self.info (dict[str, dict]): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
         """
         if self.db:
             raise NotImplementedError("Can't connect to MySQL database yet")
@@ -207,8 +216,9 @@ class FragmentInfo:
 
         Args:
             ids: ['1_2_123', ...]
+
         Sets:
-            self.info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
+            self.info (dict[str, dict]): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
         """
         if self.db:
             raise NotImplementedError("Can't connect to MySQL database yet")
@@ -266,9 +276,6 @@ class FragmentInfo:
             info.append('0')
 
         return '_'.join(info)
-
-    # def start_mysql_connection(self):
-    #     self.fragdb = sql.Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
 
 
 def parameterize_frag_length(length: int) -> tuple[int, int]:

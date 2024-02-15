@@ -1,10 +1,13 @@
 #!/home/kmeador/miniconda3/bin/python
+from __future__ import annotations
+
 import logging
 import os
 import subprocess
 import sys
 from collections import defaultdict
 from itertools import repeat
+from typing import Literal
 
 from lxml import etree, html
 from requests import get, post
@@ -415,17 +418,22 @@ def extract_pisa_files_and_pickle(root, pdb_code):
     return True
 
 
-def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
+pisa_type_literal = Literal['multimers', 'interfaces', 'multimer']
+
+
+def download_pisa(
+    pdb: str | list[str], pisa_type: pisa_type_literal, out_path: str = os.getcwd(), force_singles: bool = False
+) -> bool:
     """Downloads PISA .xml files from http://www.ebi.ac.uk/pdbe/pisa/cgi-bin/
+
     Args:
-        pdb (str,list): Either a single pdb code, a list of pdb codes, or a file with pdb codes, comma or newline
-            delimited
-        pisa_type (str): Either 'multimers', 'interfaces', or 'multimer' to designate the PISA File Source
-    Keyword Args:
-        out_path=os.getcwd() (str): Path to download PISA files
-        force_singles=False (bool): Whether to force downloading of one file at a time
+        pdb: Either a single pdb code, a list of pdb codes, or a file with pdb codes, comma or newline delimited
+        pisa_type: Either 'multimers', 'interfaces', or 'multimer' to designate the PISA File Source
+        out_path: Path to download PISA files
+        force_singles: Whether to force downloading of one file at a time
+
     Returns:
-        None
+        True if all pdb succeed, otherwise false
     """
     import xml.etree.ElementTree as ETree
 
@@ -468,14 +476,14 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
             failures.extend(modified_pdb_code.split(','))
 
     if pisa_type not in pisa_ref_d:
-        logger.error(f'{pisa_type} is not a valid PISA file type')
+        logger.error(f"{pisa_type} isn't a valid PISA file type")
         sys.exit(1)
     if pisa_type == 'multimer':
         force_singles = True
 
     file = None
     clean_list = utils.to_iterable(pdb)
-    count, total_count = 0, 0
+    count = total_count = 0
     multiple_mod_code, successful_downloads, failures = [], [], []
     for pdb in clean_list:
         pdb_code = pdb[0:4].lower()

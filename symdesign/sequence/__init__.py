@@ -157,6 +157,7 @@ def create_numeric_translation_table(alphabet: Sequence[str], bytes_: bool = Tru
     Args:
         alphabet: The alphabet to use. Example 'ARNDCQEGHILKMFPSTWYVBZX*'
         bytes_: Whether to map from byte characters
+
     Returns:
         The mapping from the character to the positional integer
     """
@@ -249,6 +250,7 @@ default_substitution_matrix_array = np.array(default_substitution_matrix_)
 #         matrix: The matrix used to compare character similarities
 #         local: Whether to run a local alignment. Only use for generally similar sequences!
 #         top_alignment: Only include the highest scoring alignment
+#
 #     Returns:
 #         The resulting alignment
 #     """
@@ -297,6 +299,7 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
         matrix: The matrix used to compare character similarities
         local: Whether to run a local alignment. Only use for generally similar sequences!
         top_alignment: Only include the highest scoring alignment
+
     Keyword Args:
         query_left_open_gap_score: int = 0 - The score used for opening a gap in the alignment procedure
         query_left_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
@@ -310,6 +313,7 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
         query_right_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
         target_right_open_gap_score: int = 0 - The score used for opening a gap in the alignment procedure
         target_right_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
+
     Returns:
         The resulting alignment(s). Will be an Alignment object if top_alignment is True else PairwiseAlignments object
     """
@@ -369,6 +373,7 @@ def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
 
     Args:
         file_name: The location of the file on disk
+
     Returns:
         An iterator of the sequences in the file [record1, record2, ...]
     """
@@ -380,6 +385,7 @@ def read_sequence_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
 
     Args:
         file_name: The location of the file on disk
+
     Returns:
         An iterator of the sequences in the file [record1, record2, ...]
     """
@@ -394,6 +400,7 @@ def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -
     Args:
         file_name: The location of the file on disk
         alignment_type: The type of file that the alignment is stored in. Used for parsing
+
     Returns:
         The parsed alignment
     """
@@ -409,6 +416,7 @@ def write_fasta(sequence_records: Iterable[SeqRecord], file_name: AnyStr = None,
         file_name: The explicit name of the file
         name: The name of the file to output
         out_dir: The location on disk to output file
+
     Returns:
         The name of the output file
     """
@@ -430,6 +438,7 @@ def write_sequence_to_fasta(sequence: str, file_name: AnyStr, name: str, out_dir
         name: The name of the sequence. Will be used as the default file_name base name if file_name not provided
         file_name: The explicit name of the file
         out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+
     Returns:
         The path to the output file
     """
@@ -450,6 +459,7 @@ def concatenate_fasta_files(file_names: Iterable[AnyStr], out_path: str = 'conca
     Args:
         file_names: The name of the files to concatenate
         out_path: The location on disk to output file
+
     Returns:
         The name of the output file
     """
@@ -471,6 +481,7 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         out_path: The location on disk to output file
         file_name: The explicit name of the file
         csv: Whether the file should be written as a .csv. Default is .fasta
+
     Returns:
         The name of the output file
     """
@@ -570,8 +581,10 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
         out_dir: Disk location where generated files should be written
         threads: Number of cpu's to use for the process
         return_command: Whether to simply return the hhblits command
+
     Raises:
         RuntimeError if hhblits command is run and returns a non-zero exit code
+
     Returns:
         The command if return_command is True, otherwise None
     """
@@ -880,19 +893,21 @@ def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int
     return offset
 
 
-def generate_multiple_mutations(reference, sequences, pose_num=True):
+def generate_multiple_mutations(
+    reference: dict[str, str], sequences: dict[str, dict[str, str]], pose_num: bool = True
+) -> dict[str, dict[str, dict[int, ]]]:
     """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
-        reference (dict[mapping[str, str]]): {chain: sequence, ...} The reference sequence to compare sequences to
-        sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
-    Keyword Args:
-        pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
-        second Entity as Entity1 last residue + 1
+        reference: {chain: sequence, ...} The reference sequence to compare sequences to
+        sequences: {pdb_code: {chain: sequence, ...}, ...}
+        pose_num: Whether to return the mutations in Pose numbering with the first Entity as 1 and the
+            second Entity as Entity1 last residue + 1
+
     Returns:
-        (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
-    # add reference sequence mutations
+    # Add reference sequence mutations
     mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
                                        for sequence_idx, aa in enumerate(ref_sequence, 1)}
                                for chain, ref_sequence in reference.items()}}
@@ -906,8 +921,8 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
             for chain, sequence in chain_sequences.items():
                 mutations[name][chain] = generate_mutations(reference[chain], sequence, offset=False)
     except KeyError:
-        raise RuntimeError(f"The reference sequence and mutated_sequences have different chains! Chain {chain} "
-                           "isn't in the reference")
+        raise RuntimeError(
+            f"The 'reference' and 'sequences' have different chains. Chain '{chain}' isn't in the reference")
     if pose_num:
         offset_dict = pdb_to_pose_offset(reference)
         # pose_mutations = {}
@@ -919,7 +934,7 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
         #         for mutation_idx in mutations[pdb_code][chain]:
         #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
         # mutations = pose_mutations
-        mutations = {name: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
+        mutations = {name: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].items()}
                             for chain, offset in offset_dict.items()} for name, chain_mutations in mutations.items()}
     return mutations
 
@@ -935,6 +950,7 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
             Character values are returned to the "from" key
         sequences: The template sequences to align, i.e. {alias: sequence, ...}.
             Character values are returned to the "to" key
+
     Keyword Args:
         offset: bool = True - Whether sequences are different lengths. Will create an alignment of the two sequences
         keep_gaps: bool = False - Return gaped indices, i.e. outside the aligned sequences or missing internal
@@ -947,6 +963,7 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
         return_all: bool = False - Whether to return all the indices and there corresponding mutational data
         return_to: bool = False - Whether to return only the "to" amino acid type
         return_from: bool = False - Whether to return only the "from" amino acid type
+
     Returns:
         {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...} unless return_to or return_from is True, then
             {alias: {mutation_index: 'K', ...}, ...}
@@ -967,29 +984,30 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
     return mutations
 
 
-def make_sequences_from_mutations(wild_type, pdb_mutations, aligned=False):
+def make_sequences_from_mutations(wild_type: str, pdb_mutations: dict, aligned: bool = False) -> dict:
     """Takes a list of sequence mutations and returns the mutated form on wildtype
 
     Args:
-        wild_type (str): Sequence to mutate
-        pdb_mutations (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
-    Keyword Args:
-        aligned=False (bool): Whether the input sequences are already aligned
+        wild_type: Sequence to mutate
+        pdb_mutations: {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+        aligned: Whether the input sequences are already aligned
+
     Returns:
-        all_sequences (dict): {name: sequence, ...}
+        {name: sequence, ...}
     """
     return {pdb: make_mutations(wild_type, mutations, find_orf=not aligned) for pdb, mutations in pdb_mutations.items()}
 
 
-def generate_sequences(wild_type_sequences, all_design_mutations):
+def generate_sequences(wild_type_sequences: dict, all_design_mutations: dict) -> dict:
     """Separate chains from mutation dictionary and generate mutated sequences
 
     Args:
-        wild_type_sequences (dict): {chain: sequence, ...}
-        all_design_mutations (dict): {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+        wild_type_sequences: {chain: sequence, ...}
+        all_design_mutations: {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
             Index so mutation_index starts at 1
+
     Returns:
-        mutated_sequences (dict): {chain: {name: sequence, ...}
+        {chain: {name: sequence, ...}
     """
     mutated_sequences = {}
     for chain in wild_type_sequences:
@@ -1350,22 +1368,20 @@ class MultipleSequenceAlignment:
                  alphabet: str = protein_letters_alph1_gaped, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
-        gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
-        probability of residue i in the specific column more accurately.
-
         Args:
-            alignment: "Array" of SeqRecords
+            alignment: A MultipleSeqAlignment object which contains an array-like object of SeqRecords
             aligned_sequence: Provide the sequence on which the alignment is based, otherwise the first
-                sequence will be used
+                sequence will be used from the alignment
             alphabet: 'ACDEFGHIKLMNPQRSTVWY-'
+
         Sets:
-            alignment - (Bio.Align.MultipleSeqAlignment)
-            number_of_sequences - 214
-            query - 'MGSTHLVLK...' from aligned_sequence argument OR alignment argument, index 0
-            query_with_gaps - 'MGS--THLVLK...'
-            counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
-            frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
-            observations - {1: 210, 2:211, ...}
+            self.alignment - (Bio.Align.MultipleSeqAlignment)
+            self.number_of_sequences - 214
+            self.query - 'MGSTHLVLK...' from aligned_sequence argument OR alignment argument, index 0
+            self.query_with_gaps - 'MGS--THLVLK...'
+            self.counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
+            self.frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
+            self.observations - {1: 210, 2:211, ...}
         """
         # count_gaps: bool = False
         # count_gaps: Whether gaps (-) should be counted in column weights
@@ -1806,10 +1822,11 @@ class MultipleSequenceAlignment:
 
         Args:
             at: The index to insert the sequence at. By default, the index is in reference to where self.query_indices
-                are True, i.e the query sequence
+                are True, i.e. the query sequence
             sequence: The sequence to insert. Will be inserted for every sequence of the alignment
             msa_index: Whether the insertion index is in the frame of the entire multiple sequence alignment.
                 Default, False, indicates the index is in the frame of the query sequence index, i.e. no gaps
+
         Sets:
             self.alignment: The existing alignment updated with the new sequence in alignment form
         """
@@ -1871,6 +1888,7 @@ class MultipleSequenceAlignment:
         Args:
             length: The length to pad the alignment
             axis: The axis to pad. 0 pads the sequences, 1 pads the residues
+
         Sets:
             self.alignment with the specified padding
         """

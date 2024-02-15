@@ -63,6 +63,7 @@ def sequence_to_one_hot(sequence: Sequence[str], translation_table: dict[str, in
         sequence: The sequence to encode
         translation_table: If a translation table (in bytes) is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
+
     Returns:
         The one-hot encoded sequence with shape (sequence length, translation_table length)
     """
@@ -92,6 +93,7 @@ def sequence_to_numeric(sequence: Sequence[str], translation_table: dict[str, in
         sequence: The sequence to encode
         translation_table: If a translation table (in bytes) is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
+
     Returns:
         The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
@@ -118,6 +120,7 @@ def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: 
         sequences: The sequences to encode
         translation_table: If a translation table (in bytes) is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
+
     Returns:
         The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
@@ -145,6 +148,7 @@ def pssm_as_array(pssm: ProfileDict, alphabet: str = protein_letters_alph1, lod:
                   2: {}, ...}
         alphabet: The amino acid alphabet to use. Array values will be returned in this order
         lod: Whether to return the array for the log of odds values
+
     Returns:
         The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are the
             frequency data at every indexed amino acid. Indices are according to the specified amino acid alphabet,
@@ -166,6 +170,7 @@ def concatenate_profile(profiles: Iterable[Any], start_at: int = 1) -> dict[int,
     Args:
         profiles: The profiles to concatenate
         start_at: The integer to start the resulting dictionary at
+
     Returns
         The concatenated input profiles, make a concatenated PSSM
             {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
@@ -191,6 +196,7 @@ def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = Non
         file_name: The explicit name of the file
         name: The name of the file. Will be used as the default file_name base name if file_name not provided
         out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+
     Returns:
         Disk location of newly created .pssm file
     """
@@ -243,14 +249,13 @@ class Profile(UserList[ProfileEntry]):
         {}, ...]
     """
     def __init__(self, entries: Iterable[ProfileEntry], dtype: str = 'profile', **kwargs):
-        """
+        """Construct the instance
 
         Args:
             entries: The per-residue entries to create the instance
             dtype: The datatype of the profile.
             **kwargs:
         """
-
         super().__init__(initlist=entries, **kwargs)  # initlist sets UserList.data
         self.dtype = dtype
 
@@ -301,6 +306,7 @@ class Profile(UserList[ProfileEntry]):
         Args:
             alphabet: The amino acid alphabet to use. Array values will be returned in this order
             lod: Whether to return the array for the log of odds values
+
         Returns:
             The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are
                 the frequency data at every indexed amino acid. Indices are according to the specified amino acid
@@ -325,6 +331,7 @@ class Profile(UserList[ProfileEntry]):
             file_name: The explicit name of the file
             name: The name of the file. Will be used as the default file_name base name if file_name not provided
             out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+
         Returns:
             Disk location of newly created .pssm file
         """
@@ -397,7 +404,11 @@ class GeneEntity(ABC):
     profile: ProfileDict | dict
 
     def __init__(self, **kwargs):
-        """"""
+        """Construct the instance
+
+        Args:
+            **kwargs:
+        """
         super().__init__(**kwargs)  # GeneEntity
         self._evolutionary_profile = {}  # position specific scoring matrix
         self.h_fields = None
@@ -550,6 +561,7 @@ class GeneEntity(ABC):
             out_dir: Location where sequence files should be written
             profile_source: One of 'hhblits' or 'psiblast'
             force: Whether to force generation of a new profile
+
         Sets:
             self.evolutionary_profile (ProfileDict)
         """
@@ -597,6 +609,7 @@ class GeneEntity(ABC):
         Args:
             nan: Whether to fill the null profile with np.nan
             zero_index: bool = False - If True, return the dictionary with zero indexing
+
         Returns:
             Dictionary containing profile information with keys as the index (zero or one-indexed), values as PSSM
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
@@ -624,6 +637,7 @@ class GeneEntity(ABC):
         Args:
             entry_numbers: The numbers to generate null entries for
             nan: Whether to fill the null profile with np.nan
+
         Returns:
             Dictionary containing profile information with the specified entries as the index, values as PSSM
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'info': 3.20, 'weight': 0.73},
@@ -823,6 +837,7 @@ class GeneEntity(ABC):
     #     Args:
     #         out_dir: Disk location where generated file should be written
     #         remote: Whether to perform the search through the web. If False, need blast installed locally
+    #
     #     Sets:
     #         self.pssm_file (str): Name of the file generated by psiblast
     #     """
@@ -874,10 +889,12 @@ class GeneEntity(ABC):
 
         Args:
             out_dir: Disk location where generated file should be written
+
         Keyword Args:
             sequence_file: AnyStr = None - The file containing the sequence to use
             threads: Number of cpu's to use for the process
             return_command: Whether to simply return the hhblits command
+
         Returns:
             The command if return_command is True, otherwise None
         """
@@ -949,6 +966,7 @@ class GeneEntity(ABC):
 
         Args:
             msa_file: The multiple sequence alignment file to use for collapse. Will use .msa attribute if not provided
+
         Keyword Args:
             file_format: msa_supported_types_literal = 'stockholm' - The file type to read the multiple sequence
                 alignment
@@ -960,6 +978,7 @@ class GeneEntity(ABC):
                 characters
             lower_window: int = 3 – The smallest window used to measure
             upper_window: int = 9 – The largest window used to measure
+
         Returns:
             Array with shape (length, number_of_residues) containing the hydrophobic collapse values for
                 per-residue, per-sequence in the profile. The "query" sequence from the MultipleSequenceAlignment.query
@@ -1003,9 +1022,11 @@ class GeneEntity(ABC):
 
         Args:
             msa_file: The multiple sequence alignment file to use for collapse. Will use .msa attribute if not provided
+
         Keyword Args:
             file_format: msa_supported_types_literal = 'stockholm' - The file type to read the multiple sequence
                 alignment
+
         Returns:
             Array with shape (length, number_of_residues) where the values are the energy for each residue/sequence
                 based on direct coupling analysis parameters
@@ -1157,9 +1178,9 @@ def get_cluster_dicts(db: str = putils.biological_interfaces, id_list: list[str]
     """Generate an interface specific scoring matrix from the fragment library
 
     Args:
-    Keyword Args:
-        info_db=putils.biological_fragmentDB
-        id_list=None: [1_2_24, ...]
+        db: The source of the fragment information
+        id_list: [1_2_24, ...]
+
     Returns:
          cluster_dict: {'1_2_45': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
     """
@@ -1294,9 +1315,11 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #
 #     Args:
 #         query (str): Basename of the sequence to use as a query, intended for use as pdb
+#
 #     Keyword Args:
 #         outpath=None (str): Disk location where generated file should be written
 #         remote=False (bool): Whether to perform the serach locally (need blast installed locally) or perform search through web
+#
 #     Returns:
 #         outfile_name (str): Name of the file generated by psiblast
 #         p (subprocess): Process object for monitoring progress of psiblast command
@@ -1618,41 +1641,49 @@ def weight_gaps(divergence, representation, alignment_length):  # UNUSED
     return divergence
 
 
-def window_score(score_dict, window_len: int, score_lambda: float = 0.5):  # UNUSED  incorporate into MultipleSequenceAlignment
-    """Takes a MSA score dict and transforms so that each position is a weighted average of the surrounding positions.
+def window_score(scores: dict[int, float] | Sequence[float], window_len: int, lambda_: float = 0.5) -> dict:  # UNUSED  incorporate into MultipleSequenceAlignment
+    """Takes an MSA score dict and transforms so that each position is a weighted average of the surrounding positions.
     Positions with scores less than zero are not changed and are ignored calculation
 
     Modified from Capra and Singh 2007 code
+
+    Notes:
+        The input should be a one-indexed dictionary (if a dictionary)
+
     Args:
-        score_dict (dict):
-        window_len (int): Number of residues on either side of the current residue
-    Keyword Args:
-        lamda=0.5 (float): Float between 0 and 1
+        scores: A dictionary with scores.
+        window_len: Number of residues on either side of the current residue
+        lambda_: Float between 0 and 1 which parameterizes the amount of the score to pull from
+
     Returns:
-        (dict):
+        A dictionary with the modified scores for the specified window, one-indexed
     """
     if window_len == 0:
-        return score_dict
+        try:
+            return dict(enumerate(scores.values(), ZERO_OFFSET))
+        except AttributeError:  # Not a dict
+            return dict(enumerate(scores, ZERO_OFFSET))
     else:
         window_scores = {}
-        for i in range(len(score_dict) + ZERO_OFFSET):
-            s, number_terms = 0, 0
+        number_scores = len(scores)
+        for i in range(number_scores + ZERO_OFFSET):
+            s = number_terms = 0
             if i <= window_len:
-                for j in range(1, i + window_len + ZERO_OFFSET):
+                for j in range(ZERO_OFFSET, i + window_len + ZERO_OFFSET):
                     if i != j:
                         number_terms += 1
-                        s += score_dict[j]
-            elif i + window_len > len(score_dict):
-                for j in range(i - window_len, len(score_dict) + ZERO_OFFSET):
+                        s += scores[j]
+            elif i + window_len > number_scores:
+                for j in range(i - window_len, number_scores + ZERO_OFFSET):
                     if i != j:
                         number_terms += 1
-                        s += score_dict[j]
+                        s += scores[j]
             else:
                 for j in range(i - window_len, i + window_len + ZERO_OFFSET):
                     if i != j:
                         number_terms += 1
-                        s += score_dict[j]
-            window_scores[i] = (1 - score_lambda) * (s / number_terms) + score_lambda * score_dict[i]
+                        s += scores[j]
+            window_scores[i] = (1 - lambda_) * (s / number_terms) + lambda_ * scores[i]
 
         return window_scores
 

@@ -1,0 +1,12 @@
+name: docs
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - mkdocs
+  - mkdocstrings-python
+  - mkdocs-material
+  - mkdocs-gen-files
+  - mkdocs-literate-nav
+  - pip:
+    - mkdocs-section-index

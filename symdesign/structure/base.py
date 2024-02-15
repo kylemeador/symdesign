@@ -240,6 +240,7 @@ def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:  # list[str]:
 
     Args:
         seqres_lines: The list of lines containing SEQRES information
+
     Returns:
         The mapping of each chain to its reference sequence
     """
@@ -293,6 +294,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
         pdb_lines: If lines are already read, provide the lines instead
         separate_coords: Whether to separate parsed coordinates from Atom instances. Will be returned as two separate
             entries in the parsed dictionary, otherwise returned with coords=None
+
     Returns:
         The dictionary containing all the parsed structural information
     """
@@ -499,6 +501,7 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
 
     Args:
         file: The path to the file to parse
+
     Returns:
         The dictionary containing all the parsed structural information
     """
@@ -757,7 +760,8 @@ class Log:
     """Responsible for StructureBase logging operations"""
 
     def __init__(self, log: Logger | None = logging.getLogger('null')):
-        """
+        """Construct the instance
+
         Args:
             log: The logging.Logger to handle StructureBase logging. If None is passed a Logger with NullHandler is used
         """
@@ -776,7 +780,11 @@ null_struct_log = Log()
 
 
 class SymmetryBase(ABC):
-    """Adds functionality for symmetric manipulation of Structure instances"""
+    """Adds functionality for symmetric manipulation of Structure instances
+
+    Collects known keyword arguments for all derived classes to protect `object`. Should always be the last class
+    in the method resolution order of derived classes.
+    """
     _symmetry: str | None
     _symmetric_dependents: str | None
     """The Structure container where dependent symmetric Structures are contained"""
@@ -852,18 +860,19 @@ class SymmetryBase(ABC):
 
 
 class StructureMetadata:
+    """Contains all metadata available from structure file parsing"""
     biological_assembly: str | None
     cryst_record: str | None
     entity_info: dict[str, dict[dict | list | str]] | dict
     file_path: AnyStr | None
-    header: list
     reference_sequence: str | dict[str, str] = None
     resolution: float | None
 
     def __init__(self, biological_assembly: str | int = None, cryst_record: str = None,
                  entity_info: dict[str, dict[dict | list | str]] = None, file_path: AnyStr = None,
                  reference_sequence: str | dict[str, str] = None, resolution: float = None, **kwargs):
-        """
+        """Construct the instance
+
         Args:
             biological_assembly: The integer of the biological assembly (as indicated by PDB AssemblyID format)
             cryst_record: The string specifying how the molecule is situated in a lattice
@@ -882,13 +891,12 @@ class StructureMetadata:
         self.file_path = file_path
         self.reference_sequence = reference_sequence
         self.resolution = resolution
-        # super().__init__(**kwargs)  # StructureMetadata
 
 
 # parent Structure controls these attributes
-parent_variable = '_parent_'
-new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
-parent_attributes = (parent_variable, *new_parent_attributes)
+_parent_variable = '_parent_'
+_new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
+_parent_attributes = (_parent_variable, *_new_parent_attributes)
 """Holds all the attributes which the parent StructureBase controls including _parent, _coords, _log, _atoms, 
 and _residues
 """
@@ -916,6 +924,7 @@ class CoordinateOpsMixin(abc.ABC):
             reference: The reference where the point should be measured from. Default is origin
             measure: The measurement to take with respect to the reference. Could be 'mean', 'min', 'max', or any
                 numpy function to describe computed distance scalars
+
         Returns:
             The distance from the reference point to the furthest point
         """
@@ -1001,6 +1010,7 @@ class CoordinateOpsMixin(abc.ABC):
             translation: The first translation to apply, expected array shape (3,)
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
+
         Returns:
             A transformed copy of the original object
         """
@@ -1029,10 +1039,9 @@ class CoordinateOpsMixin(abc.ABC):
 
 
 class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
-    """StructureBase manipulates the Coords and Log instances as well as the atom_indices for a StructureBase.
+    """Manipulates Coordinates and Log instances as well as the .atom_indices.
+
     Additionally. sorts through parent Structure and dependent Structure hierarchies during Structure subclass creation.
-    Collects known keyword arguments for all derived classes calls to protect `object`. Should always be the last class
-    in the method resolution order of derived classes.
     """
     _atom_indices: ArrayIndexer = Ellipsis  # slice(None)
     _coords: Coordinates
@@ -1059,7 +1068,8 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         # These shouldn't be passed as they should be stripped by prior constructors...
         # entity_names=None, rotation_matrices=None, translation_matrices=None,
         # metadata=None, pose_format=None, query_by_sequence=True, rename_chains=None
-        """
+        """Construct the instance
+
         Args:
             parent: If another Structure object created this Structure instance, pass the 'parent' instance. Will take
                 ownership over Structure containers (coords, atoms, residues) for dependent Structures
@@ -1186,7 +1196,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     def make_parent(self):
         """Remove this instance from its parent, making it a parent in the process"""
         # Set parent explicitly as None
-        self.__setattr__(parent_variable, None)
+        self.__setattr__(_parent_variable, None)
         # Create a new, Coords instance detached from the parent
         self._coords = Coordinates(self.coords)
 
@@ -1220,16 +1230,16 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         other__dict__ = other.__dict__
         other__dict__.update(self.__dict__)
 
-        ignore_attrs = (*parent_attributes, *cls.ignore_copy_attrs)
+        ignore_attrs = (*_parent_attributes, *cls.ignore_copy_attrs)
         for attr, value in other__dict__.items():
             if attr not in ignore_attrs:
                 other__dict__[attr] = copy(value)
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute .spawn to indicate to dependents their "copies" parent is "other"
             self.spawn = other
-            other__dict__[parent_variable] = other  # None
+            other__dict__[_parent_variable] = other  # None
             try:
-                for attr in new_parent_attributes:
+                for attr in _new_parent_attributes:
                     other__dict__[attr] = self.__dict__[attr].copy()
             except KeyError:  # '_atoms', '_residues' may not be present and come after _log, _coords
                 pass
@@ -1258,7 +1268,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
 
 # class Atom(StructureBase):
 class Atom(CoordinateOpsMixin):
-    """An Atom container with the full Structure coordinates and the Atom unique data"""
+    """Contains Atom metadata and a single coordinate position"""
     _coords_: list[float]
     _coords: Coordinates
     _copier: bool = False
@@ -1293,7 +1303,7 @@ class Atom(CoordinateOpsMixin):
                  code_for_insertion: str = ' ', x: float = None, y: float = None, z: float = None,
                  occupancy: float = None, b_factor: float = None, element: str = None, charge: str = None,
                  coords: list[float] = None, **kwargs):
-        """
+        """Construct the instance
 
         Args:
             index: The zero-indexed number to describe this Atom instance's position in a StructureBaseContainer
@@ -1592,13 +1602,15 @@ class Atom(CoordinateOpsMixin):
 
     copy = __copy__  # Overwrites to use this instance __copy__
 
+
 _StructType = TypeVar('_StructType')
 
 
 class StructureBaseContainer(Generic[_StructType]):
+    """Container for a StructureBase instances"""
 
     def __init__(self, structs: Sequence[StructureBase] | np.ndarray = None):
-        """
+        """Construct the instance
 
         Args:
             structs: The StructureBase instances to store. Should be a homogeneous Sequence
@@ -1625,8 +1637,6 @@ class StructureBaseContainer(Generic[_StructType]):
 
         Args:
             new_structures: The Structure instances to append
-        Sets:
-            self.structs = numpy.concatenate((self.residues, new_structures))
         """
         self.structs = np.concatenate((self.structs, new_structures))
 
@@ -1635,8 +1645,6 @@ class StructureBaseContainer(Generic[_StructType]):
 
         Args:
             indices: The indices to delete
-        Sets:
-            self.structs = numpy.delete(self.structs, indices)
         """
         self.structs = np.delete(self.structs, indices)
 
@@ -1658,8 +1666,6 @@ class StructureBaseContainer(Generic[_StructType]):
 
         Args:
             new_structures: The new instances which should make up the container
-        Sets:
-            self.structs = numpy.array(new_instances)
         """
         self.structs = np.array(new_structures)
         self.reindex()
@@ -1872,7 +1878,8 @@ class ContainsAtoms(StructureBase, ABC):
         return cls(atoms=atoms, **kwargs)
 
     def __init__(self, atoms: list[Atom] | Atoms = None, atom_indices: list[int] = None, **kwargs):
-        """
+        """Construct the instance
+
         Args:
             atoms: Atom instances to initialize the instance
         """
@@ -1911,7 +1918,11 @@ class ContainsAtoms(StructureBase, ABC):
         self.reset_state()
 
     def get_base_containers(self) -> dict[str, Any]:
-        """Returns the instance structural containers as a dictionary with attribute as key and container as value"""
+        """Access each of the constituent structure container attributes
+
+        Returns:
+            The instance structural containers as a dictionary with attribute as key and container as value
+        """
         return dict(coords=self._coords, atoms=self._atoms)
 
     def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):
@@ -1922,12 +1933,13 @@ class ContainsAtoms(StructureBase, ABC):
             atoms_only: Whether Atom instances are being assigned on their own.
                 If False, atoms won't become dependents of this instance until specifically called using
                 Atoms.set_attributes(_parent=self)
+
         Keyword Args:
             coords: numpy.ndarray = None - The coordinates to assign to the StructureBase.
                 Optional, will use a .coords attribute from Atoms container if not specified
+
         Sets:
             self._atom_indices (list[int])
-
             self._atoms (Atoms)
         """
         # Set proper atoms attributes
@@ -2023,8 +2035,9 @@ class ContainsAtoms(StructureBase, ABC):
 
         Args:
             distance: The distance to measure neighbors by
-        Returns:
 
+        Returns:
+            The sorted atom_indices which are in contact with this instance, however, do not belong to the instance
         """
         parent_coords = self._coords.coords
         atom_indices = self.atom_indices
@@ -2244,6 +2257,7 @@ class ContainsAtoms(StructureBase, ABC):
         Keyword Args:
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
+
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
@@ -2254,13 +2268,16 @@ class ContainsAtoms(StructureBase, ABC):
         """Write Atom instances to a file specified by out_path or with a passed file_handle
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
+
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
+
         Keyword Args
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom index by. Default uses one-indexed atom numbers
+
         Returns:
             The name of the written file if out_path is used
         """
@@ -2284,6 +2301,7 @@ class ContainsAtoms(StructureBase, ABC):
 
         Args:
             numbers: The Atom numbers of interest
+
         Returns:
             The requested Atom objects
         """
@@ -2367,7 +2385,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     type: str
 
     def __init__(self, **kwargs):
-        """
+        """Construct the instance
 
         Args:
             **kwargs:
@@ -2863,6 +2881,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
 
         Args:
             number: The number of residues to retrieve. If not provided gets all
+
         Returns:
             The Residue instances in n- to c-terminal order
         """
@@ -2893,6 +2912,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
 
         Args:
             number: The number of residues to retrieve. If not provided gets all
+
         Returns:
             The Residue instances in n- to c-terminal order
         """
@@ -2923,6 +2943,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
 
         Args:
             distance: The distance to measure neighbors by
+
         Returns:
             The Residue instances that are within the distance to this Residue
         """
@@ -3167,6 +3188,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         Args:
             other: The other Residue to measure against
             dtype: The Atom type to perform the measurement with
+
         Returns:
             The Euclidean distance between the specified Atom type
         """
@@ -3179,6 +3201,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
     #     Args:
     #         pdb: Whether the Residue representation should use the pdb number at file parsing
     #         chain_id: The ID of the chain_id to use
+    #
     #     Returns:
     #         Tuple of formatted Residue attributes
     #     """
@@ -3204,6 +3227,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         Args:
             chain_id: The chain ID to use
             atom_offset: How much to offset the atom number by. Default returns one-indexed
+
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
@@ -3217,6 +3241,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
         Args:
             chain_id: The chain ID to use
             atom_offset: How much to offset the atom number by. Default returns one-indexed
+
         Returns:
             The archived .pdb formatted ATOM records for the Residue
         """
@@ -3478,13 +3503,15 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     def __init__(self, structure: ContainsResidues = None,
                  residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
                  pose_format: bool = False, fragment_db: fragment.db.FragmentDatabase = None, **kwargs):
-        """
+        """Construct the instance
+
         Args:
             structure: Create the instance based on an existing Structure instance
             residues: The Residue instances which should constitute a new Structure instance
             residue_indices: The indices which specify the particular Residue instances to make this Structure instance.
                 Used with a parent to specify a subdivision of a larger Structure
             pose_format: Whether to initialize with continuous Residue numbering from 1 to N
+
         Keyword Args:
             atoms: list[Atom] | Atoms = None - The Atom instances which should constitute a new Structure instance
             parent: StructureBase = None - If another Structure object created this Structure instance, pass the
@@ -3652,16 +3679,15 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             residues: The Residue instances to assign to the Structure
             atoms: The Atom instances or Atoms to assign. Optional, will use Residues.atoms if not specified
+
         Keyword Args:
             coords: numpy.ndarray = None - The coordinates to assign to the StructureBase.
                 Optional, will use Residue.coords if not specified
+
         Sets:
             self._atom_indices (list[int])
-
             self._atoms (Atoms)
-
             self._residue_indices (list[int])
-
             self._residues (Residues)
         """
         if not atoms:
@@ -3846,6 +3872,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             start: The Residue number to start at. Inclusive
             end: The Residue number to end at. Inclusive
             dtype: The type of coordinates to get
+
         Returns:
             The specific coordinates from the Residue instances with the specified dtype
         """
@@ -3899,6 +3926,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         Args:
             atom_indices: The atom indices to retrieve Residue objects by
+
         Returns:
             The sorted, unique Residue instances corresponding to the provided atom_indices
         """
@@ -4015,6 +4043,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             numbers: Residue numbers of interest
             indices: Residue indices of interest for the Structure
+
         Returns:
             The requested Residue instances, sorted in the order they appear in the Structure
         """
@@ -4240,6 +4269,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Keyword Args:
             numbers: Container[int] = None – Residue numbers of interest
             indices: Iterable[int] = None – Residue indices of interest for the Structure
+
         Returns:
             The Atom instances belonging to the Residue instances
         """
@@ -4257,6 +4287,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             index: A Residue index to select the Residue instance of interest
             number: A Residue number to select the Residue instance of interest
             to: The type of amino acid to mutate to
+
         Returns:
             The indices of the Atoms being removed from the Structure
         """
@@ -4333,6 +4364,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residues: Residue instances to delete
             indices: Residue indices to select the Residue instances of interest
             numbers: Residue numbers to select the Residue instances of interest
+
         Returns:
             Each deleted Residue
         """
@@ -4391,6 +4423,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             index: The residue index where a new Residue should be inserted into the Structure
             residue_type: Either the 1 or 3 letter amino acid code for the residue in question
             chain_id: The chain identifier to associate the new Residue with
+
         Returns:
             The newly inserted Residue object
         """
@@ -4517,6 +4550,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             index: The index to perform the insertion at
             new_residues: The Residue instances to insert
             chain_id: The chain identifier to associate the new Residue instances with
+
         Returns:
             The inserted Residue instances
         """
@@ -4725,6 +4759,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residues: The Residues to include in the calculation
             residue_numbers: The numbers of the Residues to include in the calculation
             distance: The cutoff distance with which Atoms should be included in local density
+
         Returns:
             An array like containing the local density around each requested Residue
         """
@@ -4778,10 +4813,12 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             warn: Whether to emit warnings about identified clashes. Output grouped into measure vs non-measure
             silence_exceptions: Whether to silence the raised ClashError and Return True instead
             report_hydrogen: Whether to report clashing hydrogen atoms
-        Returns:
-            True if the Structure clashes, False if not
+
         Raises:
             ClashError if the Structure has an identified clash
+
+        Returns:
+            True if the Structure clashes, False if not
         """
         if measure == 'backbone_and_cb':
             other = 'non-cb sidechain'
@@ -4912,6 +4949,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             probe_radius: The radius which surface area should be generated
             atom: Whether the output should be generated for each atom. If False, will be generated for each Residue
+
         Sets:
             self.sasa, self.residue(s).sasa
         """
@@ -5016,10 +5054,12 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             relative_sasa_thresh: The relative area threshold that the Residue should have before it is considered
                 'surface'. Default cutoff is based on Levy, E. 2010
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The surface Residue instances
         """
@@ -5035,10 +5075,12 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
                 'interior'. Default cutoff is based on Levy, E. 2010
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The interior Residue instances
         """
@@ -5055,12 +5097,14 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             residues: The Residues to sum. If not provided, will be retrieved by `.get_residues()`
             dtype: The type of area classification to query.
+
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
             numbers: Container[int] = None – Residue numbers of interest
             indices: Iterable[int] = None – Residue indices of interest for the Structure
+
         Returns:
             Angstrom^2 of surface area
         """
@@ -5083,6 +5127,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         Args:
             out_path: The path where Errat files should be written
+
         Returns:
             Overall Errat score, Errat value/residue array
         """
@@ -5130,12 +5175,13 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             return 0., np.array([0. for _ in range(number_of_residues)])
 
     def stride(self, to_file: AnyStr = None, **kwargs):
-        """Use Stride to calculate the secondary structure of a PDB.
+        """Calculates the secondary structure using the program Stride
 
         Args
             to_file: The location of a file to save the Stride output
+
         Sets:
-            Residue.secondary_structure
+            Each contained Residue instance `.secondary_structure` attribute
         """
         # REM  -------------------- Secondary structure summary -------------------  XXXX
         # REM                .         .         .         .         .               XXXX
@@ -5215,6 +5261,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             termini: Either 'n' or 'c' should be specified
             window: The segment size to search
+
         Returns:
             True if the specified terminus has a stretch of helical residues the length of the window
         """
@@ -5272,6 +5319,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             termini: Either 'n' or 'c' should be specified
             reference: The reference where the point should be measured from
+
         Returns:
             When compared to the reference, 1 if the termini is more than halfway from the center of the Structure and
                 -1 if the termini is less than halfway from the center of the Structure
@@ -5301,6 +5349,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Keyword Args:
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
+
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
@@ -5314,6 +5363,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residues: The specific Residues to search for
             residue_numbers: The specific residue numbers to search for
             fragment_db: The FragmentDatabase with representative fragment types  to query against
+
         Returns:
             The MonoFragments found on the Structure
         """
@@ -5357,8 +5407,10 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residue_numbers: The specific residue numbers to search for
             fragment_db: The FragmentDatabase with representative fragment types to query the Residue against
             rmsd_thresh: The threshold for which a rmsd should fail to produce a fragment match
+
         Sets:
             Each Fragment Residue instance self.guide_coords, self.i_type
+
         Returns:
             The Residue instances that match Fragment representatives from the Structure
         """
@@ -5422,6 +5474,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         Args:
             fragment_db: The FragmentDatabase with representative fragment types to query the Residue against
+
         Keyword Args:
             residues: list[Residue] = None - The specific Residues to search for
             residue_numbers: list[int] = None - The specific residue numbers to search for
@@ -5430,6 +5483,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             distance: float = 8.0 - The distance to query for neighboring fragments
             min_match_value: float = 2 - The minimum value which constitutes an acceptable fragment z_score
             clash_coords: np.ndarray = None – The coordinates to use for checking for GhostFragment clashes
+
         Returns:
             The GhostFragment, Fragment pairs, along with their match score
         """
@@ -5482,8 +5536,10 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         Args:
             distance: The distance in angstroms to measure Atom instances in contact
+
         Keyword Args:
             probe_radius: float = 1.4 - The radius which surface area should be generated
+
         Returns:
             The floats representing the spatial aggregation propensity for each Residue in the Structure
         """
@@ -5556,6 +5612,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Args:
             sequence_distance_cutoff: The residue spacing required to count a contact as a true contact
             distance: The distance in angstroms to measure Atom instances in contact
+
         Returns:
             The floats representing the contact order for each Residue in the Structure
         """
@@ -5594,6 +5651,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     #     Args:
     #         sequence_distance_cutoff: The residue spacing required to count a contact as a true contact
     #         distance: The distance in angstroms to measure Atom instances in contact
+    #
     #     Returns:
     #         The floats representing the contact order for each Residue in the Structure
     #     """
@@ -5636,8 +5694,10 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residue_directives: {Residue object: 'mutational_directive', ...}
             include: Include a set of specific amino acids for each residue
             background: The background amino acids to compare possibilities against
+
         Keyword Args:
             special: bool = False - Whether to include special residues
+
         Returns:
             For each Residue, returns the string formatted for a resfile with a 'PIKAA' and amino acid type string
         """
@@ -5671,10 +5731,12 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             residue_directives: {Residue/int: 'mutational_directive', ...}
             out_path: Directory to write the file
             header: A header to constrain all Residues for packing
+
         Keyword Args:
             include: dict[Residue | int, set[str]] = None - Include a set of specific amino acids for each residue
             background: dict[Residue | int, set[str]] = None - The background amino acids to compare possibilities
             special: bool = False - Whether to include special residues
+
         Returns:
             The path to the resfile
         """
@@ -6050,6 +6112,7 @@ class Structures(ContainsResidues, UserList):
     #         file_handle: Used to write Structure details to an open FileObject
     #         increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
     #         header: If there is header information that should be included. Pass new lines with a "\n"
+    #
     #     Returns:
     #         The name of the written file if out_path is used
     #     """

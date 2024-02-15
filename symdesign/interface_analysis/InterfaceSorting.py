@@ -165,19 +165,20 @@ def verify_pisa(pisa_d, pdb_code):
     return None
 
 
-def sort_pdb_interfaces_by_contact_type(pisa_d, interface_numbers, assembly_confirmed=None):
+def sort_pdb_interfaces_by_contact_type(pisa_d: dict[str, dict], interface_numbers: set,
+                                        assembly_confirmed: Iterable[int] = None) -> dict[str, set]:
     """From a PISA entry, find all PDB interfaces and sort into corresponding Biological assemblies, Crystal Contacts,
     and 'other' contacts. Other contacts are Biological assemblies that are not statistically confirmed, but
     hypothesized as biologically significant. When finding candidate other interfaces, we have to look for alternative
     interface ID's as the multimers and ParsePisa may have a different set of complex biological assembly references.
 
     Args:
-        pisa_d (dict): {'multimers': {}, 'interfaces': {}, 'chains': {})
-        interface_numbers (set): The set of PISA interfaces of interest
-    Keyword Args:
-        assembly_confirmed=None (Iterable[int]): Collection of PDB assemblies (int) that are confirmed oligomers
+        pisa_d: {'multimers': {}, 'interfaces': {}, 'chains': {})
+        interface_numbers: The set of PISA interfaces of interest
+        assembly_confirmed: Collection of PDB assemblies (int) that are confirmed oligomers
+
     Returns:
-        (dict[mapping[str,set]]): {'bio': set(), 'xtal': set(), 'unknown_bio': set()}
+        {'bio': set(), 'xtal': set(), 'unknown_bio': set()}
     """
     pisa_multimer = pisa_d['multimers']
     pisa_interfaces = pisa_d['interfaces']

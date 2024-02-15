@@ -49,6 +49,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
         uniprot_entities: All UniProtEntity instances which should be checked for evolutionary info
         metadata: The ProteinMetadata instances that are being imported for the first time
         batch_commands: Whether commands should be made for batch submission
+
     Returns:
         The processed structures
     """
@@ -147,6 +148,7 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
         paths: The locations on disk to search for structural files
         pdb_codes: The PDB API EntryID, EntityID, or AssemblyID codes to fetch structure information
         query_codes: Whether a PDB API query should be initiated
+
     Returns:
         The tuple consisting of (
             A map of the Model name to each Entity name in the Model,
@@ -192,6 +194,7 @@ def load_poses_from_structure_and_entity_pairs(job: JobResources,
         job:
         structure_id_to_entity_ids:
         all_protein_metadata:
+
     Returns:
         The loaded Pose instances. No symmetry properties are attached
     """
@@ -264,6 +267,7 @@ def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: list[Any], *
     Args:
         pose_jobs: The PoseJob instances that attempted work
         results: The returned values from a job
+
     Returns:
         Tuple of passing PoseDirectories and Exceptions
     """
@@ -639,6 +643,7 @@ def main():
 
         Args:
             modules: The iterable of moduls to search
+
         Returns:
             True if the module has a fake input
         """

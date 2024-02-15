@@ -1363,6 +1363,7 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         df: A per-residue DataFrame to transform
+
     Returns:
         The transformed DataFrame
     """

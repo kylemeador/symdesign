@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class GhostFragment:
+    """Stores the mapping from a Fragment to a "paired" Fragment. Handles spatial manipulation for the mapped pair"""
     _guide_coords: np.ndarray
     """The guide coordinates according to the representative ghost fragment"""
     aligned_fragment: Fragment
@@ -36,6 +37,17 @@ class GhostFragment:
 
     def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
                  aligned_fragment: Fragment):
+        """Construct the instance
+
+        Args:
+            guide_coords: The array of shape (3, 3) with the set of x, y, z coordinates to map this instance to the
+                standard fragment reference frame at the origin
+            i_type: The particular index which identifies the aligned fragment type, i.e. the aligned_fragment
+            j_type: The particular index which identifies the paired fragment type, i.e. this instance
+            k_type: The particular index which identifies the spatial orientation of the i and j fragment types
+            ijk_rmsd: The root-mean-square deviation which applies to all members particular i,j,k index type
+            aligned_fragment: The Fragment instance which this instance is paired with
+        """
         self._guide_coords = guide_coords
         self.i_type = i_type
         self.j_type = self.frag_type = j_type
@@ -130,13 +142,16 @@ class GhostFragment:
         """Write the GhostFragment to a file specified by out_path or with a passed file_handle
 
         If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
+
         Args:
             out_path: The location where the StructureBase object should be written to disk
             file_handle: Used to write to an open FileObject
             header: A string that is desired at the top of the file
+
         Keyword Args:
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
+
         Returns:
             The name of the written file if out_path is used
         """
@@ -185,6 +200,13 @@ class Fragment(ABC):
     translation: np.ndarray
 
     def __init__(self, fragment_type: int = None, fragment_db: db.FragmentDatabase = None, **kwargs):
+        """Construct the instance
+
+        Args:
+            fragment_type: The particular index for the class of fragment this instance belongs to
+            fragment_db: The FragmentDatabase from where this instance was derived
+            **kwargs:
+        """
         self._fragment_coords = None
         self.ghost_fragments = None
         self.i_type = fragment_type
@@ -332,6 +354,7 @@ class Fragment(ABC):
             clash_tree: BinaryTreeType = None - Allows clash prevention during search.
                 Typical use is the backbone and CB coordinates of the ContainsAtomsMixin that the Fragment is assigned
             clash_dist: float = 2.1 - The distance to check for backbone clashes
+
         Returns:
             The ghost fragments associated with the fragment
         """
@@ -475,6 +498,7 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
         fragments2: The Fragment instances to pair against fragments1 GhostFragment instances
         clash_coords: The coordinates to use for checking for GhostFragment clashes
         min_match_value: The minimum value which constitutes an acceptable fragment z_score
+
     Returns:
         The GhostFragment, Fragment pairs, along with their match score
     """
@@ -580,6 +604,7 @@ def create_fragment_info_from_pairs(
 
     Args:
         ghostfrag_frag_pairs: Observed ghost and surface fragment overlaps and their match score
+
     Returns:
         The formatted fragment information for each pair
             {'mapped': int, 'paired': int, 'match': float, 'cluster': tuple(int, int, int)}

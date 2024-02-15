@@ -354,8 +354,8 @@ class _ProteinMPNN(ProteinMPNN):
 class ProteinMPNNFactory:
     """Return a ProteinMPNN instance by calling the Factory instance with the ProteinMPNN model name
 
-        Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
-        allocating a shared pointer to the named ProteinMPNN model
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer to the named ProteinMPNN model
     """
     def __init__(self, **kwargs):
         self._models = {}
@@ -454,6 +454,7 @@ class ProteinMPNNFactory:
             model_name - str = 'v_48_020' - The name of the model to use from ProteinMPNN.
                 v_X_Y where X is neighbor distance, and Y is noise
             backbone_noise - float = 0.0 - The amount of backbone noise to add to the pose during design
+
         Returns:
             The instance of the initialized ProteinMPNN model
         """
@@ -525,6 +526,7 @@ def batch_proteinmpnn_input(size: int = None, **kwargs) -> dict[str, np.ndarray]
 
     Args:
         size: The number of inputs to use. If left blank, the size will be inferred from axis=0 of the X array
+
     Keyword Args:
         X: numpy.ndarray = None - The array specifying the parameter X
         X_unbound: numpy.ndarray = None - The array specifying the parameter X_unbound
@@ -541,6 +543,7 @@ def batch_proteinmpnn_input(size: int = None, **kwargs) -> dict[str, np.ndarray]
         pssm_log_odds_mask: numpy.ndarray = None - The array specifying the parameter pssm_log_odds_mask
         bias_by_res: numpy.ndarray = None - The array specifying the parameter bias_by_res
         tied_beta: numpy.ndarray = None - The array specifying the parameter tied_beta
+
     Returns:
         A dictionary with each of the ProteinMPNN parameters formatted in a batch
     """
@@ -596,6 +599,7 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
 
     Args:
         device: The device to load tensors to
+
     Keyword Args:
         X: numpy.ndarray = None - The array specifying the parameter X
         X_unbound: numpy.ndarray = None - The array specifying the parameter X_unbound
@@ -612,6 +616,7 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
         pssm_log_odds_mask: numpy.ndarray = None - The array specifying the parameter pssm_log_odds_mask
         bias_by_res: numpy.ndarray = None - The array specifying the parameter bias_by_res
         tied_beta: numpy.ndarray = None - The array specifying the parameter tied_beta
+
     Returns:
         The torch.Tensor ProteinMPNN parameters
     """

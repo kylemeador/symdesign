@@ -23,6 +23,8 @@ for path in sorted(src.rglob("*.py")):
         continue
     elif 'conftest' in path.parts:
         continue
+    elif 'tests' in path.parts:
+        continue
     elif data_path in path.parents:
         continue
     elif path.stem == 'run':

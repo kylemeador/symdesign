@@ -43,17 +43,17 @@ def expand(name: str = None, symmetry: str = None):
     generate_symmetry_mates_pymol(name, rotation_matrices)
 
 
-def save_group(group='all', one_file=True, out_dir=os.getcwd()):
+def save_group(group: str = 'all', one_file: bool = True, out_dir: str = os.getcwd()) -> None:
     """Save all files inside a group to either one file or a list of files.
     Assumes the groups were generated using 'expand'
 
-    Keyword Args:
-        group='all' (str): name of the group to save
-        one_file=True (bool): Saves each protein in the group to one file, if False, then saves all members individually
-        out_dir=os.get_cwd() (str): The directory location to save the files to
+    Args:
+        group: name of the group to save
+        one_file: Saves each protein in the group to one file, if False, then saves all members individually
+        out_dir: The directory location to save the files to
 
     Returns:
-        (None)
+        None
     """
     if group == 'all':
         # remove appended symmetry mate number '_#' from the group instances and take the set of structures

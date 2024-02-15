@@ -42,6 +42,7 @@ def get_sequence_features(sequence: Sequence[str | int]) -> dict[str, float]:
 
     Args:
         sequence: The sequence to measure
+
     Returns:
         A feature dictionary with each feature from the set below mapped to a float.
         {'extinction_coefficient_reduced',
@@ -75,6 +76,7 @@ def calculate_protein_molecular_weight(sequence: Sequence[str | int]) -> float:
 
     Args:
         sequence: The sequence to measure
+
     Returns:
         The molecular weight in daltons/atomic mass units
     """
@@ -114,6 +116,7 @@ def calculate_protein_isoelectric_point(sequence: Sequence[str | int], threshold
     Args:
         sequence: The sequence to measure
         threshold: The pH unit value to consider the found pI passing
+
     Returns:
         The molecular weight in daltons/atomic mass units
     """
@@ -208,6 +211,7 @@ def calculate_instability_index(sequence: Sequence[str | int]) -> float:
 
     Args:
         sequence: The sequence to measure
+
     Returns:
         The value of the stability index where a value less than 40 indicates stability
     """
@@ -230,6 +234,7 @@ def molecular_extinction_coefficient(sequence: Sequence[str | int]) -> tuple[flo
 
     Args:
         sequence: The sequence to measure
+
     Returns:
         The pair of molecular extinction coefficients, first with all Cysteine oxidized, then reduced
     """
@@ -267,8 +272,10 @@ def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
         entity_id:
         pdb_code: The pdb to query tags from. Requires chain argument as well
         chain: The chain to query tags from. Requires pdb argument as well
+
     Keyword Args:
         alignment_length: int = 12 - The length to slice the sequence plus any identified tags
+
     Returns:
         [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], or [] if none found
     """
@@ -319,6 +326,7 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
         matching_pdb_tags: [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
         n: Whether the n-termini can be tagged
         c: Whether the c-termini can be tagged
+
     Returns:
         The termini which should be tagger, either 'n', 'c' or 'skip' if the sequence shouldn't be used
     """
@@ -385,6 +393,7 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
         preferred: The name of a preferred tag provided by the user
         n: Whether the n-termini can be tagged
         c: Whether the c-termini can be tagged
+
     Returns:
         {'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
     """
@@ -556,6 +565,7 @@ def add_expression_tag(tag: str, sequence: str) -> str:
     Args:
         tag: The tag with additional PDB reference sequence appended
         sequence: The sequence of interest
+
     Returns:
         The final sequence with the tag added
     """
@@ -595,6 +605,7 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
     Args:
         sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
         alignment_length: The length to slice the sequence plus any identified tags
+
     Returns:
         A list of the available tags with a featured dictionary for each tag. Formatted as -
             {'name': str, 'termini': 'n'/'c', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}. Returns [] if no tags are found

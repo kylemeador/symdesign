@@ -459,21 +459,21 @@ def hbond_processing(design_scores: dict, columns: list[str]) -> dict[str, set]:
     return hbonds
 
 
-def hot_spot(residue_dict, energy=-1.5):  # UNUSED
+def hot_spot(residue_dict: dict[Any, dict], energy: float = -1.5):  # UNUSED
     """Calculate if each residue in a dictionary is a hot-spot
 
     Args:
-        residue_dict (dict)
-    Keyword Args:
-        energy=-1.5 (float): The threshold for hot spot consideration
+        residue_dict:
+        energy: The threshold for hot spot consideration
+
     Returns:
-        residue_dict (dict):
+        The modified residue_dict.
     """
-    for res in residue_dict:
-        if residue_dict[res]['energy'] <= energy:
-            residue_dict[res]['hot_spot'] = 1
+    for value in residue_dict.values():
+        if value['energy'] <= energy:
+            value['hot_spot'] = 1
         else:
-            residue_dict[res]['hot_spot'] = 0
+            value['hot_spot'] = 0
 
     return residue_dict
 
@@ -615,6 +615,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         sequence_groups: Groups of sequences, where the outer nest is each sample and the inner nest are unique polymers
         residue_contact_order_z: The per-residue contact order z score from a reference structure
         reference_collapse: The per-residue hydrophobic collapse values measured from a reference sequence
+
     Keyword Args:
         hydrophobicity: str = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
             'expanded' (FMILYVW), or provide one with 'custom' keyword argument
@@ -622,6 +623,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         alphabet_type: alphabet_types = None – The amino acid alphabet if the sequence consists of integer characters
         lower_window: int = 3 – The smallest window used to measure
         upper_window: int = 9 – The largest window used to measure
+
     Returns:
         The mapping of collapse metric to per-residue values for the concatenated sequence in each sequence_groups.
             These include:
@@ -1078,8 +1080,10 @@ def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_fr
     Args:
         sequence_frequencies: [[0.05, 0.001, 0.1, ...], ...]
         background_aa_freq: [0.11, 0.03, 0.53, ...]
+
     Keyword Args:
         lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+
     Returns:
         The divergence per residue bounded between 0 and 1. 1 is more divergent from background, i.e. [0.732, ...]
     """
@@ -1096,8 +1100,10 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
         msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
         background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
             Containing residue index with inner dictionary of single amino acid types
+
     Keyword Args:
         lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+
     Returns:
         The divergence values per position, i.e [0.732, 0.552, ...]
     """
@@ -1391,8 +1397,10 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
             weight will be the sum of all individual weights
         protocols: Whether specific design protocol(s) should be chosen
         default_weight: If there is no weight provided, what is the default metric to sort results
+
     Keyword Args:
         weight_function: str = 'rank' - The function to use when weighting design indices
+
     Returns:
         The sorted DataFrame based on the provided filters and weights. DataFrame contains simple Index columns
     """

@@ -26,6 +26,7 @@ def write_str_to_file(string, file_name, **kwargs) -> AnyStr:
     Args:
         string: The string to write
         file_name: The location of the file to write
+
     Returns:
         The name of the written file
     """
@@ -41,6 +42,7 @@ def write_list_to_file(_list, file_name, **kwargs) -> AnyStr:
     Args:
         _list: The string to write
         file_name: The location of the file to write
+
     Returns:
         The name of the written file
     """
@@ -58,17 +60,8 @@ def not_implemented(data, file_name):
 
 
 class DataStore:
-    """
+    """Stores data (currently in a directory) for a singular type of data with particular load and save behaviors"""
 
-    Args:
-        location: The location to store/retrieve data if directories are used
-        extension: The extension of files to use during file handling. If extension is other than .txt or .json, the
-            arguments load_file/save_file must be provided to handle storage
-        load_file: Callable taking the file_name as first argument
-        save_file: Callable taking the object to save as first argument and file_name as second argument
-        sql: The database to use if the storage is based on a SQL database
-        log: The Logger to handle operation reporting
-    """
     location: str
     extension: str
     sql: None
@@ -78,6 +71,17 @@ class DataStore:
 
     def __init__(self, location: str = None, extension: str = '.txt', glob_extension: str = None,
                  load_file: Callable = None, save_file: Callable = None, sql=None, log: Logger = logger):
+        """Construct the instance
+
+        Args:
+            location: The location to store/retrieve data if directories are used
+            extension: The extension of files to use during file handling. If extension is other than .txt or .json, the
+                arguments load_file/save_file must be provided to handle storage
+            load_file: Callable taking the file_name as first argument
+            save_file: Callable taking the object to save as first argument and file_name as second argument
+            sql: The database to use if the storage is based on a SQL database
+            log: The Logger to handle operation reporting
+        """
         self.log = log
         if sql is not None:
             self.sql = sql
@@ -157,6 +161,7 @@ class DataStore:
         Args:
             data: The data object to be stored with name
             name: The name of the data to be used
+
         Sets:
             self.name = data
         """
@@ -168,6 +173,7 @@ class DataStore:
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
+
         Returns:
             If the data is available, the object requested will be returned, else None
         """
@@ -192,6 +198,7 @@ class DataStore:
         Args:
             data: The data object to be stored with name
             name: The name of the data to be used
+
         Returns:
             The name of the saved data if there was one or the return from the Database insertion
         """
@@ -207,6 +214,7 @@ class DataStore:
 
         Args:
             name: The name of the data to be used
+
         Returns:
             The data found at the requested name if any
         """
@@ -229,9 +237,16 @@ class DataStore:
 
 
 class Database:
+    """A common interface to interact with DataStore instances"""
     sources: list[DataStore]
 
     def __init__(self, sql=None, log: Logger = logger):
+        """Construct the instance
+
+        Args:
+            sql: The database to use if the storage is based on a SQL database
+            log: The Logger to handle operation reporting
+        """
         super().__init__()
         if sql:
             raise NotImplementedError('SQL set up has not been completed')
@@ -269,6 +284,7 @@ class Database:
         Args:
             source: The name of the data source to use
             name: The name of the data to be retrieved. Will be found with location and extension attributes
+
         Returns:
             If the data is available, the object requested will be returned, else None
         """
@@ -280,6 +296,7 @@ class Database:
         Args:
             source: The name of the data source to use
             name: The name of the data to be retrieved. Will be found with location and extension attributes
+
         Returns:
             If the file is available, it will be returned, else None
         """
