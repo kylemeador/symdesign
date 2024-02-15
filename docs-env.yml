@@ -8,5 +8,6 @@ dependencies:
   - mkdocs-material
   - mkdocs-gen-files
   - mkdocs-literate-nav
+  - pip
   - pip:
     - mkdocs-section-index
