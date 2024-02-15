@@ -1,0 +1,3733 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../database/">
+      
+      
+        <link rel="next" href="../job/">
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.9">
+    
+    
+      
+        <title>distribute - symdesign Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.f2e4d321.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../../css/code_select.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#resources.distribute" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="symdesign Documentation" class="md-header__button md-logo" aria-label="symdesign Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            symdesign Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              distribute
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9h-1.9M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69m-9.15 3.96h2.3L12 9l-1.15 3.65Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="green"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kylemeador/symdesign" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../user_guide/" class="md-tabs__link">
+        
+  
+    
+  
+  User Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="symdesign Documentation" class="md-nav__button md-logo" aria-label="symdesign Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    symdesign Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kylemeador/symdesign" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user_guide/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    API reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            API reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    symdesign
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../metrics/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    metrics
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/pose/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    pose
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../protocols/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    protocols
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            protocols
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/align/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    align
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    cluster
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    config
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/fragdock/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    fragdock
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/pose/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    pose
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/select/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    select
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocols/utils/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    utils
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    resources
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            resources
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    config
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    database
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    distribute
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    distribute
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      distribute
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.is_sbatch_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_sbatch_available
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.create_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_file
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.run" class="md-nav__link">
+    <span class="md-ellipsis">
+      run
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.check_scripts_exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      check_scripts_exist
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.distribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      distribute
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      commands
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.write_script" class="md-nav__link">
+    <span class="md-ellipsis">
+      write_script
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.write_commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      write_commands
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../job/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    job
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ml/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ml
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monomer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    monomer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multimer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    multimer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5_8" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../query/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    query
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5_8" id="__nav_3_5_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_8">
+            <span class="md-nav__icon md-icon"></span>
+            query
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../query/pdb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    pdb
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../query/uniprot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    uniprot
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sql/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    sql
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../structure_db/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    structure_db
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wrapapi/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    wrapapi
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../sequence/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    sequence
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            sequence
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequence/constants/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    constants
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequence/expression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    expression
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structure/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    structure
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            structure
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/base/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    base
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/coordinates/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    coordinates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_3" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structure/fragment/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    fragment
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_3" id="__nav_3_7_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            fragment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/fragment/db/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    db
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/fragment/info/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    info
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/fragment/metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/fragment/visuals/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    visuals
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/sequence/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    sequence
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/utils/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    utils
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tools/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    tools
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            tools
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/BenchmarkCollapseHydrophobicityScale/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BenchmarkCollapseHydrophobicityScale
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/ConcatenatePDBFiles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ConcatenatePDBFiles
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/ProfileScripts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ProfileScripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/SlurmControl/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SlurmControl
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/distribute/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    distribute
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/fetch_commands_from_slurm_output/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    fetch_commands_from_slurm_output
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/format_commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    format_commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/format_pose_ids/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    format_pose_ids
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/generate_reference_docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    generate_reference_docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/get_array_numbers_from_identifiers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    get_array_numbers_from_identifiers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/list_files_in_directory/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    list_files_in_directory
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/list_overlap/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    list_overlap
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/models_to_multimodel/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    models_to_multimodel
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/profile_gpu_nodes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    profile_gpu_nodes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/retrieve_oligomers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    retrieve_oligomers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/retrieve_pdbs_by_advanced_query/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    retrieve_pdbs_by_advanced_query
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/write_indices_for_C1_docking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    write_indices_for_C1_docking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_9" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../utils/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    utils
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_9" id="__nav_3_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            utils
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/SymEntry/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SymEntry
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    cluster
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/guide/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/nanohedra_parsing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    nanohedra_parsing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/path/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    path
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/query/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    query
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/rosetta/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    rosetta
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/symmetry/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    symmetry
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/types/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    types
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_10" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../visualization/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    visualization
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_10" id="__nav_3_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_10">
+            <span class="md-nav__icon md-icon"></span>
+            visualization
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../visualization/SymmetryMates/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SymmetryMates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../visualization/VisualizeUtils/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VisualizeUtils
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../visualization/shapes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    shapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      distribute
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.is_sbatch_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_sbatch_available
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.create_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_file
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.run" class="md-nav__link">
+    <span class="md-ellipsis">
+      run
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.check_scripts_exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      check_scripts_exist
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.distribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      distribute
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      commands
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.write_script" class="md-nav__link">
+    <span class="md-ellipsis">
+      write_script
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources.distribute.write_commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      write_commands
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+  <h1>distribute</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="resources.distribute"></a>
+  <div class="doc doc-contents first">
+  
+      <p>Module for Distribution of commands found for individual poses to SLURM/PBS computational cluster</p>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.is_sbatch_available" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">is_sbatch_available</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">is_sbatch_available</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">bool</span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Ensure the sbatch executable is available and executable</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">is_sbatch_available</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure the sbatch executable is available and executable&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">sbatch_exe</span>
+    <span class="n">sbatch_exe</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">sbatch</span><span class="p">)</span>  <span class="c1"># get_sbatch_exe()</span>
+    <span class="c1"># if sbatch_exe is not None:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sbatch_exe</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">sbatch_exe</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">X_OK</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># NoneType</span>
+        <span class="k">return</span> <span class="kc">False</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.create_file" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">create_file</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">create_file</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>If file doesn't exist, create a blank one</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">create_file</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;If file doesn&#39;t exist, create a blank one&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">file</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">new_file</span><span class="p">:</span>
+            <span class="n">dummy</span> <span class="o">=</span> <span class="kc">True</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.run" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">run</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">:</span> <span class="n">list</span><span class="p">[</span><span class="n">str</span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span><span class="p">,</span> <span class="n">log_file_name</span><span class="p">:</span> <span class="n">str</span><span class="p">,</span> <span class="n">program</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">srun</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">bool</span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Executes specified command and appends command results to log file</p>
+
+
+
+  <p>Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>cmd</code></b>
+            (<code>list[str] | <span title="typing.AnyStr">AnyStr</span></code>)
+        –
+        <div class="doc-md-description">
+          <p>The name of a command file which should be executed by the system</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>log_file_name</code></b>
+            (<code>str</code>)
+        –
+        <div class="doc-md-description">
+          <p>Location on disk of log file</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>program</code></b>
+            (<code>str</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The interpreter for said command</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>srun</code></b>
+            (<code>str</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Whether to utilize a job step prefix during command issuance</p>
+        </div>
+      </li>
+  </ul>
+      <p>Returns:
+    Whether the command executed successfully</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">AnyStr</span><span class="p">,</span> <span class="n">log_file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">program</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">srun</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Executes specified command and appends command results to log file</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cmd: The name of a command file which should be executed by the system</span>
+<span class="sd">        log_file_name: Location on disk of log file</span>
+<span class="sd">        program: The interpreter for said command</span>
+<span class="sd">        srun: Whether to utilize a job step prefix during command issuance</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Whether the command executed successfully</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cluster_prefix</span> <span class="o">=</span> <span class="n">srun</span> <span class="k">if</span> <span class="n">srun</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="n">program</span> <span class="o">=</span> <span class="p">[</span><span class="n">program</span><span class="p">]</span> <span class="k">if</span> <span class="n">program</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="n">cmd</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">cmd</span>
+    <span class="k">if</span> <span class="n">log_file_name</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">log_file_name</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">log_f</span><span class="p">:</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="n">cluster_prefix</span> <span class="o">+</span> <span class="n">program</span> <span class="o">+</span> <span class="n">command</span>
+            <span class="n">log_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Command: </span><span class="si">{</span><span class="n">subprocess</span><span class="o">.</span><span class="n">list2cmdline</span><span class="p">(</span><span class="n">command</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">log_f</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">log_f</span><span class="p">)</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Command: </span><span class="si">{</span><span class="n">subprocess</span><span class="o">.</span><span class="n">list2cmdline</span><span class="p">(</span><span class="n">command</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">p</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.check_scripts_exist" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">check_scripts_exist</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">check_scripts_exist</span><span class="p">(</span><span class="n">directives</span><span class="p">:</span> <span class="n"><span title="collections.abc.Iterable">Iterable</span></span><span class="p">[</span><span class="n">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Check for the existence of scripts provided by an Iterable or present in a file</p>
+
+
+
+  <p>Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>directives</code></b>
+            (<code><span title="collections.abc.Iterable">Iterable</span>[str]</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The locations of scripts which should be executed</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>file</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The location of a file containing the location(s) of scripts/commands</p>
+        </div>
+      </li>
+  </ul>
+      <p>Raises:
+    InputError: When the scripts/commands passed are malformed or do not exist
+Returns:
+    None</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">check_scripts_exist</span><span class="p">(</span><span class="n">directives</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check for the existence of scripts provided by an Iterable or present in a file</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        directives: The locations of scripts which should be executed</span>
+<span class="sd">        file: The location of a file containing the location(s) of scripts/commands</span>
+<span class="sd">    Raises:</span>
+<span class="sd">        InputError: When the scripts/commands passed are malformed or do not exist</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">script_or_command</span> <span class="o">=</span> \
+        <span class="s1">&#39;</span><span class="si">{}</span><span class="s1"> is malformed at line </span><span class="si">{}</span><span class="s1">. All commands should match.</span><span class="se">\n</span><span class="s1">* * *</span><span class="se">\n</span><span class="si">{}</span><span class="se">\n</span><span class="s1">* * *&#39;</span> \
+        <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Either a file extension OR a command requried. Cannot mix&#39;</span>
+    <span class="c1"># Automatically detect if the commands file has executable scripts or errors</span>
+    <span class="k">if</span> <span class="n">directives</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Must pass either &#39;directives&#39; or &#39;file&#39;. Neither were passed&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use collect_designs to get commands from the provided file</span>
+            <span class="n">scripts</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">collect_designs</span><span class="p">(</span><span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="n">file</span><span class="p">])</span>
+
+    <span class="c1"># Check if the file lines (commands) contain a script or a command</span>
+    <span class="n">first_directive</span><span class="p">,</span> <span class="o">*</span><span class="n">remaining_directives</span> <span class="o">=</span> <span class="n">directives</span>
+    <span class="n">contains_scripts</span> <span class="o">=</span> <span class="kc">True</span> <span class="k">if</span> <span class="n">first_directive</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.sh&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">directive</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">remaining_directives</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># Check if the directive string is a shell script type file string. Ex: &quot;refine.sh&quot;</span>
+        <span class="k">if</span> <span class="n">directive</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;.sh&#39;</span><span class="p">:</span>  <span class="c1"># This is a file</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">directive</span><span class="p">):</span>  <span class="c1"># Check if file is missing</span>
+                <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The command at location &#39;</span><span class="si">{</span><span class="n">directive</span><span class="si">}</span><span class="s2">&#39; doesn&#39;t exist&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">contains_scripts</span><span class="p">:</span>  <span class="c1"># There was a change from non-script files</span>
+                <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span><span class="n">script_or_command</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">directive</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># directive is a command</span>
+            <span class="c1"># Check if there was a change from script files to non-script files</span>
+            <span class="k">if</span> <span class="n">contains_scripts</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span><span class="n">script_or_command</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">directive</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">contains_scripts</span> <span class="o">=</span> <span class="kc">False</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.distribute" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">distribute</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">distribute</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n"><span title="resources.distribute.protocols_literal">protocols_literal</span></span><span class="p">,</span> <span class="n">number_of_commands</span><span class="p">:</span> <span class="n">int</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">success_file</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">failure_file</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">log_file</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_jobs</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span> <span class="n">mpi</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">finishing_commands</span><span class="p">:</span> <span class="n"><span title="collections.abc.Iterable">Iterable</span></span><span class="p">[</span><span class="n">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="n">is_sbatch_available</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">str</span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Take a file of commands formatted for execution in the SLURM environment and process into a script</p>
+
+
+
+  <p>Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>file</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>)
+        –
+        <div class="doc-md-description">
+          <p>The location of the file which contains your commands to distribute through a sbatch array</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>scale</code></b>
+            (<code><span title="resources.distribute.protocols_literal">protocols_literal</span></code>)
+        –
+        <div class="doc-md-description">
+          <p>The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>number_of_commands</code></b>
+            (<code>int</code>)
+        –
+        <div class="doc-md-description">
+          <p>The size of the job array</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>out_path</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code><span title="os.getcwd">getcwd</span>()</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Where to write out the sbatch script</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>success_file</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>What file to write the successful jobs to for job organization</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>failure_file</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>What file to write the failed jobs to for job organization</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>log_file</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The name of a log file to write command results to</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>max_jobs</code></b>
+            (<code>int</code>, default:
+                <code>80</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The size of the job array limiter. This caps the number of commands executed at once</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>mpi</code></b>
+            (<code>int</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The number of processes to run concurrently with MPI</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>finishing_commands</code></b>
+            (<code><span title="collections.abc.Iterable">Iterable</span>[str]</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Commands to run once all sbatch processes are completed</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>batch</code></b>
+            (<code>bool</code>, default:
+                <code><a class="autorefs autorefs-internal" title="resources.distribute.is_sbatch_available" href="#resources.distribute.is_sbatch_available">is_sbatch_available</a>()</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Whether the distribution file should be formatted as a SLURM sbatch script</p>
+        </div>
+      </li>
+  </ul>
+      <p>Returns:
+    The name of the script that was written</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">distribute</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">AnyStr</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">protocols_literal</span><span class="p">,</span> <span class="n">number_of_commands</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span>
+               <span class="n">success_file</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">failure_file</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">log_file</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+               <span class="n">mpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">finishing_commands</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">is_sbatch_available</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Take a file of commands formatted for execution in the SLURM environment and process into a script</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        file: The location of the file which contains your commands to distribute through a sbatch array</span>
+<span class="sd">        scale: The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs</span>
+<span class="sd">        number_of_commands: The size of the job array</span>
+<span class="sd">        out_path: Where to write out the sbatch script</span>
+<span class="sd">        success_file: What file to write the successful jobs to for job organization</span>
+<span class="sd">        failure_file: What file to write the failed jobs to for job organization</span>
+<span class="sd">        log_file: The name of a log file to write command results to</span>
+<span class="sd">        max_jobs: The size of the job array limiter. This caps the number of commands executed at once</span>
+<span class="sd">        mpi: The number of processes to run concurrently with MPI</span>
+<span class="sd">        finishing_commands: Commands to run once all sbatch processes are completed</span>
+<span class="sd">        batch: Whether the distribution file should be formatted as a SLURM sbatch script</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The name of the script that was written</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create success and failures files</span>
+    <span class="n">name</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">file</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">success_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">success_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.success&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">failure_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">failure_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.failures&#39;</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="s1">&#39;output&#39;</span><span class="p">)</span>
+    <span class="n">putils</span><span class="o">.</span><span class="n">make_path</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+
+    <span class="c1"># Make sbatch file from template, array details, and command distribution script</span>
+    <span class="k">if</span> <span class="n">batch</span><span class="p">:</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">-</span><span class="si">{</span><span class="n">sbatch</span><span class="si">}</span><span class="s1">.sh&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.sh&#39;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">new_f</span><span class="p">:</span>
+        <span class="c1"># Todo set up sbatch accordingly. Include a multiplier for the number of CPU&#39;s. Actually, might be passed</span>
+        <span class="c1">#  if mpi:</span>
+        <span class="c1">#      do_mpi_stuff = True</span>
+        <span class="k">if</span> <span class="n">batch</span><span class="p">:</span>
+            <span class="c1"># Write sbatch template</span>
+            <span class="n">template</span> <span class="o">=</span> <span class="n">sbatch_templates</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">template</span><span class="p">:</span>
+                <span class="n">template</span> <span class="o">=</span> <span class="n">default_sbatch_template</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Couldn&#39;t find an sbatch script template for &#39;</span><span class="si">{</span><span class="n">scale</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">template</span><span class="p">)</span> <span class="k">as</span> <span class="n">template_f</span><span class="p">:</span>
+                <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">template_f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()))</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;output=</span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">/%A_%a.out&#39;</span>
+            <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">sb_flag</span><span class="si">}{</span><span class="n">out</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="c1"># Removing possibility to run multiple jobs simultaneously</span>
+            <span class="c1"># array = f&#39;array=1-{int(number_of_commands/process_scale[scale] + 0.5)}%{max_jobs}&#39;</span>
+            <span class="n">array</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;array=1-</span><span class="si">{</span><span class="n">number_of_commands</span><span class="si">}</span><span class="s1">%</span><span class="si">{</span><span class="n">max_jobs</span><span class="si">}</span><span class="s1">&#39;</span>
+            <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">sb_flag</span><span class="si">}{</span><span class="n">array</span><span class="si">}</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">distributer_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;python </span><span class="si">{</span><span class="n">putils</span><span class="o">.</span><span class="n">distributer_tool</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="sa">f</span><span class="s2">&quot;--log-file </span><span class="si">{</span><span class="n">log_file</span><span class="si">}</span><span class="s2"> &quot;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">log_file</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="si">}</span><span class="s1">&#39;</span> \
+                                  <span class="sa">f</span><span class="s1">&#39;--success-file </span><span class="si">{</span><span class="n">success_file</span><span class="si">}</span><span class="s1"> --failure-file </span><span class="si">{</span><span class="n">failure_file</span><span class="si">}</span><span class="s1"> --command-file </span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">distributer_command</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;python </span><span class="si">{</span><span class="n">putils</span><span class="o">.</span><span class="n">distributer_tool</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="sa">f</span><span class="s2">&quot;--log-file </span><span class="si">{</span><span class="n">log_file</span><span class="si">}</span><span class="s2"> &quot;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">log_file</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="si">}</span><span class="s1">&#39;</span> \
+                                  <span class="sa">f</span><span class="s1">&#39;--success-file </span><span class="si">{</span><span class="n">success_file</span><span class="si">}</span><span class="s1"> --failure-file </span><span class="si">{</span><span class="n">failure_file</span><span class="si">}</span><span class="s1"> --command-file </span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s1">&#39;</span> \
+                                  <span class="sa">f</span><span class="s1">&#39; --number-of-processes </span><span class="si">{</span><span class="n">max_jobs</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">distributer_command</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">finishing_commands</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">batch</span><span class="p">:</span>
+                <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># Wait for all to complete</span><span class="se">\n</span><span class="s1">&#39;</span>
+                            <span class="s1">&#39;wait</span><span class="se">\n</span><span class="s1">&#39;</span>
+                            <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+                            <span class="s1">&#39;# Then execute</span><span class="se">\n</span><span class="s1">&#39;</span>
+                            <span class="s1">&#39;</span><span class="si">%s</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">finishing_commands</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39; &amp;&amp;</span><span class="se">\n</span><span class="s1"># Wait for all to complete, then execute</span><span class="se">\n</span><span class="s1">&#39;</span>
+                            <span class="s1">&#39;</span><span class="si">%s</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">finishing_commands</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">filename</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.commands" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">commands</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">commands</span><span class="p">(</span><span class="n">commands</span><span class="p">:</span> <span class="n"><span title="collections.abc.Sequence">Sequence</span></span><span class="p">[</span><span class="n">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="n">str</span><span class="p">,</span> <span class="n">protocol</span><span class="p">:</span> <span class="n"><span title="resources.distribute.protocols_literal">protocols_literal</span></span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">commands_out_path</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">str</span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Given a batch of commands, write them to a file and distribute that work for completion using specified
+computational resources</p>
+
+
+
+  <p>Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>commands</code></b>
+            (<code><span title="collections.abc.Sequence">Sequence</span>[str]</code>)
+        –
+        <div class="doc-md-description">
+          <p>The commands which should be written to a file and then formatted for distribution</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>name</code></b>
+            (<code>str</code>)
+        –
+        <div class="doc-md-description">
+          <p>The name of the collection of commands. Will be applied to commands file and distribution file(s)</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>protocol</code></b>
+            (<code><span title="resources.distribute.protocols_literal">protocols_literal</span></code>)
+        –
+        <div class="doc-md-description">
+          <p>The type of protocol to distribute</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>out_path</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code><span title="os.getcwd">getcwd</span>()</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Where should the distributed script be written?</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>commands_out_path</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Where should the commands file be written? If not specified, is written to out_path</p>
+        </div>
+      </li>
+  </ul>
+
+
+
+  <p>Other Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>success_file</code></b>
+        –
+        <div class="doc-md-description">
+          <p>AnyStr = None - What file to write the successful jobs to for job organization</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>failure_file</code></b>
+        –
+        <div class="doc-md-description">
+          <p>AnyStr = None - What file to write the failed jobs to for job organization</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>log_file</code></b>
+        –
+        <div class="doc-md-description">
+          <p>AnyStr = None - The name of a log file to write command results to</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>max_jobs</code></b>
+        –
+        <div class="doc-md-description">
+          <p>int = 80 - The size of the job array limiter. This caps the number of commands executed at once</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>mpi</code></b>
+        –
+        <div class="doc-md-description">
+          <p>bool = False - The number of processes to run concurrently with MPI</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>finishing_commands</code></b>
+        –
+        <div class="doc-md-description">
+          <p>Iterable[str] = None - Commands to run once all sbatch processes are completed</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>batch</code></b>
+        –
+        <div class="doc-md-description">
+          <p>bool = is_sbatch_available() - Whether the distribution file should be formatted as a SLURM sbatch script</p>
+        </div>
+      </li>
+  </ul>
+
+
+
+  <p>Returns:</p>
+  <ul>
+      <li class="field-body">
+            <code>str</code>
+        –
+        <div class="doc-md-description">
+          <p>The name of the distribution script that was written</p>
+      </div>
+      </li>
+  </ul>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">commands</span><span class="p">(</span><span class="n">commands</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">protocol</span><span class="p">:</span> <span class="n">protocols_literal</span><span class="p">,</span>
+             <span class="n">out_path</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">commands_out_path</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a batch of commands, write them to a file and distribute that work for completion using specified</span>
+<span class="sd">    computational resources</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        commands: The commands which should be written to a file and then formatted for distribution</span>
+<span class="sd">        name: The name of the collection of commands. Will be applied to commands file and distribution file(s)</span>
+<span class="sd">        protocol: The type of protocol to distribute</span>
+<span class="sd">        out_path: Where should the distributed script be written?</span>
+<span class="sd">        commands_out_path: Where should the commands file be written? If not specified, is written to out_path</span>
+
+<span class="sd">    Keyword Args:</span>
+<span class="sd">        success_file: AnyStr = None - What file to write the successful jobs to for job organization</span>
+<span class="sd">        failure_file: AnyStr = None - What file to write the failed jobs to for job organization</span>
+<span class="sd">        log_file: AnyStr = None - The name of a log file to write command results to</span>
+<span class="sd">        max_jobs: int = 80 - The size of the job array limiter. This caps the number of commands executed at once</span>
+<span class="sd">        mpi: bool = False - The number of processes to run concurrently with MPI</span>
+<span class="sd">        finishing_commands: Iterable[str] = None - Commands to run once all sbatch processes are completed</span>
+<span class="sd">        batch: bool = is_sbatch_available() - Whether the distribution file should be formatted as a SLURM sbatch script</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The name of the distribution script that was written</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">is_sbatch_available</span><span class="p">():</span>
+        <span class="n">shell</span> <span class="o">=</span> <span class="n">sbatch</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">sbatch_warning</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">shell</span> <span class="o">=</span> <span class="n">default_shell</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">script_warning</span><span class="p">)</span>
+
+    <span class="n">putils</span><span class="o">.</span><span class="n">make_path</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">commands_out_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">commands_out_path</span> <span class="o">=</span> <span class="n">out_path</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">putils</span><span class="o">.</span><span class="n">make_path</span><span class="p">(</span><span class="n">commands_out_path</span><span class="p">)</span>
+    <span class="n">command_file</span> <span class="o">=</span> <span class="n">write_commands</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">out_path</span><span class="o">=</span><span class="n">commands_out_path</span><span class="p">)</span>
+    <span class="n">script_file</span> <span class="o">=</span> <span class="n">distribute</span><span class="p">(</span><span class="n">command_file</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">commands</span><span class="p">),</span> <span class="n">out_path</span><span class="o">=</span><span class="n">out_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Once you are satisfied, enter the following to distribute:</span><span class="se">\n\t</span><span class="si">{</span><span class="n">shell</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">script_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">script_file</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.write_script" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">write_script</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">write_script</span><span class="p">(</span><span class="n">command</span><span class="p">:</span> <span class="n">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="s1">&#39;script&#39;</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">additional</span><span class="p">:</span> <span class="n">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">shell</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="s1">&#39;bash&#39;</span><span class="p">,</span> <span class="n">status_wrap</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Take a command and write to a name.sh script. By default, bash is used as the shell interpreter</p>
+
+
+
+  <p>Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>command</code></b>
+            (<code>str</code>)
+        –
+        <div class="doc-md-description">
+          <p>The command formatted using subprocess.list2cmdline(list())</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>name</code></b>
+            (<code>str</code>, default:
+                <code>&#39;script&#39;</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The name of the output shell script</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>out_path</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code><span title="os.getcwd">getcwd</span>()</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The location where the script will be written</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>additional</code></b>
+            (<code>list</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>Additional commands also formatted using subprocess.list2cmdline()</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>shell</code></b>
+            (<code>str</code>, default:
+                <code>&#39;bash&#39;</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The shell which should interpret the script</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>status_wrap</code></b>
+            (<code>str</code>, default:
+                <code>None</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The name of a file in which to check and set the status of the command in the shell</p>
+        </div>
+      </li>
+  </ul>
+      <p>Returns:
+    The name of the file</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">write_script</span><span class="p">(</span><span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;script&#39;</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span>
+                 <span class="n">additional</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">shell</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;bash&#39;</span><span class="p">,</span> <span class="n">status_wrap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AnyStr</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Take a command and write to a name.sh script. By default, bash is used as the shell interpreter</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        command: The command formatted using subprocess.list2cmdline(list())</span>
+<span class="sd">        name: The name of the output shell script</span>
+<span class="sd">        out_path: The location where the script will be written</span>
+<span class="sd">        additional: Additional commands also formatted using subprocess.list2cmdline()</span>
+<span class="sd">        shell: The shell which should interpret the script</span>
+<span class="sd">        status_wrap: The name of a file in which to check and set the status of the command in the shell</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The name of the file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">status_wrap</span><span class="p">:</span>
+        <span class="n">modifier</span> <span class="o">=</span> <span class="s1">&#39;&amp;&amp;&#39;</span>
+        <span class="n">_base_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;python&#39;</span><span class="p">,</span> <span class="n">putils</span><span class="o">.</span><span class="n">distributer_tool</span><span class="p">,</span> <span class="s1">&#39;--stage&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s1">&#39;status&#39;</span><span class="p">,</span> <span class="s1">&#39;--info&#39;</span><span class="p">,</span> <span class="n">status_wrap</span><span class="p">]</span>
+        <span class="n">check</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">list2cmdline</span><span class="p">(</span><span class="n">_base_cmd</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;--check&#39;</span><span class="p">,</span> <span class="n">modifier</span><span class="p">,</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">])</span>
+        <span class="n">_set</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">list2cmdline</span><span class="p">(</span><span class="n">_base_cmd</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;--set&#39;</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">check</span> <span class="o">=</span> <span class="n">_set</span> <span class="o">=</span> <span class="n">modifier</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="n">name</span> <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.sh&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.sh&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;#!/bin/</span><span class="si">{</span><span class="n">shell</span><span class="si">}</span><span class="se">\n\n</span><span class="si">{</span><span class="n">check</span><span class="si">}{</span><span class="n">command</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">modifier</span><span class="si">}</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">additional</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="se">\n\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">modifier</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">additional</span><span class="p">)))</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">_set</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">file_name</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="resources.distribute.write_commands" class="doc doc-heading">
+          <span class="doc doc-object-name doc-function-name">write_commands</span>
+
+
+</h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">write_commands</span><span class="p">(</span><span class="n">commands</span><span class="p">:</span> <span class="n"><span title="collections.abc.Iterable">Iterable</span></span><span class="p">[</span><span class="n">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="s1">&#39;all_commands&#39;</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.AnyStr">AnyStr</span></span>
+</code></pre></div>
+
+  <div class="doc doc-contents ">
+  
+      <p>Write a list of commands out to a file</p>
+
+
+
+  <p>Parameters:</p>
+  <ul>
+      <li class="field-body">
+        <b><code>commands</code></b>
+            (<code><span title="collections.abc.Iterable">Iterable</span>[str]</code>)
+        –
+        <div class="doc-md-description">
+          <p>An iterable with the commands as values</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>name</code></b>
+            (<code>str</code>, default:
+                <code>&#39;all_commands&#39;</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The name of the file. Will be appended with '.cmd(s)'</p>
+        </div>
+      </li>
+      <li class="field-body">
+        <b><code>out_path</code></b>
+            (<code><span title="typing.AnyStr">AnyStr</span></code>, default:
+                <code><span title="os.getcwd">getcwd</span>()</code>
+)
+        –
+        <div class="doc-md-description">
+          <p>The directory where the file will be written</p>
+        </div>
+      </li>
+  </ul>
+      <p>Returns:
+    The filename of the new file</p>
+
+          <details class="quote">
+            <summary>Source code in <code>symdesign/resources/distribute.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span>
+<span class="normal">404</span>
+<span class="normal">405</span>
+<span class="normal">406</span>
+<span class="normal">407</span>
+<span class="normal">408</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">write_commands</span><span class="p">(</span><span class="n">commands</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;all_commands&#39;</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n">AnyStr</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span> <span class="o">-&gt;</span> <span class="n">AnyStr</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write a list of commands out to a file</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        commands: An iterable with the commands as values</span>
+<span class="sd">        name: The name of the file. Will be appended with &#39;.cmd(s)&#39;</span>
+<span class="sd">        out_path: The directory where the file will be written</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The filename of the new file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.cmds&#39;</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">commands</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.cmd&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span> <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">file</span>
+</code></pre></div></td></tr></table></div>
+          </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../database/" class="md-footer__link md-footer__link--prev" aria-label="Previous: database">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                database
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../job/" class="md-footer__link md-footer__link--next" aria-label="Next: job">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                job
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024 Kyle Meador
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/kylemeador" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "navigation.instant", "navigation.path", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "toc.follow", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.8fd75fb4.min.js"></script>
+      
+    
+  </body>
+</html>
