@@ -384,7 +384,7 @@ class MonoFragment(Fragment):
     central_residue: 'structure.base.Residue'
 
     def __init__(self, residues: Sequence['structure.base.Residue'], **kwargs):
-        """
+        """Construct the instance
 
         Args:
             residues: The Residue instances which comprise the MonoFragment
@@ -461,9 +461,6 @@ class MonoFragment(Fragment):
 
 class ResidueFragment(Fragment, ABC):
     """Represent Fragment information for a single Residue"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)  # ResidueFragment
 
     @property
     @abc.abstractmethod

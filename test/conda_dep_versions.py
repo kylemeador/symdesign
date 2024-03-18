@@ -1,6 +1,7 @@
 import io
 import json
 import os.path
+from pathlib import Path
 import string
 import subprocess
 import yaml
@@ -70,17 +71,11 @@ def get_history(package):
     return package, h
 
 
-# metayaml = """
-#     - boto3
-#     - pandas >=0.25
-#     - python >=3.8
-# """
-here = os.path.dirname(__file__)
-os.chdir(here)
-project_yml = '../conda_env.yml'
-metayaml = io.open(project_yml)
+here = Path(__file__).parent
+os.chdir(str(here))
+project_yml = here.parent / 'env.yml'
+metayaml = io.open(str(project_yml))
 reqs = yaml.safe_load(metayaml)
-# input(reqs)
 interested_headers = ['dependencies']
 # all_pkgs = {item for header, items in reqs.items() if header in interested_headers for item in items}
 channels = set()
@@ -102,8 +97,6 @@ for header, items in reqs.items():
                     if key == 'pip':
                         pip.extend(value)
 
-# input(all_pkgs)
-# input(pip)
 all_pkgs = [pkg_version.split('=')[0].strip() for pkg_version in sorted(all_pkgs.union(pip))]
 package_str = '\n  - '.join(all_pkgs)
 cpus_to_use = os.cpu_count() // 2  # Leave half for the computer
@@ -122,14 +115,10 @@ with ThreadPoolExecutor(max_workers=cpus_to_use) as pool:
 asof = datetime.now() - timedelta(weeks=4)
 # asof = datetime.now() - timedelta()
 
-# new = {
-#     name: max([(vers, t) for vers, t in v.items() if t < asof])
-#     for name, v in history.items()
-new = {}
-for name, v in history.items():
-    versions_to_timestamp = [(vers, t) for vers, t in v.items() if t < asof]
-    # print(versions_to_timestamp)
-    new[name] = max(versions_to_timestamp)
+new = {
+    name: max([(vers, t) for vers, t in v.items() if t < asof])
+    for name, v in history.items()
+}
 
 print(f'# as of {asof:%Y-%m-%d}')
 for name, (vers, t) in new.items():

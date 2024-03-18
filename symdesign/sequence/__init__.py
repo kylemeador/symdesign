@@ -1302,6 +1302,7 @@ numerical_profile = np.ndarray  # Type[np.ndarray]
 
 
 class MultipleSequenceAlignment:
+    """Extends the MultipleSeqAlignment with commonly used operations"""
     _alphabet_type: alphabet_types_literal
     _array: np.ndarray
     _counts_by_position: list[list[int]] | np.ndarray

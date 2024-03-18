@@ -2634,7 +2634,6 @@ class SymmetryOpsMixin(abc.ABC):
     @property
     def number_of_symmetry_mates(self) -> int:
         """Describes the number of symmetric copies present in the coordinates"""
-        # return getattr(self.sym_entry, 'number_of_operations', 1)
         try:
             return self._number_of_symmetry_mates
         except AttributeError:  # Set based on the symmetry, unless that fails then default to 1
@@ -6325,7 +6324,7 @@ class Pose(SymmetricModel, MetricsMixin):
             pose_length *= self.number_of_symmetry_mates
 
         if core_first:
-            raise NotImplementedError(f'core_first is not available yet')
+            raise NotImplementedError("'core_first' isn't available yet")
         else:  # random decoding order
             decode_order = np.random.rand(pose_length)
 
