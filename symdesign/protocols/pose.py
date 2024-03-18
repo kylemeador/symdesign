@@ -41,8 +41,8 @@ from symdesign.structure.coordinates import superposition3d
 from symdesign.structure.model import ContainsEntities, Entity, Structure, Pose, PoseSpecification
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
-import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
-from symdesign.third_party.alphafold.alphafold.common import residue_constants
+import alphafold.data.pipeline as af_pipeline
+from alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
     rosetta, starttime, SymDesignException
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification

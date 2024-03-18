@@ -2,10 +2,10 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 
-from symdesign.third_party.alphafold.alphafold.common import residue_constants
-from symdesign.third_party.alphafold.alphafold.model import prng
-from symdesign.third_party.alphafold.alphafold.model import utils
-from symdesign.third_party.alphafold.alphafold.model.modules_multimer import AlphaFoldIteration
+from alphafold.common import residue_constants
+from alphafold.model import prng
+from alphafold.model import utils
+from alphafold.model.modules_multimer import AlphaFoldIteration
 
 
 class AlphaFoldInitialGuess(hk.Module):

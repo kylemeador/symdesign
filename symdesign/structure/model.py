@@ -41,12 +41,12 @@ from symdesign.sequence import default_substitution_matrix_array, default_substi
     numerical_translation_alph1_unknown_gaped_bytes, numerical_translation_alph3_unknown_gaped_bytes, \
     protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
     protein_letters_alph1_unknown_gaped, get_lod, protein_letters_alph3
-import symdesign.third_party.alphafold.alphafold.data.feature_processing as af_feature_processing
-import symdesign.third_party.alphafold.alphafold.data.parsers as af_data_parsers
-import symdesign.third_party.alphafold.alphafold.data.msa_pairing as af_msa_pairing
-import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
-import symdesign.third_party.alphafold.alphafold.data.pipeline_multimer as af_pipeline_multimer
-from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
+import alphafold.data.feature_processing as af_feature_processing
+import alphafold.data.parsers as af_data_parsers
+import alphafold.data.msa_pairing as af_msa_pairing
+import alphafold.data.pipeline as af_pipeline
+import alphafold.data.pipeline_multimer as af_pipeline_multimer
+from alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 from symdesign.utils import types
 
 FeatureDict = MutableMapping[str, np.ndarray]

@@ -16,12 +16,10 @@ import jax.numpy as jnp
 import numpy as np
 import torch
 
-# import symdesign.third_party.alphafold.alphafold as af
-from symdesign.third_party.alphafold.alphafold.model import config as afconfig, data as afdata
-from symdesign.third_party.alphafold.alphafold.common import protein as afprotein, residue_constants
-from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as af_relax_utils
+from alphafold.model import config as afconfig, data as afdata
+from alphafold.common import protein as afprotein, residue_constants
 from .config import relax_options_literal
-from symdesign.third_party.ProteinMPNN.protein_mpnn_utils import ProteinMPNN
+from proteinmpnn.protein_mpnn_utils import ProteinMPNN
 from symdesign.sequence import numerical_translation_alph1_unknown_bytes
 from symdesign import utils
 putils = utils.path
@@ -1103,11 +1101,9 @@ import jax
 import jaxlib.xla_extension as jax_xla
 import ml_collections
 import numpy as np
-import tensorflow.compat.v1 as tf
 import tree
 
-# from symdesign.third_party.alphafold.alphafold.common import confidence
-from symdesign.third_party.alphafold.alphafold.model import features, model as afmodel
+from alphafold.model import features, model as afmodel
 from . import monomer, multimer
 
 
@@ -1440,6 +1436,13 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', number_of_res
 
 
 def amber_relax(prot: afprotein, gpu: bool = False):
+    try:
+        from alphafold.relax import amber_minimize, utils as af_relax_utils
+    except ModuleNotFoundError:
+        logger.critical(f"\n\nIn order to run relaxation, the openmm and pdbfixer packages are required. "
+                        f"Retrieve these from conda/mamba then try again.\n\n")
+        raise
+
     out = amber_minimize.run_pipeline(
         prot=prot,
         max_iterations=RELAX_MAX_ITERATIONS,
