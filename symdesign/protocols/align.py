@@ -24,6 +24,8 @@ putils = utils.path
 logger = logging.getLogger(__name__)
 
 
+# Todo KM changed F to c, R to n where the side that should bend is c-terminal of the specified index
+#  So c is Todd's F direction
 modes3x4_F = np.array([
     [[0.9961, 0.0479, 0.0742, -0.020],
      [-0.0506, 0.9981, 0.0345, -0.042],
@@ -84,6 +86,7 @@ modes3x4_R = np.array([
 ])
 
 
+# Todo depreciate when combine_modesT removed
 def vdot3(a: Sequence[float], b: Sequence[float]) -> float:
     dot = 0.
     for i in range(3):
@@ -92,6 +95,7 @@ def vdot3(a: Sequence[float], b: Sequence[float]) -> float:
     return dot
 
 
+# Todo depreciate when combine_modesT removed
 def vnorm3(a: Sequence[float]) -> list[float]:
     dot = 0.
     for i in a:
@@ -105,6 +109,7 @@ def vnorm3(a: Sequence[float]) -> list[float]:
     return b
 
 
+# Todo depreciate when combine_modesT removed
 def vcross(a: Sequence[float], b: Sequence[float]) -> list[float]:
     c = [0., 0., 0.]
     for i in range(3):
@@ -113,11 +118,13 @@ def vcross(a: Sequence[float], b: Sequence[float]) -> list[float]:
     return c
 
 
+# Todo depreciate when combine_modesT removed
 def norm(a):
     b = np.dot(a, a)
     return a / np.sqrt(b)
 
 
+# Todo depreciate when combine_modesT removed
 def cross(a: Sequence[float], b: Sequence[float]) -> np.ndarray:
     c = np.zeros(3)
     for i in range(3):
@@ -149,6 +156,7 @@ def make_guide(n_ca_c_atoms: np.ndarray, scale: float = 1.) -> np.ndarray:
 
     guide = np.zeros((3, 3))
     guide[:, 0], guide[:, 1], guide[:, 2] = ca, guide1, guide2
+    # guide = np.array([ca, guide1, guide2]).T
 
     return guide
 
@@ -202,7 +210,8 @@ def compose_3x4(a3x4: np.ndarray, b3x4: np.ndarray) -> np.ndarray:
     return c3x4
 
 
-def combine_modes(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
+# Todo depreciate
+def combine_modesT(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
     rot_delta = np.zeros([3, 3])
     tx_delta = np.zeros(3)
     roti = np.identity(3)
@@ -226,6 +235,35 @@ def combine_modes(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
     # rcheck = np.matmul(rot_out, rot_out.T)
     # logger.debug(rcheck)
     blended_mode = np.concatenate((rot_out, np.array([tx_delta]).T), axis=1)
+    # logger.debug(f'blended mode output:\n{blended_mode}')
+
+    return blended_mode
+
+
+def combine_modes(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
+    """
+
+    Args:
+        modes3x4: Shape (9, 3, 4)
+        coeffs: Random coefficients to modify modes3x4. The shape (N,) will be used to extract N modes from modes3x4
+    Returns:
+
+    """
+    working_modes3x4 = modes3x4[:len(coeffs)]
+    tx_delta = np.sum(working_modes3x4[:, :, 3] * coeffs[:, None], axis=0)
+    roti = np.identity(3)
+    rot_delta = np.sum((working_modes3x4[:, :, :3] - roti) * coeffs[:, None, None], axis=0)
+    rtmp = roti + rot_delta
+    # Normalize r without home-cooked functions
+    rc1n = np.linalg.norm(rtmp[:, 0])
+    rc2 = rtmp[:, 1]
+    dot12 = np.dot(rc1n, rc2)
+    rc2p = rc2 - dot12 * rc1n
+    rc2pn = np.linalg.norm(rc2p)
+    rc3 = np.cross(rc1n, rc2pn)
+
+    rot_out = np.array([rc1n, rc2pn, rc3]).T
+    blended_mode = np.concatenate((rot_out, tx_delta[None, :].T), axis=1)
     # logger.debug(f'blended mode output:\n{blended_mode}')
 
     return blended_mode
@@ -265,6 +303,8 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
     while True:
         bend_coeffs = np.random.normal(size=bend_dim) * bend_scale
         blend_mode = combine_modes(modes3x4, bend_coeffs)
+        # blend_modeT = combine_modesT(modes3x4, bend_coeffs)
+        # input(f"{np.allclose(blend_modeT, blend_mode)=}")
 
         # Compose a trial bending mode in the frame of the fixed structure
         tmp1 = compose_3x4(blend_mode, jinv)
