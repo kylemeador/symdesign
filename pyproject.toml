@@ -3,7 +3,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-package-mode = false
+package-mode = true
 name = 'symdesign'
 version = '24.0.0'
 description = 'A tool to design proteins, both symmetric and asymmetric'
@@ -47,7 +47,7 @@ ipykernel = "*"
 ipywidgets = "*"
 nglview = "*"
 # ML
-proteinmpnn = { git = "http://github.com/kylemeador/proteinmpnn.git" }
+proteinmpnn = { git = "https://github.com/kylemeador/proteinmpnn.git" }
 alphafold = { git = "https://github.com/deepmind/alphafold.git" }  # subdirectory = "alphafold",
 tensorflow = "^2.0.0"
 [tool.poetry.group.test]

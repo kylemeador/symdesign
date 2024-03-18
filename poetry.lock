@@ -3652,7 +3652,7 @@ description = "Fork of code from the paper: Robust deep learning-based protein s
 optional = false
 python-versions = "^3.9"
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 numpy = "*"
@@ -3662,7 +3662,7 @@ torchvision = "*"
 
 [package.source]
 type = "git"
-url = "http://github.com/kylemeador/proteinmpnn.git"
+url = "https://github.com/kylemeador/proteinmpnn.git"
 reference = "HEAD"
 resolved_reference = "347006aec6a0fe5a76b58ec47a83beb36a4ea26f"
 
@@ -5592,4 +5592,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "e7328c3666f87858d0163caaf9273c9f0f55aad8f0b4eff34568e744cae7c338"
+content-hash = "483828d1b03a0a0b2761e062973836d0d9288ee151aefa85dc6f3d97064ad0dc"

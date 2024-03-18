@@ -13,3 +13,4 @@ Modules exported by this package:
 - [utils][]: Miscellaneous functions, methods, and tools for all modules
 - [visualization][]: Miscellaneous PyMol visualization helper functions and plotting config.
 """
+from .version import version, __version__
