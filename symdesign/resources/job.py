@@ -1277,13 +1277,20 @@ class JobResources:
                     msa_file = self.api_db.alignments.retrieve_file(name=uniprot_entity.id)
 
                 if not msa_file:
-                    sto_cmd = [
-                        putils.reformat_msa_exe_path, 'a3m', 'sto',
-                        f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.sto', '-num', '-uc']
-                    fasta_cmd = [
-                        putils.reformat_msa_exe_path, 'a3m', 'fas',
-                        f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.fasta', '-M', 'first', '-r']
-                    msa_cmds.extend([sto_cmd, fasta_cmd])
+                    if not os.access(putils.reformat_msa_exe_path, os.X_OK):
+                        logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
+                        # raise RuntimeError(
+                        #     f"Couldn't locate {putils.reformat_msa_exe_path}. Ensure the file exists then try your job "
+                        #     f"again. Otherwise, use the argument --no-{flags.use_evolution} OR set up hhblits to run."
+                        #     f"{utils.guide.hhblits_setup_instructions}")
+                    else:
+                        sto_cmd = [
+                            putils.reformat_msa_exe_path, 'a3m', 'sto',
+                            f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.sto', '-num', '-uc']
+                        fasta_cmd = [
+                            putils.reformat_msa_exe_path, 'a3m', 'fas',
+                            f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.fasta', '-M', 'first', '-r']
+                        msa_cmds.extend([sto_cmd, fasta_cmd])
 
         elif entities is not None:
             raise NotImplementedError(
@@ -1304,20 +1311,27 @@ class JobResources:
                     msa_file = self.api_db.alignments.retrieve_file(name=entity.name)
 
                 if not msa_file:
-                    sto_cmd = [
-                        putils.reformat_msa_exe_path, 'a3m', 'sto',
-                        f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.sto', '-num', '-uc']
-                    fasta_cmd = [
-                        putils.reformat_msa_exe_path, 'a3m', 'fas',
-                        f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.fasta', '-M', 'first', '-r']
-                    msa_cmds.extend([sto_cmd, fasta_cmd])
+                    if not os.access(putils.reformat_msa_exe_path, os.X_OK):
+                        logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
+                        # raise RuntimeError(
+                        #     f"Couldn't locate {putils.reformat_msa_exe_path}. Ensure the file exists then try your job "
+                        #     f"again. Otherwise, use the argument --no-{flags.use_evolution} OR set up hhblits to run."
+                        #     f"{utils.guide.hhblits_setup_instructions}")
+                    else:
+                        sto_cmd = [
+                            putils.reformat_msa_exe_path, 'a3m', 'sto',
+                            f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.sto', '-num', '-uc']
+                        fasta_cmd = [
+                            putils.reformat_msa_exe_path, 'a3m', 'fas',
+                            f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.fasta', '-M', 'first', '-r']
+                        msa_cmds.extend([sto_cmd, fasta_cmd])
 
         if hhblits_cmds:
             protocol = putils.hhblits
             logger.info(f"Starting Profile(dtype='{protocol}') generation")
 
             if protocol == putils.hhblits:
-                if not os.access(putils.hhblits_exe, os.X_OK):
+                if putils.hhblits_exe is None or not os.access(putils.hhblits_exe, os.X_OK):
                     raise RuntimeError(
                         f"Couldn't locate the {protocol} executable. Ensure the executable file referenced by "
                         f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "

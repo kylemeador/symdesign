@@ -600,6 +600,8 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     #  Create a ramdisk to store a database chunk to make hhblits/Jackhmmer run fast.
     #  sudo mkdir -m 777 --parents /tmp/ramdisk
     #  sudo mount -t tmpfs -o size=9G ramdisk /tmp/ramdisk
+    if putils.hhblits_exe is None or not os.access(putils.hhblits_exe, os.X_OK):
+        raise RuntimeError("Couldn't locate the hhblits executable")
     cmd = [putils.hhblits_exe, '-d', putils.uniclust_db, '-i', sequence_file, '-ohhm', pssm_file, '-oa3m', a3m_file,
            '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06', '-v', '1', '-cpu', str(threads)]
 
@@ -618,13 +620,16 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
         raise utils.SymDesignException(
             f'Profile generation for {name} got stuck. Found return code {p.returncode}')  #
 
-    # Preferred alignment type
-    msa_file = os.path.join(out_dir, f'{name}.sto')
-    p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
-    p.communicate()
-    fasta_msa = os.path.join(out_dir, f'{name}.fasta')
-    p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
-    p.communicate()
+    if os.access(putils.reformat_msa_exe_path, os.X_OK):
+        # Preferred alignment type
+        msa_file = os.path.join(out_dir, f'{name}.sto')
+        p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
+        p.communicate()
+        fasta_msa = os.path.join(out_dir, f'{name}.fasta')
+        p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
+        p.communicate()
+    else:
+        logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
 
     return None
 

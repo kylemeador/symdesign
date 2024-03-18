@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from glob import glob
+from pathlib import Path
 from typing import AnyStr, Sequence
 
 logger = logging.getLogger(__name__)
@@ -199,11 +200,15 @@ def get_uniclust_db() -> str:
         return ''
 
 
-hhblits_exe = os.environ.get(config.get('hhblits_env'), shutil.which(hhblits))
-# Find the reformat script by backing out two directories. This is fine for conda and from source
-hhsuite_source_root_directory = os.path.dirname(os.path.dirname(hhblits_exe))
-# reformat_msa_exe_path = os.path.join(hhsuite_dir, 'scripts', 'reformat.pl')
-reformat_msa_exe_path = os.path.join(hhsuite_source_root_directory, 'scripts', 'reformat.pl')
+hhblits_exe: str | None = os.environ.get(config.get('hhblits_env'), shutil.which(hhblits))
+if hhblits_exe is None:
+    # Provide a placeholder
+    hhsuite_source_root_directory = Path("HHSUITE_DIR")
+else:
+    # Find the reformat script by backing out two directories. This is fine for conda and from source
+    hhsuite_source_root_directory = Path(hhblits_exe).parent.parent
+
+reformat_msa_exe_path = str(hhsuite_source_root_directory / 'scripts' / 'reformat.pl')
 # hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
 # uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')
 if os.path.exists(hhsuite_db_dir):

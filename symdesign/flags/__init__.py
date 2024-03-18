@@ -939,7 +939,7 @@ use_proteinmpnn_kwargs = dict(action=argparse.BooleanOptionalAction, default=Tru
                                    'sequences/profile during the job\n'
                                    f'{boolean_positional_prevent_msg(use_evolution)}')
 use_evolution_args = (use_evolution.long,)
-use_evolution_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+use_evolution_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
                             help='Whether to perform calculations with an evolution profile\n'
                                  'during the job. Will create one if not made.\n'
                                  f'{boolean_positional_prevent_msg(use_evolution)}')

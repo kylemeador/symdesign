@@ -907,10 +907,13 @@ class GeneEntity(ABC):
         msa_file = os.path.join(out_dir, f'{name}.sto')
         fasta_msa = os.path.join(out_dir, f'{name}.fasta')
         # Preferred alignment type
-        p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
-        p.communicate()
-        p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
-        p.communicate()
+        if os.access(putils.reformat_msa_exe_path, os.X_OK):
+            p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
+            p.communicate()
+            p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
+            p.communicate()
+        else:
+            logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
 
     def add_msa_from_file(self, msa_file: AnyStr, file_format: msa_supported_types_literal = 'stockholm'):
         """Add a multiple sequence alignment to the profile. Handles correct sizing of the MSA
