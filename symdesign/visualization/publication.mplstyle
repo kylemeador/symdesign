@@ -1,5 +1,6 @@
 figure.titlesize : 7
 figure.labelsize : 7
+figure.autolayout : True
 axes.titlesize : 7
 axes.labelsize : 7
 axes.linewidth      : 1        # edge linewidth
@@ -17,12 +18,14 @@ figure.dpi : 300
 figure.edgecolor    : 111111   # 0.50   # figure edgecolor
 font.family : sans-serif
 font.sans-serif : Arial
+font.size : 6
 legend.fancybox      : True
 legend.fontsize      : 6
+legend.title_fontsize : 7
 lines.antialiased : True
-lines.linewidth : 1  # 1 For plot() lines
-# lines.linewidth : 0.25  # For scatter()
-lines.markersize : 4
+# lines.linewidth : 1  # 1 For plot() lines
+lines.linewidth : 0.25  # For scatter()
+lines.markersize : 4 # 3.5
 lines.markeredgewidth : 0.1
 lines.markeredgecolor : black
 savefig.dpi : 600
