@@ -1168,7 +1168,7 @@ class ContainsStructures(Structure):
                         structure._offset_indices(start_at=0, offset=-1, dtype='residue')
                     # try:  # Remove atom_delete_indices, residue_indices from Structure
                     elif residue_index not in structure._residue_indices:
-                        pass  # This structure is not the one of interest
+                        continue  # This structure is not the one of interest
                     else:  # Remove atom_delete_indices, residue_index from Structure
                         structure._delete_indices(atom_delete_indices, dtype='atom')
                         structure._delete_indices([residue_index], dtype='residue')

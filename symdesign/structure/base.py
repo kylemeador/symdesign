@@ -262,13 +262,12 @@ def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:  # list[str]:
             reference_sequence[chain] = list(sequence)
 
     # Format the sequences as a one AA letter list
-    reference_sequences = {}  # []
+    reference_sequences = {}
     for chain, sequence in reference_sequence.items():
-        # Ensure we parse selenomethionine correctly
+        # Ensure selenomethionine is parsed correctly
         one_letter_sequence = [protein_letters_3to1_extended_mse.get(aa, '-')
                                for aa in sequence]
         reference_sequences[chain] = ''.join(one_letter_sequence)
-        # reference_sequences.append(''.join(one_letter_sequence))
 
     return reference_sequences
 
@@ -410,7 +409,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
                 db_accession_id = line[18:40].strip()
             else:
                 db = line[26:33].strip()
-                if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
+                if line[5:6] == '1':  # Skip grabbing db_accession_id until DBREF2
                     continue
                 db_accession_id = line[33:42].strip()
             dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
@@ -665,8 +664,12 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
         # Formatted in Hermann-Mauguin notation
         space_group = data.get('_symmetry', {}).get('space_group_name_H-M')
         cryst_record = utils.symmetry.generate_cryst1_record(
-            list(map(float, (cell_data['length_a'], cell_data['length_b'], cell_data['length_c'],
-                             cell_data['angle_alpha'], cell_data['angle_beta'], cell_data['angle_gamma']))),
+            (float(cell_data['length_a']),
+             float(cell_data['length_b']),
+             float(cell_data['length_c']),
+             float(cell_data['angle_alpha']),
+             float(cell_data['angle_beta']),
+             float(cell_data['angle_gamma'])),
             space_group)
     else:
         cryst_record = None
@@ -1078,7 +1081,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
             coords: When setting up a parent Structure instance, the coordinates of that Structure
             name: The identifier for the Structure instance
         """
-        self.name = name if name not in [None, False] else f'Unnamed_{self.__class__.__name__}'
+        self.name: str = name if name not in [None, False] else f'Unnamed_{self.__class__.__name__}'
         if parent is not None:  # Initialize StructureBase from parent
             self._parent = parent
         else:  # This is the parent
@@ -3476,12 +3479,11 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
     _side_chain_indices: list[int]
     _contact_order: np.ndarray
     _residues: Residues | None
-    _residue_indices: list[int] | None
+    _residue_indices: list[int]
     _sap: np.ndarray
     _secondary_structure: str
     _sequence: str
     nucleotides_present: bool = False
-    secondary_structure: str | None
     sasa: float | None
     _coords_indexed_residues_: np.ndarray  # Residues # list[Residue]
     # _coords_indexed_residue_atoms: np.ndarray  # list[int]
@@ -3538,10 +3540,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:
             super().__init__(**kwargs)  # ContainsResidues
 
-        # self._coords_indexed_residues_ = None
-        # self._residue_indices = None
-        # self.secondary_structure = None
-        # self.nucleotides_present = False
         self._fragment_db = fragment_db
         self.sasa = None
         self.ss_sequence_indices = []
@@ -3566,11 +3564,15 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         # Setting up a parent Structure
         elif residues:  # Assume the passed residues aren't bound to an existing Structure
+            self._residue_indices = list(range(len(residues)))
             self._assign_residues(residues)
         elif self.atoms:
             # Assume ContainsAtoms initialized .atoms. Make Residue instances, Residues
             self._create_residues()
+            # Can't fetch .residues without _residue_indices...
+            # self._residue_indices = list(range(len(self.residues)))
         else:  # Set up an empty Structure or let subclass handle population
+            self._residue_indices = []
             return
 
         if pose_format:
@@ -3656,12 +3658,9 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._sequence = sequence
 
     @property
-    def residue_indices(self) -> list[int] | None:
+    def residue_indices(self) -> list[int]:
         """Return the residue indices which belong to the Structure"""
-        try:
-            return self._residue_indices
-        except AttributeError:
-            return
+        return self._residue_indices
 
     @property
     def residues(self) -> list[Residue] | None:
