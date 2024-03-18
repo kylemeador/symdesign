@@ -131,7 +131,7 @@ class GhostFragment:
         return self.aligned_fragment.transformation
 
     @property
-    def representative(self) -> 'structure.model.Model':
+    def representative(self) -> 'structure.model.Model':  # Todo, use real type
         """Access the Representative GhostFragment StructureBase"""
         _representative, paired_chain_id = self._fragment_db.paired_frags[self.ijk]
         return _representative.get_transformed_copy(*self.aligned_fragment.transformation)  # type:ignore
@@ -364,6 +364,8 @@ class Fragment(ABC):
         if self.ghost_fragments is None:
             ghost_fragments = self.find_ghost_fragments(**kwargs)
         else:
+            # Todo
+            #  Perhaps, this routine should be called by the copy function...
             # This routine is necessary when the ghost_fragments are already generated on a residue,
             # but that residue is copied.
             logger.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
@@ -381,8 +383,9 @@ class Fragment(ABC):
 
 class MonoFragment(Fragment):
     """Used to represent Fragment information when treated as a continuous Fragment of length fragment_length"""
-    central_residue: 'structure.base.Residue'
+    central_residue: 'structure.base.Residue'  # Todo, use real type
 
+    # Todo, use real type
     def __init__(self, residues: Sequence['structure.base.Residue'], **kwargs):
         """
 

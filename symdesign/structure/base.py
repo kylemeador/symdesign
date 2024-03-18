@@ -61,6 +61,7 @@ S:high curvature (where the angle between i-2, i, and i+2 is at least 70°)
 SS_DISORDER_IDENTIFIERS = ' '
 SS_TURN_IDENTIFIERS = 'TS'
 """
+# Todo should 310 helix be included?
 SS_HELIX_IDENTIFIERS = 'H'
 SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
@@ -161,6 +162,7 @@ polarity_types_literal = Literal['apolar', 'polar']
 sasa_types_literal = Literal['total', polarity_types_literal]
 sasa_types: tuple[polarity_types_literal, ...] = get_args(sasa_types_literal)
 polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
+# Todo add nucleotide polarities to this table. The atom types are located above. Polarities in freesasa-2.0.config
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
     'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0,
@@ -281,6 +283,10 @@ slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_t
     slice(60, 66), slice(76, 78), slice(78, 80)
 
 
+# Todo
+#  Figure out handling of header lines. Best way I see is to take out any seqres line indices (we add later)
+#  and only like the head from any line before an ATOM record. The modification of any of the coordinates or Atoms
+#  would cause the header information to be invalidated as it would then become a "SymDesign Model"
 def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate_coords: bool = True, **kwargs) -> \
         dict[str, Any]:
     """Reads .pdb file and returns structural information pertaining to parsed file
@@ -430,6 +436,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
             cryst_record = line  # Don't .strip() so '\n' is attached for output
             # uc_dimensions, space_group = parse_cryst_record(cryst_record)
             # cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
+        # elif remark != 'ANISO ':
+        #     header.append(line.strip())
 
     if not temp_info:
         if file:
@@ -483,6 +491,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
              coords=coords if separate_coords else None,
              cryst_record=cryst_record,
              entity_info=entity_info,
+             # Todo
+             #  header=header,
              name=name,
              resolution=resolution,
              reference_sequence=reference_sequence,
@@ -513,6 +523,8 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
     if file is not None:
         path, extension = os.path.splitext(file)
         name = os.path.basename(path)
+        # Todo Add all fields that aren't:
+        #   '_atom_site', '_cell', '_symmetry', '_reflns', '_entity_poly', '_struct_ref', '_pdbx_struct_oper_list'
         ignore_fields = []
         data: dict[str, dict[str, Any]] = cif_reader.read(file, ignore=ignore_fields)
         if extension[-1].isdigit():
@@ -524,7 +536,7 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
             assembly = None
     else:
         raise ValueError(
-            f"{read_mmcif_file.__name__}: Must provide the argument 'file'"
+            f"{read_mmcif_file.__name__}: Must provide the argument 'file'"  # Todo parsed strings-> " or 'lines='")
         )
 
     #  name = kwargs.pop('name', None)
@@ -695,6 +707,16 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
                        }
     else:
         entity_info = {}
+
+    # Todo 'rcsb_polymer_entity_container_identifiers' 'asym_id'
+    #  struct key _struct_asym
+    #  {'id': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'BA', 'CA', 'DA', 'EA', 'FA', 'GA', 'HA', 'IA', 'JA', 'KA', 'LA', 'MA', 'NA', 'OA', 'PA', 'QA', 'RA', 'SA', 'TA', 'UA', 'VA', 'WA', 'XA', 'YA', 'ZA', 'AB', 'BB', 'CB', 'DB', 'EB', 'FB', 'GB', 'HB', 'IB', 'JB', 'KB', 'LB', 'MB', 'NB', 'OB', 'PB', 'QB', 'RB', 'SB', 'TB', 'UB', 'VB', 'WB', 'XB', 'YB', 'ZB', 'AC', 'BC', 'CC', 'DC', 'EC', 'FC', 'GC', 'HC', 'IC', 'JC', 'KC', 'LC', 'MC', 'NC', 'OC', 'PC', 'QC', 'RC'],
+    #  struct key _struct_biol
+    #  {'id': '1', 'details': 'The biological assembly is a protein cage with tetrahedral point group symmetry that comprises twenty-four subunits, where twelve each are a total of four homotrimers.'}
+    #  struct key _pdbx_struct_assembly
+    #  {'id': ['1', '2', '3', '4'], 'details': ['author_and_software_defined_assembly', 'author_and_software_defined_assembly', 'author_and_software_defined_assembly', 'author_and_software_defined_assembly'], 'method_details': ['PISA', 'PISA', 'PISA', 'PISA'], 'oligomeric_details': ['24-meric', '24-meric', '24-meric', '24-meric'], 'oligomeric_count': ['24', '24', '24', '24']}
+    #  struct key _pdbx_struct_assembly_gen
+    #  {'assembly_id': ['1', '2', '3', '4'], 'oper_expression': ['1', '1', '1', '1'], 'asym_id_list': ['A,B,C,D,E,F,G,H,I,J,K,L,M,XA,YA,ZA,AB,BB,CB,DB,EB,FB,GB,HB', 'N,O,P,Q,R,S,T,U,V,W,X,Y,IB,JB,KB,LB,MB,NB,OB,PB,QB,RB,SB,TB', 'Z,AA,BA,CA,DA,EA,FA,GA,HA,IA,JA,KA,UB,VB,WB,XB,YB,ZB,AC,BC,CC,DC,EC,FC', 'LA,MA,NA,OA,PA,QA,RA,SA,TA,UA,VA,WA,GC,HC,IC,JC,KC,LC,MC,NC,OC,PC,QC,RC']}
     operations = data.get('_pdbx_struct_oper_list')
     if operations:
         biomt = np.array(
@@ -745,6 +767,7 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
         # coords=coords if separate_coords else None,
         cryst_record=cryst_record,
         entity_info=entity_info,
+        # Todo header=header,
         name=name,
         resolution=resolution,
         # reference_sequence=reference_sequence,
@@ -844,6 +867,7 @@ class SymmetryBase(ABC):
         """Access the symmetrically dependent Structure instances"""
         return getattr(self, self._symmetric_dependents, [])
 
+    # Todo ContainsStructures?
     @symmetric_dependents.setter
     def symmetric_dependents(self, symmetric_dependents: str | None):
         """Set the attribute name where dependent Structure instances occupy"""
@@ -864,6 +888,7 @@ class StructureMetadata:
     biological_assembly: str | None
     cryst_record: str | None
     entity_info: dict[str, dict[dict | list | str]] | dict
+    header: list
     file_path: AnyStr | None
     reference_sequence: str | dict[str, str] = None
     resolution: float | None
@@ -1134,6 +1159,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         self._parent_ = parent
         self._log = parent._log
         self._coords = parent._coords
+        # Todo make empty Atoms/Residues for StructureBase objects?
         # self._atoms = parent._atoms
         # self._residues = parent._residues
 
@@ -1366,6 +1392,7 @@ class Atom(CoordinateOpsMixin):
         """The 'parent' StructureBase of this instance. _parent should only be set"""
         raise NotImplementedError('_parent should only be set')
 
+    # Todo is this worth keeping or is it for identifying a poor program design choice?
     @_parent.setter
     def _parent(self, parent: StructureBase):
         """Set the 'parent' of this instance"""
@@ -1390,6 +1417,9 @@ class Atom(CoordinateOpsMixin):
         try:
             return self._coords.coords[self.index]
         except (AttributeError, IndexError):
+            # Todo try something like
+            #  return self.parent._collect_coords()
+            #  This would grab all Atom coords and make them _coords (Coords)
             # Possibly the Atom was set with keyword argument coords instead of Structure Coords
             # This shouldn't be used often as it will be quite slow... give warning?
             return np.array(self._coords_)
@@ -1575,6 +1605,13 @@ class Atom(CoordinateOpsMixin):
         return f'ATOM  {"{}"} {self._type_str}{self.alt_location:1s}{"{}"}{"{}"}{"{}"}' \
                f'{self.code_for_insertion:1s}   {"{}"}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
+        # Todo
+        #  if self.is_parent():  # return full ATOM record
+        #      return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
+        #          '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        #          .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id,
+        #                  self.residue_number, self.code_for_insertion, *list(self.coords), self.occupancy,
+        #                  self.b_factor, self.element, self.charge)
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
@@ -2017,6 +2054,7 @@ class ContainsAtoms(StructureBase, ABC):
         except AttributeError:  # When self._atoms isn't set or is None and doesn't have .atoms
             return None
 
+    # Todo return StructureIndex
     @property
     def atom_indices(self) -> list[int]:
         """The Atoms/Coords indices which the StructureBase has access to"""
@@ -2054,6 +2092,30 @@ class ContainsAtoms(StructureBase, ABC):
 
         return sorted({idx for contacts in query.tolist() for idx in contacts.tolist()})
         # return np.unique(np.concatenate(query)).tolist()
+
+    # Todo make this setter function in the same way as self._coords.replace?
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms | list[Atom]):
+    #     """Set the Structure atoms to an Atoms object"""
+    #     if isinstance(atoms, Atoms):
+    #         self._atoms = atoms
+    #     else:
+    #         self._atoms = Atoms(atoms)
+    #
+    # # Todo enable this type of functionality
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms):
+    #     self._atoms.replace(self._atom_indices, atoms)
+    #
+    # # Todo create add_atoms that is like list append
+    # def add_atoms(self, atom_list):
+    #     """Add Atoms in atom_list to the Structure instance"""
+    #     raise NotImplementedError('This function (add_atoms) is currently broken')
+    #     atoms = self.atoms.tolist()
+    #     atoms.extend(atom_list)
+    #     self.atoms = atoms
+    #     # Todo need to update all referrers
+    #     # Todo need to add the atoms to coords
 
     @property
     @abc.abstractmethod
@@ -2324,6 +2386,7 @@ class ContainsAtoms(StructureBase, ABC):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
 
+    # Todo self.atom_indices isn't long term sustainable...
     @property
     def _key(self) -> tuple[str, int, ...]:
         return self.name, *self.atom_indices
@@ -2440,6 +2503,7 @@ class Residue(ContainsAtoms, fragment.ResidueFragment):
                     f"Invalid {self.__class__.__name__}. The {repr(atom)} at index {idx} doesn't have the same "
                     f'properties as prior Atom instances, such as {repr(first_atom)}')
 
+        # Todo Modify if building NucleotideResidue
         if protein_backbone_atom_types.difference(found_types):
             raise ValueError(
                 f"Invalid {self.__class__.__name__}. The provided Atom instances don't contain the required "
@@ -3620,6 +3684,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._fragment_db = fragment_db
 
     # Below properties are considered part of the Structure state
+    # Todo
+    #  refactor properties to below here for accounting
     def contains_hydrogen(self) -> bool:  # in Residue too
         """Returns whether the Structure contains hydrogen atoms"""
         try:
@@ -3655,6 +3721,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             )
         self._sequence = sequence
 
+    # Todo return StructureIndexMixin?
     @property
     def residue_indices(self) -> list[int] | None:
         """Return the residue indices which belong to the Structure"""
@@ -3670,6 +3737,15 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             return self._residues[self._residue_indices]
         except AttributeError:  # When self._residues isn't set
             return None
+
+    # Todo make this setter function in the same way as self._coords.replace?
+    # @residues.setter
+    # def residues(self, residues: Residues | list[Residue]):
+    #     """Set the Structure atoms to a Residues object"""
+    #     if isinstance(residues, Residues):
+    #         self._residues = residues
+    #     else:
+    #         self._residues = Residues(residues)
 
     def _assign_residues(self, residues: Residues | list[Residue], atoms: Atoms | list[Atom] = None, **kwargs):
         """Assign Residue instances, create Residues instances
@@ -3724,18 +3800,38 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self._residues.set_attributes(_parent=self)
         self._residues.reindex()
 
+    # Todo
+    #  @property
+    #  def residue_indexed_atom_indices(self) -> list[list[int]]:
+    #      """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
+    #
+    #      Returns:
+    #          Residue objects indexed by the Residue position in the corresponding .coords attribute
+    #      """
+    #      try:
+    #          return self._residue_indexed_atom_indices  # [self._atom_indices]
+    #      except (AttributeError, TypeError):  # Todo self.is_parent()
+    #          raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+    #                               f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the '
+    #                               'Structure that owns these coordinates and therefore owns this Structure')
+
+    #  Todo Move to Coords
     @property
     def alphafold_atom_mask(self) -> np.ndarray:
         """Return an Alphafold mask describing which Atom positions have Coord data"""
+        # Todo
+        #  Fix naming errors in arginine residues where NH2 is incorrectly assigned to be closer to CD than NH1...
         # This works except for the off case that we sum to 0, which may be hard given float precision
         return (self.alphafold_coords.sum(axis=-1) != 0).astype(dtype=np.int32)
 
+    # Todo Move to Coords
     @property
     def alphafold_coords(self) -> np.ndarray:
         """Return a view of the Coords from the StructureBase in Alphafold coordinate format"""
         try:
             return self._af_coords
         except AttributeError:
+            # Todo Fix naming errors in arginine residues where NH2 is incorrectly assigned to be closer to CD than NH1
             # af_coords = np.zeros((self.number_of_residues, atom_type_num, 3), dtype=np.float32)
             # residue_template_array = np.zeros((atom_type_num, 3), dtype=np.float32)
             structure_array = [[] for _ in range(self.number_of_residues)]
@@ -4086,6 +4182,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 found_types.add(atom.type)
             else:
                 if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove [start_idx:idx]
+                    # Todo remove this check when nucleotides can be parsed
                     if dna_sugar_atom_types.intersection(found_types):
                         self.nucleotides_present = True
                     remove_atom_indices.extend(range(start_atom_index, idx))
@@ -4111,6 +4208,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         for index in remove_atom_indices[::-1]:  # Ensure popping happens in reverse
             atom_indices.pop(index)
         self._atom_indices = atom_indices
+        # Todo
+        #  remove bad atoms
         # self._atoms.remove()
 
     # When alt_location parsing performed, there may be some use to below implementation
@@ -4221,6 +4320,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:
             self.log.debug(f'Adding {length} residue ideal helix to {termini}-terminus of {self.name}')
 
+        # Todo Structure?
         alpha_helix_15_struct = ContainsResidues.from_atoms(alpha_helix_15_atoms)
 
         if termini == 'n':
@@ -4320,16 +4420,22 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             except KeyError:
                 raise KeyError(
                     f"The mutation type '{to}' isn't a viable Residue type")
+        # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
+        # Todo is the Atom mutation necessary? Put in Residue
         for atom in residue.atoms:
             atom.residue_type = to
 
+        # Todo Currently, deleting side-chain indices and letting Rosetta handle building
         # Find the corresponding Residue Atom indices to delete
         delete_indices = residue.side_chain_indices
         if not delete_indices:  # There are no indices
             return []
         else:  # Clear all state variables for all Residue instances
+            # Todo
+            #  create mutate_residues() and only call this once... It is redundant with @Residue.start_index.setter
+            #  in _residues.reindex_atoms()
             self._residues.reset_state()
             # residue.side_chain_indices = []
 
@@ -4446,6 +4552,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             raise IndexError(
                 f"{self.insert_residue_type.__name__} of residue_type '{residue_type}' isn't allowed")
         if index < 0:
+            # Todo subtract the length from the index...
             raise IndexError(
                 f"{self.insert_residue_type.__name__} at index {index} < 0 isn't allowed")
 
@@ -4695,6 +4802,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # n_removed_nterm_res = number_of_residues - len(no_nterm_disorder_ss)
         # no_cterm_disorder_ss = secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)
         # n_removed_cterm_res = number_of_residues - len(no_cterm_disorder_ss)
+        # Todo Could remove disorder by a relative_sasa threshold.
+        #  A brief investigation shows that ~0.6 could be a reasonable threshold when combined with other ss indicators
         # sasa = self.relative_sasa
         # self.log.debug(f'Found n-term relative sasa {sasa[:n_removed_nterm_res + 10]}')
         # self.log.debug(f'Found c-term relative sasa {sasa[-(n_removed_cterm_res + 10):]}')
@@ -4751,6 +4860,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         self.delete_residues(_delete_residues)
 
+    # Todo
+    #  this should be a property keeping in line with Residue.local_density, however the arguments are important here
     def local_density(self, residues: list[Residue] = None, residue_numbers: list[int] = None, distance: float = 12.) \
             -> list[float]:
         """Return the number of Atoms within 'distance' Angstroms of each Atom in the requested Residues
@@ -4821,6 +4932,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             True if the Structure clashes, False if not
         """
         if measure == 'backbone_and_cb':
+            # Todo switch measure: python 3.10
             other = 'non-cb sidechain'
         elif measure == 'heavy':
             other = 'hydrogen'
@@ -4844,6 +4956,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         # else:
 
         # Set up the query indices. BallTree is faster upon timeit with 131 msec/loop
+        # Todo
+        #  make self.atom_tree a property?
         atom_tree = BallTree(self.coords)
         atoms = self.atoms
         measured_clashes, other_clashes = [], []
@@ -4943,6 +5057,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                                      f'following Residues:\n\t{sc_info}')
         return False
 
+    # Todo change to sasa property to call this automatically if AttributeError?
+    # Todo to Residue too? ContainsAtoms
     def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
 
@@ -5174,6 +5290,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             self.log.warning(f'{self.name}: Failed to generate ERRAT measurement. Errat returned: {all_residue_scores}')
             return 0., np.array([0. for _ in range(number_of_residues)])
 
+    # Todo ContainsSecondaryStructure
     def stride(self, to_file: AnyStr = None, **kwargs):
         """Calculates the secondary structure using the program Stride
 
@@ -5253,6 +5370,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
 
+    # Todo ContainsSecondaryStructure
     def is_termini_helical(self, termini: stutils.termini_literal = 'n', window: int = 5) -> bool:
         """Using assigned secondary structure, probe for helical termini using a segment of 'window' residues. Will
         remove any disordered residues from the specified termini before checking, with the assumption that the
@@ -5280,6 +5398,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:
             return False
 
+    # Todo ContainsSecondaryStructure
     def calculate_secondary_structure(self, **kwargs):
         """Perform the secondary structure calculation for the Structure using the DEFAULT_SS_PROGRAM
 
@@ -5324,6 +5443,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             When compared to the reference, 1 if the termini is more than halfway from the center of the Structure and
                 -1 if the termini is less than halfway from the center of the Structure
         """
+        # Todo
+        #  This is pretty coarse logic. Calculate from N number of residues up or downstream? That has issues too...
         if termini == 'n':
             residue_coords = self.residues[0].n_coords
         elif termini == 'c':
@@ -5794,12 +5915,18 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
     copy = __copy__  # Overwrites to use this instance __copy__
 
+    # Todo
+    #  self._residue_indices isn't long term sustainable. Perhaps a better case would be the ._sequence
     @property
     def _key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
 
 
 class Structures(ContainsResidues, UserList):
+    # Todo mesh inheritance of both Structure and UserClass...
+    #  FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
+    #  are all concatenated Structure methods and attributes accounted for?
+    #  ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
     """A view of a set of Structure instances. This isn't used at the moment"""
     data: list[ContainsResidues]
     dtype: str
@@ -5873,7 +6000,7 @@ class Structures(ContainsResidues, UserList):
     #         except AttributeError:  # if not .parent.name
     #             self._name = f'{"-".join(structure.name for structure in self)}_{Structures.__name__}'
     #         return self._name
-
+    #
     # @name.setter
     # def name(self, name: str):
     #     self._name = name
@@ -5895,7 +6022,7 @@ class Structures(ContainsResidues, UserList):
     #         raise AttributeError(
     #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
     #             'view. To pass the Coords object for a Structure, use the private attribute _coords')
-
+    #
     # @property
     # def coords(self) -> np.ndarray:
     #     """Return a view of the Coords from the Structures"""
@@ -5928,7 +6055,7 @@ class Structures(ContainsResidues, UserList):
     #             residues.extend(structure.residues)
     #         self._residues = Residues(residues)
     #         return self._residues
-
+    #
     # the use of Structure methods for coords_indexed_residue* should work well
     # @property
     # def coords_indexed_residues(self) -> np.ndarray:
@@ -6102,7 +6229,7 @@ class Structures(ContainsResidues, UserList):
     #     # print('Transformed Structures, models %s' % [structure for structure in new_structures.models])
     #     return new_structures
     #     # return Structures(structures=[structure.get_transformed_copy(**kwargs) for structure in self.structures])
-
+    #
     # def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = True,
     #           header: str = None, **kwargs) -> str | None:
     #     """Write Structures to a file specified by out_path or with a passed file_handle
@@ -6116,7 +6243,7 @@ class Structures(ContainsResidues, UserList):
     #     Returns:
     #         The name of the written file if out_path is used
     #     """
-    #     if file_handle:  # _Todo increment_chains compatibility
+    #     if file_handle:  # Todo increment_chains compatibility
     #         file_handle.write('%s\n' % self.get_atom_record(**kwargs))
     #         return
     #
@@ -6146,10 +6273,10 @@ class Structures(ContainsResidues, UserList):
     #                 f.write('ENDMDL\n')
     #
     #     return out_path
-
+    #
     # def __repr__(self) -> str:
     #     return f'{self.__class__.__name__}({self.name})'
-
+    #
     # def __str__(self):
     #     return self.name
 

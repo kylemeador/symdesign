@@ -6,6 +6,7 @@ from itertools import chain
 
 from symdesign.utils.path import rosetta_main, rosetta_extras, rosetta_source, rosetta_scripts_dir
 
+# Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
 dalphaball = os.path.join(rosetta_source, 'external', 'DAlpahBall', 'DAlphaBall.gcc')
 min_cores_per_job = 1  # Currently one for the MPI node, and 5 workers
 num_thread_per_process = 2

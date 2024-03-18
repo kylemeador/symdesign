@@ -236,6 +236,8 @@ class DataStore:
                 self.__setattr__(os.path.splitext(os.path.basename(file))[0], self.load_file(file))
 
 
+# Todo
+#  Ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
 class Database:
     """A common interface to interact with DataStore instances"""
     sources: list[DataStore]

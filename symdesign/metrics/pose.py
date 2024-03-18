@@ -26,6 +26,8 @@ def get_total_match_scores(fragment_info: list[tuple[GhostFragment, Fragment, fl
     return match_scores
 
 
+# Todo
+#  The below functions are broken due to the missing Pose.fragment_pairs attribute
 def nanohedra_score(pose: 'structure.model.Pose'):
     total_match_scores = get_total_match_scores(pose.fragment_pairs, pose.fragment_db)
     return nanohedra_fragment_match_score(total_match_scores.values())

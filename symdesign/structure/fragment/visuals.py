@@ -92,6 +92,7 @@ def write_fragments_as_multimodel(ghost_frags: list[GhostFragment], file_name: A
         # Write all models
         for model_number, ghost_frag in enumerate(ghost_frags, model_number):
             f.write(f'MODEL    {model_number:>4d}\n')
+            # trnsfmd_fragment = ghost_frag.representative
             frag_model, frag_paired_chain = ghost_frag.fragment_db.paired_frags[ghost_frag.ijk]
             trnsfmd_fragment = frag_model.get_transformed_copy(*ghost_frag.transformation)
             # Set the paired chain to the single paired chainID

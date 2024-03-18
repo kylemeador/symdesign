@@ -83,6 +83,8 @@ class PoseMetadata(Base):
     __table_args__ = (UniqueConstraint('project', 'name', name='_project_name_uc'),
                       )
     project = Column(String(100), nullable=False)  # Todo? , index=True)
+    # Todo
+    #  100 chars is too short...
     name = Column(String(100), nullable=False, index=True)
     # # This isn't a column in the __table__, but is an attribute of Class and derived instances
     # pose_identifier = column_property(project + os.sep + name)
@@ -413,6 +415,8 @@ class EntityData(Base):
     # poses = relationship('PoseMetadata', secondary='pose_entity_association',
     #                      back_populates='entity_data')
 
+    # Todo
+    #  set up the loading from database on these relationships
     # Use these accessors to ensure that passing EntityData to Entity.from_chains() can access these variables
     @property
     def name(self):

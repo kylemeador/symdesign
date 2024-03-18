@@ -65,6 +65,8 @@ class APIDatabase(Database):
         #      self.load_file = bmdca.load_couplings
         #      self.save_file = not_implemented
 
+        # Todo
+        #  Modify to only load the necessary files upon self.load_all_data() call
         self.sources = [self.sequences, self.alignments, self.hhblits_profiles, self.pdb, self.uniprot]
 
 

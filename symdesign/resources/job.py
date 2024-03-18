@@ -215,6 +215,19 @@ class DBInfo:
         self.location = location
         self.engine: Engine = create_engine(self.location, echo=echo, future=True)
         self.session: sessionmaker = sessionmaker(self.engine, future=True)
+        # # Create read only engine/session
+        # # Todo grab all objects from the existing database with this to ensure that write access is not allowed
+        # #  unless explicitly granted by using session_write
+        # # Todo
+        # #  This read_only shouldn't be used with SQLite as it interferes with the below @event.listens_for functions
+        # #  I believe that the isolation_level is already set to AUTOCOMMIT when .isolation_level = None
+        # # Todo
+        # #  Perhaps concurrent access to the database isn't even needed if the transactions cause suspension of each
+        # #  program until the database is open, i.e. expecting a lock, and waiting til it is cleared to gain access
+        # #  This will fall victim to numerous writes requesting access at once, so ensuring each write contains more
+        # #  data would help with fluidity
+        # self.engine_read_only = self.engine.execution_options(isolation_level='AUTOCOMMIT')
+        # self.session_read_only: sessionmaker = sessionmaker(self.engine_read_only, future=True)
 
         if 'sqlite' in self.location:
             # The below functions are recommended to help overcome issues with SQLite transaction scope
@@ -1285,11 +1298,20 @@ class JobResources:
                         f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.fasta', '-M', 'first', '-r']
                     msa_cmds.extend([sto_cmd, fasta_cmd])
 
+                # Todo
+                #  Solve the .h_fields/.j_couplings
+                #  # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
+                #  # the multiple sequence alignment in .fasta format
+                #  bmdca_cmds.append([putils.bmdca_exe_path,
+                #                     '-i', os.path.join(self.profiles, f'{uniprot_entity.id}.fasta'),
+                #                     '-d', os.path.join(self.profiles, f'{uniprot_entity.id}_bmDCA')])
         elif entities is not None:
             raise NotImplementedError(
                 f'Currently must use {wrapapi.UniProtEntity.__class__.__name__} in '
                 f'{self.process_evolutionary_info.__name__}'
             )
+            # Todo
+            #  Implement .h_fields/.j_couplings and msa command mechanism from above
             for entity in entities:
                 evolutionary_profile_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
                 if not evolutionary_profile_file:
@@ -1334,7 +1356,9 @@ class JobResources:
                 logger.info(f'Writing {protocol} results to file: {protocol_log_file}')
                 # Run commands in this process
                 if self.multi_processing:
-                    zipped_args = zip(hhblits_cmds, repeat(hhblits_log_file))
+                    # Todo
+                    #   Calculate how many cores are available to use given memory limit
+                    zipped_args = zip(hhblits_cmds, repeat(protocol_log_file))
                     utils.mp_starmap(distribute.run, zipped_args, processes=self.cores)
                 else:
                     for cmd in tqdm(hhblits_cmds):
@@ -1420,6 +1444,8 @@ class JobResources:
                 % bmdca_script if not info_messages else 'ONCE this job is finished, to calculate evolutionary ' \
                                                          'couplings i,j for each amino acid in the multiple ' \
                                                          f'sequence alignment, enter:\n\t{shell} {bmdca_script}'
+            # Todo
+            #  Add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
             info_messages.append(bmdca_script_message)
 
         return info_messages

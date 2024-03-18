@@ -271,6 +271,7 @@ class PoseDirectory:
     def refined(self):
         """"""
 
+    # Todo rename from refined_pdb to native_pdb
     # These next two file locations are used to dynamically update whether preprocessing should occur for designs
     @property
     def refined_pdb(self) -> str:
@@ -598,7 +599,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             log_path = self.log_path
             handler = level = 2  # To a file
             propagate = no_log_name = True
-        else:  # Log to the __main__ file logger
+        else:  # Todo figure this out... Log to the __main__ file logger
             log_path = None
             handler = level = 2  # To a file
             propagate = no_log_name = False
@@ -692,6 +693,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     def load_initial_pose(self):
         """Loads the Pose at the source_path attribute"""
+        # Todo
+        #  consolidate this function with self.load_pose() and self.pose.set_symmetry()
         if self.pose:
             self.initial_pose = self.pose
         elif self.initial_pose is None:
@@ -966,6 +969,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             Each instance of the DesignData that is missing a structure
         """
         missing = []
+        # Todo consolidate self.designs[1:] to a property
         for design in self.designs[1:]:  # Slice only real designs, not the pose_source
             if design.structure_path and os.path.exists(design.structure_path):
                 continue
@@ -1117,6 +1121,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             return
         else:
             if entities is not None:
+                # Todo, should ensure that existing self.entity_data and self.transformations are compatible
                 self.structure_source = 'Protocol derived'
                 # Use the entities as provided
             elif self.source_path is None or not os.path.exists(self.source_path):
@@ -1230,6 +1235,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # if self.job.pose_format:
         #     self.pose.pose_numbering()
 
+        # Todo
+        #  add other output_options? rename_chains, increment_chains?
         if self.job.fuse_chains:
             # try:
             for fusion_nterm, fusion_cterm in self.job.fuse_chains:
@@ -1351,6 +1358,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.output_fragments:
             self.output_pose()
 
+        # Todo
+        #  move to ProtocolMetaData
         # self.info['fragment_source'] = self.job.fragment_db.source
 
     @property
@@ -2623,6 +2632,7 @@ class PoseProtocol(PoseData):
             self.output_metrics(session, designs=designs_df)
             output_residues = False
             if output_residues:
+                # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
@@ -2933,6 +2943,8 @@ class PoseProtocol(PoseData):
         """
         scores_columns = scores_df.columns.tolist()
         self.log.debug(f'Metrics present: {scores_columns}')
+        # Todo
+        #  To separate to interfaces, need to use the residues mapped to the self.pose
         summation_pairs = \
             {'buried_unsatisfied_hbonds_unbound':
                 list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
@@ -3027,6 +3039,7 @@ class PoseProtocol(PoseData):
 
         # Format DesignData
         # Get all existing
+        # Todo the self.pose_source is in self.designs... doesn't seem to be a problem here
         design_data = self.designs  # This is loaded above at 'design_names = self.design_names'
         # Set current_designs to a fresh list
         self._current_designs = [design_data[idx] for idx in existing_design_indices]
@@ -3197,6 +3210,7 @@ class PoseProtocol(PoseData):
                 sql.write_dataframe(session, entity_designs=entity_designs_df)
             output_residues = False
             if output_residues:
+                # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 if rosetta_provided_new_design_names:
@@ -3248,7 +3262,7 @@ class PoseProtocol(PoseData):
 
         # Check if PoseMetrics have been captured
         if self.job.db:
-            if self.metrics is None or self.job.force:
+            if self.metrics is None or self.job.force:  # Todo remove the need for force?
                 with self.job.db.session(expire_on_commit=False) as session:
                     session.add(self)
                     metrics_ = get_metrics()
@@ -3260,6 +3274,8 @@ class PoseProtocol(PoseData):
                             if attr == '_sa_instance_state':
                                 continue
                             setattr(current_metrics, attr, value)
+                    # Todo
+                    #  back out this code from the session
                     # Update the design_metrics for this Pose
                     self.calculate_pose_design_metrics(session, **kwargs)
                     session.commit()
@@ -3272,12 +3288,15 @@ class PoseProtocol(PoseData):
 
             entity_dfs = []
             for entity in self.pose.entities:
+                # Todo add reference=
                 entity_s = pd.Series(**entity.calculate_spatial_orientation_metrics())
                 entity_dfs.append(entity_s)
 
             # Stack the Series on the columns to turn into a dataframe where the metrics are rows and entity are columns
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
 
+    # Todo
+    #  remove the session arg?
     def calculate_pose_design_metrics(self, session: Session, scores: dict[str, str | int | float] = None, novel_interface: bool = True):
         """Collects 'design' and per-residue metrics on the reference Pose
 
@@ -3388,6 +3407,7 @@ class PoseProtocol(PoseData):
         self.output_metrics(session, designs=designs_df)
         output_residues = False
         if output_residues:
+            # Todo job.metrics.residues
             self.output_metrics(session, residues=residues_df)
         else:  # Only save the 'design_residue' columns
             try:
@@ -3767,6 +3787,7 @@ class PoseProtocol(PoseData):
                 if self.current_designs:
                     designs = self.current_designs
                 else:
+                    # Todo the self.pose_source is in self.designs...
                     # Slice off the self.pose_source from these
                     self.current_designs = designs = self.designs[1:]
 
@@ -3839,6 +3860,7 @@ class PoseProtocol(PoseData):
             self.output_metrics(session, designs=designs_df)
             output_residues = False
             if output_residues:
+                # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             # This function doesn't generate any 'design_residue'
             # else:  # Only save the 'design_residue' columns
@@ -4211,10 +4233,13 @@ class PoseProtocol(PoseData):
             per_residue_collapse_df,
             mutation_df])
 
+        # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in entity_sequences.items()}
+        # entity_alignments = \
+        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
@@ -4228,6 +4253,7 @@ class PoseProtocol(PoseData):
                 # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
                 entity_alignment = \
                     MultipleSequenceAlignment.from_dictionary(dict(zip(design_names, entity_sequences)))
+                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
                 entity.msa = entity_alignment
                 dca_design_residue_energies = entity.direct_coupling_analysis()
                 dca_design_residues_concat.append(dca_design_residue_energies)
@@ -4680,10 +4706,13 @@ class PoseProtocol(PoseData):
 
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
 
+        # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in entity_sequences.items()}
+        # entity_alignments = \
+        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
@@ -4697,6 +4726,7 @@ class PoseProtocol(PoseData):
                 # Todo
                 #  Instead of below, split Pose.MultipleSequenceAlignment at entity.chain_break...
                 entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
+                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
                 entity.msa = entity_alignment
                 dca_design_residue_energies = entity.direct_coupling_analysis()
                 dca_design_residues_concat.append(dca_design_residue_energies)
@@ -5108,6 +5138,7 @@ class PoseProtocol(PoseData):
             self.output_metrics(session, designs=designs_df)
             output_residues = False
             if output_residues:
+                # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]

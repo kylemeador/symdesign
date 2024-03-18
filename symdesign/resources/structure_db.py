@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 rcsb_download_url = 'https://files.rcsb.org/download/'
 
 
+# Todo mmcif flag
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
                         **kwargs) -> list[AnyStr]:
     """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
@@ -235,6 +236,8 @@ def query_qs_bio(entry_id: str) -> int:
                         f'{", ".join(map(str, biological_assemblies))}')
         assembly = biological_assemblies[0]
     else:
+        # Todo
+        #  If assembly_integer is not in query_qs_bio, solve by PDB API as in retrieve_oligomers
         assembly = 1
         logger.warning(f'No QSBio confirmed biological assembly for EntryID {entry_id}. Using the default assembly 1')
     return assembly
@@ -276,6 +279,8 @@ class StructureDatabase(Database):
                                 load_file=structure.utils.parse_stride)
 
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
+        # Todo
+        #  Modify to only load the necessary structural files upon self.load_all_data() call
 
     def orient_structures(self, structure_identifiers: Iterable[str], sym_entry: SymEntry = None,
                           by_file: bool = False) \
@@ -394,6 +399,8 @@ class StructureDatabase(Database):
                     entity.tmp_file_path = entity.write(out_path=asu_path)
 
         def _orient_existing_files(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None) -> None:
+            # Todo include Entity specific parsing from download_structures() in _orient_existing_files(), then
+            #  consolidate their overlap
             """Return the structure identifier for a file that is loaded and oriented
 
             Args:
@@ -439,6 +446,9 @@ class StructureDatabase(Database):
                 orient_names = self.oriented.retrieve_names()
                 orient_asu_names = self.oriented_asu.retrieve_names()
                 model_names = self.models.retrieve_names()
+            # Todo
+            #  Transfer the writing process near SQL database writes or in a database
+            #  as the use of files and database constitutes bad unit of work
             # Using Pose simplifies ASU writing, however if the Pose isn't oriented correctly SymEntry won't work
             # Todo
             #  Should clashes be warned?

@@ -16,7 +16,9 @@ from pathlib import Path
 from typing import Any, AnyStr, get_args, Literal
 
 import numpy as np
-from Bio.Align import substitution_matrices
+from Bio.Align import MultipleSeqAlignment, substitution_matrices
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 from symdesign import metrics, utils
 from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, \
@@ -499,6 +501,33 @@ class GeneEntity(ABC):
             self._hydrophobic_collapse = metrics.hydrophobic_collapse_index(self.sequence, **kwargs)
             return self._hydrophobic_collapse
 
+    # def get_sequence_probabilities_from_profile(self, dtype: profile_types = None,
+    #                                             precomputed: numerical_profile = None) -> numerical_profile:
+    #     """Extract the values from a profile corresponding to the amino acid type of each residue in the sequence
+    #
+    #     Args:
+    #         dtype: The profile type to sample from. Can be one of 'evolutionary', 'fragment', or None which
+    #             combines 'evolutionary' and 'fragment'
+    #         precomputed: If the profile is precomputed, pass as precomputed=profile_variable
+    #
+    #     Returns:
+    #         The array of shape (number_of_residues,) where each element is the value for the amino acid in the profile
+    #     """
+    #     if precomputed is None:
+    #         if dtype is None:
+    #             profile_of_interest = self.profile
+    #         else:
+    #             profile_of_interest = getattr(self, f'{dtype}_profile')
+    #
+    #         profile_of_interest = pssm_as_array(profile_of_interest)
+    #     else:
+    #         profile_of_interest = precomputed
+    #
+    #     try:
+    #         return np.take_along_axis(profile_of_interest, self.sequence_numeric[:, None], axis=1).squeeze()
+    #     except IndexError:  # The profile_of_interest and sequence are different sizes
+    #         raise IndexError(
+    #             f'The profile length, {len(profile_of_interest)} != {self.number_of_residues}, the number_of_residues')
 
     def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and ContainsResidues sequences are equivalent"""
@@ -599,6 +628,8 @@ class GeneEntity(ABC):
                         time.sleep(20)
 
         # Set self.evolutionary_profile
+        # Todo make dynamic based on hhblits or psiblast or other...
+        #  self.evolutionary_profile = getattr(f'parse_{profile_source}_pssm')(pssm_file, null_background=null_background)
         self.evolutionary_profile = parse_hhblits_pssm(pssm_file)
 
     def create_null_profile(self, nan: bool = False, zero_index: bool = False, **kwargs) -> ProfileDict:
@@ -982,6 +1013,7 @@ class GeneEntity(ABC):
                 per-residue, per-sequence in the profile. The "query" sequence from the MultipleSequenceAlignment.query
                 is located at index 0 on axis=0
         """
+        # Todo ensure that the file hasn't changed...
         try:
             return self._collapse_profile
         except AttributeError:
@@ -1256,6 +1288,7 @@ def offset_index(dictionary: dict[int, Any], to_zero: bool = False) -> dict[int,
         return {residue + ZERO_OFFSET: dictionary[residue] for residue in dictionary}
 
 
+# Todo DEPRECIATE
 def residue_object_to_number(
     residue_dict: dict[str, Iterable['structure.base.Residue']]
 ) -> dict[str, list[tuple[int, ...]]]:
@@ -1385,6 +1418,22 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #     return MultipleSequenceAlignment((read_stockholm_file(file)), **kwargs)
 
 
+# @handle_errors(errors=(FileNotFoundError,))
+# def parse_fasta_to_msa(file, **kwargs):
+#     """
+#     Args:
+#         file (str): The location of a file containing the .fasta records of interest
+#     Returns:
+#         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+#                  'msa': (Bio.Align.MultipleSeqAlignment)
+#                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+#                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+#                  'rep': {1: 210, 2:211, ...}}
+#             The msa formatted with counts and indexed by residue
+#     """
+#     return MultipleSequenceAlignment(alignment=msa_from_seq_records(read_fasta_file(file)), **kwargs)
+
+
 # def make_pssm_file(pssm_dict: ProfileDict, name: str, out_dir: AnyStr = os.getcwd()):
 #     """Create a PSI-BLAST format PSSM file from a PSSM dictionary
 #
@@ -1436,7 +1485,28 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #     return out_file
 
 
-def sequence_difference(seq1: Sequence, seq2: Sequence, d: dict = None, matrix: str = 'BLOSUM62') -> float:
+def consensus_sequence(pssm):
+    """Return the consensus sequence from a PSSM
+
+    Args:
+        pssm (dict): pssm dictionary
+    Return:
+        consensus_identities (dict): {1: 'M', 2: 'H', ...} One-indexed
+    """
+    consensus_identities = {}
+    for residue in pssm:
+        max_lod = 0
+        max_res = pssm[residue]['type']
+        for aa in protein_letters_alph3:
+            if pssm[residue]['lod'][aa] > max_lod:
+                max_lod = pssm[residue]['lod'][aa]
+                max_res = aa
+        consensus_identities[residue + ZERO_OFFSET] = max_res
+
+    return consensus_identities
+
+
+def sequence_difference(seq1: Sequence, seq2: Sequence, d: dict = None, matrix: str = 'BLOSUM62') -> float:  # TODO AMS
     """Returns the sequence difference between two sequence iterators
 
     Args:
@@ -1462,6 +1532,259 @@ def sequence_difference(seq1: Sequence, seq2: Sequence, d: dict = None, matrix: 
     return sum(scores)
 
 
+def return_consensus_design(frequency_sorted_msa):
+    for residue in frequency_sorted_msa:
+        if residue == 0:
+            pass
+        else:
+            if len(frequency_sorted_msa[residue]) > 2:
+                for alternative in frequency_sorted_msa[residue]:
+                    # Prepare for Letter sorting SchemA
+                    sequence_logo = None
+            else:
+                # DROP from analysis...
+                frequency_sorted_msa[residue] = None
+
+
+# def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSequenceAlignment:
+#     """Create a MultipleSequenceAlignment from a dictionary of named sequences
+#
+#     Args:
+#         named_sequences: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+#     Returns:
+#         The MultipleSequenceAlignment object for the provided sequences
+#     """
+#     return MultipleSequenceAlignment(MultipleSeqAlignment([SeqRecord(Seq(sequence),
+#                                                                      annotations={'molecule_type': 'Protein'}, id=name)
+#                                                            for name, sequence in named_sequences.items()]))
+
+
+def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSeqAlignment:
+    """Create a MultipleSequenceAlignment from a dictionary of named sequences
+
+    Args:
+        named_sequences: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+    Returns:
+        The MultipleSequenceAlignment object for the provided sequences
+    """
+    return MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                 for name, sequence in named_sequences.items()])
+
+
+def msa_from_seq_records(seq_records: Iterable[SeqRecord]) -> MultipleSeqAlignment:
+    """Create a BioPython Multiple Sequence Alignment from a SeqRecord Iterable
+
+    Args:
+        seq_records: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+    Returns:
+        [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
+         SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
+    """
+    return MultipleSeqAlignment(seq_records)
+
+
+def format_mutations(mutations):
+    return [f'{mutation["from"]}{index}{mutation["to"]}' for index, mutation in mutations.items()]
+
+
+def make_mutations_chain_agnostic(mutations):
+    """Remove chain identifier from mutation dictionary
+
+    Args:
+        mutations (dict): {design: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    Returns:
+        (dict): {design: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+    """
+    flattened_mutations = {}
+    for design, chain_mutations in mutations.items():
+        flattened_mutations[design] = {}
+        for chain, mutations in chain_mutations.items():
+            flattened_mutations[design].update(mutations)
+
+    return flattened_mutations
+
+
+def simplify_mutation_dict(mutations: dict[str, mutation_dictionary], to: bool = True) \
+        -> dict[str, mutation_dictionary]:
+    """Simplify mutation dictionary to 'to'/'from' AA key
+
+    Args:
+        mutations: Ex: {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        to: Whether to simplify with the 'to' AA key (True) or the 'from' AA key (False)
+    Returns:
+        The simplified mutation dictionary. Ex: {alias: {mutation_index: 'K', ...}, ...}
+    """
+    simplification = 'to' if to else 'from'
+
+    for alias, indexed_mutations in mutations.items():
+        for index, mutation in indexed_mutations.items():
+            mutations[alias][index] = mutation[simplification]
+
+    return mutations
+
+
+def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, des_divergence):
+    """Make final dictionary, index to sequence
+
+    Args:
+        sorted_freq (dict): {15: ['S', 'A', 'T'], ... }
+        mut_prob (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+        resi_divergence (dict): {15: 0.732, 16: 0.552, ...}
+        int_divergence (dict): {15: 0.732, 16: 0.552, ...}
+        des_divergence (dict): {15: 0.732, 16: 0.552, ...}
+    Returns:
+        weaved_dict (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+    """
+    weaved_dict = {}
+    for residue in sorted_freq:
+        final_resi = residue + ZERO_OFFSET
+        weaved_dict[final_resi] = {}
+        for aa in sorted_freq[residue]:
+            weaved_dict[final_resi][aa] = round(mut_prob[residue][aa], 3)
+        weaved_dict[final_resi]['jsd'] = resi_divergence[residue]
+        weaved_dict[final_resi]['int_jsd'] = int_divergence[residue]
+        weaved_dict[final_resi]['des_jsd'] = des_divergence[residue]
+
+    return weaved_dict
+
+
+def clean_gaped_columns(alignment_dict, correct_index):  # UNUSED
+    """Cleans an alignment dictionary by revising key list with correctly indexed positions. 0 indexed"""
+    return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
+
+
 msa_supported_types_literal = Literal['fasta', 'stockholm']
 msa_supported_types: tuple[msa_supported_types_literal, ...] = get_args(msa_supported_types_literal)
 msa_format_extension = dict(zip(msa_supported_types, ('.fasta', '.sto')))
+
+
+def msa_to_prob_distribution(alignment):
+    """Turn Alignment dictionary into a probability distribution
+
+    Args:
+        alignment (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+                           'msa': (Bio.Align.MultipleSeqAlignment)
+                           'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+                           'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                           'rep': {1: 210, 2:211, ...}}
+            The msa formatted with counts and indexed by residue
+    Returns:
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+                 'msa': (Bio.Align.MultipleSeqAlignment)
+                 'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+                 'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                 'rep': {1: 210, 2:211, ...}}
+            The msa formatted with counts and indexed by residue
+    """
+    alignment['frequencies'] = {}
+    for residue, amino_acid_counts in alignment['counts'].items():
+        total_column_weight = alignment['rep'][residue]
+        assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
+                                         % (msa_to_prob_distribution.__name__, residue)
+        alignment['frequencies'][residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
+
+    return alignment
+
+
+def weight_gaps(divergence, representation, alignment_length):  # UNUSED
+    for i in range(len(divergence)):
+        divergence[i] = divergence[i] * representation[i] / alignment_length
+
+    return divergence
+
+
+def window_score(scores: dict[int, float] | Sequence[float], window_len: int, lambda_: float = 0.5) -> dict:  # UNUSED  incorporate into MultipleSequenceAlignment
+    """Takes an MSA score dict and transforms so that each position is a weighted average of the surrounding positions.
+    Positions with scores less than zero are not changed and are ignored calculation
+
+    Modified from Capra and Singh 2007 code
+
+    Notes:
+        The input should be a one-indexed dictionary (if a dictionary)
+
+    Args:
+        scores: A dictionary with scores.
+        window_len: Number of residues on either side of the current residue
+        lambda_: Float between 0 and 1 which parameterizes the amount of the score to pull from
+
+    Returns:
+        A dictionary with the modified scores for the specified window, one-indexed
+    """
+    if window_len == 0:
+        try:
+            return dict(enumerate(scores.values(), ZERO_OFFSET))
+        except AttributeError:  # Not a dict
+            return dict(enumerate(scores, ZERO_OFFSET))
+    else:
+        window_scores = {}
+        number_scores = len(scores)
+        for i in range(number_scores + ZERO_OFFSET):
+            s = number_terms = 0
+            if i <= window_len:
+                for j in range(ZERO_OFFSET, i + window_len + ZERO_OFFSET):
+                    if i != j:
+                        number_terms += 1
+                        s += scores[j]
+            elif i + window_len > number_scores:
+                for j in range(i - window_len, number_scores + ZERO_OFFSET):
+                    if i != j:
+                        number_terms += 1
+                        s += scores[j]
+            else:
+                for j in range(i - window_len, i + window_len + ZERO_OFFSET):
+                    if i != j:
+                        number_terms += 1
+                        s += scores[j]
+            window_scores[i] = (1 - lambda_) * (s / number_terms) + lambda_ * scores[i]
+
+        return window_scores
+
+
+def rank_possibilities(probability_dict):  # UNUSED  incorporate into MultipleSequenceAlignment
+    """Gather alternative residues and sort them by probability.
+
+    Args:
+        probability_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+    Returns:
+         sorted_alternates_dict (dict): {15: ['S', 'A', 'T'], ... }
+    """
+    sorted_alternates_dict = {}
+    for residue in probability_dict:
+        residue_probability_list = []
+        for aa in probability_dict[residue]:
+            if probability_dict[residue][aa] > 0:
+                residue_probability_list.append((aa, round(probability_dict[residue][aa], 5)))  # tuple instead of list
+        residue_probability_list.sort(key=lambda tup: tup[1], reverse=True)
+        # [('S', 0.13190), ('A', 0.0500), ...]
+        sorted_alternates_dict[residue] = [aa[0] for aa in residue_probability_list]
+
+    return sorted_alternates_dict
+
+
+def multi_chain_alignment(mutated_sequences, **kwargs):
+    """Combines different chain's Multiple Sequence Alignments into a single MSA. One-indexed
+
+    Args:
+        mutated_sequences (dict): {chain: {name: sequence, ...}
+    Returns:
+        (MultipleSequenceAlignment): The MSA object with counts, frequencies, sequences, and indexed by residue
+    """
+    #         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+    #                  'msa': (Bio.Align.MultipleSeqAlignment)
+    #                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+    #                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+    #                  'rep': {1: 210, 2:211, ...}}
+    #             The msa formatted with counts and indexed by residue
+
+    # Combine alignments for all chains from design file Ex: A: 1-102, B: 1-130. Alignment: 1-232
+    total_alignment = None
+    for idx, named_sequences in enumerate(mutated_sequences.values()):
+        if idx == 0:
+            total_alignment = msa_from_dictionary(named_sequences)[:, :]
+        else:
+            total_alignment += msa_from_dictionary(named_sequences)[:, :]
+
+    if total_alignment:
+        return MultipleSequenceAlignment(alignment=total_alignment, **kwargs)
+    else:
+        raise RuntimeError(f'{multi_chain_alignment.__name__} - No sequences were found!')

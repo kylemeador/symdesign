@@ -114,6 +114,8 @@ class FragmentDatabase(info.FragmentInfo):
             frag_model, frag_paired_chain_id = paired_frags[ijk]
             # Look up the partner coords by using stored frag_paired_chain
             stacked_bb_coords.append(frag_model.get_chain(frag_paired_chain_id).backbone_coords)
+            # Todo
+            #  store these in a numpy array instead of a Model.chain
             stacked_guide_coords.append(frag_model.get_chain('9').coords)
         logger.debug(f'Last representative file: {frag_model}, Paired chain: {frag_paired_chain_id}')
 
@@ -124,6 +126,8 @@ class FragmentDatabase(info.FragmentInfo):
 
         _info = self.info
         stacked_rmsds = np.array([_info[ijk].rmsd for ijk in ijk_types])
+        # Todo
+        #  ensure rmsd rounded correct upon creation
         stacked_rmsds = np.where(stacked_rmsds == 0, 0.0001, stacked_rmsds)
         logger.debug(f'stacked_rmsds {stacked_rmsds.shape}')
 

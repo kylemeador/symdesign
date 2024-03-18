@@ -596,7 +596,8 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
             sequence_file = write_sequences((name, sequence), file_name=os.path.join(out_dir, f'{name}.seq'))
     pssm_file = os.path.join(out_dir, f'{name}.hmm')
     a3m_file = os.path.join(out_dir, f'{name}.a3m')
-    # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
+    # Todo
+    #  For higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
     #  Create a ramdisk to store a database chunk to make hhblits/Jackhmmer run fast.
     #  sudo mkdir -m 777 --parents /tmp/ramdisk
     #  sudo mount -t tmpfs -o size=9G ramdisk /tmp/ramdisk
@@ -1301,6 +1302,7 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
 numerical_profile = np.ndarray  # Type[np.ndarray]
 
 
+# Todo (MultipleSeqAlignment)
 class MultipleSequenceAlignment:
     _alphabet_type: alphabet_types_literal
     _array: np.ndarray
@@ -1323,6 +1325,7 @@ class MultipleSequenceAlignment:
     """The sequence used to perform the MultipleSequenceAlignment search"""
     query_length: int
     """The length of the query sequence. No gaps"""
+    # state_attributes = {'_sequence_indices'}  # Todo
     # query_aligned: str
     # """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
 
