@@ -9,7 +9,7 @@ import sys
 import time
 import traceback
 from abc import ABC
-from collections import UserList, defaultdict
+from collections import UserList
 from collections.abc import Callable, Container, Iterable, Sequence, Collection, Generator
 from copy import copy
 from itertools import count, repeat
@@ -18,221 +18,28 @@ from pathlib import Path
 from random import random
 from typing import Any, AnyStr, Generic, get_args, IO, Literal, Type, TypeVar, Union
 
+import freesasa
 import numpy as np
 from sklearn.neighbors import BallTree
+from pdbecif.mmcif_io import CifFileReader
 
+from .config import protein_letters_3to1_extended_mse, atom_and_resiude_type_to_radii, \
+    protein_backbone_and_cb_atom_types, protein_backbone_atom_types, structure_container_types, atomic_polarity_table, \
+    gxg_sasa, directives, mutation_directives, residue_properties, aa_by_property, atom_or_residue_literal, \
+    dna_sugar_atom_types, DEFAULT_SS_COIL_IDENTIFIER, SS_HELIX_IDENTIFIERS, SS_DISORDER_IDENTIFIERS, \
+    SS_TURN_IDENTIFIERS, sasa_types_literal, sasa_types, DEFAULT_SS_PROGRAM, hydrophobicity_values_glycine_centered, \
+    element_radius
 from .coordinates import Coordinates, superposition3d
 from . import fragment, utils as stutils
-from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, protein_letters_1to3, \
+from symdesign.sequence import protein_letters_alph1, protein_letters_1to3, \
     protein_letters_3to1_extended, protein_letters3_alph1_literal
 from symdesign import utils
 from symdesign.metrics import default_sasa_burial_threshold
-from pdbecif.mmcif_io import CifFileReader
 putils = utils.path
 
 # Globals
 cif_reader = CifFileReader()
 logger = logging.getLogger(__name__)
-protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
-protein_letters_3to1_extended_mse['MSE'] = 'M'
-DEFAULT_SS_PROGRAM = 'stride'
-DEFAULT_SS_COIL_IDENTIFIER = 'C'
-"""Secondary structure identifier mapping
-Stride
-B/b:Isolated bridge
-E:Strand/Extended conformation 
-G:3-10 helix
-H:Alpha helix
-I:PI-helix
-T:Turn
-C:Coil (none of the above)
-SS_TURN_IDENTIFIERS = 'T'
-SS_DISORDER_IDENTIFIERS = 'C'
-
-DSSP
-B:beta bridge
-E:strand/beta bulge
-G:310 helix
-H:α helix
-I:π helix
-T:turns
-S:high curvature (where the angle between i-2, i, and i+2 is at least 70°)
-" "(space):loop
-SS_DISORDER_IDENTIFIERS = ' '
-SS_TURN_IDENTIFIERS = 'TS'
-"""
-SS_HELIX_IDENTIFIERS = 'H'
-SS_TURN_IDENTIFIERS = 'T'
-SS_DISORDER_IDENTIFIERS = 'C'
-directives = Literal[
-    'special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
-mutation_directives: tuple[directives, ...] = get_args(directives)
-atom_or_residue_literal = Literal['atom', 'residue']
-structure_container_types = Literal['atoms', 'residues', 'chains', 'entities']
-protein_backbone_atom_types = {'N', 'CA', 'C', 'O'}
-protein_backbone_and_cb_atom_types = {'N', 'CA', 'C', 'O', 'CB'}
-phosphate_backbone_atom_types = {'P', 'OP1', 'OP2'}
-# P, OP1, OP2,
-dna_sugar_atom_types = {"O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'"}
-# O5', C5', C4', O4', C3', O3', C2', O2', C1'  # RNA only
-rna_sugar_atom_types = dna_sugar_atom_types | {"O2'"}
-# O5', C5', C4', O4', C3', O3', C2', C1'  # DNA only
-# For A, i.e. adenosine
-# N9, C8, N7, C5, C6, N6, N1, C2, N3, C4
-# For DA, i.e. deoxyadenosine
-# N9, C8, N7, C5, C6, N6, N1, C2, N3, C4
-# For C, i.e. cytosine
-# N1, C2, O2, N3, C4, N4, C5, C6
-# For DC, i.e. deoxycytosine
-# N1, C2, O2, N3, C4, N4, C5, C6
-# For G i.e. guanosine
-# N9, C8, N7, C5, C6, O6, N1, C2, N2, N3, C4
-# For DG i.e. deoxyguanosine
-# N9, C8, N7, C5, C6, O6, N1, C2, N2, N3, C4
-# For U i.e. urosil
-# N1, C2, O2, N3, C4, O4, C5, C6
-# For DT, i.e. deoxythymidine
-# N1, C2, O2, N3, C4, O4, C5, C7, C6
-residue_properties = {
-    'ALA': {'hydrophobic', 'apolar'},
-    'CYS': {'special', 'hydrophobic', 'apolar', 'polar', 'hbonding'},
-    'ASP': {'charged', 'polar', 'hbonding'},
-    'GLU': {'charged', 'polar', 'hbonding'},
-    'PHE': {'hydrophobic', 'apolar', 'aromatic'},
-    'GLY': {'special'},
-    'HIS': {'charged', 'polar', 'aromatic', 'hbonding'},
-    'ILE': {'hydrophobic', 'apolar', 'branched'},
-    'LYS': {'charged', 'polar', 'hbonding'},
-    'LEU': {'hydrophobic', 'apolar', 'branched'},
-    'MET': {'hydrophobic', 'apolar'},
-    'ASN': {'polar', 'hbonding'},
-    'PRO': {'special', 'hydrophobic', 'apolar'},
-    'GLN': {'polar', 'hbonding'},
-    'ARG': {'charged', 'polar', 'hbonding'},
-    'SER': {'polar', 'hbonding'},
-    'THR': {'polar', 'hbonding', 'branched'},
-    'VAL': {'hydrophobic', 'apolar', 'branched'},
-    'TRP': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'},
-    'TYR': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'}
-}
-# useful in generating aa_by_property from mutation_directives and residue_properties
-# aa_by_property = {}
-# for type_ in mutation_directives:
-#     aa_by_property[type_] = set()
-#     for res in residue_properties:
-#         if type_ in residue_properties[res]:
-#             aa_by_property[type_].append(res)
-#     aa_by_property[type_] = list(aa_by_property[type_])
-aa_by_property = \
-    {'special': {'CYS', 'GLY', 'PRO'},
-     'charged': {'ARG', 'GLU', 'ASP', 'HIS', 'LYS'},
-     'polar': {'CYS', 'ASP', 'GLU', 'HIS', 'LYS', 'ASN', 'GLN', 'ARG', 'SER', 'THR'},
-     'apolar': {'ALA', 'CYS', 'PHE', 'ILE', 'LEU', 'MET', 'PRO', 'VAL', 'TRP', 'TYR'},
-     'hydrophobic': {'ALA', 'CYS', 'PHE', 'ILE', 'LEU', 'MET', 'PRO', 'VAL', 'TRP', 'TYR'},  # same as apolar
-     'aromatic': {'PHE', 'HIS', 'TRP', 'TYR'},
-     'hbonding': {'CYS', 'ASP', 'GLU', 'HIS', 'LYS', 'ASN', 'GLN', 'ARG', 'SER', 'THR', 'TRP', 'TYR'},
-     'branched': {'ILE', 'LEU', 'THR', 'VAL'}}
-gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
-            'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174,
-            'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
-            'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
-            'TYR': 263, 'VAL': 174}  # From table 1, theoretical values of Tien et al. 2013, PMID:24278298
-# This publication claims to have normalized tripeptides of all the standard AA which can be used to calculate non-polar
-# and polar area: https://doi.org/10.1016/j.compbiolchem.2014.11.007
-# They are not actually available, however. Should email authors to acquire these...
-# Set up hydrophobicity values for various calculations
-black_and_mould = [
-    0.702, 0.987, -1.935, -1.868, 2.423, 0.184, -1.321, 2.167, -0.790, 2.167, 1.246, -1.003, 1.128, -0.936, -2.061,
-    -0.453, -0.042, 1.640, 1.878, 1.887
-]
-hydrophobicity_values = \
-    dict(black_and_mould=dict(zip(protein_letters3_alph1, black_and_mould)))
-glycine_val = black_and_mould[5]
-# This is used for the SAP calculation. See PMID:19571001
-hydrophobicity_values_glycine_centered = {value_name: {aa: value - glycine_val for aa, value in values.items()}
-                                          for value_name, values in hydrophobicity_values.items()}
-
-
-def unknown_index():
-    return -1
-
-
-polarity_types_literal = Literal['apolar', 'polar']
-sasa_types_literal = Literal['total', polarity_types_literal]
-sasa_types: tuple[polarity_types_literal, ...] = get_args(sasa_types_literal)
-polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
-atomic_polarity_table = {  # apolar = 0, polar = 1
-    'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
-    'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0,
-                                       'NH1': 1, 'NH2': 1}),
-    'ASN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'OD1': 1, 'ND2': 1}),
-    'ASP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'OD1': 1, 'OD2': 1}),
-    'CYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'SG': 1}),
-    'GLN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'NE2': 1}),
-    'GLU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'OE2': 1}),
-    'GLY': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1}),
-    'HIS': defaultdict(unknown_index,
-                       {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'ND1': 1, 'CD2': 0, 'CE1': 0, 'NE2': 1}),
-    'ILE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0, 'CD1': 0}),
-    'LEU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0}),
-    'LYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'CE': 0, 'NZ': 1}),
-    'MET': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'SD': 1, 'CE': 0}),
-    'PHE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0,
-                                       'CE2': 0, 'CZ': 0}),
-    'PRO': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0}),
-    'SER': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'OG': 1}),
-    'THR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'OG1': 1, 'CG2': 0}),
-    'TRP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'NE1': 1,
-                                       'CE2': 0, 'CE3': 0, 'CZ2': 0, 'CZ3': 0, 'CH2': 0}),
-    'TYR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0,
-                                       'CE2': 0, 'CZ': 0, 'OH': 1}),
-    'VAL': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0})}
-hydrogens = {   # The doubled numbers (and single number second) are from PDB version of hydrogen inclusion
-    'ALA': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0, 'HB1': 0, 'HB2': 0, 'HB3': 0},
-    'ARG': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, 'HE': 1, '1HH1': 1, '2HH1': 1,
-            '1HH2': 1, '2HH2': 1,
-            'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0, 'HD1': 0, 'HD2': 0, 'HH11': 1, 'HH12': 1, 'HH21': 1, 'HH22': 1},
-    'ASN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HD2': 1, '2HD2': 1, 'HB1': 0, 'HB2': 0, 'HD21': 1, 'HD22': 1,
-            '1HD1': 1, '2HD1': 1, 'HD11': 1, 'HD12': 1},  # These are the alternative specification
-    'ASP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HB1': 0, 'HB2': 0},
-    'CYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HB1': 0, 'HB2': 0, 'HG': 1},
-    'GLN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE2': 1, '2HE2': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0,
-            'HG2': 0, 'HE21': 1, 'HE22': 1,
-            '1HE1': 1, '2HE1': 1, 'HE11': 1, 'HE12': 1},  # These are the alternative specification
-    'GLU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0},
-    'GLY': {'H': 1, '1HA': 0, 'HA1': 0, '2HA': 0, 'HA2': 0, '3HA': 0, 'HA3': 0},
-    'HIS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 1, 'HD2': 0, 'HE1': 0, 'HE2': 1, 'HB1': 0, 'HB2': 0, '1HD': 1,
-            '2HD': 0, '1HE': 0, '2HE': 1},  # This assumes HD1 is on ND1, HE2 is on NE2
-    'ILE': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HD1': 0, '2HD1': 0,
-            '3HD1': 0, 'HG11': 0, 'HG12': 0, 'HG21': 0, 'HG22': 0, 'HG23': 0, 'HD11': 0, 'HD12': 0, 'HD13': 0,
-            'HG13': 0, '3HG1': 0},  # this is the alternative specification
-    'LEU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0, '1HD2': 0, '2HD2': 0,
-            '3HD2': 0, 'HB1': 0, 'HB2': 0, 'HD11': 0, 'HD12': 0, 'HD13': 0, 'HD21': 0, 'HD22': 0, 'HD23': 0},
-    'LYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, '1HE': 0, '2HE': 0, '1HZ': 1,
-            '2HZ': 1, '3HZ': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0,
-            'HZ1': 1, 'HZ2': 1, 'HZ3': 1},
-    'MET': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE': 0, '2HE': 0, '3HE': 0, 'HB1': 0, 'HB2': 0,
-            'HG1': 0, 'HG2': 0, 'HE1': 0, 'HE2': 0, 'HE3': 0},
-    'PHE': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HB1': 0, 'HB2': 0, '1HD': 0,
-            '2HD': 0, '1HE': 0, '2HE': 0, 'HZ': 0},
-    'PRO': {'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0,
-            'HD1': 0, 'HD2': 1},
-    # Yes, 3HB is not in existence on this residue, but 5upp.pdb has it...
-    'SER': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0, 'HB1': 0, 'HB2': 0, 'HB3': 0, 'HG': 1},
-    'THR': {'HA': 0, 'HB': 0, 'H': 1, 'HG1': 1, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HG': 1, 'HG21': 0, 'HG22': 0,
-            # these are the alternative specification
-            'HG23': 0, 'HG2': 1, '1HG1': 0, '2HG1': 0, '3HG1': 0, '2HG': 1, 'HG11': 0, 'HG12': 0, 'HG13': 0},
-    'TRP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HE1': 1, 'HE3': 0, 'HZ2': 0, 'HZ3': 0, 'HH2': 0, 'HB1': 0,
-            'HB2': 0, '1HD': 0, '1HE': 1, '3HE': 0, '2HZ': 0, '3HZ': 0, '2HH': 0,  # assumes HE1 is on NE1
-            'HE2': 0, 'HZ1': 0, 'HH1': 0, 'HH3': 0, '2HE': 0, '1HZ': 0, '1HH': 0, '3HH': 0},  # none of these should be possible given standard nomenclature, but including incase
-    'TYR': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HB1': 0, 'HB2': 0, '1HD': 0,
-            '2HD': 0, '1HE': 0, '2HE': 0, 'HH': 1},
-    'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, 'HG11': 0,
-            'HG12': 0, 'HG13': 0, 'HG21': 0, 'HG22': 0, 'HG23': 0}}
-termini_polarity = {'1H': 1, '2H': 1, '3H': 1, 'H': 1, 'H1': 1, 'H2': 1, 'H3': 1, 'OXT': 1}
-for res_type, residue_atoms in atomic_polarity_table.items():
-    residue_atoms.update(termini_polarity)
-    residue_atoms.update(hydrogens[res_type])
 
 
 def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:  # list[str]:
@@ -1481,7 +1288,12 @@ class Atom(CoordinateOpsMixin):
     @property
     def radius(self) -> float:
         """The width of the Atom"""
-        raise NotImplementedError("This isn't finished")
+        try:
+            return atom_and_resiude_type_to_radii[(self._type, self.residue_type)]
+        except KeyError:
+            radius = element_radius[self.element]
+            logger.warning(f"Couldn't find a radius for {repr(self)}. Using the {self.element=} radius of {radius} instead")
+            return radius
 
     @property
     def x(self) -> float:
@@ -4950,74 +4762,110 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             atom: Whether the output should be generated for each atom. If False, will be generated for each Residue
 
         Sets:
-            self.sasa, self.residue(s).sasa
+            self.sasa, and Residue.sasa for each self.residues instance
         """
-        if atom:
-            out_format = 'pdb'
-        # --format=pdb --depth=atom
-        # REMARK 999 This PDB file was generated by FreeSASA 2.0.
-        # REMARK 999 In the ATOM records temperature factors have been
-        # REMARK 999 replaced by the SASA of the atom, and the occupancy
-        # REMARK 999 by the radius used in the calculation.
-        # MODEL        1                                        [radii][sasa]
-        # ATOM   2557  C   PHE C 113      -2.627 -17.654  13.108  1.61  1.39
-        # ATOM   2558  O   PHE C 113      -2.767 -18.772  13.648  1.42 39.95
-        # ATOM   2559  CB  PHE C 113      -1.255 -16.970  11.143  1.88 13.46
-        # ATOM   2560  CG  PHE C 113      -0.886 -17.270   9.721  1.61  1.98
-        # ATOM   2563 CE1  PHE C 113      -0.041 -18.799   8.042  1.76 28.76
-        # ATOM   2564 CE2  PHE C 113      -0.694 -16.569   7.413  1.76  2.92
-        # ATOM   2565  CZ  PHE C 113      -0.196 -17.820   7.063  1.76  4.24
-        # ATOM   2566 OXT  PHE C 113      -2.515 -16.590  13.750  1.46 15.09
-        # ...
-        # TER    7913      GLU A 264
-        # ENDMDL EOF
-        # if residue:
-        else:
-            out_format = 'seq'
-        # --format=seq
-        # Residues in ...
-        # SEQ A    1 MET :   74.46
-        # SEQ A    2 LYS :   96.30
-        # SEQ A    3 VAL :    0.00
-        # SEQ A    4 VAL :    0.00
-        # SEQ A    5 VAL :    0.00
-        # SEQ A    6 GLN :    0.00
-        # SEQ A    7 ILE :    0.00
-        # SEQ A    8 LYS :    0.87
-        # SEQ A    9 ASP :    1.30
-        # SEQ A   10 PHE :   64.55
-        # ...
-        # \n EOF
         if self.contains_hydrogen():
-            include_hydrogen = ['--hydrogen']  # the addition of hydrogen changes results quite a bit
+            # The addition of hydrogen changes results quite a bit
+            include_hydrogen = ['--hydrogen']
         else:
             include_hydrogen = []
-        cmd = [putils.freesasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
-               '-c', putils.freesasa_config_path, '--n-threads=2'] + include_hydrogen
-        self.log.debug(f'FreeSASA:\n{subprocess.list2cmdline(cmd)}')
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
-        # if err:  # usually results from Hydrogen atoms, silencing
-        #     self.log.warning('\n%s' % err.decode('utf-8'))
-        sasa_output = out.decode('utf-8').split('\n')
-        if_idx = 0
-        if atom:
-            # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
-            # since return_atom_record doesn't have models, these won't be present and no option to freesasa about model
-            # would be provided with above subprocess call
+
+        def _calculate_sasa(**kwargs):
+            """Using freesasa python. About 300x slower."""
+
+            parameters = freesasa.Parameters()
+            parameters.defaultParameters.update({
+                # 'algorithm': LeeRichards,
+                'probe-radius': probe_radius,
+                # 'n-points': freesasa_default_parameters.shrake_rupley_n_points,
+                # 'n-slices': freesasa_default_parameters.lee_richards_n_slices,
+                # 'n-threads': freesasa_default_parameters.n_threads
+            })
+
             atoms = self.atoms
-            for line_split in map(str.split, sasa_output[5:-2]):  # Does slice remove need for if line[0] == 'ATOM'?
-                if line_split[0] == 'ATOM':  # This line appears necessary as MODEL can be added if MODEL is written
-                    atoms[if_idx].sasa = float(line_split[-1])
-                    if_idx += 1
+            atom_radii = [atom.radius for atom in atoms]
+            # For .coords, need to flatten() to a list such as [x0,y0,z0,x1,y1,z1,...]
+            result = freesasa.calcCoord(self.coords.flatten(), atom_radii, parameters=parameters)
+            # sasa = result._c_result.sasa
+            for idx, atom in enumerate(atoms):
+                atom.sasa = result.atomArea(0)
+
+        def _calculate_sasa_from_c():
+            """Using freesasa python. About 300x slower."""
+            assert atom, f"The parameter 'atom' can't equal '{atom}' only True"
+            # if atom:
+            #     out_format = 'pdb'
+            # --format=pdb --depth=atom
+            # REMARK 999 This PDB file was generated by FreeSASA 2.0.
+            # REMARK 999 In the ATOM records temperature factors have been
+            # REMARK 999 replaced by the SASA of the atom, and the occupancy
+            # REMARK 999 by the radius used in the calculation.
+            # MODEL        1                                        [radii][sasa]
+            # ATOM   2557  C   PHE C 113      -2.627 -17.654  13.108  1.61  1.39
+            # ATOM   2558  O   PHE C 113      -2.767 -18.772  13.648  1.42 39.95
+            # ATOM   2559  CB  PHE C 113      -1.255 -16.970  11.143  1.88 13.46
+            # ATOM   2560  CG  PHE C 113      -0.886 -17.270   9.721  1.61  1.98
+            # ATOM   2563 CE1  PHE C 113      -0.041 -18.799   8.042  1.76 28.76
+            # ATOM   2564 CE2  PHE C 113      -0.694 -16.569   7.413  1.76  2.92
+            # ATOM   2565  CZ  PHE C 113      -0.196 -17.820   7.063  1.76  4.24
+            # ATOM   2566 OXT  PHE C 113      -2.515 -16.590  13.750  1.46 15.09
+            # ...
+            # TER    7913      GLU A 264
+            # ENDMDL EOF
+            # if residue:
+            # else:
+            #     out_format = 'seq'
+            # # --format=seq
+            # # Residues in ...
+            # # SEQ A    1 MET :   74.46
+            # # SEQ A    2 LYS :   96.30
+            # # SEQ A    3 VAL :    0.00
+            # # SEQ A    4 VAL :    0.00
+            # # SEQ A    5 VAL :    0.00
+            # # SEQ A    6 GLN :    0.00
+            # # SEQ A    7 ILE :    0.00
+            # # SEQ A    8 LYS :    0.87
+            # # SEQ A    9 ASP :    1.30
+            # # SEQ A   10 PHE :   64.55
+            # # ...
+            # # \n EOF
+
+            cmd = [putils.freesasa_exe_path, f'--format=pdb', '--probe-radius', str(probe_radius),
+                   '-c', putils.freesasa_config_path, '--n-threads=2'] + include_hydrogen
+            self.log.debug(f'FreeSASA:\n{subprocess.list2cmdline(cmd)}')
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
+            # if err:  # usually results from Hydrogen atoms, silencing
+            #     self.log.warning('\n%s' % err.decode('utf-8'))
+            sasa_output = out.decode('utf-8').split('\n')
+            if_idx = 0
+            if atom:
+                # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
+                # since return_atom_record doesn't have models, these won't be present and no option to freesasa about model
+                # would be provided with above subprocess call
+                atoms = self.atoms
+                for line_split in map(str.split, sasa_output[5:-2]):  # Does slice remove need for if line[0] == 'ATOM'?
+                    if line_split[0] == 'ATOM':  # This line appears necessary as MODEL can be added if MODEL is written
+                        atoms[if_idx].sasa = float(line_split[-1])
+                        if_idx += 1
+            else:
+                seq_slice = slice(3)
+                sasa_slice = slice(16, None)
+                residues = self.residues
+                for idx, line in enumerate(sasa_output[1:-1]):  # Does slice remove the need for if line[:3] == 'SEQ'?
+                    if line[seq_slice] == 'SEQ':  # Doesn't seem that this equality is sufficient ^
+                        residues[if_idx].sasa = float(line[sasa_slice])
+                        if_idx += 1
+
+        if os.path.exists(putils.freesasa_exe_path):
+            t1 = time.perf_counter()
+            _calculate_sasa_from_c()
+            logger.debug(f"Took {time.perf_counter() - t1}")
         else:
-            seq_slice = slice(3)
-            sasa_slice = slice(16, None)
-            residues = self.residues
-            for idx, line in enumerate(sasa_output[1:-1]):  # Does slice remove the need for if line[:3] == 'SEQ'?
-                if line[seq_slice] == 'SEQ':  # Doesn't seem that this equality is sufficient ^
-                    residues[if_idx].sasa = float(line[sasa_slice])
-                    if_idx += 1
+            t0 = time.perf_counter()
+            _calculate_sasa()
+            logger.debug(f"Took {time.perf_counter() - t0}")
+
         try:
             self.sasa = sum([residue.sasa for residue in self.residues])
         except RecursionError:
