@@ -533,21 +533,24 @@ def download_pisa(
         return False
 
 
-def extract_xtal_interfaces(pdb_path):  # unused
-    source_pdb = Model.from_file(pdb_path, entities=False)
-    interface_data = parse_pisa_interfaces_xml(pdb_path)
-    for interface in interface_data:
-        chains = []
-        for chain in interface['chain_data']:
-            # rot, trans = chain['r_mat'], chain['t_vec']
-            chain_pdb = Structure.from_residues(source_pdb.chain(chain).get_residues(chain['int_res']))
-            chain_pdb.transform(rotation=chain['r_mat'], translation=chain['t_vec'])
-            chains.append(chain_pdb)
-        interface_pdb = Model.from_chains(chains)
-        interface_pdb.write(pdb_path + interface + '.pdb')
+# def extract_xtal_interfaces(pdb_path):  # UNUSED
+#     source_pdb = Model.from_file(pdb_path)
+#     interface_data = parse_pisa_interfaces_xml(pdb_path)
+#     for interface in interface_data:
+#         chains = []
+#         for chain in interface['chain_data']:
+#             # rot, trans = chain['r_mat'], chain['t_vec']
+#             chain_pdb = Chain.from_residues(source_pdb.chain(chain).get_residues(chain['int_res']))
+#             chain_pdb.transform(rotation=chain['r_mat'], translation=chain['t_vec'])
+#             chains.append(chain_pdb)
+#         interface_pdb = Model.from_chains(chains)
+#         interface_pdb.write(pdb_path + interface + '.pdb')
 
 
-def parse_pisas(pdb_code, out_path=utils.path.pisa_db):  #  download=False,
+def parse_pisa_data(
+    pdb_code: EntryIDStr, out_path: str = utils.path.pisa_db
+) -> tuple[dict[tuple[int, int], dict], dict[tuple[int, int], dict], dict[str, dict[int, dict[str, str | float]]]]:
+    # download=False,
     """Parse PISA files for a given PDB code"""
     # files = ['multimers', 'interfaces']
     # if download:
@@ -562,7 +565,7 @@ def parse_pisas(pdb_code, out_path=utils.path.pisa_db):  #  download=False,
 
 
 if __name__ == '__main__':
-    assemblies, interface_data, chain_residue_data = parse_pisas('1BVS')
+    assemblies, interface_data, chain_residue_data = parse_pisa_data('1BVS')
     print(assemblies)
     print(interface_data)
     print(chain_residue_data)

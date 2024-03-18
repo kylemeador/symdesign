@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from typing import Any, NewType, Iterable
 import argparse
 import os
 import sys
@@ -7,82 +9,88 @@ import sys
 from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from symdesign.resources import query
-from symdesign.structure.model import Model, Chain
 from symdesign.utils import path as putils
 
 
-def pisa_polymer_interface(interface):
-    for chain_id in interface['chain_data']:
-        if not interface['chain_data'][chain_id]['chain']:  # there is a ligand
+def pisa_polymer_interface(interface: dict[str, Any]) -> bool:
+    """Finds whether the given interface contains any ligands or if it is between macromolecules
+
+    Args:
+        interface: The dictionary with interface information
+    Returns:
+        True if the interface is the result of protein molecules
+    """
+    for chain_id, data in interface['chain_data'].items():
+        if not data['chain']:  # There is a ligand
             return False
         # else:
     return True
 
-
-def extract_interface(pdb, chain_data_d, full_chain=True):
-    """
-    'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
-        Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
-             'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-                                't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
-                            2: ...}},
-             2: {'occ': ..., },
-             'all_ids': {interface_type: [interface_id1, matching_id2], ...}
-            } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
-
-    """
-    # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
-    # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
-    # the translation from the pisa.xml file
-    # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
-    # out_path = os.path.join(os.getcwd(), subdirectory)
-    # try:
-    #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
-    #     # This makes flexible with MySQL
-    #     source_pdb = PDB(file=pdb_file_path)
-    #     pisa_data = utils.unpickle(pisa_file_path)  # Get PISA data
-    #     interface_data = pisa_data['interfaces']
-    #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
-    #     for interface_id in interface_data:
-    #         if not interface_id.is_digit():  # == 'all_ids':
-    #             continue
-    # interface_pdb = PDB.PDB()
-    temp_names = ('.', ',')
-    interface_chains = []
-    temp_chain_d = {}
-    for temp_name_idx, (chain_idx, chain_data) in enumerate(chain_data_d.items()):
-        # chain_pdb = PDB.PDB()
-        chain_id = chain_data['chain']
-        # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
-        #     break
-        # else:
-        if full_chain:  # get the entire chain
-            interface_residues = pdb.chain(chain_id).residues
-        else:  # get only the specific residues at the interface
-            # residue_numbers = chain_data['int_res']
-            interface_residues = pdb.chain(chain_id).get_residues(numbers=chain_data['int_res'])
-            # interface_atoms = []
-            # for residue_number in residues:
-            #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
-            #     interface_atoms.extend(deepcopy(residue_atoms))
-            # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
-        chain = Chain.from_residues(interface_residues)
-        # chain_pdb.read_atom_list(interface_atoms)
-
-        rot = chain_data['r_mat']
-        trans = chain_data['t_vec']
-        chain.transform(rotation=rot, translation=trans)
-        chain.chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
-        temp_chain_d[temp_names[temp_name_idx]] = str(chain_idx)
-        interface_chains.append(chain)
-        # interface_pdb.read_atom_list(chain_pdb.atoms)
-
-    interface_pdb = Model.from_chains(interface_chains)
-    if len(interface_pdb.chain_ids) == 2:
-        for temp_name, new_name in temp_chain_d.items():
-            interface_pdb.chain(temp_name).chain_id = new_name
-
-    return interface_pdb
+#
+# def extract_interface(pdb: Model, chain_data_d, full_chain=True) -> Model:  # UNUSED
+#     """
+#     'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
+#         Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
+#              'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+#                                 't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
+#                             2: ...}},
+#              2: {'occ': ..., },
+#              'all_ids': {interface_type: [interface_id1, matching_id2], ...}
+#             } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
+#
+#     """
+#     # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
+#     # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
+#     # the translation from the pisa.xml file
+#     # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
+#     # out_path = os.path.join(os.getcwd(), subdirectory)
+#     # try:
+#     #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
+#     #     # This makes flexible with MySQL
+#     #     source_pdb = PDB(file=pdb_file_path)
+#     #     pisa_data = utils.unpickle(pisa_file_path)  # Get PISA data
+#     #     interface_data = pisa_data['interfaces']
+#     #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
+#     #     for interface_id in interface_data:
+#     #         if not interface_id.is_digit():  # == 'all_ids':
+#     #             continue
+#     # interface_pdb = PDB.PDB()
+#     temp_names = ('.', ',')
+#     interface_chains = []
+#     temp_chain_d = {}
+#     for temp_name_idx, (chain_idx, chain_data) in enumerate(chain_data_d.items()):
+#         # chain_pdb = PDB.PDB()
+#         chain_id = chain_data['chain']
+#         # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
+#         #     break
+#         # else:
+#         if full_chain:  # get the entire chain
+#             interface_residues = pdb.chain(chain_id).residues
+#         else:  # get only the specific residues at the interface
+#             # residue_numbers = chain_data['int_res']
+#             interface_residues = pdb.chain(chain_id).get_residues(numbers=chain_data['int_res'])
+#             # interface_atoms = []
+#             # for residue_number in residues:
+#             #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
+#             #     interface_atoms.extend(deepcopy(residue_atoms))
+#             # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
+#         chain = Chain.from_residues(interface_residues)
+#         # chain_pdb.read_atom_list(interface_atoms)
+#
+#         rot = chain_data['r_mat']
+#         trans = chain_data['t_vec']
+#         chain.transform(rotation=rot, translation=trans)
+#         chain.chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
+#         temp_chain_d[temp_names[temp_name_idx]] = str(chain_idx)
+#         interface_chains.append(chain)
+#         # interface_pdb.read_atom_list(chain_pdb.atoms)
+#
+#     interface_pdb = Model.from_chains(interface_chains)
+#     if len(interface_pdb.chain_ids) == 2:
+#         for temp_name, new_name in temp_chain_d.items():
+#             interface_pdb.chain(temp_name).chain_id = new_name
+#
+#     return interface_pdb
 
 
 # def return_pdb_interface(pdb_code, interface_id, full_chain=True, db=False):
@@ -114,55 +122,58 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
 #
 #         return pdb_code
 
+EntryIDStr = NewType('EntryIDStr', str)
+"""1ABC"""
+AssemblyIDStr = NewType('AssemblyIDStr', str)
+"""1ABC-1"""
+EntityIDStr = NewType('EntityIDStr', str)
+"""1ABC_1"""
 
-def set_up_interface_dict(pdb_interface_codes):
+
+def set_up_interface_dict(pdb_interface_codes: Iterable[AssemblyIDStr]) -> dict[EntryIDStr, set[int]]:
     """From all PDB interfaces, make a dictionary of the PDB: [interface number] pairs
 
     Returns:
         {pdb_code: [1, 3, 4], ...}
     """
-    int_dict = {}
+    int_dict = defaultdict(set)
     for code in pdb_interface_codes:
-        pdb_code = code.split('-')
-        # ['1ABC', '3']
-        if pdb_code[0] in int_dict:
-            int_dict[pdb_code[0].upper()].add(int(pdb_code[1]))
-        else:
-            int_dict[pdb_code[0].upper()] = set(int(pdb_code[1]))
+        pdb_code, assembly_number = code.split('-')
+        # Such as '1ABC', '3'
+        int_dict[pdb_code.upper()].add(int(assembly_number))
 
     return int_dict
 
 
-def verify_pisa(pisa_d, pdb_code):
+def verify_pisa(pisa_d: dict[str, Any], pdb_code: str) -> dict[str, Any] | None:
     """From a PISA entry, correct any multimer entries that are missing biological assemblies
 
     Args:
-        pisa_d (dict): {'multimers': {}, 'interfaces': {}, 'chains': {})
-
+        pisa_d: Adictionary with keys {'multimers': {}, 'interfaces': {}, 'chains': {})
+        pdb_code: The PDB EntryID
     Returns:
-        (dict): with multimers updated
+        The pisa_d with 'multimers' records updated
     """
     pisa_multimer = pisa_d['multimers']
 
-    if pisa_multimer[(1, 1)] != 'MONOMER':  # if the pdb is not a monomer
-        bio_ass = {}
-        for set_complex in pisa_multimer:
-            biological_assembly = pisa_multimer[set_complex]['pdb_BA']
-            if biological_assembly != 0:  # if set_complex pair is a pdb_BiologicalAssembly
-                if biological_assembly in bio_ass:  # is it already in BA dict?
-                    bio_ass[biological_assembly].add(set_complex)
-                else:  # add to the BA dict
-                    bio_ass[biological_assembly] = {set_complex}
+    if pisa_multimer[(1, 1)] == 'MONOMER':
+        return None
 
-        # or (0, 0) in pisa_multimer:
-        if not bio_ass:  # PISA couldn't identify the assembly from crystal data, must be deposited biological assembly?
-            print('No bioassembly found for %s' % pdb_code)
-            # link the interfaces in the deposited BA complex with the PISA interface number
-            pisa_multimer[(0, 0)] = get_complex_interfaces(pdb_code.lower())
-            pisa_d['multimers'] = pisa_multimer
-            return pisa_d
+    # The pdb isn't monomeric
+    bio_ass = defaultdict(set)
+    for set_complex in pisa_multimer:
+        biological_assembly = pisa_multimer[set_complex]['pdb_BA']
+        if biological_assembly != 0:
+            # This is a pdb_BiologicalAssembly
+            bio_ass[biological_assembly].add(set_complex)
 
-    return None
+    # or (0, 0) in pisa_multimer:
+    if not bio_ass:  # PISA couldn't identify the assembly from crystal data, must be deposited biological assembly?
+        logger.info(f'No bioassembly found for {pdb_code}')
+        # link the interfaces in the deposited BA complex with the PISA interface number
+        pisa_multimer[(0, 0)] = get_complex_interfaces(pdb_code.lower())
+        pisa_d['multimers'] = pisa_multimer
+        return pisa_d
 
 
 def sort_pdb_interfaces_by_contact_type(pisa_d: dict[str, dict], interface_numbers: set,
@@ -277,19 +288,33 @@ def sort_pdbs_to_uniprot_d(pdbs, pdb_uniprot_d, master_dictionary=None):
     return unp_master, no_unpid
 
 
-def add_partners_to_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info):
+def add_partners_to_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info) -> None:
+    """Modifies the uniprot dictionary in place to include any additional UniProtIDs
+
+    Args:
+        uniprot_id: The UniProtIDs of interest
+        unp_d:
+        pdb_uniprot_info:
+    Returns:
+        None
+    """
     unp_d['partners'] = {}
     # Check for pdbs which comprise Self and other Uniprot IDs. These represent distinct heteromeric interfaces
     for pdb in unp_d['unique_pdb']:
-        if len(pdb_uniprot_info[pdb]['dbref']) > 1:  # Check if there is more than one chain in the pdb
-            for chain in pdb_uniprot_info[pdb]['dbref']:
-                if pdb_uniprot_info[pdb]['dbref'][chain]['db'] == 'UNP':  # only add if there is corresponding UniProtID
-                    partner_unpid = pdb_uniprot_info[pdb]['dbref'][chain]['accession']
-                    if partner_unpid != uniprot_id:  # only get other Uniprot IDs
+        chains_in_pdb = pdb_uniprot_info[pdb]['dbref']
+        if len(chains_in_pdb) > 1:
+            # There is more than one chain
+            for chain, data in chains_in_pdb.items():
+                if data['db'] == 'UNP':
+                    # Only add if db is UniProtKB
+                    partner_unpid = data['accession']
+                    if partner_unpid != uniprot_id:
+                        # Only get other Uniprot IDs
+                        chain_id = f'{pdb}.{chain}'
                         if partner_unpid in unp_d['partners']:
-                            unp_d['partners'][partner_unpid]['all'].append('%s.%s' % (pdb, chain))
+                            unp_d['partners'][partner_unpid]['all'].append(chain_id)
                         else:
-                            unp_d['partners'][partner_unpid] = {'all': ['%s.%s' % (pdb, chain)], 'top': None}
+                            unp_d['partners'][partner_unpid] = {'all': [chain_id], 'top': None}
 
 
 def find_representative_pdbs_for_uniprot_entry(unp_d, pdb_uniprot_info, min_resolution_threshold=3.):

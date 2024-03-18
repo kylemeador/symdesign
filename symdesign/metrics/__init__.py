@@ -317,8 +317,6 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 # Current protocols in use in interface_design.xml
 rosetta_design_protocols = [
     'design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
-# Todo
-#  Adapt to any user protocol
 protocols_of_interest = {putils.design_profile, putils.structure_background, putils.hbnet_design_profile}
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
