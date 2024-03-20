@@ -622,8 +622,8 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     else:  # Try to generate the cluster_map?
         # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
         logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
-                    f'"{putils.program_command} {flags.cluster_poses}" or '
-                    f'"{putils.program_command} {flags.protocol} '
+                    f'"{putils.program_exe} {flags.cluster_poses}" or '
+                    f'"{putils.program_exe} {flags.protocol} '
                     f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
@@ -1864,7 +1864,7 @@ def solve_tags(n_of_tags: int, tag_entities: flags.tagging_literal = None) -> tu
             if tag_specification == '':  # Probably a trailing ',' ...
                 continue
             else:
-                tag_specification.translate(utils.keep_digit_table)
+                tag_specification.translate(utils.digit_keeper())
 
             try:  # To convert to an integer
                 boolean_tags.append(True if int(tag_specification) == 1 else False)

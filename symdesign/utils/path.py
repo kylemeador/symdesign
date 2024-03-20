@@ -6,17 +6,18 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from glob import glob
 from pathlib import Path
-from typing import AnyStr, Sequence
+from typing import AnyStr
 
 logger = logging.getLogger(__name__)
 # Project strings and file names
-utils_dir = os.path.dirname(os.path.realpath(__file__))  # Reveals utils subdirectory
-python_source = os.path.dirname(utils_dir)  # Reveals the root python code directory
-git_source = os.path.dirname(python_source)  # Reveals the root git directory
+utils_dir = Path(__file__).absolute().parent  # Reveals utils subdirectory
+python_source = utils_dir.parent  # Reveals the root python code directory
+git_source = utils_dir.parent.parent  # Reveals the root git directory
 try:
-    p = subprocess.Popen(['git', '--git-dir', os.path.join(git_source, '.git'), 'rev-parse', 'HEAD'],
+    p = subprocess.Popen(['git', '--git-dir', str(git_source / '.git'), 'rev-parse', 'HEAD'],
                          stdout=subprocess.PIPE)
     stdout, _ = p.communicate()
     commit = stdout.decode().strip()
@@ -25,21 +26,19 @@ except subprocess.CalledProcessError:
     commit = commit_short = 'unknown'
 
 program_name = 'SymDesign'
-program_exe = git_source  # Where __main__.py is located
-conda_environment = os.path.join(git_source, 'env.yml')
-logging_cfg_file = os.path.join(python_source, 'logging.cfg')
-config_file = os.path.join(python_source, 'cfg.json')
-third_party_dir = os.path.join(python_source, 'third_party')
-program_command = f'{sys.executable} {program_exe}'
-program_command_tuple = (sys.executable, program_exe)
-program_help = f'{program_command} --help'
-submodule_guide = f'{program_command} MODULE --guide'
-submodule_help = f'{program_command} MODULE --help'
-guide_string = f'{program_name} guide. Enter "{program_command} --guide"'
+program_exe = git_source.name  # Exported at setup, essentially where __main__.py is located
+conda_env_path = git_source / 'env.yml'
+# logging_cfg_file = os.path.join(python_source, 'logging.cfg')
+config_file = python_source / 'cfg.json'
+program_help = f'{program_exe} --help'
+program_guide = f'{program_exe} --guide'
+submodule_guide = f'{program_exe} MODULE --guide'
+submodule_help = f'{program_exe} MODULE --help'
+guide_string = f"{program_name} guide. Enter '{program_guide}'"
 program_output = f'{program_name}Output'
 projects = 'Projects'
 data = 'data'
-pose_metrics_file = 'pose_scores.sc'  # UNUSED
+# pose_metrics_file = 'pose_scores.sc'  # UNUSED
 # default_path_file = '{}_{}_{}_pose.paths'
 default_path_file = '{}_{}_{}.poses'
 default_execption_file = '{}_{}_{}_exceptions.poses'
@@ -60,16 +59,11 @@ design_parent = 'design_parent'
 scout = 'scout'
 consensus = 'consensus'
 hhblits = 'hhblits'
-alphafold = 'alphafold'
-setup_exe = os.path.join(git_source, 'setup.py')
+setup_exe = git_source / 'setup.py'
 hhsuite_setup_command = f'python {setup_exe} --hhsuite-database'
 rosetta = 'rosetta'
 proteinmpnn = 'proteinmpnn'
-protein_mpnn_dir = 'ProteinMPNN'
-protein_mpnn_ca_weights_dir = os.path.join(third_party_dir, protein_mpnn_dir, 'ca_model_weights')
-protein_mpnn_weights_dir = os.path.join(third_party_dir, protein_mpnn_dir, 'vanilla_model_weights')
-master_log = 'nanohedra_master_logfile.txt'  # v1
-reference_name = 'reference'
+reference = 'reference'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
 frag_text_file = 'frag_match_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
@@ -80,30 +74,30 @@ fragment_profile = 'fragment_profile'
 # Memory Requirements
 # 10.5MB was measured 5/13/22 with self.pose,
 # after deleting self.pose: 450 poses -> 6.585339. 900 poses -> 3.346759
-approx_ave_design_directory_memory_w_pose = 4000000  # 4MB
-approx_ave_design_directory_memory_w_o_pose = 150000  # with 44279 poses get 147299.66 bytes/pose
-approx_ave_design_directory_memory_w_assembly = 500000000  # 500MB
-baseline_program_memory = 3000000000  # 3GB
-nanohedra_memory = 30000000000  # 30Gb
+approx_ave_design_directory_memory_w_pose = 4_000_000  # 4MB
+approx_ave_design_directory_memory_w_o_pose = 150_000  # with 44279 poses get 147299.66 bytes/pose
+approx_ave_design_directory_memory_w_assembly = 500_000_000  # 500MB
+baseline_program_memory = 3_000_000_000  # 3GB
+nanohedra_memory = 30_000_000_000  # 30Gb
 
 # Project paths
-documentation_dir = os.path.join(git_source, 'docs')
-readme_file = os.path.join(documentation_dir, 'README.md')
+documentation_dir = git_source / 'docs'
+readme_file = documentation_dir / 'README.md'
 # dependency_dir = os.path.join(source, 'dependencies')
-dependency_dir = os.path.join(git_source, 'dependencies')
+dependency_dir = git_source / 'dependencies'
 tools = os.path.join(python_source, 'tools')
-sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
+sym_op_location = dependency_dir / 'symmetry_operators'
 sasa_debug_dir = os.path.join(dependency_dir, 'sasa')
-point_group_symmetry_operator_location = os.path.join(sym_op_location, 'point_group_operators.pkl')
-point_group_symmetry_operatorT_location = os.path.join(sym_op_location, 'point_group_operators_transposed.pkl')
-space_group_symmetry_operator_location = os.path.join(sym_op_location, 'space_group_operators.pkl')
-space_group_symmetry_operatorT_location = os.path.join(sym_op_location, 'space_group_operators_transposed.pkl')
+point_group_symmetry_operator_location = sym_op_location / 'point_group_operators.pkl'
+point_group_symmetry_operatorT_location = sym_op_location / 'point_group_operators_transposed.pkl'
+space_group_symmetry_operator_location = sym_op_location / 'space_group_operators.pkl'
+space_group_symmetry_operatorT_location = sym_op_location / 'space_group_operators_transposed.pkl'
 protocols_dir = os.path.join(python_source, f'protocols')
-binaries = os.path.join(dependency_dir, 'bin')
+binary_dir = dependency_dir / 'bin'
 models_to_multimodel_exe = os.path.join(tools, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(tools, 'list_files_in_directory.py')
 distributer_tool = os.path.join(tools, 'distribute.py')
-hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
+hbnet_sort = binary_dir / 'sort_hbnet_silent_file_results.sh'
 data_dir = os.path.join(python_source, data)
 pickle_program_requirements = os.path.join(data_dir, 'pickle_structure_dependencies.py')
 pickle_program_requirements_cmd = f'python {pickle_program_requirements}'
@@ -147,12 +141,12 @@ intfrag_cluster_info_dirpath = os.path.join(fragment_db, 'IJK_ClusteredInterface
 
 # External Program Dependencies
 # Free SASA Executable Path
-freesasa_dir = os.path.join(third_party_dir, 'freesasa')
-freesasa_exe_path = os.path.join(third_party_dir, 'freesasa', 'src', 'freesasa')
-freesasa_config_path = os.path.join(dependency_dir, 'freesasa-2.0.config')
+third_party_dir = python_source / 'third_party'
+freesasa_dir = third_party_dir / 'freesasa'
+freesasa_exe_path = freesasa_dir / 'src' / 'freesasa'
+freesasa_config_path = dependency_dir / 'freesasa-2.0.config'
 
 orient_exe_dir = os.path.join(dependency_dir, 'orient')
-# orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 orient_exe_path = os.path.join(orient_exe_dir, orient_exe)
 orient_log_file = 'orient_oligomer_log.txt'
@@ -171,7 +165,7 @@ alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 
 # Below matches internals of utils.read_json()
 try:
-    with open(config_file, 'r') as f_save:
+    with config_file.open('r') as f_save:
         config = json.load(f_save)
 except FileNotFoundError:  # May be running setup.py or this wasn't installed properly
     config = {'hhblits_env': '', 'hhblits_db': '',
@@ -209,43 +203,36 @@ else:
     hhsuite_source_root_directory = Path(hhblits_exe).parent.parent
 
 reformat_msa_exe_path = str(hhsuite_source_root_directory / 'scripts' / 'reformat.pl')
-# hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
-# uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')
 if os.path.exists(hhsuite_db_dir):
     uniclust_db = os.path.join(hhsuite_db_dir, config.get('uniclust_db', get_uniclust_db()))
 else:
     uniclust_db = ''
-install_hhsuite_exe = os.path.join(binaries, 'install_hhsuite.sh')
 hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 # Alphfold
-alphafold_db_dir = os.path.join(dependency_dir, alphafold)
+alphafold_db_dir = dependency_dir / 'alphafold'
 alphafold_params_dir = os.path.join(alphafold_db_dir, 'params')
 alphafold_params_name = config.get('af_params')
-alphafold_source_dir = os.path.join(third_party_dir, alphafold)
-alphafold_common_dir = os.path.join(alphafold_source_dir, alphafold, 'common')
-alphafold_openmm_patch = os.path.join(alphafold_source_dir, 'docker', 'openmm.patch')
-openmm_path = shutil.which('openmm')
+"""The version of the AlphaFold parameters downloaded"""
+# openmm_path = shutil.which('openmm')
 # Rosetta
 rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))
 rosetta_main = rosetta_main if rosetta_main else 'main'  # Ensure not None
-rosetta_source = os.path.join(rosetta_main, 'source')
-rosetta_default_bin = os.path.join(rosetta_source, 'bin')
-make_symmdef = os.path.join(rosetta_source, 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
+rosetta_source = Path(rosetta_main, 'source')
+rosetta_default_bin_path = rosetta_source / 'bin'
+make_sdf_path = rosetta_source / 'src' / 'apps' / 'public' / 'symmetry' / 'make_symmdef_file.pl'
 # Rosetta Scripts and Misc Files'
 rosetta_scripts_dir = os.path.join(dependency_dir, 'rosetta')
-symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
 symmetry_def_files = os.path.join(rosetta_scripts_dir, 'sdf')
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-
-sym_utils_file = 'symmetry.py'
-path_to_sym_utils = os.path.join(os.path.dirname(__file__), sym_utils_file)
-# help and warnings
+symmetry_utils_path = utils_dir / 'symmetry.py'
+# Help and warnings
+documentation_url = 'https://kylemeador.github.io/symdesign/'
 git_url = 'https://github.com/kylemeador/symdesign'
 git_issue_url = 'https://github.com/kylemeador/symdesign/issues'
 issue_submit_warning = f' If problems still persist, please submit an issue at {git_issue_url}'
-symmetry_docs_url = 'https://github.com/kylemeador/symdesign/tree/main#symmetry'
-see_symmetry_documentation = f' See the documentation on symmetry: {symmetry_docs_url}'
+symmetry_documentation_url = 'https://kylemeador.github.io/symdesign/#symmetry'
+see_symmetry_documentation = f' See the documentation on symmetry: {symmetry_documentation_url}'
 report_issue = f' Please report this at {git_issue_url}'
 
 logging_cfg = {
@@ -323,9 +310,12 @@ def make_path(path: AnyStr, condition: bool = True):
 
 
 def ex_path(*directories: Sequence[str]) -> AnyStr:
-    """Create an example path prepended with /path/to/provided/directories
+    """Create an example path prepended with '/path/to/'
 
     Args:
         directories: Example: ('provided', 'directories')
+
+    Returns:
+        '/path/to/provided/directories'
     """
     return os.path.join('path', 'to', *directories)

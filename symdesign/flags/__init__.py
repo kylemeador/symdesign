@@ -16,11 +16,11 @@ from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, \
     design_programs_literal, termini_literal
-from symdesign.utils import handle_errors, InputError, log_levels, remove_digit_table, path as putils, \
+from symdesign.utils import handle_errors, InputError, log_levels, digit_remover, path as putils, \
     pretty_format_table, to_iterable, logging_levels
 from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_logging_level, \
-    default_path_file, ex_path, fragment_dbs, program_output, program_command, program_name, projects, \
-    submodule_guide, submodule_help
+    default_path_file, ex_path, fragment_dbs, program_output, program_name, projects, \
+    submodule_guide, submodule_help, program_help, program_exe
 from symdesign.utils.path import design_profile, evolutionary_profile, fragment_profile, consensus
 from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -537,15 +537,14 @@ def query_user_for_flags(mode=interface_design, template=False):
     flags_description = list((flag, values['default'], values['description']) for flag, values in design_flags.items())
     while not write_file:
         flags_table = pretty_format_table(flags_header + flags_description)
-        print('For a %s run, the following flags can be used to customize the design. You can include these in'
-              " a flags file\nsuch as 'my_design.flags' specified on the command line like '@my_design.flags' or "
-              "manually by typing them in.\nTo automatically generate a flags file template, run '%s flags --template'"
-              ' then modify the defaults.\nAlternatively, input the number(s) corresponding to the flag(s) of '
-              'interest from the table below to automatically\ngenerate this file. PDB numbering is defined here as an'
-              ' input file with residue numbering reset at each chain. Pose\nnumbering is defined here as input file '
-              'with residue numbering incrementing from 1 to N without resetting at chain breaks\n%s'
-              % (mode, program_command, '\n'.join('%s %s' % (str(idx).rjust(2, ' ') if idx > 0 else '  ', item)
-                                                  for idx, item in enumerate(flags_table))))
+        print(f'For a {mode} run, the following flags can be used to customize the design. You can include these in a flags file\n'
+              "such as 'my_design.flags' specified on the command line like '@my_design.flags' or manually by typing them in.\n"
+              f"To automatically generate a flags file template, run '{program_exe} flags --template' then modify the defaults.\n"
+              'Alternatively, input the number(s) corresponding to the flag(s) of interest from the table below to automatically\n'
+              'generate this file. PDB numbering is defined here as an input file with residue numbering reset at each chain. Pose\n'
+              'numbering is defined here as input file with residue numbering incrementing from 1 to N without resetting at chain breaks.\n'
+              '%s' % ('\n'.join('%s %s' % (str(idx).rjust(2, ' ') if idx > 0 else '  ', item)
+                                for idx, item in enumerate(flags_table))))
         flags_input = input('\nEnter the numbers corresponding to the flags your design requires. Ex: \'1 3 6\'%s'
                             % input_string)
         flag_numbers = flags_input.split()
@@ -778,7 +777,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
             # Value, operation, value, operation, value
             if idx % 2 == 0:  # Zero or even index which must contain metric/values
                 # Substitute any numerical characters to test if the provided component is a metric
-                substituted_component = component.translate(remove_digit_table)
+                substituted_component = component.translate(digit_remover())
                 logger.debug(f'substituted_component |{substituted_component}|')
                 _metric_specs = config.metrics.get(substituted_component.strip())
                 if _metric_specs:  # We found in the list of available program metrics
@@ -904,7 +903,7 @@ class StoreDictKeyPair(argparse.Action):
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
 # add_argument(), e.g. %(default)s, %(type)s, etc.:
 # Todo Found the following for formatting the prog use case in subparsers
-#  {'refine': ArgumentParser(prog='{putils.program_command} module [module_arguments] [input_arguments]'
+#  {'refine': ArgumentParser(prog='{putils.program_exe} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
 # make_no_argument = '--no-{}'.format
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
@@ -924,7 +923,7 @@ def arg_cat_usage(title):
 
 
 module_usage_str = \
-    f'\n      {program_command} ' \
+    f'\n      {program_exe} ' \
     '{} ' \
     f'[{arg_cat_usage(input_title)}][{arg_cat_usage(symmetry_title)}]' \
     f'[{arg_cat_usage(output_title)}][{arg_cat_usage(options_title)}]' \
@@ -953,9 +952,9 @@ term_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=Tru
                                    f'{boolean_positional_prevent_msg(term_constraint)}')
 guide_args = (guide.long,)
 guide_kwargs = dict(action='store_true', help=f'Display guides for the full {program_name} and specific modules\n'
-                                              f"Ex: '{program_command} {guide.long}'\nor: '{submodule_guide}'")
+                                              f"Ex: '{program_exe} {guide.long}'\nor: '{submodule_guide}'")
 help_args = ('-h', '-help', '--help')
-help_kwargs = dict(action='store_true', help=f"Display argument help\nEx: '{program_command} --help'")
+help_kwargs = dict(action='store_true', help=f"Display argument help\nEx: '{program_help}'")
 clash_distance_args = (clash_distance.long,)
 clash_criteria_args = (clash_criteria.long,)
 ignore_clashes_args = ('-ic', ignore_clashes.long)
@@ -1116,11 +1115,11 @@ residue_selector_arguments = {
 }
 # ('--design-by-sequence',):
 #     dict(help='If design should occur ONLY at certain residues, specify\nthe location of a .fasta file '
-#               f'containing the design selection\nRun "{program_command} --single my_pdb_file.pdb design_selector"'
+#               f'containing the design selection\nRun "{program_exe} --single my_pdb_file.pdb design_selector"'
 #               ' to set this up'),
 # ('--mask-by-sequence',):
 #     dict(help='If design should NOT occur at certain residues, specify\nthe location of a .fasta file '
-#               f'containing the design mask\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
+#               f'containing the design mask\nRun "{program_exe} --single my_pdb_file.pdb design_selector" '
 #               'to set this up'),
 # ---------------------------------------------------
 # Set Up SubModule Parsers
@@ -1438,7 +1437,9 @@ temperature_kwargs = dict(type=temp_gt0, nargs='*', default=(0.1,), metavar='FLO
                           help="'Temperature', i.e. the value(s) to use as the denominator in\n"
                                'the equation: exp(G/T), where G=energy and T=temperature, when\n'
                                'performing design. Higher temperatures result in more diversity\n'
-                               'each temperature must be > 0\nDefault=%(default)s')
+                               'each temperature must be > 0.\n'
+                               'Specify multiple temperatures using a space delimiter.\n'
+                               'Default=%(default)s')
 design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.\n' \
               'Constrain using evolutionary profiles of homologous sequences\n' \
               'and/or fragment profiles extracted from the PDB, or neither'
@@ -2087,7 +2088,7 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     '\n  4. Analysis of all design metrics'
                                     '\n  5. Selection of designs by prioritization of calculated metrics'
                                     '\n  6. Sequence formatting for biochemical characterization\n\n'
-                                    f"If you're a first time user, try:\n{program_command} --guide"
+                                    f"If you're a first time user, try:\n{program_exe} --guide"
                                     '\nMost modules have features for command monitoring, parallel processing, and '
                                     'distribution to computational clusters',
                         formatter_class=Formatter, usage=usage_str,

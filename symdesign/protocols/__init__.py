@@ -63,9 +63,9 @@ def interface_metrics(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    job.protocol = job.job.module  # flags.interface_metrics
     job.identify_interface()
     # metrics_flags = 'repack=yes'
-    job.protocol = flags.interface_metrics
     main_cmd = rosetta.script_cmd.copy()
 
     job.prepare_rosetta_flags(out_dir=job.scripts_path)
@@ -249,8 +249,8 @@ def refine(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    job.identify_interface()
     job.protocol = job.job.module
+    job.identify_interface()
     if job.current_designs:
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
@@ -282,7 +282,7 @@ def design(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    # job.load_pose()
+    job.protocol = job.job.module
     job.identify_interface()
 
     putils.make_path(job.data_path)
@@ -334,7 +334,7 @@ def design(job: pose.PoseJob):
     #         else:
     #             raise NotImplementedError(f'No function for all residue Rosetta design yet')
     #             job.rosetta_design()  # Sets job.protocol
-    #     case putils.proteinmpnn:
+    #     case flags.proteinmpnn:
     #         job.proteinmpnn_design()  # Sets job.protocol
     #     case _:
     #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
@@ -352,7 +352,7 @@ def design(job: pose.PoseJob):
         else:
             raise NotImplementedError(f'No function for all residue Rosetta design yet')
             job.rosetta_design()  # Sets job.protocol
-    elif job.job.design.method == putils.proteinmpnn:
+    elif job.job.design.method == flags.proteinmpnn:
         # Sets job.protocol
         job.proteinmpnn_design()  # interface=job.job.design.interface, neighbors=job.job.design.neighbors
     else:
@@ -568,7 +568,6 @@ def helix_bending(job: pose.PoseJob):
         job.pose.write(out_path=trial_path)
 
 
-# @remove_structure_memory  # NO structures used in this protocol
 @protocol_decorator()
 def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = None, number: int = 1,
                      protocols: list[str] = None, **kwargs) -> list[str]:
@@ -618,18 +617,8 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         job.log.info(f'Using weighting parameters: {weights}')
         designs = metrics.pareto_optimize_trajectories(df, weights=weights, **kwargs).index.tolist()
     else:
-        # sequences_pickle = glob(os.path.join(job.job.all_scores, '%s_Sequences.pkl' % str(job)))
-        # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
-        #                                     os.path.join(job.job.all_scores, '%s_Sequences.pkl' % str(job))
-        #
-        # chain_sequences = SDUtils.unpickle(sequences_pickle[0])
-        # {chain: {name: sequence, ...}, ...}
-        # designed_sequences_by_entity: list[dict[str, str]] = unpickle(job.designed_sequences)
-        # designed_sequences_by_entity: list[dict[str, str]] = job.designed_sequences
-        # entity_sequences = list(zip(*[list(designed_sequences.values())
-        #                               for designed_sequences in designed_sequences_by_entity]))
-        # concatenated_sequences = [''.join(entity_sequence) for entity_sequence in entity_sequences]
-        pose_sequences = job.designed_sequences
+        raise NotImplementedError("Can't select_sequences without providing weights")
+        # Use job.predict_structure() sequence collection mechanism if desired.
         job.log.debug(f'The final concatenated sequences are:\n{pose_sequences}')
 
         # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)

@@ -23,7 +23,6 @@ from sqlalchemy.orm import sessionmaker, Session
 from . import config, distribute, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
 from symdesign.sequence import hhblits
-from symdesign.structure.fragment import db
 from symdesign.utils import SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
@@ -1100,7 +1099,7 @@ class JobResources:
                 else:  # device.platform == 'cpu':
                     logger.warning(f'No GPU detected, will {module} using CPU')
             elif module == flags.design:
-                if self.design.method == putils.proteinmpnn:
+                if self.design.method == flags.proteinmpnn:
                     if gpu_device_kind is None:
                         # Check for GPU access
                         gpu_device_kind = check_gpu()

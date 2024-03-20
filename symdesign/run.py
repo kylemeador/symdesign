@@ -476,10 +476,10 @@ def main():
 
                 with open(poses_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pj) for pj in successful_pose_jobs))
-                logger.info(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
-                            f'/filters for this job. Utilize this file to input these poses in future '
-                            f'{putils.program_name} commands such as:'
-                            f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
+                logger.info(f"The file '{poses_file}' contains the pose identifier of every pose that passed checks"
+                            '/filters for this job. Utilize this file to input these poses in future '
+                            f'{putils.program_name} commands such as:\n\t'
+                            f'{putils.program_exe} MODULE --{flags.poses} {poses_file} ...')
 
             # Output any additional files for the module
             if job.module in [flags.select_designs, flags.select_sequences]:
@@ -491,10 +491,10 @@ def main():
                                                        for design in pj.current_designs))
                         # Todo
                         #  ensure .current_designs present ^
-                    logger.info(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
-                                f'every design selected by this job. Utilize this file to input these designs in '
-                                f'future'
-                                f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
+                    logger.info(f"The file '{designs_file}' contains the pose identifier and design identifier, of "
+                                'every design selected by this job. Utilize this file to input these designs in future '
+                                f'{putils.program_name} commands such as:\n\t'
+                                f'{putils.program_exe} MODULE '
                                 f'{flags.format_args(flags.specification_file_args)} {designs_file} ...')
                 except AttributeError:  # The pose_job variable is a str from select-designs
                     pass
@@ -520,8 +520,8 @@ def main():
                     if job.design.interface:
                         if job.design.method == putils.consensus:
                             scale = flags.refine
-                        elif job.design.method == putils.proteinmpnn:
-                            scale = putils.proteinmpnn
+                        elif job.design.method == flags.proteinmpnn:
+                            scale = flags.proteinmpnn
                         else:  # if job.design.method == putils.rosetta_str:
                             scale = putils.scout if job.design.scout \
                                 else (putils.hbnet_design_profile if job.design.hbnet
@@ -583,16 +583,19 @@ def main():
             # Known to be missing
             # [custom_script, check_clashes, residue_selector, visualize]
             #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
-            #           % (putils.ex_path('pymol'), putils.program_command.replace('python ', ''),
+            #           % (putils.ex_path('pymol'), putils.program_exe,
             #              putils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
             #              putils.ex_path('design.paths')))
     elif args.setup:
-        utils.guide.setup_instructions()
+        print(
+            "If you have concerns or questions with setting up the correct configuration, check the documentation "
+            f"online at '{putils.documentation_url}' for installation advice or start a discussion on github"
+        )
         sys.exit()
     elif args.help:
         pass  # Let the entire_parser handle their formatting
     else:  # Print the full program README.md and exit
-        utils.guide.print_guide()
+        utils.guide.print_readme()
         sys.exit()
 
     #  ---------------------------------------------------
@@ -613,8 +616,8 @@ def main():
     #          return write_fasta(sequences, file_name=f'{model.name}_residue_selector_sequence')
     #
     #      if not args.single:
-    #          raise utils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
-    #                                  'residue_selector' % (putils.program_name, putils.program_command))
+    #          raise utils.DesignError(f'You must pass a single pdb file to {putils.program_name}. Ex:\n\t'
+    #                                  f'{putils.program_exe} --single my_pdb_file.pdb residue_selector')
     #      fasta_file = generate_sequence_template(args.single)
     #      logger.info('The residue_selector template was written to %s. Please edit this file so that the '
     #                  'residue_selector can be generated for protein design. Selection should be formatted as a "*" '
@@ -1081,7 +1084,7 @@ def main():
                 # The new command will be the same, but contain a pair of inputs
 
                 # Format all commands given model pair
-                base_cmd = list(putils.program_command_tuple) + job.get_parsed_arguments()
+                base_cmd = [putils.program_exe] + job.get_parsed_arguments()
                 commands = [base_cmd + [flags.pdb_codes_args[-1], model1.name,
                                         flags.pdb_codes2_args[-1], model2.name]
                             for idx, (model1, model2) in enumerate(pose_jobs)]
@@ -1095,24 +1098,6 @@ def main():
         else:
             raise NotImplementedError()
     else:  # Load from existing files, usually Structural files in a directory or in the program already
-        #  if args.nanohedra_output:  # Nanohedra directory
-        #      file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-        #      if file_paths:
-        #          first_pose_path = file_paths[0]
-        #          if first_pose_path.count(os.sep) == 0:
-        #              job.nanohedra_root = args.directory
-        #          else:
-        #              job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-        #          if not job.sym_entry:  # Get from the Nanohedra output
-        #              job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-        #          pose_jobs = [PoseJob.from_file(pose, project=project_name)
-        #                              for pose in job.get_range_slice(file_paths)]
-        #          # Copy the master nanohedra log
-        #          project_designs = \
-        #              os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
-        #          if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-        #              putils.make_path(project_designs)
-        #              shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         if job.load_to_db:
             # These are not part of the db, but exist in a program_output
             if args.project or args.single:

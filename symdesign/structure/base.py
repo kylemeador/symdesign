@@ -116,7 +116,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
 
         if extension[-1].isdigit():
             # If last character is not a letter, then the file is an assembly, or the extension was provided weird
-            assembly: str | None = extension.translate(utils.keep_digit_table)
+            assembly: str | None = extension.translate(utils.digit_keeper())
         else:
             assembly = None
     else:
@@ -323,9 +323,9 @@ def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
         data: dict[str, dict[str, Any]] = cif_reader.read(file, ignore=ignore_fields)
         if extension[-1].isdigit():
             # If last character is not a letter, then the file is an assembly, or the extension was provided weird
-            assembly: str | None = extension.translate(utils.keep_digit_table)
+            assembly: str | None = extension.translate(utils.digit_keeper())
         elif 'assembly' in name:
-            assembly = name[name.find('assembly'):].translate(utils.keep_digit_table)
+            assembly = name[name.find('assembly'):].translate(utils.digit_keeper())
         else:
             assembly = None
     else:
@@ -979,14 +979,14 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
     @property
     def coords(self) -> np.ndarray:
         """The coordinates for the Atoms in the StructureBase object"""
-        # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
+        # returns self.Coordinates.coords(a np.array)[sliced by the instance's atom_indices]
         return self._coords.coords[self._atom_indices]
 
     @coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.log.debug(f'Setting {self.name} coords')
         # # NOT Setting this first to ensure proper size of later manipulations
-        # # Update the whole Coords.coords as symmetry is not everywhere
+        # # Update the whole Coordinates.coords as symmetry is not everywhere
         # self._coords.replace(self._atom_indices, coords)
 
         # Check for coordinate update requirements
@@ -4830,8 +4830,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             # # ...
             # # \n EOF
 
-            cmd = [putils.freesasa_exe_path, f'--format=pdb', '--probe-radius', str(probe_radius),
-                   '-c', putils.freesasa_config_path, '--n-threads=2'] + include_hydrogen
+            cmd = [str(putils.freesasa_exe_path), f'--format=pdb', '--probe-radius', str(probe_radius),
+                   '-c', str(putils.freesasa_config_path), '--n-threads=2'] + include_hydrogen
             self.log.debug(f'FreeSASA:\n{subprocess.list2cmdline(cmd)}')
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
@@ -4857,7 +4857,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                         residues[if_idx].sasa = float(line[sasa_slice])
                         if_idx += 1
 
-        if os.path.exists(putils.freesasa_exe_path):
+        if putils.freesasa_exe_path.exists():
+            # Prefer this method as it is quicker
             t1 = time.perf_counter()
             _calculate_sasa_from_c()
             logger.debug(f"Took {time.perf_counter() - t1}")

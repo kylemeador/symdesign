@@ -158,7 +158,7 @@ class PoseMetadata(Base):
     # pose_source = relationship('DesignData', lazy='selectin')
 
     @property
-    def pose_source(self):
+    def pose_source(self) -> DesignData:
         """Provide the DesignData for the Pose itself"""
         return self.designs[0]
 
@@ -618,23 +618,23 @@ class JobProtocol(Base):
 
     def __repr__(self):
         return f'{self.__class__.__name__}(' \
-               f'id={self.id}, ' \
-               f'module={self.module}, ' \
-               f'commit={self.commit}, ' \
-               f'ca_only={self.ca_only}, ' \
-               f'proteinmpnn_model_name={self.proteinmpnn_model_name}, ' \
-               f'contiguous_ghosts={self.contiguous_ghosts}, ' \
-               f'evolution_constraint={self.evolution_constraint}, ' \
-               f'initial_z_value={self.initial_z_value}, ' \
-               f'interface={self.interface}, ' \
-               f'match_value={self.match_value}, ' \
-               f'minimum_matched={self.minimum_matched}, ' \
-               f'neighbors={self.neighbors}, ' \
-               f'number_predictions={self.number_predictions}, ' \
-               f'prediction_model={self.prediction_model}, ' \
-               f'term_constraint={self.term_constraint}, ' \
-               f'use_gpu_relax={self.use_gpu_relax}, ' \
-               ')'
+               f'{self.id=}' \
+               f', {self.module=}' \
+               f', {self.commit=}' \
+               f', {self.ca_only=}' \
+               f', {self.proteinmpnn_model_name=}' \
+               f', {self.contiguous_ghosts=}' \
+               f', {self.evolution_constraint=}' \
+               f', {self.initial_z_value=}' \
+               f', {self.interface=}' \
+               f', {self.match_value=}' \
+               f', {self.minimum_matched=}' \
+               f', {self.neighbors=}' \
+               f', {self.number_predictions=}' \
+               f', {self.prediction_model=}' \
+               f', {self.term_constraint=}' \
+               f', {self.use_gpu_relax=}' \
+               ')'.replace('self.', '')
 
 
 class DesignProtocol(Base):

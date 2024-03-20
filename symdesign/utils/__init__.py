@@ -13,12 +13,13 @@ import sys
 import time
 from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable, Sequence
-from functools import reduce, wraps
+from functools import reduce, wraps, lru_cache
 from glob import glob
 from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root as root_logger
 from operator import getitem
+from pathlib import Path
 from typing import Any, AnyStr, Literal, Type, get_args
 
 import numpy as np
@@ -59,6 +60,7 @@ def dictionary_lookup(dictionary: dict, items: tuple[Any, ...]) -> Any:
     Args:
         dictionary: The dictionary to search
         items: The tuple of keys to search for
+
     Returns:
         The value specified by dictionary keys
     """
@@ -79,6 +81,7 @@ def handle_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Any:
 
     Args:
         errors: A tuple of exceptions to monitor, even if single exception
+
     Returns:
         Function return upon proper execution, else the Exception if one was raised
     """
@@ -108,6 +111,7 @@ def datestamp(short: bool = False) -> str:
 
     Args:
         short: Whether to return the short date
+
     Returns:
         Ex: 2022-Jan-01 or 01-Jan-22 if short
     """
@@ -154,6 +158,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
         format_log: Whether to format the log with logger specific formatting otherwise use message format
         no_log_name: Whether to omit the logger name from the output
         handler_level: Whether to set the level for the logger handler on top of the overall level
+
     Returns:
         Logger object to handle messages
     """
@@ -257,6 +262,7 @@ def pretty_format_table(data: Iterable[tuple | dict], justification: Sequence[st
         justification: Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as justification values
         header: The names of values to place in the table header
         header_justification: Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as justification values
+
     Returns:
         The formatted data with each input row justified as an individual element in the list
     """
@@ -306,50 +312,50 @@ def get_table_column_widths(data: Iterable) -> tuple[int]:
 
     Args:
         data: Where each successive element is a row and each row's sub-elements are unique columns
+
     Returns:
         A tuple containing the width of each column from the input data
     """
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
-def read_json(file_name, **kwargs) -> dict | None:
+def read_json(file_name: AnyStr | Path, **kwargs) -> dict | None:
     """Use json.load to read an object from a file
 
     Args:
         file_name: The location of the file to write
+
     Returns:
         The json data in the file
     """
-    with open(file_name, 'r') as f_save:
-        data = json.load(f_save)
+    with open(file_name, 'r') as f:
+        data = json.load(f)
 
     return data
 
 
-def write_json(data: Any, file_name: AnyStr, **kwargs) -> AnyStr:
+def write_json(data: Any, file_name: AnyStr | Path, **kwargs) -> AnyStr:
     """Use json.dump to write an object to a file
 
     Args:
         data: The object to write
         file_name: The location of the file to write
+
     Returns:
         The name of the written file
     """
-    with open(file_name, 'w') as f_save:
-        json.dump(data, f_save, **kwargs)
+    with open(file_name, 'w') as f:
+        json.dump(data, f, **kwargs)
 
     return file_name
 
 
-# @handle_errors(errors=(FileNotFoundError,))
-def unpickle(file_name: AnyStr) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
+def unpickle(file_name: AnyStr | Path) -> Any:
     """Unpickle (deserialize) and return a python object located at filename"""
-    if '.pkl' not in file_name and '.pickle' not in file_name:
-        file_name = '%s.pkl' % file_name
     try:
         with open(file_name, 'rb') as serial_f:
             new_object = pickle.load(serial_f)
-    except EOFError as ex:
+    except EOFError:
         raise InputError(
             f"The serialized file '{file_name}' contains no data.")
 
@@ -358,13 +364,14 @@ def unpickle(file_name: AnyStr) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
 
 def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.getcwd(),
                   protocol: int = pickle.HIGHEST_PROTOCOL) -> AnyStr:
-    """Pickle (serialize) an object into a file named "out_path/name.pkl". Automatically adds extension
+    """Pickle (serialize) an object into a file named 'out_path/name.pkl'. Automatically adds extension
 
     Args:
         target_object: Any python object
         name: The name of the pickled file
         out_path: Where the file should be written
         protocol: The pickling protocol to use
+
     Returns:
         The pickled filename
     """
@@ -373,7 +380,7 @@ def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.ge
     else:
         file_name = os.path.join(out_path, name)
 
-    if not file_name.endswith('.pkl'):
+    if '.pkl' not in str(file_name):
         file_name = f'{file_name}.pkl'
 
     with open(file_name, 'wb') as f:
@@ -382,63 +389,18 @@ def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.ge
     return file_name
 
 
-# def filter_dictionary_keys(dictionary: dict, keys: Iterable, keep: bool = True) -> dict[Any, dict[Any, Any]]:
-#     """Clean a dictionary by passing specified keys. Default keeps all specified keys
-#
-#     Args:
-#         dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
-#         keys: [key2, key10] Iterator of keys to be removed from dictionary
-#         keep: Whether to keep (True) or remove (False) specified keys
-#     Returns:
-#         {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
-#     """
-#     if keep:
-#         return {key: dictionary[key] for key in keys if key in dictionary}
-#     else:
-#         for key in keys:
-#             dictionary.pop(key, None)
-#
-#         return dictionary
-
-def remove_interior_keys(dictionary: dict, keys: Iterable, keep: bool = False) -> dict[Any, dict[Any, Any]]:
-    """Clean specified keys from a dictionaries internal dictionary. Default removes the specified keys
-
-    Args:
-        dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
-        keys: Keys to be removed from dictionary, such as [key2, key10]
-        keep: Whether to keep (True) or remove (False) specified keys
-    Returns:
-        {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
-    """
-    if keep:
-        return {entry: {key: dictionary[entry][key] for key in dictionary[entry] if key in keys}
-                for entry in dictionary}
-    else:
-        for entry in dictionary:
-            for key in keys:
-                dictionary[entry].pop(key, None)
-
-        return dictionary
-
-
-def digit_keeper() -> defaultdict:
+@lru_cache
+def digit_keeper() -> defaultdict[int, str]:
     return defaultdict(type(None), dict(zip(map(ord, string.digits), string.digits)))  # '0123456789'
 
 
-def digit_remover() -> defaultdict:
+@lru_cache
+def digit_remover() -> defaultdict[int, str]:
     non_numeric_chars = string.printable[10:]
     # 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\x0b\x0c'
     keep_chars = dict(zip(map(ord, non_numeric_chars), non_numeric_chars))
 
     return defaultdict(type(None), keep_chars)
-
-
-keep_digit_table = digit_keeper()
-remove_digit_table = digit_remover()
-# This doesn't work
-# >>> to_number = dict(zip(map(ord, numeric_chars), range(10)))
-# >>> string.printable[4:20].translate(to_number)
-# '\x04\x05\x06\x07\x08\tabcdefghij'
 
 
 def clean_comma_separated_string(s: str) -> list[str]:
@@ -451,6 +413,7 @@ def format_index_string(index_string: str) -> list[int]:
 
     Args:
         index_string: 23, 34,35,56-89, 290
+
     Returns:
         Indices in Pose formatting
     """
@@ -483,6 +446,7 @@ def write_file(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     Args:
         data: The data to write to file
         file_name: The name of the file to write to
+
     Returns:
         The name of the output file
     """
@@ -501,6 +465,7 @@ def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     Args:
         data: The data to write to file
         file_name: The name of the file to write to
+
     Returns:
         The name of the output file
     """
@@ -524,6 +489,7 @@ def to_iterable(obj: AnyStr | list, ensure_file: bool = False, skip_comma: bool 
         obj: The object to convert to an Iterable
         ensure_file: Whether to ensure the passed obj is a file
         skip_comma: Whether to skip commas when converting the records to an iterable
+
     Returns:
         The Iterable formed from the input obj
     """
@@ -642,10 +608,12 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
 
     Default options specify to leave at least one CPU available for the machine. If a SLURM environment is used,
     the number of cores will reflect the environmental variable SLURM_CPUS_PER_TASK
+
     Args:
         cores: How many cpu's to use
         mpi: If commands use MPI
         jobs: How many jobs to use
+
     Returns:
         The number of cores to use taking the minimum of cores, jobs, and max cpus available
     """
@@ -689,7 +657,8 @@ def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str =
         function: Which function should be executed
         arg: Arguments to be unpacked in the defined function, order specific
         processes: How many workers/cores should be spawned to handle function(arguments)?
-        context: How to start new processes? One of 'spawn', 'fork', or 'forkserver'.
+        context: How to start new processes? One of 'spawn', 'fork', or 'forkserver'
+
     Returns:
         The results produced from the function and arg
     """
@@ -707,7 +676,8 @@ def mp_starmap(function: Callable, star_args: Iterable[tuple], processes: int = 
         function: Which function should be executed
         star_args: Arguments to be unpacked in the defined function, order specific
         processes: How many workers/cores should be spawned to handle function(arguments)?
-        context: How to start new processes? One of 'spawn', 'fork', or 'forkserver'.
+        context: How to start new processes? One of 'spawn', 'fork', or 'forkserver'
+
     Returns:
         The results produced from the function and star_args
     """
@@ -748,6 +718,7 @@ def bytes2human(number: int, return_format: str = "{:.1f} {}") -> str:
     Args:
         number: The number of bytes
         return_format: The desired return format with '{}'.format() compatibility
+
     Returns:
         The human-readable expression of bytes from a number of bytes
     """
@@ -775,32 +746,37 @@ SYMBOLS = {
 def human2bytes(human_byte_str: AnyStr) -> int:
     """Convert human-readable bytes to a numeric format
 
-    See: http://goo.gl/zeJZl
-    >>> human2bytes('0 B')
-    0
-    >>> human2bytes('1 K')
-    1024
-    >>> human2bytes('1 M')
-    1048576
-    >>> human2bytes('1 Gi')
-    1073741824
-    >>> human2bytes('1 tera')
-    1099511627776
-    >>> human2bytes('0.5kilo')
-    512
-    >>> human2bytes('0.1  byte')
-    0
-    >>> human2bytes('1 k')  # k is an alias for K
-    1024
-    >>> human2bytes('12 foo')
+    Examples:
+        See: http://goo.gl/zeJZl
+        >>> human2bytes('0 B')
+        0
+        >>> human2bytes('1 K')
+        1024
+        >>> human2bytes('1 M')
+        1048576
+        >>> human2bytes('1 Gi')
+        1073741824
+        >>> human2bytes('1 tera')
+        1099511627776
+        >>> human2bytes('0.5kilo')
+        512
+        >>> human2bytes('0.1  byte')
+        0
+        >>> human2bytes('1 k')  # k is an alias for K
+        1024
+        >>> human2bytes('12 foo')
+
+    Args:
+        human_byte_str: A str representing bytes
 
     Raises:
         ValueError if input can't be parsed
+
     Returns:
         The number of bytes from a human-readable expression of bytes
     """
     # Find the scale prefix/abbreviation
-    letter = human_byte_str.translate(remove_digit_table).replace('.', '').replace(' ', '')
+    letter = human_byte_str.translate(digit_remover()).replace('.', '').replace(' ', '')
     for name, symbol_set in SYMBOLS.items():
         if letter in symbol_set:
             break
@@ -824,12 +800,12 @@ def human2bytes(human_byte_str: AnyStr) -> int:
         return int(number * (1 << letter_index * 10))
 
 
-def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int:
+def get_available_memory(human_readable: bool = False) -> int:
     """
 
     Args:
         human_readable: Whether the return value should be human-readable
-        gpu: Whether a GPU should be used
+
     Returns:
         The available memory (in bytes) depending on the compute environment
     """
@@ -901,6 +877,7 @@ def get_base_root_paths_recursively(directory: AnyStr, sort: bool = True) -> lis
     Args:
         directory: The root directory of interest
         sort: Whether the files should be filtered by name before returning
+
     Returns:
         The list of directories matching the search
     """
@@ -915,6 +892,7 @@ def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: b
         directory: The directory of interest
         extension: A extension to filter by
         sort: Whether the files should be filtered by name before returning
+
     Returns:
         The list of files matching the search
     """
@@ -939,6 +917,7 @@ def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str
             ex: suffix="model" matches "design_model.pdb" and "model1.pdb"
         extension: A extension to filter by. Include the "." if there is one
         sort: Whether the files should be filtered by name before returning
+
     Returns:
         The list of files matching the search
     """
@@ -946,82 +925,6 @@ def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str
     file_generator = (file for file in glob(os.path.join(directory, f'*{suffix}*{extension}')))
 
     return sorted(file_generator) if sort else list(file_generator)
-
-
-def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> \
-        tuple[list[AnyStr], str]:
-    """Grab all poses from a Nanohedra directory via a file or a directory
-
-    Args:
-        files: Iterable with disk location of files containing design directories
-        directory: Disk location of the program directory
-        dock: Whether the designs are in current docking run
-    Returns:
-        The absolute paths to Nanohedra output directories for all pose directories found
-    """
-    if files:
-        all_paths = []
-        for file in files:
-            if not os.path.exists(file):
-                logger.critical(f'No "{file}" file found! Please ensure correct location/name!')
-                sys.exit(1)
-            if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
-                all_paths.append(file)
-            else:  # assume a file that specifies individual designs was passed and load all design names in that file
-                try:
-                    with open(file, 'r') as f:
-                        # only strip the trailing 'os.sep' in case file names are passed
-                        paths = map(str.rstrip, [location.strip() for location in f.readlines()
-                                                 if location.strip() != ''], repeat(os.sep))
-                except IsADirectoryError:
-                    raise InputError(f'{file} is a directory not a file. Did you mean to run with --directory?')
-                all_paths.extend(paths)
-    elif directory:
-        if dock:
-            all_paths = get_docked_directories(directory)
-        else:
-            base_directories = get_base_nanohedra_dirs(directory)
-            all_paths = []
-            for base in base_directories:  # Todo we shouldn't allow multiple, it complicates SymEntry matching
-                all_paths.extend(get_docked_dirs_from_base(base))
-    else:  # this shouldn't happen
-        all_paths = []
-    location = (files or directory)
-
-    return sorted(set(all_paths)), location if isinstance(location, str) else location[0]
-
-
-def get_base_nanohedra_dirs(base_dir):
-    """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
-    to the PoseJob symmetry attribute
-    """
-    nanohedra_dirs = []
-    for root, dirs, files in os.walk(base_dir, followlinks=True):
-        if putils.master_log in files:
-            nanohedra_dirs.append(root)
-            del dirs[:]
-
-    return nanohedra_dirs
-
-
-def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # '*DockedPoses'
-    """Useful for when your docked directory is basically known but the """
-    return [os.path.join(root, _dir) for root, dirs, files in os.walk(base_directory) for _dir in dirs
-            if directory_type in _dir]
-
-
-def get_docked_dirs_from_base(base: str) -> list[AnyStr]:
-    """Find every Nanohedra output base directory where each of the poses and files is contained
-
-    Args:
-        base: The base of the filepath corresponding to the Nanohedra master output directory
-
-    Returns:
-        The absolute path to every directory containing Nanohedra output
-    """
-    # base/building_blocks/degen/rot/tx/'
-    # abspath removes trailing separator as well
-    return sorted(set(map(os.path.abspath, glob(f'{base}{f"{os.sep}*" * 4}{os.sep}'))))
 
 
 class SymDesignException(Exception):
@@ -1053,6 +956,7 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
         directory: Disk location of the program directory
         projects: Disk location of a project directory
         singles: Disk location of a single design directory
+
     Returns:
         All pose directories found, the location where they are located
     """
@@ -1101,6 +1005,7 @@ def get_program_root_directory(search_path: str = None) -> AnyStr | None:
 
     Args:
         search_path: The path to search
+
     Returns:
         The absolute path of the identified program root
     """
@@ -1312,6 +1217,7 @@ def all_vs_all(iterable: Iterable, func: Callable, symmetrize: bool = True) -> n
         iterable: Dictionary or array like object
         func: Function to calculate different iterations of the iterable
         symmetrize: Whether to make the resulting matrix symmetric
+
     Returns:
         Matrix with resulting calculations
     """
@@ -1342,21 +1248,30 @@ def sym(a: np.ndarray) -> np.ndarray:
 
     Args:
         a: A 2D square array
+
     Returns:
         Symmetrized array
     """
     return a + a.T - np.diag(a.diagonal())
 
 
-def condensed_to_square(k, n):
-    """Return the i, j indices of a scipy condensed matrix from element k and matrix dimension n"""
-    def calc_row_idx(_k, _n):
+def condensed_to_square(k: int, n: int) -> tuple[int, int]:
+    """Gets the indices which address a square matrix from a condensed variant
+
+    Args:
+        k: An idx of an element from a scipy condensed matrix
+        n: The dimension of the scipy condensed matrix
+
+    Returns:
+        The i, j indices of a scipy condensed matrix
+    """
+    def calc_row_idx(_k: int, _n: int) -> int:
         return int(math.ceil((1 / 2.) * (- (-8 * _k + 4 * _n ** 2 - 4 * _n - 7) ** 0.5 + 2 * _n - 1) - 1))
 
-    def elem_in_i_rows(_i, _n):
+    def elem_in_i_rows(_i: int, _n: int) -> int:
         return _i * (_n - 1 - _i) + (_i * (_i + 1)) // 2
 
-    def calc_col_idx(_k, _i, _n):
+    def calc_col_idx(_k: int, _i: int, _n: int) -> int:
         return int(_n - elem_in_i_rows(_i + 1, _n) + _k)
     i = calc_row_idx(k, n)
     j = calc_col_idx(k, i, n)

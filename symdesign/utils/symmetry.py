@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 import math
 import os
-from typing import List, Union, Sequence
+from typing import AnyStr
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -278,14 +279,15 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from F
         return pdb
 
 
-def get_ptgrp_sym_op(sym_type: str,
-                     expand_matrix_dir: Union[str, bytes] = os.path.join(putils.sym_op_location,
-                                                                         'POINT_GROUP_SYMM_OPERATORS')) -> List[List]:
+def get_ptgrp_sym_op(
+    sym_type: str, expand_matrix_dir: AnyStr = putils.sym_op_location / 'POINT_GROUP_SYMM_OPERATORS'
+) -> list[list[list[float]]]:
     """Get the symmetry operations for a specified point group oriented in the canonical orientation
 
     Args:
         sym_type: The name of the symmetry
         expand_matrix_dir: The disk location of a directory with symmetry name labeled expand matrices
+
     Returns:
         The rotation matrices to perform point group expansion
     """
@@ -303,11 +305,10 @@ def get_ptgrp_sym_op(sym_type: str,
                     rotation_matrices.append(mat)
                     mat = []
 
-        return rotation_matrices
+    return rotation_matrices
 
 
-# def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(putils.sym_op_location,
-#                                                                   "SPACE_GROUP_SYMM_OPERATORS")):
+# def get_sg_sym_op(sym_type, space_group_operator_dir=putils.sym_op_location / "SPACE_GROUP_SYMM_OPERATORS"):
 #     """Get the symmetry operations for a specified space group oriented in the canonical orientation
 #     Returns:
 #         (list[tuple[list[list], list]])
@@ -319,24 +320,24 @@ def get_ptgrp_sym_op(sym_type: str,
 #     return sg_sym_op
 
 
-def get_sg_sym_op(sym_type):
+def get_sg_sym_op(sym_type: str) -> list[tuple[list[list[float]], list[float]]]:
     is_sg = False
     expand_uc_matrices = []
-    rot_mat, tx_mat = [], []
+    rot_mat, tx_vec = [], []
     line_count = 0
     for line in sg_op_lines:
         if "'" in line:  # Ensure only sg lines are parsed either before or after sg
             is_sg = False
-        if "'%s'" % sym_type in line:
+        if f"'{sym_type}'" in line:
             is_sg = True
         if is_sg and "'" not in line and ":" not in line and not line[0].isdigit():
-            line_float = [float(s) for s in line.split()]
-            rot_mat.append(line_float[0:3])
-            tx_mat.append(line_float[-1])
+            *rot, tx = [float(s) for s in line.split()]
+            rot_mat.append(rot)
+            tx_vec.append(tx)
             line_count += 1
             if line_count % 3 == 0:
-                expand_uc_matrices.append((rot_mat, tx_mat))
-                rot_mat, tx_mat = [], []
+                expand_uc_matrices.append((rot_mat, tx_vec))
+                rot_mat, tx_vec = [], []
 
     return expand_uc_matrices
 
@@ -371,8 +372,7 @@ def get_all_sg_sym_ops(space_group_operation_lines: Sequence[str]):
 
 def generate_sym_op_txtfiles():
     for group in nanohedra_space_groups:
-        sym_op_outfile_path = os.path.join(putils.sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS_TXT',
-                                           f'{symmetry_group}.txt')
+        sym_op_outfile_path = putils.sym_op_location / 'SPACE_GROUP_SYMM_OPERATORS_TXT' / f'{group}.txt'
         with open(sym_op_outfile_path, 'w') as f:
             symmetry_op = get_sg_sym_op(group)
             for op in symmetry_op:
@@ -385,7 +385,7 @@ if __name__ == '__main__':
     print('\nRunning this script creates the symmetry operators fresh from text files. '
           'If all is correct, two prompts should appear and their corresponding file names\n')
     # Missing identity operators for most part. P1 not
-    sg_op_filepath = os.path.join(putils.sym_op_location, 'spacegroups_op.txt')
+    sg_op_filepath = putils.sym_op_location / 'spacegroups_op.txt'
     with open(sg_op_filepath, "r") as f:
         sg_op_lines = f.readlines()
     full_space_group_operator_dict = get_all_sg_sym_ops(sg_op_lines)
@@ -423,8 +423,8 @@ if __name__ == '__main__':
         space_group_operators[symmetry_group] = (rotations, translations)
 
     continue1 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
-    space_group_file = pickle_object(space_group_operators,
-                                     out_path=putils.space_group_symmetry_operator_location)
+    space_group_file = pickle_object(
+        space_group_operators, out_path=putils.space_group_symmetry_operator_location)
     print(space_group_file)
     # Pre-transpose the rotation matrix so program operation doesn't have to
     space_group_operators_t = {}
@@ -433,8 +433,8 @@ if __name__ == '__main__':
         rotations = rotations.swapaxes(-1, -2)
         space_group_operators_t[symmetry_group] = (rotations, translations[:, None, :])
 
-    space_group_file_t = pickle_object(space_group_operators_t,
-                                       out_path=putils.space_group_symmetry_operatorT_location)
+    space_group_file_t = pickle_object(
+        space_group_operators_t, out_path=putils.space_group_symmetry_operatorT_location)
     print(space_group_file_t)
 
     pg_symmetry_groups = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
@@ -454,18 +454,18 @@ if __name__ == '__main__':
     # Each rotation operations will have the shape (N, 3, 3)
     point_group_operators = {'C1': identity_matrix[None, :, :]}  # Expand to shape (1, 3, 3)
     for symmetry in pg_symmetry_groups:
-        # These are pretransposed in their files...
+        # These are pre transposed in their files...
         rotations = np.array(get_ptgrp_sym_op(symmetry))
         point_group_operators[symmetry] = rotations
 
     continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
-    point_group_file = pickle_object(point_group_operators,
-                                     out_path=putils.point_group_symmetry_operatorT_location)
+    point_group_file = pickle_object(
+        point_group_operators, out_path=putils.point_group_symmetry_operatorT_location)
     print(point_group_file)
     # Pre-transpose the rotation matrix so routine program operation doesn't have to
     point_group_operators_t = {}
     for symmetry_group, rotations in point_group_operators.items():
         point_group_operators_t[symmetry_group] = rotations.swapaxes(-1, -2)
-    point_group_file_t = pickle_object(point_group_operators_t,
-                                       out_path=putils.point_group_symmetry_operator_location)
+    point_group_file_t = pickle_object(
+        point_group_operators_t, out_path=putils.point_group_symmetry_operator_location)
     print(point_group_file_t)

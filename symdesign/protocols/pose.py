@@ -242,7 +242,6 @@ class PoseDirectory:
         # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
         self.designs_metrics_csv = os.path.join(self.data_path, f'designs.csv')
         self.residues_metrics_csv = os.path.join(self.data_path, f'residues.csv')
-        # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
         self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
         self.current_script = None
 
@@ -340,18 +339,6 @@ class PoseDirectory:
     #         self._entity_names = self.info['entity_names'] = list(names)
     #     else:
     #         raise ValueError(f'The attribute entity_names must be a Sequence of str, not {type(names).__name__}')
-
-    @property
-    def designed_sequences(self) -> list[Sequence]:
-        """Return the designed sequences for the entire Pose associated with the PoseJob"""
-        # Currently only accessed in protocols.select_sequences
-        try:
-            return self._designed_sequences
-        except AttributeError:
-            # Todo
-            #  self._designed_sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
-            self._designed_sequences = [seq_record.seq for seq_record in read_fasta_file(self.designed_sequences_file)]
-            return self._designed_sequences
 
     def get_pose_file(self) -> AnyStr:
         """Retrieve the pose file name from PoseJob"""
@@ -1565,29 +1552,21 @@ class PoseProtocol(PoseData):
         """Generate a list of commands compatible with subprocess.Popen()/subprocess.list2cmdline() to run
         process-rosetta-metrics
         """
-        return [*putils.program_command_tuple, flags.process_rosetta_metrics, '--single', self.pose_directory] \
+        return [putils.program_exe, flags.process_rosetta_metrics, '--single', self.pose_directory] \
             + self.job.parsed_arguments
 
     # def get_cmd_analysis(self) -> list[list[str], ...]:
     #     """Generate a list of commands compatible with subprocess.Popen()/subprocess.list2cmdline() to run analysis"""
-    #     return [*putils.program_command_tuple, flags.analysis, '--single', self.pose_directory] \
-    #         + self.job.parsed_arguments
+    #     return [putils.program_exe, flags.analysis, '--single', self.pose_directory] + self.job.parsed_arguments
 
-    def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
+    def thread_sequences_to_backbone(self, sequences: dict[str, str]):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
-        Pose and build/pack using Rosetta FastRelax. If no sequences are provided, will use self.designed_sequences
+        Pose and build/pack using Rosetta FastRelax.
 
         Args:
             sequences: A mapping of sequence alias to its sequence. These will be used for producing outputs and as
                 the input sequence
         """
-        if sequences is None:  # Gather all already designed sequences
-            raise NotImplementedError(
-                f'Must pass sequences to {self.thread_sequences_to_backbone.__name__}')
-            # Todo, this doesn't work!
-            # refine_sequences = unpickle(self.designed_sequences_file)
-            sequences = {seq: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
-
         self.load_pose()
         # Write each "threaded" structure out for further processing
         number_of_residues = self.pose.number_of_residues
@@ -2558,7 +2537,7 @@ class PoseProtocol(PoseData):
         Returns:
             None
         """
-        self.protocol = putils.proteinmpnn
+        self.protocol = flags.proteinmpnn
         self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '
                       f'designs over each of the temperatures: {self.job.design.temperatures}')
         # design_start = time.time()
@@ -2573,8 +2552,6 @@ class PoseProtocol(PoseData):
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
 
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
-        # # Write every designed sequence to the sequences file...
-        # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
         # Convert sequences to a plain string sequence representation
         sequences_and_scores['sequences'] = \
             [''.join(sequence) for sequence in sequences_and_scores['sequences'].tolist()]
@@ -2608,7 +2585,6 @@ class PoseProtocol(PoseData):
                 design_data.protocols.append(
                     sql.DesignProtocol(design=design_data,
                                        job_id=self.job.id,
-                                       # design_id=design_ids[idx],
                                        protocol=self.protocol,
                                        temperature=temperatures[idx],
                                        ))
@@ -2678,10 +2654,11 @@ class PoseProtocol(PoseData):
     #     putils.make_path(self.data_path)
     #     write_per_residue_scores(design_ids, sequences_and_scores)
 
-    def update_design_protocols(self, design_ids: Sequence[str], protocols: Sequence[str] = None,
-                                temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None) \
-            -> list[sql.DesignProtocol]:  # Unused
-        """Associate newly created DesignData with DesignProtocol
+    def update_design_protocols(
+            self, design_ids: Sequence[str], protocols: Sequence[str] = None,
+            temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None
+    ) -> list[sql.DesignProtocol]:  # Unused
+        """Associate newly created DesignData with a DesignProtocol
 
         Args:
             design_ids: The identifiers for each DesignData
@@ -3847,22 +3824,6 @@ class PoseProtocol(PoseData):
             # Commit the newly acquired metrics
             session.commit()
 
-    def analyze_pose_metrics_per_design(self, residues_df: pd.DataFrame, designs_df: pd.DataFrame = None,
-                                        designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
-        """Perform Pose level analysis on every design produced from this Pose
-
-        Args:
-            residues_df: The typical per-residue metric DataFrame where each index is the design id and the columns are
-                (residue index, residue metric)
-            designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
-                design metrics
-            designs: The subsequent designs to perform analysis on
-        Returns:
-            Series containing summary metrics for all designs
-        """
-        self.load_pose()
-
-        return pose_s
 
     def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array])\
             -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -4121,15 +4082,16 @@ class PoseProtocol(PoseData):
         self.pose.calculate_profile()
         profile_background['design'] = design_profile_array = pssm_as_array(self.pose.profile)
         batch_design_profile = np.tile(design_profile_array, (number_of_sequences, 1, 1))
+        with warnings.catch_warnings():
+            # np.log causes -inf at 0, so they are corrected to a 'large' number
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+            log_batch_profile = np.log(batch_design_profile)
         if self.pose.fragment_info_by_entity_pair:
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', category=RuntimeWarning)
-                # np.log causes -inf at 0, so they are corrected to a 'large' number
-                corrected_design_array = np.nan_to_num(np.log(batch_design_profile), copy=False,
-                                                       nan=np.nan, neginf=metrics.zero_probability_evol_value)
-                torch_log_design_profile = torch.from_numpy(corrected_design_array)
+            corrected_design_array = np.nan_to_num(log_batch_profile, copy=False,
+                                                   nan=np.nan, neginf=metrics.zero_probability_evol_value)
+            torch_log_design_profile = torch.from_numpy(corrected_design_array)
         else:
-            torch_log_design_profile = torch.from_numpy(np.log(batch_design_profile))
+            torch_log_design_profile = torch.from_numpy(log_batch_profile)
         per_residue_design_profile_loss = \
             resources.ml.sequence_nllloss(torch_numeric_sequences, torch_log_design_profile)
 
@@ -5126,8 +5088,8 @@ class PoseProtocol(PoseData):
             collapse_graph_df = residues_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
             reference_collapse = [entity.hydrophobic_collapse() for entity in self.pose.entities]
             reference_collapse_concatenated_s = \
-                pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
-            collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s
+                pd.Series(np.concatenate(reference_collapse), name=putils.reference)
+            collapse_graph_df[putils.reference] = reference_collapse_concatenated_s
             # collapse_graph_df.columns += 1  # offset index to residue numbering
             # collapse_graph_df.sort_index(axis=1, inplace=True)
             # graph_collapse = sns.lineplot(data=collapse_graph_df)

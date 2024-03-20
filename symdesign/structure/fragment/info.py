@@ -136,10 +136,6 @@ class FragmentInfo:
                 self.statistics = utils.unpickle(stats_file[0])
             else:
                 raise RuntimeError('There were too many statistics.pkl files found at the database source')
-            # for file in os.listdir(self.location):
-            #     if 'statistics.pkl' in file:
-            #         self.statistics = utils.unpickle(os.path.join(self.location, file))
-            #         return
 
     @property
     def aa_frequencies(self) -> dict[sequence.protein_letters_alph1, float]:

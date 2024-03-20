@@ -2754,7 +2754,7 @@ class SymmetryOpsMixin(abc.ABC):
 
         return np.matmul(frac_coords, np.transpose(self.sym_entry.orthogonalization_matrix))
 
-    def return_symmetric_coords(self, coords: list | np.ndarray) -> np.ndarray:
+    def return_symmetric_coords(self, coords: np.ndarray) -> np.ndarray:
         """Provided an input set of coordinates, return the symmetrized coordinates corresponding to the SymmetricModel
 
         Args:
@@ -2831,8 +2831,8 @@ class SymmetryOpsMixin(abc.ABC):
             return self._asu_indices
 
     @property
-    def symmetric_coords(self) -> np.ndarray | None:
-        """Return a view of the symmetric Coords"""
+    def symmetric_coords(self) -> np.ndarray:
+        """Return a view of the symmetric Coordinates"""
         try:
             return self._symmetric_coords.coords
         except AttributeError:
@@ -2841,12 +2841,11 @@ class SymmetryOpsMixin(abc.ABC):
 
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
-        """A view of the symmetric coords split at different symmetric models"""
+        """A view of the symmetric coordinates split by each symmetric model"""
         try:
             return self._symmetric_coords_split
         except AttributeError:
             self._symmetric_coords_split = np.split(self.symmetric_coords, self.number_of_symmetry_mates)
-
             return self._symmetric_coords_split
 
     @property
@@ -4185,13 +4184,13 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                     if np.allclose(this_chain_axis, [1, 0, 0]):
                         self.log.debug(f'The relation between {self.max_symmetry_chain_idx} and {chain_idx} would '
                                        'result in a malformed .sdf file')
-                        pass  # This won't work in the make_symmdef.pl script, should choose orthogonal y-axis
+                        pass  # This won't work in the 'make_symmdef.pl' script, should choose orthogonal y-axis
                     else:
                         return self.chains[chain_idx]
         return None
 
     def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr:
-        """Use the make_symmdef_file.pl script from Rosetta to make a symmetry definition file on the Structure
+        """Uses the 'make_symmdef_file.pl' script from Rosetta to make a symmetry definition file on the Structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb.pdb -i B -q
 
@@ -4230,7 +4229,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             chains.append(self.find_dihedral_chain().chain_id)
 
         sdf_cmd = [
-            'perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'
+            'perl', str(putils.make_sdf_path), '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'
         ] + chains
         self.log.info(f'Creating symmetry definition file: {subprocess.list2cmdline(sdf_cmd)}')
         # with open(out_file, 'w') as file:
@@ -4499,7 +4498,7 @@ class Models(UserList):  # (Model):
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
               multimodel: bool = False, increment_chains: bool = False, **kwargs) -> AnyStr | None:
-        """Write Model Atoms to a file specified by out_path or with a passed file_handle
+        """Write Models to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
@@ -4768,7 +4767,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                 self.make_oligomers(transformations=transformations)
                 break
 
-        # Once oligomers are specified the ASU can be set properly
+        # Once oligomers are specified, the minimal ASU can be set properly
         self.set_contacting_asu(from_assembly=parsed_assembly)
 
     @property
@@ -4804,7 +4803,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
 
     @property
     def symmetric_coords_split_by_entity(self) -> list[list[np.ndarray]]:
-        """A view of the symmetric coords split for each symmetric model by the Pose Entity indices"""
+        """A view of the symmetric coordinates split for each symmetric model by the Pose Entity indices"""
         try:
             return self._symmetric_coords_split_by_entity
         except AttributeError:
@@ -4819,13 +4818,14 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
 
     @property
     def symmetric_coords_by_entity(self) -> list[np.ndarray]:
-        """A view of the symmetric coords for each Entity in order of the Pose Entity indices"""
+        """A view of the symmetric coordinates for each Entity in order of the Pose Entity indices"""
         try:
             return self._symmetric_coords_by_entity
         except AttributeError:
+            symmetric_coords = self.symmetric_coords
             self._symmetric_coords_by_entity = []
             for entity_indices in self.atom_indices_per_entity_symmetric:
-                self._symmetric_coords_by_entity.append(self.symmetric_coords[entity_indices])
+                self._symmetric_coords_by_entity.append(symmetric_coords[entity_indices])
 
             return self._symmetric_coords_by_entity
 
@@ -4879,8 +4879,9 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
 
     @property
     def assembly(self) -> Model:
-        """Provides the Structure object containing all symmetric chains in the assembly unless the design is 2- or 3-D
-        then the assembly only contains the contacting models"""
+        """Provides a Structure instance containing all symmetric chains in the assembly unless the design is 2- or 3-D
+        then the assembly only contains the contacting models
+        """
         try:
             return self._assembly
         except AttributeError:
@@ -4890,7 +4891,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
 
     @property
     def assembly_minimally_contacting(self) -> Model:
-        """Provides the Structure object only containing the SymmetricModel instances contacting the ASU"""
+        """Provides a Structure instance only containing the SymmetricModel instances contacting the ASU"""
         try:
             return self._assembly_minimally_contacting
         except AttributeError:
@@ -6385,10 +6386,8 @@ class Pose(SymmetricModel, MetricsMixin):
                 Bounded between [0, 1] where 0 is no sequence profile probability.
                 Only used with pssm_bias_flag
             pssm_log_odds_flag: bool = False - Whether to use log_odds mask to limit the residues designed
-            pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilites designed
+            pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilities designed
             bias_pssm_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
-            # interface: Whether to design the interface
-            # neighbors: Whether to design interface neighbors
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
 
@@ -7481,6 +7480,7 @@ class Pose(SymmetricModel, MetricsMixin):
         if not entity1_indices or not entity2_indices:
             return None
 
+        coords = self.coords
         if self.is_symmetric():  # Get the symmetric indices of interest
             entity2_indices = self.make_indices_symmetric(entity2_indices)
             # Solve for entity2_indices to query
@@ -7498,23 +7498,23 @@ class Pose(SymmetricModel, MetricsMixin):
             entity2_coords = self.symmetric_coords[entity2_indices]  # Get the symmetric indices from Entity 2
             sym_string = 'symmetric '
         elif entity1 == entity2:
-            # Without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
+            # Without symmetry, this can't be measured, unless intra-oligomeric contacts are desired
             self.log.warning(
-                "Entities are the same, but symmetry isn't present. The interface between them won't be detected")
+                "Entities are the same, but not symmetric. The interface between them won't be detected")
             raise NotImplementedError(
                 f"These entities shouldn't necessarily be equal. Did you mean to have symmetry={self.symmetry}? "
-                f'If so, this issue needs to be addressed by expanding the __eq__ method of Entity to more accurately '
-                f'reflect what a Structure object represents programmatically')
+                f'If so, this issue needs to be addressed by expanding {entity1.__class__.__name__}.__eq__() method to '
+                'more accurately reflect Structure object equality programmatically')
         else:
             sym_string = ''
-            entity2_coords = self.coords[entity2_indices]  # Only get the coordinate indices we want
+            entity2_coords = coords[entity2_indices]  # Only get specified coordinate indices
 
         # Ensure the array is not empty
         if len(entity2_coords) == 0:
             return None
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
-        entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified
+        entity1_coords = coords[entity1_indices]  # Only get specified coordinate indices
         entity1_tree = BallTree(entity1_coords)
 
         self.log.debug(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
@@ -7612,7 +7612,7 @@ class Pose(SymmetricModel, MetricsMixin):
                                    **kwargs) -> list[tuple[int, int]] | list:
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
-        Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
+        Caution: Pose must have Coordinates representing all atoms! Residue pairs are found using CB indices from all atoms
 
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized
 
@@ -8356,7 +8356,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
                 # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
-                residue_number = int(metadata[-1].translate(utils.keep_digit_table))
+                residue_number = int(metadata[-1].translate(utils.digit_keeper()))
                 if residue_number > pose_length:
                     if not warn:
                         warn = True

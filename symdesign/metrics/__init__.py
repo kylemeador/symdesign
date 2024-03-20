@@ -442,7 +442,7 @@ def hbond_processing(design_scores: dict, columns: list[str]) -> dict[str, set]:
             if column not in scores:
                 continue
             meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-            parsed_hbonds = set(int(hbond.translate(utils.keep_digit_table))
+            parsed_hbonds = set(int(hbond.translate(utils.digit_keeper()))
                                 for hbond in scores.get(column, '').split(',') if hbond != '')  # check if '' in case no hbonds
             if meta_data[3] == 'complex':
                 complex_bonds = parsed_hbonds
@@ -545,7 +545,7 @@ def incorporate_sequence_info(design_residue_scores: dict[str, dict], sequences:
             #     try:  # Fill in with AA from putils.reference_name seq
             #         data['type'] = reference_data[residue_index]
             #     except KeyError:  # Residue is out of bounds on pose length
-            #         # Possibly a virtual residue or string that was processed incorrectly from the keep_digit_table
+            #         # Possibly a virtual residue or string that was processed incorrectly from the digit_keeper()
             #         if not warn:
             #             logger.error(f'Encountered residue index "{residue_index}" which is not within the pose size '
             #                          f'"{pose_length}" and will be removed from processing. This is likely an error '
@@ -1359,7 +1359,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                 # Todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
                 filter_ops = filter_ops.get('value', 0.)
             else:
-                substituted_metric_name = metric_name.translate(utils.remove_digit_table)
+                substituted_metric_name = metric_name.translate(utils.digit_remover())
                 specification = filter_df.loc['direction', substituted_metric_name]
 
             if specification == 'max':
@@ -1608,7 +1608,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
             metric_values = {}
             for metric in chosen_metrics:
                 # Modify the provided metric of digits to get its configuration info
-                substituted_metric = metric.translate(utils.remove_digit_table)
+                substituted_metric = metric.translate(utils.digit_remover())
                 while True:
                     # Todo make ability to use boolean descriptions
                     # Todo make ability to specify direction
@@ -1667,7 +1667,7 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         print_weights = []
         for metric_name, weight_ops in weights.items():
             # Modify the provided metric of digits to get its configuration info
-            substituted_metric = metric_name.translate(utils.remove_digit_table)
+            substituted_metric = metric_name.translate(utils.digit_remover())
             direction = filter_df.loc['direction', substituted_metric]
             if isinstance(weight_ops, list):
                 # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}

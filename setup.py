@@ -397,8 +397,8 @@ def setup(args):
     errat_compile_cmd = ['g++', '-o', putils.errat_exe_path, putils.errat_residue_source]
     # Add a directory change to the command type
     change_dir_paths = defaultdict(lambda: os.getcwd(), {
-        'git submodule set up': putils.git_source,
-        'autoreconf freesasa': putils.freesasa_dir,
+        'git submodule set up': str(putils.git_source),
+        'autoreconf freesasa': str(putils.freesasa_dir),
         'secondary structure analysis': putils.stride_dir,
     })
     # Set up the commands in addressable order
@@ -474,8 +474,8 @@ def setup(args):
     utils.write_json(config, putils.config_file)
 
     print(f"\nSet up complete, {putils.program_name} is now operational.\n"
-          f"Run the command '{putils.program_command}' for "
-          f"usage instructions or visit '{putils.git_url}' for documentation.\n")
+          f"Run the command '{putils.program_help}' for "
+          f"usage instructions or visit '{putils.documentation_url}' for documentation.\n")
     # print(f'All {putils.program_name} files are located in {putils.git_source}')
 
 

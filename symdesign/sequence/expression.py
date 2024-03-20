@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from collections.abc import Container, Sequence
 from itertools import count
-from typing import Literal, Sequence
+from typing import Literal
 
 import numpy as np
 
@@ -247,31 +248,31 @@ def molecular_extinction_coefficient(sequence: Sequence[str | int]) -> tuple[flo
     return coef_ox, coef_red
 
 
-def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
-    # uniprot_pdb_d = SDUtils.unpickle(putils.uniprot_pdb_map)
+def get_uniprot_id_by_pdb(uniprot_pdb_d: dict[str, dict[str, Container[str]]], pdb_code: str, chain=None) -> str | None:
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
-    if chain:
+    if chain is not None:
         # pdb_code = '%s.%s' % (pdb_code, chain)
         # source = 'all'
         # Todo ensure that this works once the database is integrated
         dummy = ''
 
-    for uniprot_id in uniprot_pdb_d:
-        if pdb_code in uniprot_pdb_d[uniprot_id][source]:
+    for uniprot_id, data in uniprot_pdb_d.items():
+        if pdb_code in data[source]:
             return uniprot_id
+
     return None
 
 
 def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
                                   pdb_code: str = None, chain: str = None, **kwargs) -> list | list[dict[str, str]]:
-    """Find matching expression tags by PDB ID reference
+    """Finds matching expression tags by PDB EntryID reference
 
     Args:
         uniprot_id: The uniprot_id to query tags from
-        entity_id:
-        pdb_code: The pdb to query tags from. Requires chain argument as well
-        chain: The chain to query tags from. Requires pdb argument as well
+        entity_id: The PDB EntityID
+        pdb_code: The PDB EntryID to query tags from. If used, requires chain argument as well.
+        chain: The PDB ChainID to query tags from. If used, requires pdb argument as well.
 
     Keyword Args:
         alignment_length: int = 12 - The length to slice the sequence plus any identified tags
@@ -285,7 +286,7 @@ def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
     if entity_id is None:
         entity_ids = []
         if pdb_code and chain:
-            uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
+            uniprot_id = get_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
             if uniprot_id is None:
                 logger.error(f"The 'pdb_code'.'chain' combination '{pdb_code}.{chain}' found no valid identifiers")
                 return matching_pdb_tags

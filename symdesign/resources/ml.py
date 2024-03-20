@@ -11,18 +11,21 @@ import traceback
 from collections.abc import Callable, Container, Iterable, Sequence, MutableMapping
 from math import ceil
 from typing import Annotated, Any, Literal, Type
-
-import jax.numpy as jnp
-import numpy as np
-import torch
+from importlib.resources import files
 
 from alphafold.model import config as afconfig, data as afdata
 from alphafold.common import protein as afprotein, residue_constants
-from .config import relax_options_literal
+import jax.numpy as jnp
+import numpy as np
+import proteinmpnn
 from proteinmpnn.protein_mpnn_utils import ProteinMPNN
+import torch
+
+from .config import relax_options_literal
 from symdesign.sequence import numerical_translation_alph1_unknown_bytes
 from symdesign import utils
 putils = utils.path
+
 FeatureDict = MutableMapping[str, np.ndarray]
 logger = logging.getLogger(__name__)
 proteinmpnn_default_translation_table = numerical_translation_alph1_unknown_bytes
@@ -182,12 +185,14 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
         setup: A Callable which should be called before the batches are executed to produce data that is passed to the
             function. The first argument of this Callable should be batch_length
         compute_failure_exceptions: A tuple of possible exceptions which upon raising should be allowed to restart
+
     Decorated Callable Args:
         args: The arguments to pass to the function
         kwargs: Keyword Arguments to pass to the decorated Callable
         setup_args: Arguments to pass to the setup Callable
         setup_kwargs: Keyword Arguments to pass to the setup Callable
         return_containers: dict - The key and SupportsIndex value to store decorated Callable returns inside
+
     Returns:
         The populated function_return_containers
     """
@@ -335,13 +340,12 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
 
 
 # These seem to be the same, but when loading a second model, the amount is much less, 6291456 bytes or 6 M
-vanilla_model_memory = 14680064  # 14 M
-ca_model_memory = 14680064  # 14 M
+vanilla_model_memory = ca_model_memory = 14_680_064
 
 
 class _ProteinMPNN(ProteinMPNN):
     """Implemented to instruct logging outputs"""
-    log = logging.getLogger(f'{__name__}.ProteinMPNN')
+    log = logging.getLogger(f'{__name__}.{ProteinMPNN.__name__}')
     device: torch.device
     model_name: str
 
@@ -361,8 +365,9 @@ class ProteinMPNNFactory:
     def destruct(self, **kwargs):
         self._models = {}
 
-    def __call__(self, model_name: str = 'v_48_020', backbone_noise: float = 0., ca_only: bool = False, **kwargs) \
-            -> ProteinMPNN:
+    def __call__(
+        self, model_name: str = 'v_48_020', backbone_noise: float = 0., ca_only: bool = False, **kwargs
+    ) -> ProteinMPNN:
         """Return the specified ProteinMPNN object singleton
 
         Args:
@@ -370,20 +375,21 @@ class ProteinMPNNFactory:
                 where X is neighbor distance and Y is noise
             backbone_noise: The amount of backbone noise to add to the pose during design
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+
         Returns:
             The instance of the initialized ProteinMPNN model
         """
         if ca_only:
             ca = '_ca'
             if model_name == 'v_48_030':
-                logger.error(f"No such ca_only model 'v_48_030'. Loading ca_only model 'v_48_020' (highest "
-                             f"backbone noise ca_only model) instead")
+                logger.error(f"No such 'ca_only' model 'v_48_030'. Loading ca_only model 'v_48_020' (highest "
+                             "backbone noise 'ca_only' model) instead")
                 model_name = 'v_48_020'
-            weights_dir = utils.path.protein_mpnn_ca_weights_dir
+            weights_dir = files(proteinmpnn) / 'ca_model_weights'
             required_memory = ca_model_memory
         else:
             ca = ''
-            weights_dir = utils.path.protein_mpnn_weights_dir
+            weights_dir = files(proteinmpnn) / 'vanilla_model_weights'
             required_memory = vanilla_model_memory
 
         model_name_key = f'{model_name}{ca}_{backbone_noise}'
@@ -416,7 +422,7 @@ class ProteinMPNNFactory:
             else:
                 device = torch.device('cpu')
 
-            checkpoint = torch.load(os.path.join(weights_dir, f'{model_name}.pt'), map_location=device)
+            checkpoint = torch.load(weights_dir / f'{model_name}.pt', map_location=device)
             hidden_dim = 128
             num_layers = 3
             with torch.no_grad():
@@ -435,9 +441,9 @@ class ProteinMPNNFactory:
                 model.device = device
                 model.model_name = model_name_key
 
-            model.log.info(f"ProteinMPNN model '{model_name_key}' on device '{device}' has "
-                           f'{checkpoint["num_edges"]} edges and {checkpoint["noise_level"]} Angstroms of training '
-                           'noise')
+            model.log.info(f"'{repr(model)}' on device '{device}' has "
+                           f'{checkpoint["num_edges"]} edges, {checkpoint["noise_level"]} Angstroms of training '
+                           f'noise, and {backbone_noise} Angstroms of backbone noise')
             # number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
             # logger.debug(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
@@ -641,8 +647,9 @@ def setup_pose_batch_for_proteinmpnn(batch_length: int, device, **parameters) ->
     Args:
         batch_length: The length the batch to set up
         device: The device used for batch calculations
+
     Returns:
-        A mapping of necessary containers for ProteinMPNN inference in batches and loaded to the device
+        A mapping of ProteinMPNN inference containers formatted as a batch and loaded on the specified device
     """
     # batch_length = batch_slice.stop - batch_slice.start
     # Create batch_length fixed parameter data which are the same across poses
@@ -693,9 +700,10 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         bias_by_res:
         tied_pos:
         X_unbound:
+
     Returns:
-        A mapping of the key describing to the corresponding value, i.e. sequences, complex_sequence_loss, and
-            unbound_sequence_loss
+        A mapping of the key describing a metric to the array of corresponding values,
+            i.e. sequences, complex_sequence_loss, and unbound_sequence_loss
     """
     # X = batch_parameters.pop('X', None)
     # S = batch_parameters.pop('S', None)
@@ -915,6 +923,7 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
         residue_mask:
         randn:
         decoding_order:
+
     Returns:
         A mapping of the key describing to the corresponding value, i.e. sequences, complex_sequence_loss, and
             unbound_sequence_loss
@@ -1410,7 +1419,7 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', number_of_res
     # Set up model params
     model_params = {}
     for model_name in afconfig.MODEL_PRESETS[model_type]:
-        model_param = afdata.get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)
+        model_param = afdata.get_model_haiku_params(model_name=model_name, data_dir=str(putils.alphafold_db_dir))
         if 'model_1' in model_name:
             # Using the config for model_1 as it is most similar to other models
             #  model_1/2 includes template embeddings (monomer),

@@ -26,7 +26,7 @@ if __name__ == '__main__':
     of_index = formatted_command.index(f'--{flags.output_file}')
     formatted_command.pop(of_index + 1)
     formatted_command.pop(of_index)
-    formatted_command = f"{putils.program_command} {' '.join(formatted_command)}"
+    formatted_command = f"{putils.program_exe} {' '.join(formatted_command)}"
     print(formatted_command)
     with open(args.output_file, 'w') as f:
         for i in range(args.number_of_commands):

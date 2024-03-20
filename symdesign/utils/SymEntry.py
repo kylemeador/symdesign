@@ -1330,9 +1330,9 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
 #     return lengths + angles
 
 
-highest_point_group_msg = f'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
-                          f'{MAX_SYMMETRY} in {putils.path_to_sym_utils}, then run the file using "python ' \
-                          f'{putils.path_to_sym_utils}".'
+highest_point_group_msg = 'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
+                          f"{MAX_SYMMETRY} in '{putils.symmetry_utils_path}', then run the file using " \
+                          f"'python {putils.symmetry_utils_path}'"
 example_symmetry_specification = 'RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...'
 
 

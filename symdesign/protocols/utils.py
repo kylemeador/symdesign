@@ -108,7 +108,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = catch_exceptions) -
             # distribute_protocol()
             if job.job.distribute_work:
                 # Skip any execution, instead create the command and add as job.current_script attribute
-                base_cmd = list(putils.program_command_tuple) + job.job.get_parsed_arguments()
+                base_cmd = [putils.program_exe] + job.job.get_parsed_arguments()
                 base_cmd += ['--single', job.pose_directory]
                 # cmd, *additional_cmds = getattr(job, f'get_cmd_{job.protocol}')()
                 os.makedirs(job.scripts_path, exist_ok=True)

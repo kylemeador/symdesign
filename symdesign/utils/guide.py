@@ -10,8 +10,7 @@ pose_input_scalability = \
     'This is useful for instance, if you have a single pose and this pose had 10 designs output from it, you could' \
     ' issue interface_metrics to collect metrics for each of these designs. This logic holds for 10 poses with 10' \
     ' designs each, or 100 poses, etc.'
-module_help_string = \
-    f'\nEnter:{nltb}{putils.program_command} MODULE --help\nto get help formatting program flags properly'
+module_help_string = f'\nEnter:{nltb}{putils.submodule_help}\nto get help formatting program flags properly'
 help_sentence = ' If you need guidance on structuring your job submission, include --help in any command.'
 general_rosetta_module_flags = \
     (f"If the script should be run multiple times, include the flag '{flags.format_args(flags.design_number_args)}' "
@@ -195,7 +194,7 @@ interface_design = \
 formatted_metrics = \
     pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(config.metrics.items())])
 analysis = \
-    f"After running '{putils.program_command} {flags.analysis}', the following metrics will be available for each pose"\
+    f"After running '{putils.program_exe} {flags.analysis}', the following metrics will be available for each pose"\
     f' (unique design configuration) selected for analysis:\n\t{nltb.join(formatted_metrics)}\n\nAdditionally, you' \
     ' can view the pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an' \
     ' individual pose, and [pose-id]_Residues.csv for residue specific information over the various trajectories.' \
@@ -246,30 +245,10 @@ additional = \
     f' of the organism typical cytosolic electrostatics.{module_help_string}'
 
 
-def print_guide():
+def print_readme():
     """Print the program readme file"""
     with open(putils.readme_file, 'r') as f:
         print(f.read(), end='')
-
-
-def setup_instructions():
-    instructions = \
-        f'I have done this using the {putils.conda_environment} provided to initialize the {putils.program_name}' \
-        ' environment in conda. If you are using anaconda/conda (which I recommend), ' \
-        f'"conda env create --file {putils.conda_environment}" will handle this for you. If you are using ' \
-        'something else, there is probably an easy way to ensure your virtual environment is up to speed ' \
-        f"with {putils.program_name}'s dependencies." \
-        " Next, you must add the following variable to your .bashrc " \
-        '(or .tschrc, .zshrc, etc.) so that the hhblits dependency can be correctly sourced. ' \
-        'export PATH=/home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
-        'or on .tcshrc' \
-        'setenv PATH /home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
-        'Additionally, add this path if you want to build your own scripts with any of the modules for easy import ' \
-        'into python.\n' \
-        'export PYTHONPATH=/path/to/symdesign:$PYTHONPATH or ' \
-        'setenv PYTHONPATH /path/to/symdesign:$PYTHONPATH'
-
-    print(instructions)
 
 
 hhblits_setup_instructions = f' Follow the install directions by running {putils.hhsuite_setup_command} ' \

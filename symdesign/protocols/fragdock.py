@@ -588,7 +588,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     else:
         #  score_functions = {}
         if job.dock.proteinmpnn_score:
-            weight_method = f'{putils.nanohedra}+{putils.proteinmpnn}'
+            weight_method = f'{putils.nanohedra}+{flags.proteinmpnn}'
         else:
             weight_method = putils.nanohedra
 
@@ -1053,15 +1053,8 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     #         if mismatch:
     #             investigate_mismatch()
 
-    # if job.skip_transformation:
-    #     transformation1 = unpickle(kwargs.get('transformation_file1'))
-    #     full_rotation1, full_int_tx1, full_setting1, full_ext_tx1 = transformation1.values()
-    #     transformation2 = unpickle(kwargs.get('transformation_file2'))
-    #     full_rotation2, full_int_tx2, full_setting2, full_ext_tx2 = transformation2.values()
-    # else:
-
     # Set up internal translation parameters
-    # zshift1/2 must be 2d array, thus the , 2:3].T instead of , 2].T
+    # zshift1/2 must be 2d array, thus the ", 2:3].T" instead of ", 2].T"
     # [:, None, 2] would also work
     if sym_entry.is_internal_tx1:  # Add the translation to Z (axis=1)
         full_int_tx1 = []

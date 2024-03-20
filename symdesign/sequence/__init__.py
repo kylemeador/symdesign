@@ -790,8 +790,8 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
     return orf_start_idx
 
 
-MutationEntry = TypedDict('MutationEntry', {'to': protein_letters_literal,
-                                            'from': protein_letters_literal})
+MutationEntry = TypedDict('MutationEntry',
+                          {'to': protein_letters_literal, 'from': protein_letters_literal})
 """Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'."""
 mutation_dictionary = dict[int, MutationEntry]
 """The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
@@ -944,8 +944,9 @@ def generate_multiple_mutations(
     return mutations
 
 
-def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[str, Sequence[str]], **kwargs) -> \
-        dict[str, mutation_dictionary | sequence_dictionary]:
+def generate_mutations_from_reference(
+    reference: Sequence[protein_letters_literal], sequences: dict[str, Sequence[str]], **kwargs
+) -> dict[str, mutation_dictionary | sequence_dictionary]:
     """Generate mutation data from multiple alias mapped sequence dictionaries with regard to a single reference.
 
     Defaults to returning only mutations (return_all=False) and forgoes any sequence alignment (offset=False)
@@ -980,10 +981,10 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
 
     # Add the reference sequence to mutation data
     if kwargs.get('return_to') or kwargs.get('return_from'):
-        mutations[putils.reference_name] = dict(enumerate(reference, 0 if kwargs.get('zero_index') else 1))
+        mutations[putils.reference] = dict(enumerate(reference, 0 if kwargs.get('zero_index') else 1))
     else:
-        mutations[putils.reference_name] = \
-            {sequence_idx: {'from': aa, 'to': aa}
+        mutations[putils.reference] = \
+            {sequence_idx: MutationEntry(**{'from': aa, 'to': aa})
              for sequence_idx, aa in enumerate(reference, 0 if kwargs.get('zero_index') else 1)}
 
     return mutations
