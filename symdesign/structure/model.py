@@ -2765,6 +2765,10 @@ class SymmetryOpsMixin(abc.ABC):
         """
         # surrounding_uc: bool = True
         #   surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        if coords.size == 0:
+            self.log.warning(f"Can't '{self.return_symmetric_coords.__name__}' without passing any coordinates")
+            return np.array([])
+
         if self.dimension > 0:
             if self.is_surrounding_uc():
                 shift_3d = [0., 1., -1.]

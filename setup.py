@@ -7,7 +7,10 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from importlib.resources import files
 from pathlib import Path
+
+import alphafold
 
 from symdesign import utils
 putils = utils.path
@@ -113,9 +116,9 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
 
     # Download the stereo chemical props file and copy to the correct place
     # shutil.mkdir -p /alphafold/alphafold/common
-    os.makedirs(putils.alphafold_common_dir, exist_ok=True)
-    # shutil.copy('stereo_chemical_props.txt', putils.alphafold_common_dir)
-    download_chem_cmd = ['wget', '-q', '-P', putils.alphafold_common_dir,
+    alphafold_common_dir = files(alphafold.common)  # / 'alphafold' / 'common'
+    os.makedirs(alphafold_common_dir, exist_ok=True)
+    download_chem_cmd = ['wget', '-q', '-P', str(alphafold_common_dir),
                          'https://git.scicore.unibas.ch/schwede/openstructure/-/raw/'
                          '7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt']
     logger.debug(f'Download stereo chemical props command:\n\t{subprocess.list2cmdline(download_chem_cmd)}')
@@ -129,24 +132,6 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     # Todo If using the env version...
     # shutil.mkdir -p conda/lib/python3.8/site-packages/alphafold/common/
     # shutil.copy('/content/stereo_chemical_props.txt /opt/conda/lib/python3.8/site-packages/alphafold/common/
-
-    # # Make the openmm patch
-    # conda_env_path = os.environ['CONDA_PREFIX']
-    # vers = sys.version_info
-    # openmm_path = os.path.join(conda_env_path, 'lib', f'python{vers.major}.{vers.minor}', 'site-packages')
-    #
-    # os.chdir(openmm_path)
-    # patch_openmm_cmd = ['patch', '-p0', f'--input={putils.alphafold_openmm_patch}']
-    # # '<', putils.alphafold_openmm_patch]
-    # logger.debug(f'patch command:\n\t{subprocess.list2cmdline(patch_openmm_cmd)}')
-    # if dry_run:
-    #     pass
-    # else:
-    #     # with open(putils.alphafold_openmm_patch, 'rb') as f:
-    #     #     path_lines = f.read()
-    #     patch_p = subprocess.Popen(patch_openmm_cmd)  # , stdin=subprocess.PIPE)
-    #     patch_out, patch_err = patch_p.communicate()  # input=path_lines)  # .encode('utf-8'))
-    #     logger.debug(f'patch stdout:\n{patch_out}\n\ndownload stderr:\n{patch_err}')
 
     return downloaded_file
 
@@ -360,7 +345,7 @@ def setup(args):
                 rosetta_make = utils.query.validate_input(
                     'Did you make Rosetta with any particular build? This is usually a string of '
                     'characters that are a suffix to each of the executables in the '
-                    f'{putils.rosetta_default_bin} directory', make_types)
+                    f'{putils.rosetta_default_bin_path} directory', make_types)
                 if rosetta_env_variable == '':
                     rosetta_env_variable = search_env_for_variable(putils.rosetta)
                 break

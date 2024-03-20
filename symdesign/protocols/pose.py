@@ -1817,9 +1817,9 @@ class PoseProtocol(PoseData):
                 #     with open(path, 'w') as f:
                 #         f.write(structure)
 
-        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> tuple[list[float], str]:
-            """Use the CB coords to calculate the RMSD and find the best Structure instance from a group of Alphafold
-            models and transform that model to the Pose coordinates
+        def _find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> tuple[list[float], str]:
+            """Use the CB coords to calculate the RMSD to template coordinates. Find the lowest RMSD Structure
+            and transform to the template coordinates
 
             Returns:
                 The calculated rmsds, and the name of the model with the minimal rmsd
@@ -1921,8 +1921,8 @@ class PoseProtocol(PoseData):
 
             putils.make_path(self.designs_path)
             model_names = []
-            asu_design_structures = []  # structure_by_design = {}
-            asu_design_scores = {}  # []  # scores_by_design = {}
+            design_poses_from_asu = []
+            asu_design_scores = {}
             for design, sequence in sequences.items():
                 this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                 logger.debug(f'Found this_seq_features:\n\t%s'
@@ -1946,19 +1946,20 @@ class PoseProtocol(PoseData):
                 asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=design.name, **pose_kwargs)
                               for model_name, structure in structures_to_load.items()}
                 # Because the pdb_lines aren't oriented, must handle orientation of incoming files to match sym_entry
-                # This is handled in find_model_with_minimal_rmsd(), however, the symmetry isn't set up correctly, i.e.
-                # we need to pose.make_oligomers() in the correct orientation
+                # This is handled in _find_model_with_minimal_rmsd(), however, the symmetry isn't set up correctly, i.e.
+                # call pose.make_oligomers() in the correct orientation.
                 # Do this all at once after every design
                 if relaxed:  # Set b-factor data as relaxed get overwritten
                     for model_name, model in asu_models.items():
                         model.set_b_factor_data(asu_scores[model_name]['plddt'][:number_of_residues])
-                # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-                # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+
+                # Check for the prediction rmsd between the cb coords of the Entity Model and Alphafold Model
+                rmsds, minimum_model = _find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
                 if minimum_model is None:
-                    self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
+                    raise DesignError(
+                        f"Couldn't find the asu model with the minimal rmsd for Design {design}")
                 # Append each ASU result to the full return
-                asu_design_structures.append(asu_models[minimum_model])
+                design_poses_from_asu.append(asu_models[minimum_model])
                 model_names.append(minimum_model)
                 # structure_by_design[design].append(asu_models[minimum_model])
                 # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
@@ -1976,36 +1977,32 @@ class PoseProtocol(PoseData):
                 """
 
             # Write the folded structure to designs_path and update DesignProtocols
-            for idx, (design_data, pose) in enumerate(zip(sequences.keys(), asu_design_structures)):
+            for idx, (design_data, pose) in enumerate(zip(sequences.keys(), design_poses_from_asu)):
                 design_data.structure_path = \
                     pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
                 design_data.protocols.append(
                     sql.DesignProtocol(design_id=design_data.id, job_id=self.job.id, protocol=self.protocol,
                                        alphafold_model=model_names[idx], file=design_data.structure_path)
                 )
-                # # This corrects the oligomeric specification for each Entity
-                # # by using the inherent _assign_pose_transformation()
-                # pose.make_oligomers()
-                # This would explicitly pass the transformation parameters which are correct for the PoseJob
-                # for entity in pose.entities:
-                #     entity.remove_mate_chains()
                 if debug_entities_and_oligomers:
+                    # Explicitly pass the transformation parameters which are correct for the PoseJob
                     pose.make_oligomers(transformations=self.transformations)
                     pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
-                    pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
+                    pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'),
+                               assembly=True)
                     for entity in pose.entities:
-                        entity.write(
-                            out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
-                        entity.write(assembly=True,
-                                     out_path=os.path.join(self.designs_path,
-                                                           f'{pose.name}{entity.name}-oligomer-check.pdb'))
+                        entity.write(out_path=os.path.join(self.designs_path,
+                                                           f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
+                        entity.write(out_path=os.path.join(self.designs_path,
+                                                           f'{pose.name}{entity.name}-oligomer-check.pdb'),
+                                     assembly=True)
 
             # Using the 2-fold aware pose.interface_residues_by_interface
             interface_indices = tuple([residue.index for residue in residues]
                                       for residues in self.pose.interface_residues_by_interface.values())
             # All index are based on design.name
-            residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
-            designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
+            residues_df = self.analyze_residue_metrics_per_design(design_poses_from_asu)
+            designs_df = self.analyze_design_metrics_per_design(residues_df, design_poses_from_asu)
             predict_designs_df, predict_residues_df = \
                 self.analyze_alphafold_metrics(asu_design_scores, number_of_residues,
                                                model_type=model_type, interface_indices=interface_indices)
@@ -2045,7 +2042,7 @@ class PoseProtocol(PoseData):
                 [idx for _, idx in sorted(entity_number_of_residues, key=lambda pair: pair[0], reverse=True)]
             sorted_entities_and_data = [(entities[idx], self.entity_data[idx])
                                         for idx in entity_idx_sorted_residue_number_highest_to_lowest]
-            entity_structure_by_design = {design: [] for design in sequences}
+            entity_structure_by_design: dict[str, list[ContainsEntities]] = defaultdict(list)
             entity_design_dfs = []
             entity_residue_dfs = []
             for entity, entity_data in sorted_entities_and_data:
@@ -2098,7 +2095,7 @@ class PoseProtocol(PoseData):
                     # else:
                     structures_to_load = entity_structures.get('unrelaxed', [])
 
-                    design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **entity_model_kwargs)
+                    design_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), **entity_model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
                     # if relaxed:  # Set b-factor data as relaxed get overwritten
                     #     type_str = ''
@@ -2112,8 +2109,7 @@ class PoseProtocol(PoseData):
                     # output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
                     # Also, perform an alignment to the pose Entity
-                    rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
-                    # rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
+                    rmsds, minimum_model = _find_model_with_minimal_rmsd(design_models, entity_cb_coords)
                     if minimum_model is None:
                         raise DesignError(
                             f"Couldn't find the Entity {entity.name} model with the minimal rmsd for Design {design}")
@@ -2164,27 +2160,26 @@ class PoseProtocol(PoseData):
 
             # Try to perform an analysis of the separated versus the combined prediction
             if self.job.predict.designs:
-                # Reorder the entity structures
-                for design, entity_structs in entity_structure_by_design.items():
-                    entity_structure_by_design[design] = \
-                        [entity_structs[idx] for idx in entity_idx_sorted_residue_number_highest_to_lowest]
                 # Combine Entity structure to compare with the Pose prediction
-                entity_design_structures = [
-                    Pose.from_entities([entity for model in entity_models for entity in model.entities],
-                                       name=design.name, **pose_kwargs)
-                    for design, entity_models in entity_structure_by_design.items()
-                ]
+                design_pose_from_entities = []
+                for design, entity_structs in entity_structure_by_design.items():
+                    # Reorder the entity structures as before AF compile
+                    entity_models = [entity_structs[idx] for idx in entity_idx_sorted_residue_number_highest_to_lowest]
+                    _pose = Pose.from_entities([entity for model in entity_models for entity in model.entities],
+                                               name=design.name, **pose_kwargs)
+                    design_pose_from_entities.append(_pose)
                 # Combine Entity scores to compare with the Pose prediction
-                for residue_df, entity in zip(entity_residue_dfs, self.pose.entities):
+                for residue_df, entity in zip(entity_residue_dfs, entities):
                     # Rename the residue_indices along the top most column of DataFrame
-                    residue_df.columns = \
-                        residue_df.columns.set_levels(list(range(entity.n_terminal_residue.index,
-                                                                 1 + entity.c_terminal_residue.index)),
-                                                      level=0)
-                    # residue_df.rename(columns=dict(zip(range(entity.number_of_residues),
-                    #                                    range(entity.n_terminal_residue.index,
-                    #                                          entity.c_terminal_residue.index)
-                    #                                    )))
+                    residue_df.columns = residue_df.columns.set_levels(
+                        list(range(entity.n_terminal_residue.index,
+                                   1 + entity.c_terminal_residue.index)),
+                        level=0
+                    )
+                # residue_df.rename(columns=dict(zip(range(entity.number_of_residues),
+                #                                    range(entity.n_terminal_residue.index,
+                #                                          entity.c_terminal_residue.index)
+                #                                    )))
                 entity_residues_df = pd.concat(entity_residue_dfs, axis=1)
                 try:
                     self.log.info('Testing the addition of entity_designs_df. They were not adding correctly without '
@@ -2223,8 +2218,8 @@ class PoseProtocol(PoseData):
                     # scores = {}
                     rmsds = []
                     for idx, design in enumerate(sequences):
-                        entity_pose = entity_design_structures[idx]
-                        asu_model = asu_design_structures[idx]
+                        entity_pose = design_pose_from_entities[idx]
+                        asu_model = design_poses_from_asu[idx]
                         # Find the RMSD between each type
                         rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords,
                                                         entity_pose.backbone_and_cb_coords)
@@ -2445,7 +2440,7 @@ class PoseProtocol(PoseData):
                 nstruct_instruct = ['-no_nstruct_label', 'true']
                 # Set up an additional command to perform interface design on hydrogen bond network from hbnet_scout
                 additional_cmds = \
-                    [[putils.hbnet_sort, os.path.join(self.data_path, 'hbnet_silent.o'),
+                    [[str(putils.hbnet_sort), os.path.join(self.data_path, 'hbnet_silent.o'),
                       str(self.job.design.number)]] \
                     + [main_cmd + profile_cmd
                        + ['-in:file:silent', os.path.join(self.data_path, 'hbnet_selected.o'), f'@{self.flags}',
@@ -2668,9 +2663,12 @@ class PoseProtocol(PoseData):
         Returns:
             The new instances of the sql.DesignProtocol
         """
-        metadata = [sql.DesignProtocol(
-            design_id=design_id, job_id=self.job.id, protocol=protocol, temperature=temperature, file=file)
-                    for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
+        metadata = [
+            sql.DesignProtocol(
+                design_id=design_id, job_id=self.job.id, protocol=protocol, temperature=temperature, file=file
+            )
+            for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)
+        ]
         return metadata
 
     def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:
@@ -5093,7 +5091,6 @@ class PoseProtocol(PoseData):
             # Commit the newly acquired metrics
             session.commit()
 
-        # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseJob(.path)
         write_sequences(pose_sequences, file_name=self.designed_sequences_file)
 
         # Create figures
