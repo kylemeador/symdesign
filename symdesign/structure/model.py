@@ -6327,12 +6327,12 @@ class Pose(SymmetricModel, MetricsMixin):
         if core_first:
             raise NotImplementedError("'core_first' isn't available yet")
         else:  # random decoding order
-            decode_order = np.random.rand(pose_length)
+            randn = np.random.rand(pose_length)
 
         if to_device is None:
-            return decode_order
+            return randn
         else:
-            return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
+            return torch.from_numpy(randn).to(dtype=torch.float32, device=to_device)
 
     def get_proteinmpnn_unbound_coords(self, ca_only: bool = False) -> np.ndarray:
         """Translate the coordinates along z in increments of 1000 to separate coordinates
@@ -6483,7 +6483,7 @@ class Pose(SymmetricModel, MetricsMixin):
             # parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
             # decoding_order = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
             # Solve decoding order
-            parameters['decoding_order'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+            parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 
             @ml.batch_calculation(size=size, batch_length=batch_length,
                                   setup=ml.setup_pose_batch_for_proteinmpnn,

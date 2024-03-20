@@ -3824,6 +3824,22 @@ class PoseProtocol(PoseData):
             # Commit the newly acquired metrics
             session.commit()
 
+    # def analyze_pose_metrics_per_design(self, residues_df: pd.DataFrame, designs_df: pd.DataFrame = None,
+    #                                     designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
+    #     """Perform Pose level analysis on every design produced from this Pose
+    #
+    #     Args:
+    #         residues_df: The typical per-residue metric DataFrame where each index is the design id and the columns are
+    #             (residue index, residue metric)
+    #         designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
+    #             design metrics
+    #         designs: The subsequent designs to perform analysis on
+    #     Returns:
+    #         Series containing summary metrics for all designs
+    #     """
+    #     self.load_pose()
+    #
+    #     return pose_s
 
     def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array])\
             -> tuple[pd.DataFrame, pd.DataFrame]:
