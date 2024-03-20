@@ -1047,7 +1047,7 @@ class StructureBase(SymmetryBase, CoordinateOpsMixin, ABC):
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute .spawn to indicate to dependents their "copies" parent is "other"
             self.spawn = other
-            other__dict__[_parent_variable] = other  # None
+            other__dict__[_parent_variable] = None
             try:
                 for attr in _new_parent_attributes:
                     other__dict__[attr] = self.__dict__[attr].copy()
