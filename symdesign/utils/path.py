@@ -27,7 +27,6 @@ except subprocess.CalledProcessError:
 program_name = 'SymDesign'
 program_exe = git_source.name  # Exported at setup, essentially where __main__.py is located
 conda_env_path = git_source / 'env.yml'
-# logging_cfg_file = os.path.join(python_source, 'logging.cfg')
 config_file = python_source / 'cfg.json'
 program_help = f'{program_exe} --help'
 program_guide = f'{program_exe} --guide'
@@ -219,68 +218,6 @@ issue_submit_warning = f' If problems still persist, please submit an issue at {
 symmetry_documentation_url = 'https://kylemeador.github.io/symdesign/#symmetry'
 see_symmetry_documentation = f' See the documentation on symmetry: {symmetry_documentation_url}'
 report_issue = f' Please report this at {git_issue_url}'
-
-logging_cfg = {
-    'version': 1,
-    'formatters': {
-        'standard': {
-            'class': 'logging.Formatter',
-            'format': '\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}',
-            'style': '{'
-        },
-        'file_standard': {
-            'class': 'logging.Formatter',
-            'format': '{name}-{levelname}: {message}',
-            'style': '{'
-        },
-        'none': {
-            'class': 'logging.Formatter',
-            'format': '{message}',
-            'style': '{'
-        }
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
-            'formatter': 'standard',
-            'stream': sys.stdout,
-        },
-        'main_file': {
-            'class': 'logging.FileHandler',
-            'level': 'DEBUG',
-            'mode': 'a',
-            'formatter': 'file_standard',
-            'filename': f'{program_name.upper()}.log',
-        },
-        'null': {
-            'class': 'logging.NullHandler',
-        },
-    },
-    'loggers': {
-        program_name.lower(): {
-            'level': 'INFO',  # 'WARNING',
-            'handlers': ['console'],  # , 'main_file'],
-            'propagate': 'no'
-        },
-        'orient': {
-            'level': 'INFO',  # 'WARNING',
-            'handlers': ['console'],  # , 'main_file'],
-            'propagate': 'no'
-        },
-        'null': {
-            'level': 'WARNING',
-            'handlers': ['null'],
-            'propagate': 'no'
-        }
-    },
-    'root': {
-        'level': 'INFO',
-        'handlers': ['null'],
-        # Can't include any stream or file handlers from above as the handlers get added to configuration twice
-    },
-}
-default_logging_level = 20
 
 
 def make_path(path: AnyStr, condition: bool = True):

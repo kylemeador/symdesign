@@ -20,14 +20,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import lazyload
 
-try:
-    from memory_profiler import profile
-    profile_error = None
-except ImportError as profile_error:
-    profile = None
-
+import symdesign.utils.logging
 import symdesign.utils.path as putils
-logging.config.dictConfig(putils.logging_cfg)
+logging.config.dictConfig(symdesign.utils.logging.cfg)
 logger = logging.getLogger(putils.program_name.lower())
 
 from symdesign import flags, protocols, utils
