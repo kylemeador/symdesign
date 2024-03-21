@@ -369,18 +369,20 @@ class FragmentDatabaseFactory:
             if token == RELOAD_DB:
                 return None
             try:
-                self._databases[source] = utils.unpickle(putils.biological_fragment_db_pickle)
+                fragment_db = utils.unpickle(putils.biological_fragment_db_pickle)
             except (ModuleNotFoundError, FileNotFoundError):
-                raise RuntimeError(
-                    f"Couldn't access the serialized {FragmentDatabase.__name__} which is required for operation. "
-                    f"Please reload this by executing '{putils.pickle_program_requirements_cmd}'")
+                from symdesign.data.pickle_structure_dependencies import main as pickle_deps
+                logger.warning("Creating the fragment database from files. This is a one time build...")
+                pickle_deps()
+                fragment_db = utils.unpickle(putils.biological_fragment_db_pickle)
         else:
-            self._databases[source] = FragmentDatabase(source=source, **kwargs)
+            fragment_db = FragmentDatabase(source=source, **kwargs)
 
         logger.info(f'Initializing {FragmentDatabase.__name__}({source})')
         # Attach the EulerLookup singleton
-        self._databases[source].euler_lookup = euler_factory()
+        fragment_db.euler_lookup = euler_factory()
 
+        self._databases[source] = fragment_db
         return self._databases[source]
 
     def get(self, **kwargs) -> FragmentDatabase:

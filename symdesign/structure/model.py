@@ -176,9 +176,9 @@ class MetricsMixin(abc.ABC):
 class ParseStructureMixin(abc.ABC):
 
     @classmethod
-    def from_file(cls, file: AnyStr, **kwargs):
+    def from_file(cls, file: AnyStr | os.PathLike, **kwargs):
         """Create a new Structure from a file with Atom records"""
-        if '.pdb' in file:
+        if '.pdb' in (file := str(file)):
             return cls.from_pdb(file, **kwargs)
         elif '.cif' in file:
             return cls.from_mmcif(file, **kwargs)
@@ -189,7 +189,7 @@ class ParseStructureMixin(abc.ABC):
                 'from_mmcif()) if the file extension is nonsense, but the file format is respected.')
 
     @classmethod
-    def from_pdb(cls, file: AnyStr, **kwargs):
+    def from_pdb(cls, file: AnyStr | os.PathLike, **kwargs):
         """Create a new Structure from a .pdb formatted file"""
         data = read_pdb_file(file, **kwargs)
         return cls._finish(cls(file_path=file, **data))
@@ -201,7 +201,7 @@ class ParseStructureMixin(abc.ABC):
         return cls._finish(cls(**data))
 
     @classmethod
-    def from_mmcif(cls, file: AnyStr, **kwargs):
+    def from_mmcif(cls, file: AnyStr | os.PathLike, **kwargs):
         """Create a new Structure from a .cif formatted file"""
         data = read_mmcif_file(file, **kwargs)
         return cls._finish(cls(file_path=file, **data))

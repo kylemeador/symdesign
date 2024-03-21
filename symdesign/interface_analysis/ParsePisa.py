@@ -13,6 +13,7 @@ from lxml import etree, html
 from requests import get, post
 
 from symdesign import utils
+from symdesign.structure import Model, Structure
 
 logger = logging.getLogger(__name__)
 
