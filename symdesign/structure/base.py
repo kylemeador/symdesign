@@ -4979,12 +4979,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         Returns:
             Overall Errat score, Errat value/residue array
         """
-        # name = 'errat_input-%s-%d.pdb' % (self.name, random() * 100000)
-        # current_struc_file = self.write(out_path=os.path.join(out_path, name))
-        # errat_cmd = [putils.errat_exe_path, os.path.splitext(name)[0], out_path]  # for writing file first
-        # os.system('rm %s' % current_struc_file)
         out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing "/"
-        errat_cmd = [putils.errat_exe_path, out_path]  # for passing atoms by stdin
+        errat_cmd = [str(putils.errat_exe_path), out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
         # logger.info(self.get_atom_record()[:120])

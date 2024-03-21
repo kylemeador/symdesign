@@ -5,7 +5,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 from collections.abc import Sequence
 from glob import glob
 from pathlib import Path
@@ -98,28 +97,26 @@ models_to_multimodel_exe = os.path.join(tools, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(tools, 'list_files_in_directory.py')
 distributer_tool = os.path.join(tools, 'distribute.py')
 hbnet_sort = binary_dir / 'sort_hbnet_silent_file_results.sh'
-data_dir = os.path.join(python_source, data)
-pickle_program_requirements = os.path.join(data_dir, 'pickle_structure_dependencies.py')
+data_dir = python_source / data
+pickle_program_requirements = data_dir / 'pickle_structure_dependencies.py'
 pickle_program_requirements_cmd = f'python {pickle_program_requirements}'
 binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
-reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
+reference_aa_file = data_dir / 'AAreference.pdb'
 # reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')
-reference_residues_pkl = os.path.join(data_dir, 'AAreferenceResidues.pkl')
-uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
+reference_residues_pkl = data_dir / 'AAreferenceResidues.pkl'
+uniprot_pdb_map = data_dir / '200121_UniProtPDBMasterDict.pkl'
 # filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
-affinity_tags = os.path.join(data_dir, 'affinity-tags.csv')
-database = os.path.join(data_dir, 'databases')
+affinity_tags = data_dir / 'affinity-tags.csv'
+database = data_dir / 'databases'
 pdb_db = os.path.join(database, 'pdbDB')
 """Local copy of the PDB database"""
-pisa_db = os.path.join(database, 'pisaDB')
-"""Local copy of the PISA database"""
 # Todo
 #  qsbio = os.path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
 # qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
-qs_bio = os.path.join(data_dir, 'QSbioHighConfidenceAssemblies.pkl')
-qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
+qs_bio = data_dir / 'QSbioHighConfidenceAssemblies.pkl'
+qs_bio_monomers_file = data_dir / 'QSbio_Monomers.csv'
 # Fragment Database
-fragment_db = os.path.join(database, 'fragment_db')
+fragment_db = database / 'fragment_db'
 biological_interfaces = 'biological_interfaces'
 bio = 'bio'
 xtal = 'xtal'
@@ -127,13 +124,13 @@ bio_xtal = 'bio_xtal'
 fragment_dbs = [biological_interfaces,
                 # bio, xtal, bio_xtal
                 ]
-biological_fragment_db = os.path.join(fragment_db, biological_interfaces)  # TODO change this directory style
+biological_fragment_db = os.path.join(fragment_db, biological_interfaces)
 biological_fragment_db_pickle = os.path.join(fragment_db, f'{biological_interfaces}.pkl')
 bio_fragment_db = os.path.join(fragment_db, bio)
 xtal_fragment_db = os.path.join(fragment_db, xtal)
-full_fragment_db = os.path.join(fragment_db, bio+xtal)
+full_fragment_db = os.path.join(fragment_db, bio_xtal)
 frag_directory = {biological_interfaces: biological_fragment_db, bio: bio_fragment_db, xtal: xtal_fragment_db,
-                  bio+xtal: full_fragment_db}
+                  bio_xtal: full_fragment_db}
 # Nanohedra Specific
 monofrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top5MonoFragClustersRepresentativeCentered')
 intfrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top75percent_IJK_ClusterRepresentatives_1A')
@@ -145,14 +142,12 @@ third_party_dir = python_source / 'third_party'
 freesasa_dir = third_party_dir / 'freesasa'
 freesasa_exe_path = freesasa_dir / 'src' / 'freesasa'
 freesasa_config_path = dependency_dir / 'freesasa-2.0.config'
-
-orient_exe_dir = os.path.join(dependency_dir, 'orient')
-orient_exe = 'orient_oligomer'
-orient_exe_path = os.path.join(orient_exe_dir, orient_exe)
+orient_dir_path = dependency_dir / 'orient'
+orient_exe_path = orient_dir_path / 'orient_oligomer'
 orient_log_file = 'orient_oligomer_log.txt'
-errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
-errat_residue_source = os.path.join(dependency_dir, 'errat', 'errat_every_residue.cpp')
-stride_dir = os.path.join(dependency_dir, 'stride')
+errat_exe_path = dependency_dir / 'errat' / 'errat'
+errat_residue_path = dependency_dir / 'errat'/ 'errat_every_residue.cpp'
+stride_dir = dependency_dir / 'stride'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
 ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
@@ -173,16 +168,6 @@ except FileNotFoundError:  # May be running setup.py or this wasn't installed pr
               'af_params': ''}
     logger.debug(f"Couldn't find the config file '{config_file}'. Setting default config:\n"
                  f"{', '.join(f'{k}={v}' for k, v in config.items())}")
-    # pass
-
-
-# def get_hhblits_exe():
-#     # hhblits_exe_out = shutil.which(hhblits)
-#     return shutil.which(hhblits)
-#     # p = subprocess.Popen(['which', 'hhblits'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-#     # hhblits_exe_out, err = p.communicate()
-#     # return hhblits_exe_out.decode('utf-8').strip()
-
 
 def get_uniclust_db() -> str:
     """Get the newest UniClust file by sorting alphanumerically"""

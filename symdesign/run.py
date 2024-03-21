@@ -37,7 +37,6 @@ from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
 from symdesign.structure import Entity, Pose
 from symdesign.structure.utils import StructureException
-import symdesign.utils.guide
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],
@@ -1736,6 +1735,11 @@ def main():
             protocol = getattr(protocols, flags.format_from_cmdline(job.module))
             if job.development:
                 if job.profile_memory:
+                    try:
+                        from memory_profiler import profile
+                        profile_error = None
+                    except ImportError as profile_error:
+                        profile = None
                     if profile:
                         # Run the profile decorator from memory_profiler
                         # Todo insert into the bottom most decorator slot

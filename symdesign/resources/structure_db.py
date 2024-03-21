@@ -97,7 +97,6 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
     Returns:
         The path to the file if located successfully
     """
-    # if location == putils.pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
         # ^ Cassini format
@@ -1116,15 +1115,15 @@ class StructureDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed')
         else:
-            pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
+            pdb_dir = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(source, 'stride')
             putils.make_path(stride_dir)
-            # pdbs subdirectories
-            orient_dir = os.path.join(pdbs, 'oriented')
-            orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
-            refine_dir = os.path.join(pdbs, 'refined')
-            full_model_dir = os.path.join(pdbs, 'full_models')
+            # pdb_dir subdirectories
+            orient_dir = os.path.join(pdb_dir, 'oriented')
+            orient_asu_dir = os.path.join(pdb_dir, 'oriented_asu')
+            refine_dir = os.path.join(pdb_dir, 'refined')
+            full_model_dir = os.path.join(pdb_dir, 'full_models')
             putils.make_path(orient_dir)
             putils.make_path(orient_asu_dir)
             putils.make_path(refine_dir)
@@ -1132,7 +1131,7 @@ class StructureDatabaseFactory:
             logger.info(f'Initializing {StructureDatabase.__name__}({source})')
 
             self._database = \
-                StructureDatabase(pdbs, full_model_dir, orient_dir, orient_asu_dir, refine_dir, stride_dir, sql=None)
+                StructureDatabase(pdb_dir, full_model_dir, orient_dir, orient_asu_dir, refine_dir, stride_dir, sql=None)
 
         return self._database
 

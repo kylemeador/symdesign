@@ -1624,8 +1624,8 @@ class ContainsChains(ContainsStructures):
             raise SymmetryError(
                 f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
 
-        orient_input = Path(putils.orient_exe_dir, 'input.pdb')
-        orient_output = Path(putils.orient_exe_dir, 'output.pdb')
+        orient_input = putils.orient_dir_path / 'input.pdb'
+        orient_output = putils.orient_dir_path / 'output.pdb'
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
@@ -1644,9 +1644,9 @@ class ContainsChains(ContainsStructures):
             self.write(**orient_kwargs)
 
         name = self.name
-        p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, cwd=putils.orient_exe_dir)
-        in_symm_file = os.path.join(putils.orient_exe_dir, 'symm_files', symmetry)
+        p = subprocess.Popen([str(putils.orient_exe_path)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, cwd=putils.orient_dir_path)
+        in_symm_file = os.path.join(putils.orient_dir_path, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         self.log.debug(name + stdout.decode()[28:])
         self.log.debug(stderr.decode()) if stderr else None
@@ -1659,7 +1659,7 @@ class ContainsChains(ContainsStructures):
                 f': {stderr.decode()}' if stderr else ''
             clean_orient_input_output()
             raise StructureException(
-                f"{putils.orient_exe_path} couldn't orient {name}{log_message}")
+                f"'{putils.orient_exe_path}' couldn't orient {name}{log_message}")
 
         oriented_pdb = Model.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]

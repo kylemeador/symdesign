@@ -329,15 +329,15 @@ class JobResources:
         self.uniprot_api = self.api_db.uniprot.location
         # data subdirectories
         self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
-        # pdbs subdirectories
         self.structure_db = structure_db.structure_database_factory.get(
             source=os.path.join(self.data, 'StructureInfo'))
-        self.pdbs = self.structure_db.models.location  # Used to store downloaded PDB's
+        self.pdb_dir = self.structure_db.models.location  # Used to store downloaded PDB's
+        # pdb_dir subdirectories
         self.orient_dir = self.structure_db.oriented.location
         self.orient_asu_dir = self.structure_db.oriented_asu.location
         self.refine_dir = self.structure_db.refined.location
         self.full_model_dir = self.structure_db.full_models.location
-        self.stride_dir = self.structure_db.stride.location
+        self.stride_db_dir = self.structure_db.stride.location
 
         # Set the job instance on these db objects
         self.api_db.job = self

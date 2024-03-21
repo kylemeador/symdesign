@@ -7,7 +7,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from itertools import repeat
-from typing import Literal
+from typing import AnyStr, Literal
 
 from lxml import etree, html
 from requests import get, post
@@ -17,6 +17,8 @@ from symdesign import utils
 logger = logging.getLogger(__name__)
 
 # Globals
+PISA_DB = os.path.join(utils.path.database, 'pisaDB')
+"""Local copy of the PISA database"""
 # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
 pisa_ref_d = {'multimers': {'ext': 'multimers.xml', 'source': 'pisa', 'mod': ''},
               'interfaces': {'ext': 'interfaces.xml', 'source': 'pisa', 'mod': ''},
@@ -375,7 +377,7 @@ def parse_pisa_interfaces_xml(file_path):
     return interface_d, chain_residue_d
 
 
-def retrieve_pisa_file_path(pdb_code, directory=utils.path.pisa_db, pisa_data_type='pisa'):
+def retrieve_pisa_file_path(pdb_code, directory=PISA_DB, pisa_data_type='pisa'):
     """Returns the PISA path that corresponds to the PDB code from the local PISA Database.
     Attempts a download if the files are not found
     """
@@ -547,7 +549,7 @@ def extract_xtal_interfaces(pdb_path):  # unused
         interface_pdb.write(pdb_path + interface + '.pdb')
 
 
-def parse_pisas(pdb_code, out_path=utils.path.pisa_db):  #  download=False,
+def parse_pisas(pdb_code: str, out_path: AnyStr = PISA_DB):  #  download=False,
     """Parse PISA files for a given PDB code"""
     # files = ['multimers', 'interfaces']
     # if download:

@@ -377,14 +377,14 @@ def setup(args):
     #  Required PREINSTALL CHECK
     #  sudo apt install gfortran
     # Todo silence gfortran warnings
-    orient_comple_cmd = ['gfortran', '-o', putils.orient_exe_path, f'{putils.orient_exe_path}.f']
+    orient_comple_cmd = ['gfortran', '-o', str(putils.orient_exe_path), f'{putils.orient_exe_path}.f']
     # Set up errat dependency
-    errat_compile_cmd = ['g++', '-o', putils.errat_exe_path, putils.errat_residue_source]
+    errat_compile_cmd = ['g++', '-o', str(putils.errat_exe_path), str(putils.errat_residue_path)]
     # Add a directory change to the command type
     change_dir_paths = defaultdict(lambda: os.getcwd(), {
         'git submodule set up': str(putils.git_source),
         'autoreconf freesasa': str(putils.freesasa_dir),
-        'secondary structure analysis': putils.stride_dir,
+        'secondary structure analysis': str(putils.stride_dir),
     })
     # Set up the commands in addressable order
     commands = {

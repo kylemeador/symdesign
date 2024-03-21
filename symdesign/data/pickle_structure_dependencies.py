@@ -64,11 +64,11 @@ def load_paired_fragment_representatives(cluster_representatives_path: AnyStr) \
 
 def main():
     ref_aa = model.Chain.from_file(putils.reference_aa_file)
-    if os.path.exists(putils.reference_residues_pkl):
+    if putils.reference_residues_pkl.exists():
         move(putils.reference_residues_pkl, f'{putils.reference_residues_pkl}.bak')
 
     utils.pickle_object([res.make_parent() for res in ref_aa.residues],
-                        name=putils.reference_residues_pkl, out_path='')
+                        out_path=putils.reference_residues_pkl)
 
     # Create fragment database for all ijk cluster representatives
     # This should work now

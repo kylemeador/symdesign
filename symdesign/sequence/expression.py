@@ -20,7 +20,7 @@ putils = utils.path
 tags = expression_tags
 logger = logging.getLogger(__name__)
 termini_literal = Literal['n', 'c']
-uniprot_pdb_d = utils.unpickle(putils.uniprot_pdb_map)
+uniprot_pdb_d: dict[str, dict[str, Container[str]]] = utils.unpickle(putils.uniprot_pdb_map)
 
 
 def format_sequence_to_numeric(sequence: Sequence[str | int]) -> Sequence[int]:
@@ -248,7 +248,7 @@ def molecular_extinction_coefficient(sequence: Sequence[str | int]) -> tuple[flo
     return coef_ox, coef_red
 
 
-def get_uniprot_id_by_pdb(uniprot_pdb_d: dict[str, dict[str, Container[str]]], pdb_code: str, chain=None) -> str | None:
+def get_uniprot_id_by_pdb(pdb_code: str, chain=None) -> str | None:
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
     if chain is not None:
@@ -286,7 +286,7 @@ def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
     if entity_id is None:
         entity_ids = []
         if pdb_code and chain:
-            uniprot_id = get_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
+            uniprot_id = get_uniprot_id_by_pdb(pdb_code, chain=chain)
             if uniprot_id is None:
                 logger.error(f"The 'pdb_code'.'chain' combination '{pdb_code}.{chain}' found no valid identifiers")
                 return matching_pdb_tags

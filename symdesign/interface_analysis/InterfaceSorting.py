@@ -3,19 +3,20 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from collections.abc import Iterable
 
 from symdesign import utils
-from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
+from symdesign.interface_analysis.ParsePisa import PISA_DB, retrieve_pisa_file_path, get_complex_interfaces
 from symdesign.resources import query
 from symdesign.structure.model import Model, Chain
 from symdesign.utils import path as putils
 
 
-def pisa_polymer_interface(interface):
-    for chain_id in interface['chain_data']:
-        if not interface['chain_data'][chain_id]['chain']:  # there is a ligand
+def pisa_polymer_interface(interface: dict) -> bool:
+    for chain_id, data in interface['chain_data'].items():
+        if not data['chain']:  # There is a ligand
             return False
-        # else:
+
     return True
 
 
@@ -358,8 +359,8 @@ if __name__ == '__main__':
     # pdb_directory = '/databases/pdb'
     # pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'
 
-    pdb_directory = putils.pdb_db  # ends with .ent not sub_directoried
-    pisa_directory = putils.pisa_db  # subdirectoried here
+    pdb_directory = putils.pdb_db  # Ends with .ent, not subdirectories
+    pisa_directory = PISA_DB  # Subdirectories here
     if args.fix_pisa:
         all_pisa_files = utils.get_file_paths_recursively(pisa_directory, extension='.pkl')
 

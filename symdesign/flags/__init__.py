@@ -18,9 +18,9 @@ from symdesign.structure.utils import coords_types, default_clash_criteria, defa
     design_programs_literal, termini_literal
 from symdesign.utils import handle_errors, InputError, log_levels, digit_remover, path as putils, \
     pretty_format_table, to_iterable, logging_levels
-from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_logging_level, \
-    default_path_file, ex_path, fragment_dbs, program_output, program_name, projects, \
-    submodule_guide, submodule_help, program_help, program_exe
+from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_path_file, ex_path, \
+    fragment_dbs, program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
+from symdesign.utils.logging import DEFAULT_LOGGING_LEVEL
 from symdesign.utils.path import design_profile, evolutionary_profile, fragment_profile, consensus
 from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -1054,7 +1054,7 @@ options_arguments = {
         dict(action='store_true', help='Ignore asu/pose clashes found during clash checks'),
     ignore_symmetric_clashes_args:
         dict(action='store_true', help='Ignore symmetric clashes found during clash checks'),
-    (log_level.long,): dict(type=log_levels.get, default=default_logging_level, choices=logging_levels, metavar='',
+    (log_level.long,): dict(type=log_levels.get, default=DEFAULT_LOGGING_LEVEL, choices=logging_levels, metavar='',
                             help='What level of log messages should be displayed to stdout?'
                                  '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
     (mpi.long,): dict(type=int, metavar='INT',
