@@ -1,8 +1,10 @@
 __pycache__
-dependencies/nanohedra
-dependencies/hhsuite
-dependencies/orient/orient_oligomer
-symdesign/data/databases/fragment_db/biological_interfaces
 .DS_Store
-dependencies/ialign/bin/.svn/
 .idea
+dependencies/hhsuite
+dependencies/alphafold
+dependencies/_deps
+dependencies/orient/orient_oligomer
+dependencies/stride/stride
+symdesign/data/databases/fragment_db/biological_interfaces
+dependencies/ialign/bin/.svn/
