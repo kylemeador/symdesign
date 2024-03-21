@@ -40,6 +40,7 @@ pdbecif = "*"
 tqdm = "*"
 proglog = "*"
 flametree = "*"
+lxml = "*"
 # Notebook packages
 matplotlib = "*"
 jupyterlab = "*"
