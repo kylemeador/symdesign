@@ -62,7 +62,7 @@ hhsuite_setup_command = f'python {setup_exe} --hhsuite-database'
 rosetta = 'rosetta'
 proteinmpnn = 'proteinmpnn'
 reference = 'reference'
-frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
+frag_dir = 'matching_fragments'
 frag_text_file = 'frag_match_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
@@ -97,46 +97,17 @@ list_pdb_files = os.path.join(tools, 'list_files_in_directory.py')
 distributer_tool = os.path.join(tools, 'distribute.py')
 hbnet_sort = binary_dir / 'sort_hbnet_silent_file_results.sh'
 data_dir = python_source / data
-pickle_program_requirements = data_dir / 'pickle_structure_dependencies.py'
-pickle_program_requirements_cmd = f'python {pickle_program_requirements}'
-binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
-reference_aa_file = data_dir / 'AAreference.pdb'
-# reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')
-reference_residues_pkl = data_dir / 'AAreferenceResidues.pkl'
-uniprot_pdb_map = data_dir / '200121_UniProtPDBMasterDict.pkl'
-# filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
-affinity_tags = data_dir / 'affinity-tags.csv'
-database = data_dir / 'databases'
-pdb_db = os.path.join(database, 'pdbDB')
+databases = data_dir / 'databases'
+pdb_db = os.path.join(databases, 'pdbDB')
 """Local copy of the PDB database"""
-# Todo
-#  qsbio = os.path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
-# qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
-qs_bio = data_dir / 'QSbioHighConfidenceAssemblies.pkl'
-qs_bio_monomers_file = data_dir / 'QSbio_Monomers.csv'
-# Fragment Database
-fragment_db = database / 'fragment_db'
-biological_interfaces = 'biological_interfaces'
-bio = 'bio'
-xtal = 'xtal'
-bio_xtal = 'bio_xtal'
-fragment_dbs = [biological_interfaces,
-                # bio, xtal, bio_xtal
-                ]
-biological_fragment_db = os.path.join(fragment_db, biological_interfaces)
-biological_fragment_db_pickle = os.path.join(fragment_db, f'{biological_interfaces}.pkl')
-bio_fragment_db = os.path.join(fragment_db, bio)
-xtal_fragment_db = os.path.join(fragment_db, xtal)
-full_fragment_db = os.path.join(fragment_db, bio_xtal)
-frag_directory = {biological_interfaces: biological_fragment_db, bio: bio_fragment_db, xtal: xtal_fragment_db,
-                  bio_xtal: full_fragment_db}
-# Nanohedra Specific
-monofrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top5MonoFragClustersRepresentativeCentered')
-intfrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top75percent_IJK_ClusterRepresentatives_1A')
-intfrag_cluster_info_dirpath = os.path.join(fragment_db, 'IJK_ClusteredInterfaceFragmentDBInfo_1A')
-
-# External Program Dependencies
-# Free SASA Executable Path
+qs_bio_dir = data_dir / 'qsbio'
+qs_bio = qs_bio_dir / 'QSbioHighConfidenceAssemblies.pkl'
+qs_bio_monomers_file = qs_bio_dir / 'QSbio_Monomers.txt'
+# External dependencies
+dependency_dir = python_source / 'dependencies'
+sasa_debug_dir = dependency_dir / 'sasa'
+binary_dir = dependency_dir / 'bin'
+hbnet_sort = binary_dir / 'sort_hbnet_silent_file_results.sh'
 third_party_dir = python_source / 'third_party'
 freesasa_dir = third_party_dir / 'freesasa'
 freesasa_exe_path = freesasa_dir / 'src' / 'freesasa'

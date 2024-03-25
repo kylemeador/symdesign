@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.neighbors import BallTree, KDTree
 
 from symdesign import utils, structure
-from . import db, info, metrics
+from . import db, info, metrics, resources
 from ..coordinates import guide_superposition, superposition3d, transform_coordinate_sets
 
 # Globals
@@ -137,7 +137,7 @@ class GhostFragment:
         return _representative.get_transformed_copy(*self.aligned_fragment.transformation)  # type:ignore
 
     def write(
-        self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs
+        self, out_path: AnyStr | os.PathLike = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs
     ) -> AnyStr | None:
         """Write the GhostFragment to a file specified by out_path or with a passed file_handle
 
@@ -169,7 +169,7 @@ class GhostFragment:
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
                 outfile.write(f'{representative.get_atom_record(**kwargs)}\n')
-            return out_path
+            return str(out_path)
 
     def __copy__(self) -> GhostFragment:  # Todo -> Self: in python 3.11
         cls = self.__class__
