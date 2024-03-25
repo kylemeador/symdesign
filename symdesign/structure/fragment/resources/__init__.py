@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, get_args
 
-fragment_resources = Path('structure') / 'fragment' / 'resources'
+fragment_resources = Path(__file__).parent
 biological_interfaces = 'biological_interfaces'
 fragment_database_source_literal = Literal['biological_interfaces']  # , 'bio', 'xtal', 'bio_xtal']
 fragment_database_sources = get_args(fragment_database_source_literal)

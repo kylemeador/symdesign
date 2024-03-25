@@ -53,8 +53,8 @@ def find_interacting_residue_fragments(chain1, chain2, interacting_pairs, frag_l
                               'Residue.get_downstream() and Residue.get_upstream() based on frag_length')
     for residue1, residue2 in interacting_pairs:
         # parameterize fragments based on input length
-        res_nums_pdb1 = set(residue1 + i for i in range(*symdesign.structure.fragment.info.parameterize_frag_length(frag_length)))
-        res_nums_pdb2 = set(residue2 + i for i in range(*symdesign.structure.fragment.info.parameterize_frag_length(frag_length)))
+        res_nums_pdb1 = set(residue1 + i for i in range(*symdesign.structure.fragment.db.parameterize_frag_length(frag_length)))
+        res_nums_pdb2 = set(residue2 + i for i in range(*symdesign.structure.fragment.db.parameterize_frag_length(frag_length)))
 
         if same_chain:
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2
@@ -98,7 +98,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
     print('%s Beginning' % module)
     # Get Natural Interface PDB File Paths
     int_db_filepaths = utils.get_file_paths_recursively(int_db_dir, extension='.pdb')
-    lower_bound, upper_bound, index_offset = Frag.parameterize_frag_length(frag_length)
+    lower_bound, upper_bound = Frag.parameterize_frag_length(frag_length)
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
     # Reading In PDB Structures

@@ -18,8 +18,9 @@ from symdesign.structure.utils import coords_types, default_clash_criteria, defa
     design_programs_literal, termini_literal
 from symdesign.utils import handle_errors, InputError, log_levels, digit_remover, path as putils, \
     pretty_format_table, to_iterable, logging_levels
-from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_path_file, ex_path, \
-    fragment_dbs, program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
+from symdesign.utils.path import default_clustered_pose_file, default_path_file, ex_path, \
+    program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
+from symdesign.structure.fragment.resources import biological_interfaces, fragment_database_sources
 from symdesign.utils.logging import DEFAULT_LOGGING_LEVEL
 from symdesign.utils.path import design_profile, evolutionary_profile, fragment_profile, consensus
 from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
@@ -1038,7 +1039,7 @@ options_arguments = {
     (interface_distance.long,): dict(type=float, default=9.0, metavar='FLOAT',
                                      help='The default value to use for querying Cb-Cb\n'
                                           'residue contacts across and interface'),
-    ('-i', fragment_source.long): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
+    ('-i', fragment_source.long): dict(type=str.lower, choices=fragment_database_sources, default=biological_interfaces,
                                        metavar='',
                                        help='Database to match fragments for interface specific scoring matrices'
                                             '\nChoices=%(choices)s\nDefault=%(default)s'),

@@ -3,6 +3,8 @@ import math
 import pickle
 from copy import deepcopy
 
+import symdesign.structure.fragment.resources
+
 # GLOBALS
 bio_fragmentDB = '/home/kmeador/yeates/fragment_database/bio'
 
@@ -48,6 +50,34 @@ def return_cluster_id_string(cluster_rep, index_number=3):
         n += 1
 
     return '_'.join(info)
+
+
+def get_cluster_dicts(db: str = biological_interfaces, id_list: list[str] = None) -> dict[str, dict]:
+    """Generate an interface specific scoring matrix from the fragment library
+
+    Args:
+        db: The source of the fragment information
+        id_list: [1_2_24, ...]
+
+    Returns:
+         cluster_dict: {'1_2_45': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
+    """
+    info_db = symdesign.structure.fragment.resources.frag_directory[db]
+    if id_list is None:
+        directory_list = utils.get_base_root_paths_recursively(info_db)
+    else:
+        directory_list = []
+        for _id in id_list:
+            c_id = _id.split('_')
+            _dir = os.path.join(info_db, c_id[0], c_id[0] + '_' + c_id[1], c_id[0] + '_' + c_id[1] + '_' + c_id[2])
+            directory_list.append(_dir)
+
+    cluster_dict = {}
+    for cluster in directory_list:
+        filename = os.path.join(cluster, os.path.basename(cluster) + '.pkl')
+        cluster_dict[os.path.basename(cluster)] = utils.unpickle(filename)
+
+    return cluster_dict
 
 
 def get_cluster_dicts(info_db=bio_fragmentDB, id_list=None):
@@ -216,5 +246,5 @@ if __name__ == '__main__':
     rmsd_thresh = 1
     outdir = os.path.join(os.getcwd(), 'ijk_clusters')
     info_db = os.path.join(outdir, 'info_' + str(rmsd_thresh))
-    lower, upper, offset = parameterize_frag_length(fragment_length)
+    # lower, upper, offset = parameterize_frag_length(fragment_length)
     main(info_db)

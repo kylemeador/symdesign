@@ -3429,7 +3429,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         if not isinstance(fragment_db, fragment.db.FragmentDatabase):
             self.log.debug(f"'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which "
                            f"isn't the required type {fragment.db.FragmentDatabase.__name__}")
-            fragment_db = fragment.db.fragment_factory.get(source=putils.biological_interfaces, token=fragment_db)
+            fragment_db = fragment.db.fragment_factory.get(
+                source=fragment.resources.biological_interfaces, token=fragment_db)
 
         self._fragment_db = fragment_db
 

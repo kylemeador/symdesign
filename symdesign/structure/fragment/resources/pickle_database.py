@@ -23,18 +23,18 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
     fragment_db = FragmentDatabase(source=source, fragment_length=5)  # Todo dynamic...
     representatives_path = monofrag_cluster_rep_dirpath
     paired_fragments_path = intfrag_cluster_rep_dirpath
-    logger.info(f'Initializing {repr(fragment_db)} from disk at {paired_fragments_path}. '
+    logger.info(f"Initializing {repr(fragment_db)} from disk at '{paired_fragments_path}'. "
                 'This may take awhile...')
     fragment_db.representatives = \
         {int(os.path.splitext(os.path.basename(file))[0]):
          Representative(model.Chain.from_file(file, log=None), fragment_db=fragment_db)
          for file in utils.get_file_paths_recursively(representatives_path)}
     fragment_db.paired_frags = load_paired_fragment_representatives(paired_fragments_path)
-    fragment_db.info = [
-        (tuple(int(id_) for id_ in os.path.splitext(os.path.basename(cluster_file))[0].split('_', maxsplit=2)),
-         ClusterInfo(**utils.unpickle(cluster_file)))
-        for cluster_file in utils.get_file_paths_recursively(fragment_db.location, extension='.pkl')
-    ]
+    info = {}
+    for cluster_file in utils.get_file_paths_recursively(fragment_db.location, extension='.pkl'):
+        name = os.path.splitext(os.path.basename(cluster_file))[0]
+        info[tuple(map(int, name.split('_', maxsplit=2)))] = ClusterInfo(name=name, **utils.unpickle(cluster_file))
+    fragment_db.info = info
     fragment_db.index_ghosts()
 
     return fragment_db

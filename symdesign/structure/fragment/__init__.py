@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.neighbors import BallTree, KDTree
 
 from symdesign import utils, structure
-from . import db, info, metrics, resources
+from . import db, metrics, resources
 from ..coordinates import guide_superposition, superposition3d, transform_coordinate_sets
 
 # Globals

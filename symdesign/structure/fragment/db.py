@@ -9,7 +9,6 @@ import numpy as np
 import scipy.spatial.transform
 from attr import frozen
 
-from . import info
 from symdesign import utils, structure
 from symdesign.sequence import protein_letters_literal
 from symdesign.structure.fragment.resources import binary_lookup_table_path, biological_fragment_db_pickle, \
@@ -73,9 +72,8 @@ class FragmentDatabase(info.FragmentInfo):
     euler_lookup: EulerLookup | None
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
-    # monofrag_representatives_path: str
     paired_frags: dict[tuple[int, int, int], tuple['structure.model.Model', str]]
-    reps: dict[int, np.ndarray]
+    representatives: dict[int, Representative]
 
     def __init__(self, **kwargs):  # init_db: bool = True, fragment_length: int = 5
         super().__init__(**kwargs)
@@ -83,10 +81,10 @@ class FragmentDatabase(info.FragmentInfo):
             self.cluster_representatives_path = putils.intfrag_cluster_rep_dirpath
             self.monofrag_representatives_path = putils.monofrag_cluster_rep_dirpath
 
-        self.representatives = {}
-        self.paired_frags = {}
-        self.indexed_ghosts = {}
         self.euler_lookup = None
+        self.indexed_ghosts = {}
+        self.paired_frags = {}
+        self.representatives = {}
 
     @property
     def location(self) -> AnyStr | os.PathLike:
@@ -115,21 +113,22 @@ class FragmentDatabase(info.FragmentInfo):
         #     self.paired_frags = {}
         #     self.indexed_ghosts = {}
 
-    def _index_ghosts(self):
+    def index_ghosts(self):
         """From a loaded fragment database, precompute all required data into numpy arrays to populate Ghost Fragments
 
         keeping each data type as numpy array allows facile indexing for allowed ghosts if a clash test is performed
         """
         paired_frags = self.paired_frags
+        assert paired_frags, f"Can't {self.index_ghosts.__name__} without 'paired_frags"
         ijk_types = list(sorted(paired_frags.keys()))
         stacked_bb_coords = []
         stacked_guide_coords = []
         for ijk in ijk_types:
             frag_model, frag_paired_chain_id = paired_frags[ijk]
-            # Look up the partner coords by using stored frag_paired_chain
+            # Look up the partner coordinates by using stored frag_paired_chain_id
             stacked_bb_coords.append(frag_model.get_chain(frag_paired_chain_id).backbone_coords)
             stacked_guide_coords.append(frag_model.get_chain('9').coords)
-        logger.debug(f'Last representative file: {frag_model}, Paired chain: {frag_paired_chain_id}')
+        logger.debug(f'Last representative file: {frag_model.file_path}, Paired chain: {frag_paired_chain_id}')
 
         stacked_bb_coords = np.array(stacked_bb_coords)
         stacked_guide_coords = np.array(stacked_guide_coords)
@@ -137,6 +136,7 @@ class FragmentDatabase(info.FragmentInfo):
         logger.debug(f'stacked_guide_coords {stacked_guide_coords.shape}')
 
         _info = self.info
+        assert _info, f"Can't {self.index_ghosts.__name__} without 'info"
         stacked_rmsds = np.array([_info[ijk].rmsd for ijk in ijk_types])
         stacked_rmsds = np.where(stacked_rmsds == 0, 0.0001, stacked_rmsds)
         logger.debug(f'stacked_rmsds {stacked_rmsds.shape}')
@@ -344,6 +344,9 @@ class FragmentDatabase(info.FragmentInfo):
             'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
             'percent_fragment_coil': (metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2)}
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.source})'
 
     def __copy__(self) -> FragmentDatabase:
         return self

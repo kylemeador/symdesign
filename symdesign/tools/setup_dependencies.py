@@ -410,8 +410,8 @@ def setup(args):
 
     # Set up fragment database from files
     # Only import this after submodules are set up
-    from symdesign.data import pickle_structure_dependencies
-    pickle_structure_dependencies.main()
+    from symdesign.structure.fragment.resources import pickle_database
+    pickle_database.main()
 
     # Set up the program config file
     config = {'rosetta_env': rosetta_env_variable,

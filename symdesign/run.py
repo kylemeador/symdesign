@@ -31,6 +31,7 @@ from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
 from symdesign.structure import Entity, Pose
+from symdesign.structure import fragment
 from symdesign.structure.utils import StructureException
 
 
@@ -867,12 +868,11 @@ def main():
         if job.module == flags.generate_fragments:
             from symdesign.structure.fragment.db import fragment_factory
             job.fragment_db = fragment_factory(source=job.fragment_source)
-            if job.fragment_db.source == putils.biological_interfaces:
+            if job.fragment_db.source == fragment.resources.biological_interfaces:
                 # Todo
                 #  Remove when other database types are available
-                logger.info(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
-                            'biological homo-oligomers. Understand the caveats of using fragment information at '
-                            'non-interface positions')
+                logger.info(f'The {repr(job.fragment_db)} has only been created with biological homo-oligomers. '
+                            'Understand the caveats of using fragment information at non-interface positions')
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize the db.session, set into job namespace
     # -----------------------------------------------------------------------------------------------------------------
