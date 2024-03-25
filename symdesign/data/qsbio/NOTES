@@ -1,0 +1,5 @@
+The format of files:
+- QSbioHighConfidenceAssemblies.pkl
+    dict[str (lowercase PDB EntyID): list[int (AssemblyNumber)]]
+- QSbio_Monomers.txt
+    Each lowercase PDB AssemblyID that is predicted monomeric.
