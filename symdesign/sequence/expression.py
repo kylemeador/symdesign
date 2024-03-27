@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Container, Sequence
+from functools import lru_cache
 from itertools import count
 from typing import Literal
 
@@ -247,16 +248,22 @@ def molecular_extinction_coefficient(sequence: Sequence[str | int]) -> tuple[flo
     return coef_ox, coef_red
 
 
-def get_uniprot_id_by_pdb(pdb_code: str, chain=None) -> str | None:
-    source = 'unique_pdb'
-    pdb_code = pdb_code.upper()
-    if chain is not None:
-        # pdb_code = '%s.%s' % (pdb_code, chain)
-        # source = 'all'
-        # Todo ensure that this works once the database is integrated
-        dummy = ''
+@lru_cache
+def uniprot_pdb_map() -> dict[str, dict[str, Container[str]]]:
+    uniprot_pdb_map_path = sequence_resources / '200121_UniProtPDBMasterDict.pkl'
+    uniprot_pdb_d: dict[str, dict[str, Container[str]]] = utils.unpickle(uniprot_pdb_map_path)
+    return uniprot_pdb_d
 
-    for uniprot_id, data in uniprot_pdb_d.items():
+
+def get_uniprot_id_by_pdb(pdb_code: str, chain: str = None) -> str | None:
+    pdb_code = pdb_code.upper()
+    if chain is None:
+        source = 'unique_pdb'
+    else:
+        pdb_code = f'{pdb_code}.{chain}'
+        source = 'all'
+
+    for uniprot_id, data in uniprot_pdb_map().items():
         if pdb_code in data[source]:
             return uniprot_id
 

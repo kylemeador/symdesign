@@ -16,6 +16,7 @@ import jax.numpy as jnp
 from . import distribute, sql
 from .database import Database, DataStore
 from .ml import af_predict, set_up_model_runners
+from .query.pdb import get_qsbio_confirmed_assemblies
 from symdesign import flags
 from symdesign.protocols.pose import load_evolutionary_profile
 from symdesign.sequence import generate_mutations, expression
@@ -229,7 +230,7 @@ def query_qs_bio(entry_id: str) -> int:
     Returns:
         The integer of the corresponding PDB Assembly ID according to QSBio
     """
-    biological_assemblies = resources.query.pdb.qsbio_confirmed.get(entry_id.lower())
+    biological_assemblies = get_qsbio_confirmed_assemblies().get(entry_id.lower())
     if biological_assemblies:
         # Get the first assembly in matching oligomers
         if len(biological_assemblies) != 1:

@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import lru_cache
 from json import dumps, load
 from typing import Annotated, Any, get_args, Literal
 
@@ -26,12 +27,17 @@ UKB = 'UniProt'
 """The module level identifier for a UniProtID"""
 logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-qsbio_confirmed: Annotated[
-    dict[str, list[int]],
-    ("PDB EntryID (lowercase) mapped to biological assembly numbers for ID's with QSBio "
-     "confidence as high or very high")] = \
-    utils.unpickle(putils.qs_bio)
-"""PDB EntryID (lowercase) mapped to biological assembly numbers for ID's with QSBio confidence as high or very high"""
+
+
+@lru_cache
+def get_qsbio_confirmed_assemblies() -> dict[str, list[int]]:
+    # Todo
+    #  Add the list of QSBio confirmed hetero-oligomers
+    #  Make each list of interface ids a set()
+    """Mapping of PDB EntryID (lowercase) to biological assembly numbers. Only QSBio high or very high confidence"""
+    qsbio_confirmed = utils.unpickle(putils.qs_bio)
+    return qsbio_confirmed
+
 
 # General Formatting
 user_input_format = f'\n{format_string.format("Option", "Description")}\n%s'
@@ -1723,6 +1729,7 @@ def solve_author_confirmed_assemblies(params: QueryParams, grouped_entity_ids: d
     # Check if the top thermophilic ids are actually bona-fide assemblies
     top_entity_ids: list[str | None] = []
     # If they aren't, then solve by PDB API query
+    qsbio_confirmed = get_qsbio_confirmed_assemblies()
     solve_group_by_pdb = []
     for group_id, entity_ids in grouped_entity_ids.items():
         group_assemblies = [qsbio_confirmed.get(id_[:4].lower()) for id_ in entity_ids]

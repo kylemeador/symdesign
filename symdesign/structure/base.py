@@ -12,6 +12,7 @@ from abc import ABC
 from collections import UserList
 from collections.abc import Callable, Container, Iterable, Sequence, Generator
 from copy import copy
+from functools import lru_cache
 from itertools import count, repeat
 from logging import Logger
 from pathlib import Path
@@ -4266,7 +4267,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 f"{self.insert_residue_type.__name__} at index {index} < 0 isn't allowed")
 
         # Grab the reference atom coordinates and push into the atom list
-        new_residue = reference_residues[reference_index].copy()
+        new_residue = get_reference_residues()[reference_index].copy()
 
         # Find the prior and next Residue, atom_start_index (starting atom in new Residue index)
         residues = self.residues
@@ -6013,12 +6014,23 @@ class Structures(ContainsResidues, UserList):
         return self.data[idx]
 
 
-# 0 indexed, 1 letter aa, alphabetically sorted at the origin
-try:
-    reference_residues: list[Residue] = utils.unpickle(putils.reference_residues_pkl)
-except (_pickle.UnpicklingError, ImportError, FileNotFoundError, AttributeError, utils.InputError) as error:
-    logger.error(''.join(traceback.format_exc()))
-    logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version '
-                 f'using {putils.pickle_program_requirements_cmd}')
-    print('\n')
-    reference_residues = None
+@lru_cache
+def get_reference_residues() -> list[Residue]:
+    """Returns the canonical 20 amino acid residues, as zero-indexed, one letter alphabetical aa, at the origin.
+
+    Retrieve Residue(Ala) with `get_reference_residues()[0]`, etc...
+    """
+    resource_path = Path(__file__).parent / 'resources'
+    reference_residues_pkl = resource_path / 'AAreferenceResidues.pkl'
+    try:
+        reference_residues: list[Residue] = utils.unpickle(reference_residues_pkl)
+    except (_pickle.UnpicklingError, ImportError, FileNotFoundError, AttributeError, utils.InputError) as error:
+        logger.debug(''.join(traceback.format_exc()))
+        logger.debug("'reference_residues' ran into an error upon load. Regenerate the pickle using "
+                     'python pickle_reference_residues.py')
+        reference_aa_file = resource_path / 'AAreference.pdb'
+        reference_residues = ContainsResidues(**read_pdb_file(reference_aa_file)).residues
+        utils.pickle_object([res.make_parent() for res in reference_residues],
+                            out_path=reference_residues_pkl)
+
+    return reference_residues
