@@ -4776,6 +4776,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         else:
             include_hydrogen = []
 
+        sasa_output = ''
+
         def _calculate_sasa(**kwargs):
             """Using freesasa python. About 300x slower."""
 
@@ -4797,7 +4799,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                 atom.sasa = result.atomArea(0)
 
         def _calculate_sasa_from_c():
-            """Using freesasa python. About 300x slower."""
+            """Using freesasa executable. About 300x faster."""
+            nonlocal sasa_output
             assert atom, f"The parameter 'atom' can't equal '{atom}' only True"
             # if atom:
             #     out_format = 'pdb'
@@ -4847,8 +4850,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             if_idx = 0
             if atom:
                 # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
-                # since return_atom_record doesn't have models, these won't be present and no option to freesasa about model
-                # would be provided with above subprocess call
+                # since return_atom_record doesn't have models, these won't be present and no option to freesasa about
+                # model would be provided with above subprocess call
                 atoms = self.atoms
                 for line_split in map(str.split, sasa_output[5:-2]):  # Does slice remove need for if line[0] == 'ATOM'?
                     if line_split[0] == 'ATOM':  # This line appears necessary as MODEL can be added if MODEL is written
@@ -4867,11 +4870,17 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             # Prefer this method as it is quicker
             t1 = time.perf_counter()
             _calculate_sasa_from_c()
+            method = 'exe'
             logger.debug(f"Took {time.perf_counter() - t1}")
         elif freesasa is not None:
             t0 = time.perf_counter()
             _calculate_sasa()
+            method = 'python freesasa'
             logger.debug(f"Took {time.perf_counter() - t0}")
+        else:
+            raise RuntimeError(
+                f"Couldn't {self.get_sasa.__name__}() as 'freesasa' program isn't available"
+            )
 
         try:
             self.sasa = sum([residue.sasa for residue in self.residues])
