@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ['poetry-core']
+build-backend = 'poetry.core.masonry.api'
 
 [tool.poetry]
 package-mode = true
@@ -12,70 +12,77 @@ authors = ['Kyle Meador <k.meador14@gmail.com>']
 license = 'LICENSE.md'
 classifiers = [
     'License :: OSI Approved :: MIT License',
-    'Programming Laguage :: Python',
-    'Programming Laguage :: Python :: 3',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Intended Audience :: Science/Research',
     'Topic :: Scientific/Engineering :: Bio-Informatics',
 ]
 keywords = ['protein', 'design', 'docking', 'symmetry', 'interface design', 'interface analysis']
-
 repository = 'https://github.com/kylemeador/symdesign'
 homepage = 'https://kylemeador.github.io/symdesign/'
 documentation = 'https://kylemeador.github.io/symdesign/guide'
+exclude = [
+    'symdesign/cfg.json',
+    'symdesign/third_party',
+    'symdesign/structure/fragment/resources/biological_interfaces.pkl',
+]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
-numpy = "*"
-pandas = "*"
-scikit-learn = "*"
-scipy = "*"
-numba = "*"
-sqlalchemy = "^1.4"
-alembic = "*"
-psutil = "*"
-requests = "*"
-biopython = "<= 1.81"
-freesasa = "*"
-pdbecif = "*"
-tqdm = "*"
-proglog = "*"
-flametree = "*"
-lxml = "*"
+python = '>=3.9,<3.12'
+numpy = '*'
+pandas = '*'
+scikit-learn = '*'
+scipy = '*'
+numba = '*'
+sqlalchemy = '^1.4'
+alembic = '*'
+psutil = '*'
+requests = '*'
+biopython = '<= 1.81'
+freesasa = '*'
+pdbecif = '*'
+tqdm = '*'
+proglog = '*'
+flametree = '*'
+lxml = '*'
 # Notebook packages
-matplotlib = "*"
-jupyterlab = "*"
-ipykernel = "*"
-ipywidgets = "*"
-nglview = "*"
+matplotlib = '*'
+jupyterlab = '*'
+ipykernel = '*'
+ipywidgets = '*'
+nglview = '*'
 # ML
-proteinmpnn = { git = "https://github.com/kylemeador/proteinmpnn.git" }
-alphafold = { git = "https://github.com/deepmind/alphafold.git" }  # subdirectory = "alphafold",
-tensorflow = "^2.0.0"
+proteinmpnn = { git = 'https://github.com/kylemeador/proteinmpnn.git' }
+alphafold = { git = 'https://github.com/deepmind/alphafold.git' }  # subdirectory = 'alphafold',
+tensorflow = '^2.0.0'
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
-pytest = "*"
-syrupy = "*"
+pytest = '*'
+syrupy = '*'
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-black = "*"
-mypy = "*"
-memory_profiler = "*"
+black = '*'
+mypy = '*'
+memory_profiler = '*'
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-mkdocs = "*"
-mkdocstrings-python = "*"
-mkdocs-material = "*"
-mkdocs-gen-files = "*"
-mkdocs-literate-nav = "*"
-mkdocs-section-index = "*"
+mkdocs = '*'
+mkdocstrings-python = '*'
+mkdocs-material = '*'
+mkdocs-gen-files = '*'
+mkdocs-literate-nav = '*'
+mkdocs-section-index = '*'
 
 [tool.poetry.scripts]
 symdesign = 'symdesign.__main__:main'
+symdesign-dependency-setup = 'symdesign.tools.setup_dependencies:main'

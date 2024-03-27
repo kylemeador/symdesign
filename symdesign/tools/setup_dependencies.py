@@ -470,8 +470,8 @@ def setup(args):
     # print(f'All {putils.program_name} files are located in {putils.git_source}')
 
 
-if __name__ == '__main__':
-    # ---- setup.py specific args ----
+def main():
+    """Handles setup with commandline parsing."""
     # alphafold_database = 'alphafold_database'
     # hhsuite_database = 'hhsuite_database'
     alphafold_database_args = (f'--alphafold-database',)
@@ -501,3 +501,7 @@ if __name__ == '__main__':
     args, additional_args = parser.parse_known_args()
     args.command_line = True
     setup(args)
+
+
+if __name__ == '__main__':
+    main()

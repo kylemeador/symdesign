@@ -968,6 +968,11 @@ output_directory_kwargs = dict(type=os.path.abspath, dest='output_directory',
 output_file_args = ('-Of', output_file.long)
 quick_args = (quick.long,)
 # ---------------------------------------------------
+setup_dependencies = 'setup-dependencies'
+setup_dependencies_help = f'Display all {program_name} flags'
+parser_setup_dependencies = dict(description=setup_dependencies_help, add_help=False)
+parser_setup_dependencies_group = dict(description=f'\n{setup_dependencies_help}')
+# ---------------------------------------------------
 all_flags_help = f'Display all {program_name} flags'
 parser_all_flags = dict(description=all_flags_help, add_help=False)  # help=all_flags_help,
 parser_all_flags_group = dict(description=f'\n{all_flags_help}')
@@ -1868,6 +1873,7 @@ output_arguments = {
     (suffix.long,): dict(metavar='STRING', help='String to append to output name'),
 }
 # all_flags_parsers = dict(all_flags=parser_all_flags_group)
+setup_dependencies_arguments = {}
 all_flags_arguments = {}
 # all_flags_arguments = {
 #     **options_arguments, **output_arguments, **input_arguments, **input_mutual_arguments
@@ -1915,6 +1921,7 @@ module_parser_groups = {
     update_db: parser_update_db,
     # distribute: parser_distribute,
     # These are decoy modules to help with argument parsing
+    setup_dependencies: parser_setup_dependencies,
     all_flags: parser_all_flags,
     f'input{mutual_keyword}': parser_input_mutual_group,
     input_: parser_input,
@@ -1962,6 +1969,7 @@ parser_arguments = {
     update_db: update_db_arguments,
     # distribute: distribute_arguments,
     # These are decoy modules to help with argument parsing
+    setup_dependencies: setup_dependencies_arguments,
     all_flags: all_flags_arguments,
     f'input{mutual_keyword}': input_mutual_arguments,  # add_mutually_exclusive_group
     input_: input_arguments,

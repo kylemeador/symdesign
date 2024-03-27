@@ -581,6 +581,10 @@ def main():
             sys.exit()
             # Known to be missing
             # [custom_script, check_clashes, residue_selector, visualize]
+        elif args.module == flags.setup_dependencies:
+            from symdesign.tools.setup_dependencies import main
+            main()
+            sys.exit()
     elif args.setup:
         print(
             "If you have concerns or questions with setting up the correct configuration, check the documentation "

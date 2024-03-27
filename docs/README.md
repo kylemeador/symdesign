@@ -3,6 +3,10 @@ symdesign is python package for hypothesis-driven symmetric protein design. The 
 
 ### Read the [documentation](https://kylemeador.github.io/symdesign/).
 
+## Installation with pip
+1. `pip install symdesign`
+2. `symdesign setup-dependencies`
+
 ## Installation with conda/mamba
 1. First, you will need to set up your python environment. After cloning [this repository](https://github.com/kylemeador/symdesign.git), run `conda env create --file symdesign/env.yml`. Might I also suggest using [mamba](https://github.com/mamba-org/mamba) inplace of conda for an even faster experience. This command will create a suitable environment to access all the contained tools. Apple users of M1 and later chips will need different dependencies (WIP).
 2. Execute `sudo apt-get install build-essential autoconf libc++-dev libc++abi-dev` to install system dependencies for [FreeSASA](https://github.com/mittinatten/freesasa#compatibility-and-dependencies). There may be different dependencies if you are utilizing an operating system other than ubuntu.
