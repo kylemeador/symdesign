@@ -5,7 +5,7 @@ from itertools import repeat
 import numpy as np
 
 import symdesign.structure.fragment.extraction.FragUtils as Frag
-from symdesign.structure.model import Model
+from symdesign.structure import Model
 from symdesign.sequence import protein_letters_3to1
 
 # Globals

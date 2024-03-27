@@ -243,13 +243,5 @@ additional = \
     'perform mutagenesis of surface positions to match the surface to the correct overall charge density for a ' \
     'specified organism. This may improve solubility by making the overall mobility within the cytosol equal to that' \
     f' of the organism typical cytosolic electrostatics.{module_help_string}'
-
-
-def print_readme():
-    """Print the program readme file"""
-    with open(putils.readme_file, 'r') as f:
-        print(f.read(), end='')
-
-
 hhblits_setup_instructions = f' Follow the install directions by running {putils.hhsuite_setup_command} ' \
                              f'or on the web at {putils.hhsuite_git}'

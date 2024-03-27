@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 from collections import defaultdict
 from typing import Annotated, Any, Literal, get_args, Iterable
 
@@ -11,8 +12,7 @@ from attr import frozen
 
 from symdesign import utils, structure
 from symdesign.sequence import protein_letters_literal
-from symdesign.structure.fragment.resources import binary_lookup_table_path, biological_fragment_db_pickle, \
-    biological_interfaces, frag_directory
+from .resources import binary_lookup_table_path, biological_fragment_db_pickle, biological_interfaces, frag_directory
 
 putils = utils.path
 
@@ -388,7 +388,7 @@ class FragmentDatabaseFactory:
             try:
                 fragment_db = utils.unpickle(biological_fragment_db_pickle)
             except (ModuleNotFoundError, FileNotFoundError):
-                from symdesign.structure.fragment.resources.pickle_database import main as pickle_deps
+                from .resources.pickle_database import main as pickle_deps
                 logger.warning("Creating the fragment database from files. This is a one time build...")
                 pickle_deps()
                 fragment_db = utils.unpickle(biological_fragment_db_pickle)

@@ -23,7 +23,7 @@ from symdesign.resources import distribute
 from symdesign.resources.job import job_resources_factory  # job has namespace overloaded
 from symdesign.sequence import optimize_protein_sequence, protein_letters_1to3, protein_letters_3to1, \
     read_fasta_file, write_sequences
-from symdesign.structure.model import Pose
+from symdesign.structure import Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
@@ -96,7 +96,7 @@ def interface_metrics(job: pose.PoseJob):
     with open(design_files, 'w') as f:
         f.write('%s\n' % '\n'.join(file_paths))
 
-    # generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
+    # generate_files_cmd = ['python', str(putils.list_pdb_files), '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
     #     + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
     main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
                  '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
@@ -142,7 +142,7 @@ def check_unmodeled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75)
         clashing_threshold: The number of Model instances which have observed clashes
     """
     raise NotImplementedError("This module currently isn't working")
-    from symdesign.structure.model import MultiModel, Model
+    from symdesign.structure import Model, MultiModel
     models = [Model.from_file(job.job.structure_db.full_models.retrieve_data(name=entity), log=job.log)
               for entity in job.entity_names]
     # models = [Models.from_file(job.job.structure_db.full_models.retrieve_data(name=entity))
@@ -285,7 +285,7 @@ def design(job: pose.PoseJob):
     job.protocol = job.job.module
     job.identify_interface()
 
-    putils.make_path(job.data_path)
+    os.makedirs(job.data_path, exist_ok=True)
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta:
         # Update upon completion given results of designs list file...
@@ -319,7 +319,7 @@ def design(job: pose.PoseJob):
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity
     job.pose.calculate_profile(favor_fragments=favor_fragments)
-    putils.make_path(job.designs_path)
+    os.makedirs(job.designs_path, exist_ok=True)
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
@@ -435,7 +435,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     # nstruct_instruct = ['-no_nstruct_label', 'true']
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
     generate_files_cmd = \
-        ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', designed_files_file,  '-e', '.pdb',
+        ['python', str(putils.list_pdb_files), '-d', job.designs_path, '-o', designed_files_file,  '-e', '.pdb',
          '-s', f'_{job.protocol}']
 
     main_cmd = rosetta.script_cmd.copy()
@@ -542,7 +542,7 @@ def helix_bending(job: pose.PoseJob):
         model_to_select = job.pose
 
     if job.job.output_directory:
-        putils.make_path(job.job.output_directory)
+        os.makedirs(job.job.output_directory, exist_ok=True)
         out_dir = job.job.output_directory
     else:
         out_dir = job.pose_directory
@@ -733,7 +733,7 @@ def create_mulitcistronic_sequences(args):
         args.prefix = f'{args.prefix}_'
 
     # Format sequences for output
-    putils.make_path(job.output_directory)
+    os.makedirs(job.output_directory, exist_ok=True)
     nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
                                                file_name=os.path.join(job.output_directory,
                                                                       'MulticistronicNucleotideSequences'))

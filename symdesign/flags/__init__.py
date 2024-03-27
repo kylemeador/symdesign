@@ -21,7 +21,7 @@ from symdesign.utils import handle_errors, InputError, log_levels, digit_remover
 from symdesign.utils.path import default_clustered_pose_file, default_path_file, ex_path, \
     program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
 from symdesign.structure.fragment.resources import biological_interfaces, fragment_database_sources
-from symdesign.utils.logging import DEFAULT_LOGGING_LEVEL
+from symdesign.utils.logging_config import DEFAULT_LOGGING_LEVEL
 from symdesign.utils.path import design_profile, evolutionary_profile, fragment_profile, consensus
 from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -2080,8 +2080,8 @@ set_up_parser_with_groups(input_parser, input_parser_groups, required=True)
 additional_parsers = [options_parser, residue_selector_parser, output_parser, symmetry_parser, input_parser]
 # Set up entire ArgumentParser with all ArgumentParsers
 entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_on_error=False, # prog=program_name,
-                        description=f'{"_" * len(program_name)}\n{program_name}\n\n'
-                                    f'Control all input/output of various {program_name} operations including:'
+                        description=f'{"_" * len(program_name)}\n{program_name.lower()}\n\n'
+                                    f'Control all input/output of various {program_name.lower()} operations including:'
                                     f'\n  1. {nanohedra.title()} docking '
                                     '\n  2. Pose set up, sampling, assembly generation, fragment decoration'
                                     '\n  3. Interface design using constrained residue profiles and various design '

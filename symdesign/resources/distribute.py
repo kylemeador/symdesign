@@ -97,58 +97,16 @@ sbatch_templates_tuple = (
 )
 sbatch_templates = dict(zip(protocols, sbatch_templates_tuple))
 default_sbatch_template = sbatch_templates[flags.refine]
-# sbatch_templates = {
-#     flags.refine: os.path.join(sbatch_template_dir, flags.refine),
-#     flags.interface_design: os.path.join(sbatch_template_dir, flags.interface_design),
-#     flags.consensus: os.path.join(sbatch_template_dir, flags.refine),
-#     flags.nanohedra: os.path.join(sbatch_template_dir, flags.nanohedra),
-#     'rmsd_calculation': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-#     'all_to_all': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-#     'rmsd_clustering': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-#     'rmsd_to_cluster': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-#     flags.scout: os.path.join(sbatch_template_dir, flags.interface_design),
-#     putils.hbnet_design_profile: os.path.join(sbatch_template_dir, flags.interface_design),
-#     flags.optimize_designs: os.path.join(sbatch_template_dir, putils.hhblits),
-#     flags.interface_metrics: os.path.join(sbatch_template_dir, flags.interface_design),
-#     putils.hhblits: os.path.join(sbatch_template_dir, putils.hhblits),
-#     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
-# }
-# # 'metrics': os.path.join(sbatch_template_dir, flags.interface_design),
-# # 'metrics_bound': os.path.join(sbatch_template_dir, flags.interface_design),
-# # flags.analysis: os.path.join(sbatch_template_dir, flags.refine),
 
 
-# class GracefulKiller:
-#     kill_now = False
-#
-#     def __init__(self):
-#         signal.signal(signal.SIGINT, self.exit_gracefully)
-#         signal.signal(signal.SIGTERM, self.exit_gracefully)
-#
-#     def exit_gracefully(self, signum, frame):
-#         self.kill_now = True
-#         with open(args.failure_file, 'a') as f:
-#             for i, pose in enumerate(command_paths):
-#                 f.write('%s\n' % pose)
-#
-#         # Append SLURM output to log_file(s)
-#         job_id = int(os.environ.get('SLURM_JOB_ID'))
-#         file = 'output%s%s_%s.out' % (os.sep, job_id, array_task_number)
-#         for i, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
-#             # file = '%s_%s.out' % (job_id, task_id)
-#             run(file, log_files[i], program='cat')
-#             # run(file, '/dev/null', program='rm')
-#         return None
-
-
-def create_file(file: AnyStr = None):
+def touch_file(file: AnyStr | os.PathLike) -> None:
     """If file doesn't exist, create a blank one"""
     if file and not os.path.exists(file):
         with open(file, 'w') as new_file:
             dummy = True
 
 
-def run(cmd: list[str] | AnyStr, log_file_name: str, program: str = None, srun: str = None) -> bool:
+def run(cmd: list[str] | AnyStr, log_file_name: AnyStr | os.PathLike, program: str = None, srun: str = None) -> bool:
     """Executes specified command and appends command results to log file
 
     Args:
@@ -245,7 +203,7 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
     if failure_file is None:
         failure_file = os.path.join(out_path, f'{name}.failures')
     output = os.path.join(out_path, 'output')
-    putils.make_path(output)
+    os.makedirs(output, exist_ok=True)
 
     # Make sbatch file from template, array details, and command distribution script
     if batch:
@@ -331,11 +289,11 @@ def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
         shell = default_shell
         logger.info(script_warning)
 
-    putils.make_path(out_path)
+    os.makedirs(out_path, exist_ok=True)
     if commands_out_path is None:
         commands_out_path = out_path
     else:
-        putils.make_path(commands_out_path)
+        os.makedirs(commands_out_path, exist_ok=True)
     command_file = write_commands(commands, name=name, out_path=commands_out_path)
     script_file = distribute(command_file, protocol, len(commands), out_path=out_path, **kwargs)
 
@@ -353,11 +311,11 @@ def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
 #             exit(1)
 #     elif mode == 'set':
 #         info['status'][stage] = True
-#         pickle_object(info, name=serialized_info, out_path='')
+#         pickle_object(info, out_path=serialized_info)
 #         # exit()
 #     elif mode == 'remove':
 #         info['status'][stage] = False
-#         pickle_object(info, name=serialized_info, out_path='')
+#         pickle_object(info, out_path=serialized_info)
 #         # sys.exit()
 #     else:
 #         sys.exit(1)
@@ -379,7 +337,7 @@ def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcw
     """
     if status_wrap:
         modifier = '&&'
-        _base_cmd = ['python', putils.distributer_tool, '--stage', name, 'status', '--info', status_wrap]
+        _base_cmd = ['python', str(putils.distributer_tool), '--stage', name, 'status', '--info', status_wrap]
         check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
         _set = subprocess.list2cmdline(_base_cmd + ['--set'])
     else:

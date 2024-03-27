@@ -9,7 +9,7 @@ from typing import Literal
 
 import numpy as np
 
-from . import generate_alignment, protein_letters_alph1
+from . import generate_alignment, protein_letters_alph1, sequence_resources
 from .constants import expression_tags, h2o_mass, aa_polymer_molecular_weights, instability_array
 from symdesign.resources import query
 from symdesign import utils
@@ -20,7 +20,6 @@ putils = utils.path
 tags = expression_tags
 logger = logging.getLogger(__name__)
 termini_literal = Literal['n', 'c']
-uniprot_pdb_d: dict[str, dict[str, Container[str]]] = utils.unpickle(putils.uniprot_pdb_map)
 
 
 def format_sequence_to_numeric(sequence: Sequence[str | int]) -> Sequence[int]:

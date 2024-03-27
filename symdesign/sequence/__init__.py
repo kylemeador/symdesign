@@ -23,6 +23,7 @@ putils = utils.path
 # Globals
 ZERO_OFFSET = 1
 logger = logging.getLogger(__name__)
+sequence_resources = Path(__file__).parent / 'resources'
 # Types
 protein_letters3_alph1_literal = Literal[
     'ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',

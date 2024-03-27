@@ -15,13 +15,16 @@ import jax.numpy as jnp
 
 from . import distribute, sql
 from .database import Database, DataStore
-from symdesign import flags, resources, structure, utils
+from .ml import af_predict, set_up_model_runners
+from symdesign import flags
 from symdesign.protocols.pose import load_evolutionary_profile
 from symdesign.sequence import generate_mutations, expression
-from symdesign.structure.model import ContainsEntities, Entity, Pose, Structure
-from symdesign.utils.SymEntry import SymEntry
+from symdesign.structure.utils import SymmetryError, parse_stride
+from symdesign.structure.coordinates import superposition3d
+from symdesign.structure import ContainsEntities, Entity, Pose, Structure
+from symdesign.utils.SymEntry import SymEntry, sdf_lookup
 from symdesign.utils.symmetry import CRYST
-putils = utils.path
+from symdesign.utils import rosetta, starttime, symmetry, to_iterable, path as putils
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
         Filenames of the retrieved files
     """
     file_names = []
-    for pdb_code in utils.to_iterable(pdb_codes):
+    for pdb_code in to_iterable(pdb_codes):
         clean_pdb = pdb_code[:4].lower()
         if asu:
             pdb_file = f'{clean_pdb}.pdb'
@@ -272,7 +275,7 @@ class StructureDatabase(Database):
         self.refined = DataStore(location=refined, extension='.pdb', glob_extension='.pdb*',
                                  sql=self.sql, log=self.log, load_file=Pose.from_pdb)
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
-                                load_file=structure.utils.parse_stride)
+                                load_file=parse_stride)
 
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
@@ -300,10 +303,10 @@ class StructureDatabase(Database):
         self.oriented_asu.make_path()
         models_dir = self.models.location
 
-        if isinstance(sym_entry, utils.SymEntry.SymEntry):
+        if isinstance(sym_entry, SymEntry):
             if sym_entry.number:
                 resulting_symmetry = sym_entry.resulting_symmetry
-                if resulting_symmetry in utils.symmetry.space_group_cryst1_fmt_dict:
+                if resulting_symmetry in symmetry.space_group_cryst1_fmt_dict:
                     # This is a crystalline symmetry, so use a TOKEN to specify use of the CRYST record
                     resulting_symmetry = CRYST
                 else:
@@ -313,7 +316,7 @@ class StructureDatabase(Database):
                 resulting_symmetry = CRYST
         else:  # Treat as asymmetric - i.e. C1
             if sym_entry:
-                logger.warning(f"The passed 'sym_entry' isn't of the required type {utils.SymEntry.SymEntry.__name__}. "
+                logger.warning(f"The passed 'sym_entry' isn't of the required type {SymEntry.__name__}. "
                                "Treating as asymmetric")
             sym_entry = None  # Ensure not something else
             resulting_symmetry = 'C1'
@@ -415,7 +418,7 @@ class StructureDatabase(Database):
                 else:
                     try:
                         pose.orient(symmetry=resulting_symmetry)
-                    except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
+                    except (ValueError, RuntimeError, SymmetryError) as error:
                         orient_logger.error(str(error))
                         non_viable_structures.append(file)
                         continue
@@ -500,7 +503,7 @@ class StructureDatabase(Database):
                     else:
                         try:  # Orient the Pose
                             pose.orient(symmetry=resulting_symmetry)
-                        except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
+                        except (ValueError, RuntimeError, SymmetryError) as error:
                             orient_logger.error(str(error))
                             non_viable_structures.append(structure_identifier)
                             continue
@@ -530,7 +533,7 @@ class StructureDatabase(Database):
         report_non_viable_structures()
         return structure_identifier_tuples, uniprot_id_to_protein_metadata
 
-    # def preprocess_structures_for_design(self, structures: list[structure.base.ContainsResidues],
+    # def preprocess_structures_for_design(self, structures: list[ContainsResidues],
     #                                      script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
     #         tuple[list, bool, bool]:
     #     """Assesses whether StructureBase objects require any processing prior to design calculations.
@@ -556,7 +559,7 @@ class StructureDatabase(Database):
     #     # Identify the entities to refine and to model loops before proceeding
     #     structures_to_refine, structures_to_loop_model, sym_def_files = [], [], {}
     #     for _structure in structures:  # If _structure is here, the file should've been oriented...
-    #         sym_def_files[_structure.symmetry] = utils.SymEntry.sdf_lookup(_structure.symmetry)
+    #         sym_def_files[_structure.symmetry] = SymEntry.sdf_lookup(_structure.symmetry)
     #         if _structure.name not in refine_names:  # Assumes oriented_asu structure name is the same
     #             structures_to_refine.append(_structure)
     #         if _structure.name not in full_model_names:  # Assumes oriented_asu structure name is the same
@@ -616,8 +619,8 @@ class StructureDatabase(Database):
     #                            for _structure in structures_to_refine]
     #             if batch_commands:
     #                 commands_file = \
-    #                     resources.distribute.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-    #                                                         name=f'{utils.starttime}-refine_entities')
+    #                     distribute.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
+    #                                               out_path=refine_dir, name=f'{starttime}-refine_entities')
     #                 refine_script = \
     #                     distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
     #                                           log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
@@ -673,7 +676,7 @@ class StructureDatabase(Database):
     #             for idx, _structure in enumerate(structures_to_loop_model):
     #                 # Make a new directory for each structure
     #                 structure_out_path = os.path.join(full_model_dir, _structure.name)
-    #                 putils.make_path(structure_out_path)
+    #                 os.makedirs(structure_out_path, exist_ok=True)
     #                 # Todo is renumbering required?
     #                 _structure.renumber_residues()
     #                 structure_loop_file = _structure.make_loop_file(out_path=full_model_dir)
@@ -681,10 +684,11 @@ class StructureDatabase(Database):
     #                     copy_cmd = ['scp', self.refined.path_to(_structure.name),
     #                                 self.full_models.path_to(_structure.name)]
     #                     loop_model_cmds.append(
-    #                         resources.distribute.write_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
+    #                         distribute.write_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
     #                                                           out_path=full_model_dir))
     #                     # Can't do this v as refined path doesn't exist yet
-    #                     # shutil.copy(self.refined.path_to(_structure.name), self.full_models.path_to(_structure.name))
+    #                     # shutil.copy(self.refined.path_to(_structure.name),
+    #                                   self.full_models.path_to(_structure.name))
     #                     continue
     #                 structure_blueprint = _structure.make_blueprint_file(out_path=full_model_dir)
     #                 structure_cmd = rosetta.script_cmd + loop_model_cmd \
@@ -701,13 +705,13 @@ class StructureDatabase(Database):
     #                 copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
     #                             self.full_models.path_to(_structure.name)]
     #                 loop_model_cmds.append(
-    #                     resources.distribute.write_script(
+    #                     distribute.write_script(
     #                         subprocess.list2cmdline(structure_cmd), name=_structure.name, out_path=full_model_dir,
     #                         additional=[subprocess.list2cmdline(multimodel_cmd), subprocess.list2cmdline(copy_cmd)]))
     #             if batch_commands:
     #                 loop_cmds_file = \
-    #                     resources.distribute.write_commands(loop_model_cmds, out_path=full_model_dir,
-    #                                                         name=f'{utils.starttime}-loop_model_entities')
+    #                     distribute.write_commands(loop_model_cmds, out_path=full_model_dir,
+    #                                               name=f'{starttime}-loop_model_entities')
     #                 loop_model_script = \
     #                     distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
     #                                           log_file=os.path.join(full_model_dir, 'loop_model.log'),
@@ -738,13 +742,13 @@ class StructureDatabase(Database):
             Any instructions if processing is needed, otherwise an empty list
         """
         if batch_commands:
-            putils.make_path(script_out_path)
+            os.makedirs(script_out_path, exist_ok=True)
             if distribute.is_sbatch_available():
                 shell = distribute.sbatch
             else:
                 shell = distribute.default_shell
 
-        api_db = self.job.api_db  # resources.wrapapi.api_database_factory()
+        api_db = self.job.api_db  # wrapapi.api_database_factory()
         self.full_models.make_path()
         self.refined.make_path()
         full_model_names = self.full_models.retrieve_names()
@@ -792,9 +796,9 @@ class StructureDatabase(Database):
                         commands = [cmd + [protein.entity_id, f'--symmetry', protein.symmetry_group]
                                     for idx, protein in enumerate(protein_data_to_loop_model)]
 
-                        loop_cmds_file = resources.distribute.write_commands(
+                        loop_cmds_file = distribute.write_commands(
                             [subprocess.list2cmdline(cmd) for cmd in commands], out_path=script_out_path,
-                            name=f'{utils.starttime}-loop_model_entities',)
+                            name=f'{starttime}-loop_model_entities')
                         loop_model_script = distribute.distribute(
                             loop_cmds_file, flags.predict_structure, out_path=script_out_path,
                             log_file=os.path.join(full_model_dir, 'loop_model.log'),
@@ -809,10 +813,8 @@ class StructureDatabase(Database):
                         # model_type = 'monomer'
                         relaxed = self.job.predict.models_to_relax is not None
                         # Set up the various model_runners to supervise the prediction task for each sequence
-                        monomer_runners = \
-                            resources.ml.set_up_model_runners(model_type='monomer', development=self.job.development)
-                        multimer_runners = \
-                            resources.ml.set_up_model_runners(model_type='multimer', development=self.job.development)
+                        monomer_runners = set_up_model_runners(model_type='monomer', development=self.job.development)
+                        multimer_runners = set_up_model_runners(model_type='multimer', development=self.job.development)
                         # I don't suppose I need to reinitialize these for different length inputs, but I'm sure I will
 
                         # Predict each
@@ -868,9 +870,9 @@ class StructureDatabase(Database):
                             features['prev_pos'] = previous_position_coords
                             # Run the prediction
                             entity_structures, entity_scores = \
-                                resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
-                                                        gpu_relax=self.job.predict.use_gpu_relax,
-                                                        models_to_relax='best')  # self.job.predict.models_to_relax)
+                                af_predict(features, model_runners,  # {**features, **template_features},
+                                           gpu_relax=self.job.predict.use_gpu_relax,
+                                           models_to_relax='best')  # self.job.predict.models_to_relax)
                             if relaxed:
                                 structures_to_load = entity_structures.get('relaxed', [])
                             else:
@@ -900,8 +902,7 @@ class StructureDatabase(Database):
                             min_rmsd = float('inf')
                             min_entity = None
                             for af_model_name, entity_ in folded_entities.items():
-                                rmsd, rot, tx = structure.coords.superposition3d(
-                                    template_cb_coords, entity_.cb_coords[align_indices])
+                                rmsd, rot, tx = superposition3d(template_cb_coords, entity_.cb_coords[align_indices])
                                 if rmsd < min_rmsd:
                                     min_rmsd = rmsd
                                     # Move the Alphafold model into the Pose reference frame
@@ -923,7 +924,7 @@ class StructureDatabase(Database):
                     # if not os.path.exists(flags_file):
                     loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
                     #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                    _flags = utils.rosetta.flags.copy() + loop_model_flags
+                    _flags = rosetta.flags.copy() + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                     _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                     # Generate 100 trial loops, 500 is typically sufficient
@@ -940,10 +941,10 @@ class StructureDatabase(Database):
                     sym_def_files = {}
                     for idx, protein_data in enumerate(protein_data_to_loop_model):
                         if data.symmetry_group not in sym_def_files:
-                            sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
+                            sym_def_files[data.symmetry_group] = sdf_lookup(data.symmetry_group)
                         # Make a new directory for each structure
                         structure_out_path = os.path.join(full_model_dir, protein_data.name)
-                        putils.make_path(structure_out_path)
+                        os.makedirs(structure_out_path, exist_ok=True)
                         structure_ = Pose.from_file(protein_data.model_source)
                         structure_.renumber_residues()
                         structure_loop_file = structure_.make_loop_file(out_path=full_model_dir)
@@ -951,14 +952,14 @@ class StructureDatabase(Database):
                             copy_cmd = ['scp', self.refined.path_to(protein_data.name),
                                         self.full_models.path_to(protein_data.name)]
                             loop_model_cmds.append(
-                                resources.distribute.write_script(
+                                distribute.write_script(
                                     subprocess.list2cmdline(copy_cmd), name=protein_data.name, out_path=full_model_dir))
                             # Can't do this v as refined path doesn't exist yet
                             # shutil.copy(self.refined.path_to(protein_data.name),
                             #             self.full_models.path_to(protein_data.name))
                             continue
                         structure_blueprint = structure_.make_blueprint_file(out_path=full_model_dir)
-                        structure_cmd = utils.rosetta.script_cmd + loop_model_cmd \
+                        structure_cmd = rosetta.script_cmd + loop_model_cmd \
                             + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
                                '-in:file:s', self.refined.path_to(protein_data.name),
                                '-out:path:pdb', structure_out_path] \
@@ -967,20 +968,20 @@ class StructureDatabase(Database):
                         #     + (['-symmetry:symmetry_definition', sym_def_files[protein_data.symmetry]]
                         #        if protein_data.symmetry != 'C1' else [])
                         # Create a multimodel from all output loop models
-                        multimodel_cmd = ['python', putils.models_to_multimodel_exe, '-d', structure_loop_file,
+                        multimodel_cmd = ['python', str(putils.models_to_multimodel_exe), '-d', structure_loop_file,
                                           '-o', os.path.join(full_model_dir, f'{protein_data.name}_ensemble.pdb')]
                         # Copy the first model from output loop models to be the full model
                         copy_cmd = ['scp', os.path.join(structure_out_path, f'{protein_data.name}_0001.pdb'),
                                     self.full_models.path_to(protein_data.name)]
                         loop_model_cmds.append(
-                            resources.distribute.write_script(
+                            distribute.write_script(
                                 subprocess.list2cmdline(structure_cmd), name=protein_data.name, out_path=full_model_dir,
                                 additional=[subprocess.list2cmdline(multimodel_cmd),
                                             subprocess.list2cmdline(copy_cmd)]))
                     if batch_commands:
                         loop_cmds_file = \
-                            resources.distribute.write_commands(
-                                loop_model_cmds, name=f'{utils.starttime}-loop_model_entities', out_path=full_model_dir)
+                            distribute.write_commands(
+                                loop_model_cmds, name=f'{starttime}-loop_model_entities', out_path=full_model_dir)
                         loop_model_script = \
                             distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
                                                   log_file=os.path.join(full_model_dir, 'loop_model.log'),
@@ -1038,14 +1039,14 @@ class StructureDatabase(Database):
                     sym_def_files = {}
                     for data in protein_data_to_refine:
                         if data.symmetry_group not in sym_def_files:
-                            sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
+                            sym_def_files[data.symmetry_group] = sdf_lookup(data.symmetry_group)
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
-                _flags = utils.rosetta.flags.copy() + utils.rosetta.relax_flags
+                _flags = rosetta.flags.copy() + rosetta.relax_flags
                 _flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
                 _flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                variables = utils.rosetta.variables.copy()
+                variables = rosetta.variables.copy()
                 variables.append(('dist', 0))  # Todo modify if not point groups used
                 _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
@@ -1054,16 +1055,16 @@ class StructureDatabase(Database):
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
                               os.path.join(putils.rosetta_scripts_dir, f'refine.xml')]
-                refine_cmds = [utils.rosetta.script_cmd + refine_cmd
+                refine_cmds = [rosetta.script_cmd + refine_cmd
                                + ['-in:file:s', protein.model_source, '-parser:script_vars']
                                + [f'sdf={sym_def_files[protein.symmetry_group]}',
                                   f'symmetry={"asymmetric" if protein.symmetry_group == "C1" else "make_point_group"}']
                                for protein in protein_data_to_refine]
                 if batch_commands:
                     commands_file = \
-                        resources.distribute.write_commands(
+                        distribute.write_commands(
                             [subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                            name=f'{utils.starttime}-refine_entities')
+                            name=f'{starttime}-refine_entities')
                     refine_script = \
                         distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
                                               log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
@@ -1118,16 +1119,16 @@ class StructureDatabaseFactory:
             pdb_dir = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(source, 'stride')
-            putils.make_path(stride_dir)
+            os.makedirs(stride_dir, exist_ok=True)
             # pdb_dir subdirectories
             orient_dir = os.path.join(pdb_dir, 'oriented')
             orient_asu_dir = os.path.join(pdb_dir, 'oriented_asu')
             refine_dir = os.path.join(pdb_dir, 'refined')
             full_model_dir = os.path.join(pdb_dir, 'full_models')
-            putils.make_path(orient_dir)
-            putils.make_path(orient_asu_dir)
-            putils.make_path(refine_dir)
-            putils.make_path(full_model_dir)
+            os.makedirs(orient_dir, exist_ok=True)
+            os.makedirs(orient_asu_dir, exist_ok=True)
+            os.makedirs(refine_dir, exist_ok=True)
+            os.makedirs(full_model_dir, exist_ok=True)
             logger.info(f'Initializing {StructureDatabase.__name__}({source})')
 
             self._database = \

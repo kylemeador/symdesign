@@ -5,6 +5,7 @@ import os
 import subprocess
 from collections.abc import Iterable, Sequence
 from itertools import combinations, repeat
+from pathlib import Path
 from typing import Any, AnyStr
 import warnings
 
@@ -38,8 +39,8 @@ def cluster_poses(pose_jobs: list[PoseJob]) -> list[PoseJob] | list:
         # Need to change directories to prevent issues with the path length being passed to ialign
         prior_directory = os.getcwd()
         os.chdir(job.data_path)  # os.path.join(job.data_path, 'ialign_output'))
-        temp_file_dir = os.path.join(os.getcwd(), 'temp')
-        putils.make_path(temp_file_dir)
+        temp_file_dir = Path(os.getcwd(), 'temp')
+        temp_file_dir.mkdir(parents=True, exist_ok=True)
 
         # Save the interface for each design to the temp directory
         design_interfaces = []
@@ -49,7 +50,7 @@ def cluster_poses(pose_jobs: list[PoseJob]) -> list[PoseJob] | list:
             interface = pose_job.pose.get_interface()
             design_interfaces.append(
                 # interface.write(out_path=os.path.join(temp_file_dir, f'{pose_job.name}_interface.pdb')))  # Todo reinstate
-                interface.write(out_path=os.path.join(temp_file_dir, f'{pose_job.name}.pdb')))
+                interface.write(out_path=temp_file_dir / f'{pose_job.name}.pdb'))
 
         design_directory_pairs = list(combinations(pose_jobs, 2))
         if job.multi_processing:
@@ -126,10 +127,10 @@ def cluster_poses(pose_jobs: list[PoseJob]) -> list[PoseJob] | list:
         #         job.output_file = os.path.join(job.clustered_poses, job.output_file)
         # else:
         # Prepend the job.clustered_poses location
-        putils.make_path(job.clustered_poses)
+        os.makedirs(job.clustered_poses, exist_ok=True)
         job.output_file = os.path.join(job.clustered_poses, job.output_file)
 
-        job.cluster.map = utils.pickle_object(pose_cluster_map, name=job.output_file, out_path='')
+        job.cluster.map = utils.pickle_object(pose_cluster_map, out_path=job.output_file)
         # elif job.module == flags.cluster_poses:
         logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n%s'
                     % '\n'.join([f'{representative}\n\t%s' % '\n\t'.join(map(str, members))
@@ -228,7 +229,8 @@ def ialign(*pdb_files: AnyStr, chain1: str = None, chain2: str = None,
     os.system(f'scp {pdb_file2} {temp_pdb_file2}')
     # Perform the iAlign process
     # Example: perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
-    cmd = ['perl', putils.ialign_exe_path, '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2] + chains
+    cmd = ['perl', str(putils.ialign_exe_path), '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2] \
+        + chains
     logger.debug(f'iAlign command: {subprocess.list2cmdline(cmd)}')
     ialign_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     ialign_out, ialign_err = ialign_p.communicate()

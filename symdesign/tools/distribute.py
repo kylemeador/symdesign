@@ -7,7 +7,7 @@ import subprocess
 import sys
 from itertools import repeat
 
-from symdesign.resources.distribute import create_file, default_shell, run
+from symdesign.resources.distribute import touch_file, default_shell, run
 from symdesign.utils import calculate_mp_cores, mp_starmap, path as putils
 
 index_offset = 1
@@ -110,9 +110,9 @@ if __name__ == '__main__':
 
     # Ensure all log and reporting files exist
     for log_file in log_files:
-        create_file(log_file)
-    create_file(args.success_file)
-    create_file(args.failure_file)
+        touch_file(log_file)
+    touch_file(args.success_file)
+    touch_file(args.failure_file)
 
     def exit_gracefully(signum, frame):
         with open(args.failure_file, 'a') as f:

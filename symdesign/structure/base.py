@@ -10,7 +10,7 @@ import time
 import traceback
 from abc import ABC
 from collections import UserList
-from collections.abc import Callable, Container, Iterable, Sequence, Collection, Generator
+from collections.abc import Callable, Container, Iterable, Sequence, Generator
 from copy import copy
 from itertools import count, repeat
 from logging import Logger
@@ -18,7 +18,10 @@ from pathlib import Path
 from random import random
 from typing import Any, AnyStr, Generic, get_args, IO, Literal, Type, TypeVar, Union
 
-import freesasa
+try:
+    import freesasa
+except ModuleNotFoundError:
+    freesasa = None
 import numpy as np
 from sklearn.neighbors import BallTree
 from pdbecif.mmcif_io import CifFileReader
@@ -31,8 +34,9 @@ from .config import protein_letters_3to1_extended_mse, atom_and_resiude_type_to_
     element_radius
 from .coordinates import Coordinates, superposition3d
 from . import fragment, utils as stutils
-from symdesign.sequence import protein_letters_alph1, protein_letters_1to3, \
-    protein_letters_3to1_extended, protein_letters3_alph1_literal
+from .dependencies import errat_exe_path, freesasa_config_path, freesasa_debug_dir, freesasa_exe_path, stride_exe_path
+from symdesign.sequence import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended, \
+    protein_letters3_alph1_literal
 from symdesign import utils
 from symdesign.metrics import default_sasa_burial_threshold
 putils = utils.path
@@ -2078,7 +2082,7 @@ class ContainsAtoms(StructureBase, ABC):
         """
 
     def write(
-        self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs
+        self, out_path: AnyStr | os.PathLike = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs
     ) -> AnyStr | None:
         """Write Atom instances to a file specified by out_path or with a passed file_handle
 
@@ -2109,7 +2113,7 @@ class ContainsAtoms(StructureBase, ABC):
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
                 outfile.write(f'{self.get_atom_record(**kwargs)}\n')
-            return out_path
+            return str(out_path)
 
     def get_atoms(self, numbers: Container = None, **kwargs) -> list[Atom]:
         """Retrieves Atom instances. Returns all by default unless a list of numbers is specified
@@ -4831,8 +4835,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             # # ...
             # # \n EOF
 
-            cmd = [str(putils.freesasa_exe_path), f'--format=pdb', '--probe-radius', str(probe_radius),
-                   '-c', str(putils.freesasa_config_path), '--n-threads=2'] + include_hydrogen
+            cmd = [str(freesasa_exe_path), f'--format=pdb', '--probe-radius', str(probe_radius),
+                   '-c', str(freesasa_config_path), '--n-threads=2'] + include_hydrogen
             self.log.debug(f'FreeSASA:\n{subprocess.list2cmdline(cmd)}')
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
@@ -4858,12 +4862,12 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
                         residues[if_idx].sasa = float(line[sasa_slice])
                         if_idx += 1
 
-        if putils.freesasa_exe_path.exists():
+        if freesasa_exe_path.exists():
             # Prefer this method as it is quicker
             t1 = time.perf_counter()
             _calculate_sasa_from_c()
             logger.debug(f"Took {time.perf_counter() - t1}")
-        else:
+        elif freesasa is not None:
             t0 = time.perf_counter()
             _calculate_sasa()
             logger.debug(f"Took {time.perf_counter() - t0}")
@@ -4872,14 +4876,14 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             self.sasa = sum([residue.sasa for residue in self.residues])
         except RecursionError:
             self.log.error('RecursionError measuring SASA')
-            os.makedirs(putils.sasa_debug_dir, exist_ok=True)
-            self.write(out_path=os.path.join(putils.sasa_debug_dir, f'SASA-INPUT-{self.name}.pdb'))
-            with open(os.path.join(putils.sasa_debug_dir, f'SASA-OUTPUT-{self.name}.pdb'), 'w') as f:
+            os.makedirs(freesasa_debug_dir, exist_ok=True)
+            self.write(out_path=freesasa_debug_dir / f'SASA-INPUT-{self.name}.pdb')
+            with open(freesasa_debug_dir / f'SASA-OUTPUT-{self.name}.pdb', 'w') as f:
                 f.write('%s\n' % '\n'.join(sasa_output))
 
             raise stutils.DesignError(
-                "Measurement of SASA isn't working, probably due to a missing Atom. Debug files written to "
-                f'{putils.sasa_debug_dir}')
+                f"Measurement of SASA by {method} isn't working, probably due to a missing Atom. "
+                f"Debug files written to '{freesasa_debug_dir}'")
 
     @property
     def relative_sasa(self) -> list[float]:
@@ -4981,7 +4985,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
             Overall Errat score, Errat value/residue array
         """
         out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing "/"
-        errat_cmd = [str(putils.errat_exe_path), out_path]  # for passing atoms by stdin
+        errat_cmd = [str(errat_exe_path), out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
         # logger.info(self.get_atom_record()[:120])
@@ -5070,7 +5074,7 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         #  T:Turn,
         #  C:Coil (none of the above)'
         current_struc_file = self.write(out_path=f'stride_input-{self.name}-{random() * 100000}.pdb')
-        p = subprocess.Popen([putils.stride_exe_path, current_struc_file],
+        p = subprocess.Popen([str(stride_exe_path), current_struc_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
         struct_file = Path(current_struc_file)
@@ -5948,7 +5952,8 @@ class Structures(ContainsResidues, UserList):
     #     return new_structures
     #     # return Structures(structures=[structure.get_transformed_copy(**kwargs) for structure in self.structures])
 
-    # def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = True,
+    # def write(self, out_path: AnyStr | os.PathLike = os.getcwd(), file_handle: IO = None,
+    #           increment_chains: bool = True,
     #           header: str = None, **kwargs) -> str | None:
     #     """Write Structures to a file specified by out_path or with a passed file_handle
     #

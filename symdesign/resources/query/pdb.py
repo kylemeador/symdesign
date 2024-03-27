@@ -2144,7 +2144,7 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
                 if search_only:  # remove entries that don't have a corresponding operator as these aren't searchable
                     schema_d.pop(attribute_full)
 
-        pickled_schema_file = utils.pickle_object(schema_d, file, out_path='')
+        pickled_schema_file = utils.pickle_object(schema_d, out_path=file)
     else:
         return utils.unpickle(file)
 

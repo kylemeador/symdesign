@@ -8,14 +8,19 @@ import subprocess
 import sys
 import time
 from collections import UserList, defaultdict
-from collections.abc import Container, Generator, Iterable, Iterator, Sequence, MutableMapping
+from collections.abc import Container, Generator, Iterable, Sequence, MutableMapping
 from copy import deepcopy
-from itertools import combinations_with_replacement, combinations, product, count
-from pathlib import Path
+from itertools import combinations_with_replacement, combinations, count
 from random import random
 from typing import Any, AnyStr, IO, TypedDict, Union
 from typing_extensions import assert_never
 
+import alphafold.data.feature_processing as af_feature_processing
+import alphafold.data.parsers as af_data_parsers
+import alphafold.data.msa_pairing as af_msa_pairing
+import alphafold.data.pipeline as af_pipeline
+import alphafold.data.pipeline_multimer as af_pipeline_multimer
+from alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 import numpy as np
 import pandas as pd
 import torch
@@ -23,6 +28,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree, KDTree
 # from sqlalchemy.ext.hybrid import hybrid_property
 
+from .dependencies import orient_dir_path, orient_exe_path, orient_symmetry_files_dir
 from .base import ContainsResidues, Residue, Structures, StructureBase, atom_or_residue_literal, \
     SymmetryBase, ContainsAtoms, read_pdb_file, read_mmcif_file
 from .coordinates import Coordinates, superposition3d, superposition3d_quat, transform_coordinate_sets
@@ -41,12 +47,6 @@ from symdesign.sequence import default_substitution_matrix_array, default_substi
     numerical_translation_alph1_unknown_gaped_bytes, numerical_translation_alph3_unknown_gaped_bytes, \
     protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
     protein_letters_alph1_unknown_gaped, get_lod, protein_letters_alph3
-import alphafold.data.feature_processing as af_feature_processing
-import alphafold.data.parsers as af_data_parsers
-import alphafold.data.msa_pairing as af_msa_pairing
-import alphafold.data.pipeline as af_pipeline
-import alphafold.data.pipeline_multimer as af_pipeline_multimer
-from alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 from symdesign.utils import types
 
 FeatureDict = MutableMapping[str, np.ndarray]
@@ -1624,8 +1624,8 @@ class ContainsChains(ContainsStructures):
             raise SymmetryError(
                 f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
 
-        orient_input = putils.orient_dir_path / 'input.pdb'
-        orient_output = putils.orient_dir_path / 'output.pdb'
+        orient_input = orient_dir_path / 'input.pdb'
+        orient_output = orient_dir_path / 'output.pdb'
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
@@ -1644,9 +1644,9 @@ class ContainsChains(ContainsStructures):
             self.write(**orient_kwargs)
 
         name = self.name
-        p = subprocess.Popen([str(putils.orient_exe_path)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, cwd=putils.orient_dir_path)
-        in_symm_file = os.path.join(putils.orient_dir_path, 'symm_files', symmetry)
+        p = subprocess.Popen([str(orient_exe_path)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, cwd=orient_dir_path)
+        in_symm_file = os.path.join(orient_symmetry_files_dir, symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         self.log.debug(name + stdout.decode()[28:])
         self.log.debug(stderr.decode()) if stderr else None
@@ -1659,7 +1659,7 @@ class ContainsChains(ContainsStructures):
                 f': {stderr.decode()}' if stderr else ''
             clean_orient_input_output()
             raise StructureException(
-                f"'{putils.orient_exe_path}' couldn't orient {name}{log_message}")
+                f"'{orient_exe_path}' couldn't orient {name}{log_message}")
 
         oriented_pdb = Model.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
@@ -3779,8 +3779,8 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
 
         return new_structure
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-              assembly: bool = False, **kwargs) -> AnyStr | None:
+    def write(self, out_path: AnyStr | os.PathLike = os.getcwd(), file_handle: IO = None, header: str = None,
+              assembly: bool = False, **kwargs) -> str | None:
         """Write Entity Structure to a file specified by out_path or with a passed file_handle
 
         Args:
@@ -3825,8 +3825,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
                 _write(outfile)
-
-            return out_path
+            return str(out_path)
 
     def calculate_metrics(self, **kwargs) -> dict[str, Any]:
         """"""
@@ -4500,8 +4499,8 @@ class Models(UserList):  # (Model):
     #     """
     #     self.models.append(model)
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-              multimodel: bool = False, increment_chains: bool = False, **kwargs) -> AnyStr | None:
+    def write(self, out_path: AnyStr | os.PathLike = os.getcwd(), file_handle: IO = None, header: str = None,
+              multimodel: bool = False, increment_chains: bool = False, **kwargs) -> str | None:
         """Write Models to a file specified by out_path or with a passed file_handle
 
         Args:
@@ -4566,7 +4565,7 @@ class Models(UserList):  # (Model):
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
                 _write(outfile)
-            return out_path
+            return str(out_path)
 
     def __iter__(self) -> ContainsChains:
         yield from self.data
@@ -5607,8 +5606,8 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             super().orient(symmetry=symmetry)
             self.set_symmetry(symmetry=symmetry)
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-              assembly: bool = False, **kwargs) -> AnyStr | None:
+    def write(self, out_path: AnyStr | os.PathLike = os.getcwd(), file_handle: IO = None, header: str = None,
+              assembly: bool = False, **kwargs) -> str | None:
         """Write SymmetricModel Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
@@ -5654,7 +5653,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
                 _write(outfile)
-            return out_path
+            return str(out_path)
 
     def __copy__(self) -> SymmetricModel:  # Todo -> Self: in python 3.11
         # self.log.debug('In SymmetricModel copy {repr(self)}')
@@ -8561,7 +8560,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 ghost_frag = aligned_residue.ghost_fragments[ijk]
                 ghost_frags.append(ghost_frag)
 
-        putils.make_path(out_path)
+        os.makedirs(out_path, exist_ok=True)
         file_path = None
         if multimodel:
             file_path = os.path.join(out_path, 'all_frags.pdb')

@@ -1,3 +1,3 @@
-[submodule "symdesign/third_party/freesasa"]
-	path = symdesign/third_party/freesasa
+[submodule "symdesign/structure/dependencies/freesasa"]
+	path = symdesign/structure/dependencies/freesasa
 	url = https://github.com/mittinatten/freesasa.git

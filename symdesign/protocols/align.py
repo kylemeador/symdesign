@@ -16,7 +16,7 @@ from symdesign.protocols.pose import insert_pose_jobs, PoseJob
 from symdesign.resources import job as symjob, sql
 from symdesign.structure.base import ContainsResidues, Residue, SS_HELIX_IDENTIFIERS
 from symdesign.structure.coordinates import superposition3d
-from symdesign.structure.model import Chain, Entity, Model, Pose, ContainsEntities
+from symdesign.structure import Chain, ContainsEntities, Entity, Model, Pose
 from symdesign.structure.utils import chain_id_generator, DesignError, termini_literal
 from symdesign.utils import types
 from symdesign.utils.SymEntry import SymEntry
@@ -495,7 +495,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
 
     project = f'Alignment_{model1.name}-{model2.name}'
     project_dir = os.path.join(job.projects, project)
-    putils.make_path(project_dir)
+    os.makedirs(project_dir, exist_ok=True)
     protocol_name = 'helix_align'
     # fusion_chain_id = 'A'
     pose_jobs = []
@@ -635,7 +635,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
 
         pose_job.pose = pose
         # pose_job.calculate_pose_design_metrics(session)
-        putils.make_path(pose_job.pose_directory)
+        os.makedirs(pose_job.pose_directory, exist_ok=True)
         pose_job.output_pose()
         pose_job.source_path = pose_job.pose_path
         pose_job.pose = None
@@ -1239,7 +1239,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
         #     #         metrics.sql.write_dataframe(session, pose_residues=residues_df_)
         #     # else:  # Write to disk
         #     #     residues_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
-        #     #     putils.make_path(job.all_scores)
+        #     #     os.makedirs(job.all_scores, exist_ok=True)
         #     #     residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
         #     #     residues_df_.to_csv(residue_metrics_csv)
         #     #     logger.info(f'Wrote residue metrics to {residue_metrics_csv}')

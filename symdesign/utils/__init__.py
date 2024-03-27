@@ -10,6 +10,7 @@ import pickle
 import string
 import subprocess
 import sys
+import textwrap
 import time
 from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable, Sequence
@@ -26,7 +27,7 @@ import numpy as np
 import psutil
 import torch
 
-from . import path as putils, query
+from . import logging_config, path as putils, query
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -362,14 +363,14 @@ def unpickle(file_name: AnyStr | Path) -> Any:
     return new_object
 
 
-def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.getcwd(),
-                  protocol: int = pickle.HIGHEST_PROTOCOL) -> AnyStr:
-    """Pickle (serialize) an object into a file named 'out_path/name.pkl'. Automatically adds extension
+def pickle_object(target_object: Any, out_path: AnyStr | os.PathLike = os.getcwd(), name: str = None,
+                  protocol: int = pickle.HIGHEST_PROTOCOL) -> str:
+    """Pickles an object to a file named 'out_path.pkl' OR 'out_path/name.pkl'. Automatically adds '.pkl' extension
 
     Args:
         target_object: Any python object
-        name: The name of the pickled file
-        out_path: Where the file should be written
+        out_path: The full path where the file should be written if 'name' is None, otherwise the dirname
+        name: The basename of the pickled file
         protocol: The pickling protocol to use
 
     Returns:
@@ -386,7 +387,7 @@ def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.ge
     with open(file_name, 'wb') as f:
         pickle.dump(target_object, f, protocol)
 
-    return file_name
+    return str(file_name)
 
 
 @lru_cache
@@ -907,8 +908,9 @@ def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: b
     return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str = '', sort: bool = True) -> \
-        list[AnyStr]:
+def get_directory_file_paths(
+    directory: AnyStr, suffix: str = '', extension: str = '', sort: bool = True
+) -> list[AnyStr]:
     """Return all files in a directory with specified extensions and suffixes
 
     Args:
@@ -1281,3 +1283,16 @@ def condensed_to_square(k: int, n: int) -> tuple[int, int]:
 
 from . import path, rosetta, SymEntry, symmetry
 # guide causes import error due to flags import
+
+
+def print_readme():
+    """Print the program readme file"""
+    with open(putils.readme_file, 'r') as f:
+        terminal_width = 80
+        print()
+        print('\n', '=' * terminal_width, sep='')
+        padding = ' ' * int((terminal_width - len(putils.program_name)) / 2)
+        print(padding, putils.program_name.lower(), padding)
+        print('-' * terminal_width, '\n', sep='')
+        for line in f.readlines():
+            print('\n'.join(textwrap.wrap(line, terminal_width, replace_whitespace=False, break_on_hyphens=False)))

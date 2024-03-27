@@ -4,7 +4,7 @@ import csv
 
 import numpy as np
 
-from symdesign.utils import path as putils
+from . import sequence_resources
 
 default_tag_linker = 'GGS'
 ndeI_multicistronic_sequence = \
@@ -181,6 +181,6 @@ Correlation between stability of a protein and its dipeptide composition: a nove
 stability of a protein from its primary sequence.
 Protein Eng. 4,155-161. Table III.
 """
-
-with open(putils.affinity_tags, 'r') as f:
+affinity_tags_path = sequence_resources / 'affinity-tags.csv'
+with open(affinity_tags_path, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}

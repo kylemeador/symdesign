@@ -8,13 +8,14 @@ import subprocess
 from collections.abc import Sequence
 from glob import glob
 from pathlib import Path
-from typing import AnyStr
+
+import symdesign
 
 logger = logging.getLogger(__name__)
 # Project strings and file names
 utils_dir = Path(__file__).absolute().parent  # Reveals utils subdirectory
 python_source = utils_dir.parent  # Reveals the root python code directory
-git_source = utils_dir.parent.parent  # Reveals the root git directory
+git_source = python_source.parent  # Reveals the root git directory
 try:
     p = subprocess.Popen(['git', '--git-dir', str(git_source / '.git'), 'rev-parse', 'HEAD'],
                          stdout=subprocess.PIPE)
@@ -22,12 +23,18 @@ try:
     commit = stdout.decode().strip()
     commit_short = commit[:9]
 except subprocess.CalledProcessError:
-    commit = commit_short = 'unknown'
+    commit = commit_short = symdesign.version  # 'unknown'
 
 program_name = 'SymDesign'
-program_exe = git_source.name  # Exported at setup, essentially where __main__.py is located
+program_exe = python_source.name  # Exported at setup, essentially where __main__.py is located
+# Project install and setup paths
+documentation_dir = git_source / 'docs'
+readme_file = documentation_dir / 'README.md'
 conda_env_path = git_source / 'env.yml'
-config_file = python_source / 'cfg.json'
+tools = python_source / 'tools'
+setup_exe = tools / 'setup.py'
+hhsuite_setup_command = f'python {setup_exe} --hhsuite-database'
+# Program operations strings
 program_help = f'{program_exe} --help'
 program_guide = f'{program_exe} --guide'
 submodule_guide = f'{program_exe} MODULE --guide'
@@ -36,8 +43,6 @@ guide_string = f"{program_name} guide. Enter '{program_guide}'"
 program_output = f'{program_name}Output'
 projects = 'Projects'
 data = 'data'
-# pose_metrics_file = 'pose_scores.sc'  # UNUSED
-# default_path_file = '{}_{}_{}_pose.paths'
 default_path_file = '{}_{}_{}.poses'
 default_execption_file = '{}_{}_{}_exceptions.poses'
 default_specification_file = '{}_{}_{}.specification'
@@ -57,8 +62,6 @@ design_parent = 'design_parent'
 scout = 'scout'
 consensus = 'consensus'
 hhblits = 'hhblits'
-setup_exe = git_source / 'setup.py'
-hhsuite_setup_command = f'python {setup_exe} --hhsuite-database'
 rosetta = 'rosetta'
 proteinmpnn = 'proteinmpnn'
 reference = 'reference'
@@ -77,25 +80,16 @@ approx_ave_design_directory_memory_w_o_pose = 150_000  # with 44279 poses get 14
 approx_ave_design_directory_memory_w_assembly = 500_000_000  # 500MB
 baseline_program_memory = 3_000_000_000  # 3GB
 nanohedra_memory = 30_000_000_000  # 30Gb
-
-# Project paths
-documentation_dir = git_source / 'docs'
-readme_file = documentation_dir / 'README.md'
-# dependency_dir = os.path.join(source, 'dependencies')
-dependency_dir = git_source / 'dependencies'
-tools = os.path.join(python_source, 'tools')
-sasa_debug_dir = os.path.join(dependency_dir, 'sasa')
+# Package paths
 sym_op_location = utils_dir / 'symmetry_operators'
 point_group_symmetry_operator_location = sym_op_location / 'point_group_operators.pkl'
 point_group_symmetry_operatorT_location = sym_op_location / 'point_group_operators_transposed.pkl'
 space_group_symmetry_operator_location = sym_op_location / 'space_group_operators.pkl'
 space_group_symmetry_operatorT_location = sym_op_location / 'space_group_operators_transposed.pkl'
-protocols_dir = os.path.join(python_source, f'protocols')
-binary_dir = dependency_dir / 'bin'
-models_to_multimodel_exe = os.path.join(tools, 'models_to_multimodel.py')
-list_pdb_files = os.path.join(tools, 'list_files_in_directory.py')
-distributer_tool = os.path.join(tools, 'distribute.py')
-hbnet_sort = binary_dir / 'sort_hbnet_silent_file_results.sh'
+config_file = python_source / 'cfg.json'
+models_to_multimodel_exe = tools / 'models_to_multimodel.py'
+list_pdb_files = tools / 'list_files_in_directory.py'
+distributer_tool = tools / 'distribute.py'
 data_dir = python_source / data
 databases = data_dir / 'databases'
 pdb_db = os.path.join(databases, 'pdbDB')
@@ -105,28 +99,15 @@ qs_bio = qs_bio_dir / 'QSbioHighConfidenceAssemblies.pkl'
 qs_bio_monomers_file = qs_bio_dir / 'QSbio_Monomers.txt'
 # External dependencies
 dependency_dir = python_source / 'dependencies'
-sasa_debug_dir = dependency_dir / 'sasa'
 binary_dir = dependency_dir / 'bin'
 hbnet_sort = binary_dir / 'sort_hbnet_silent_file_results.sh'
-third_party_dir = python_source / 'third_party'
-freesasa_dir = third_party_dir / 'freesasa'
-freesasa_exe_path = freesasa_dir / 'src' / 'freesasa'
-freesasa_config_path = dependency_dir / 'freesasa-2.0.config'
-orient_dir_path = dependency_dir / 'orient'
-orient_exe_path = orient_dir_path / 'orient_oligomer'
-orient_log_file = 'orient_oligomer_log.txt'
-errat_exe_path = dependency_dir / 'errat' / 'errat'
-errat_residue_path = dependency_dir / 'errat'/ 'errat_every_residue.cpp'
-stride_dir = dependency_dir / 'stride'
-stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
-bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
-ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
-# Set up for alignment programs
+bmdca_exe_path = dependency_dir / 'bmDCA' / 'src' / 'bmdca'
+ialign_exe_path = dependency_dir / 'ialign' / 'bin' / 'ialign.pl'
+# Alignment programs
 uniclust_hhsuite_file_identifier = '_hhsuite.tar.gz'
-hhsuite_dir = os.path.join(dependency_dir, 'hhsuite')
-hhsuite_db_dir = os.path.join(hhsuite_dir, 'databases')
-alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
-# alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
+hhsuite_dir = databases / 'hhsuite'
+hhsuite_db_dir = hhsuite_dir / 'databases'
+# alignment_db_path = dependency_dir / 'databases' / 'uniref90'
 
 # Below matches internals of utils.read_json()
 try:
@@ -139,12 +120,13 @@ except FileNotFoundError:  # May be running setup.py or this wasn't installed pr
     logger.debug(f"Couldn't find the config file '{config_file}'. Setting default config:\n"
                  f"{', '.join(f'{k}={v}' for k, v in config.items())}")
 
+
 def get_uniclust_db() -> str:
     """Get the newest UniClust file by sorting alphanumerically"""
     try:  # To get database files and remove any extra characters from filename
         md5sums = '.md5sums'
-        return sorted(glob(os.path.join(hhsuite_db_dir, f'*{md5sums}')), reverse=True)[0].replace(md5sums, '')
-        # return sorted(os.listdir(hhsuite_db_dir), reverse=True)[0].replace(uniclust_hhsuite_file_identifier, '')
+        matching_files = sorted(glob(str(hhsuite_db_dir / f'*{md5sums}')), reverse=True)
+        return matching_files[0].replace(md5sums, '')
     except IndexError:
         return ''
 
@@ -158,14 +140,14 @@ else:
     hhsuite_source_root_directory = Path(hhblits_exe).parent.parent
 
 reformat_msa_exe_path = str(hhsuite_source_root_directory / 'scripts' / 'reformat.pl')
-if os.path.exists(hhsuite_db_dir):
-    uniclust_db = os.path.join(hhsuite_db_dir, config.get('uniclust_db', get_uniclust_db()))
+if hhsuite_db_dir.exists():
+    uniclust_db = hhsuite_db_dir / config.get('uniclust_db', get_uniclust_db())
 else:
-    uniclust_db = ''
+    uniclust_db = Path('')
 hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 # Alphfold
 alphafold_db_dir = dependency_dir / 'alphafold'
-alphafold_params_dir = os.path.join(alphafold_db_dir, 'params')
+alphafold_params_dir = alphafold_db_dir / 'params'
 alphafold_params_name = config.get('af_params')
 """The version of the AlphaFold parameters downloaded"""
 # openmm_path = shutil.which('openmm')
@@ -191,18 +173,7 @@ see_symmetry_documentation = f' See the documentation on symmetry: {symmetry_doc
 report_issue = f' Please report this at {git_issue_url}'
 
 
-def make_path(path: AnyStr, condition: bool = True):
-    """Make all required directories in specified path if it doesn't exist, and optional condition is True
-
-    Args:
-        path: The path to create
-        condition: A condition to check before the path production is executed
-    """
-    if condition:
-        os.makedirs(path, exist_ok=True)
-
-
-def ex_path(*directories: Sequence[str]) -> AnyStr:
+def ex_path(*directories: Sequence[str]) -> str:
     """Create an example path prepended with '/path/to/'
 
     Args:

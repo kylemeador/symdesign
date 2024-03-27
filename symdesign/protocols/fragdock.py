@@ -26,12 +26,12 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Residue
-from symdesign.structure.coordinates import transform_coordinate_sets, superposition3d, Coordinates
+from symdesign.structure.coordinates import transform_coordinate_sets, superposition3d
 from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.db import fragment_factory, TransformHasher
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
-from symdesign.structure.model import ContainsEntities, Model, Pose
+from symdesign.structure import ContainsEntities, Model, Pose
 from symdesign.structure.sequence import pssm_as_array
 from symdesign.structure.utils import chain_id_generator
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
@@ -646,7 +646,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
     project = f'{entry_string}_{project}'
     project_dir = os.path.join(job.projects, project)
-    putils.make_path(project_dir)
+    os.makedirs(project_dir, exist_ok=True)
     if job.output_trajectory:
         if sym_entry.unit_cell:
             logger.warning('No unit cell dimensions applicable to the trajectory file')
@@ -3635,7 +3635,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             #     cryst_record = None
             pose_job.pose = pose
             pose_job.calculate_pose_design_metrics(session)
-            putils.make_path(pose_job.pose_directory)
+            os.makedirs(pose_job.pose_directory, exist_ok=True)
             pose_job.output_pose()
             pose_job.source_path = pose_job.pose_path
             pose_job.pose = None
@@ -3658,7 +3658,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                 sql.write_dataframe(session, pose_residues=residues_df)
         else:  # Write to disk
             residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
-            putils.make_path(job.all_scores)
+            os.makedirs(job.all_scores, exist_ok=True)
             residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
             residues_df.to_csv(residue_metrics_csv)
             logger.info(f'Wrote residue metrics to {residue_metrics_csv}')

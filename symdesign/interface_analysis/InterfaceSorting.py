@@ -7,8 +7,9 @@ from collections.abc import Iterable
 
 from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import PISA_DB, retrieve_pisa_file_path, get_complex_interfaces
-from symdesign.resources import query
-from symdesign.structure.model import Model, Chain
+from symdesign.resources.query.pdb import get_qsbio_confirmed_assemblies, query_pdb_by, \
+    retrieve_pdb_entries_by_advanced_query
+from symdesign.structure import Model, Chain, Structure
 from symdesign.utils import path as putils
 
 
@@ -356,6 +357,7 @@ if __name__ == '__main__':
     logger = utils.start_log(name=os.path.basename(__file__))
 
     # Input data/files
+    raise NotImplementedError('This script is missing critical paths')
     # pdb_directory = '/databases/pdb'
     # pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'
 
@@ -372,8 +374,8 @@ if __name__ == '__main__':
             pisa_d = utils.unpickle(pisa_path)
             pdb_code = os.path.basename(pisa_path)[:4]
             pisa_d = verify_pisa(pisa_d, pdb_code)
-            if pisa_d:  # we modified the pisa_d and should re-pickle
-                utils.pickle_object(pisa_d, pisa_path, out_path='')
+            if pisa_d:  # The pisa_d was modified and should re-pickle
+                utils.pickle_object(pisa_d, out_path=pisa_path)
         sys.exit()
     current_interface_file_path = '/yeates1/kmeador/fragment_database/current_pdb_lists/'  # Todo parameterize
 
@@ -389,18 +391,12 @@ if __name__ == '__main__':
     pdbs_of_interest_file_name = 'under3A_protein_no_multimodel_no_mmcif_no_bad_pisa.txt'  # Todo parameterize
     all_protein_file = os.path.join(current_interface_file_path, pdbs_of_interest_file_name)
     if args.query_web:
-        pdbs_of_interest = query.retrieve_pdb_entries_by_advanced_query()
+        pdbs_of_interest = retrieve_pdb_entries_by_advanced_query()
     else:
         pdbs_of_interest = utils.to_iterable(all_protein_file, ensure_file=True)
 
     # Retrieve the verified set of biological assemblies
-    # qsbio_monomers_file_name = 'QSbio_Monomers.csv'
-    # qsbio_monomers_file = os.path.join(current_interface_file_path, qsbio_monomers_file_name)
-    # qsbio_monomers = utils.to_iterable(qsbio_monomers_file)
-    # TODO add the list of QSBio confirmed hetero oligomers
-    # Todo make each list of interface ids a set()
-    # qsbio_confirmed = utils.unpickle(putils.qs_bio)
-    qsbio_confirmed = query.pdb.qsbio_confirmed
+    qsbio_confirmed = get_qsbio_confirmed_assemblies()
     # Todo remove monomers from confirmed assemblies in source
     qsbio_monomers = utils.to_iterable(putils.qs_bio_monomers_file, ensure_file=True)
     qsbio_monomers_d = {}
@@ -414,7 +410,7 @@ if __name__ == '__main__':
         else:
             qsbio_monomers_d[pdb] = set(assembly)
 
-    logger.info(f'The number of monomers found in {putils.qs_bio_monomers_file}: {len(qsbio_monomers_d)}')
+    logger.info(f'The number of monomers found in `{putils.qs_bio_monomers_file}`: {len(qsbio_monomers_d)}')
     # remove monomeric assemblies from qsbio_confirmed_oligomers
     for pdb, assemblies in qsbio_monomers_d.items():
         for assembly in assemblies:
@@ -464,15 +460,15 @@ if __name__ == '__main__':
                     assembly = None
                     if pdb_code in qsbio_confirmed:
                         assembly = qsbio_confirmed[pdb_code]
-                    interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(pisa_d, polymer_interface_ids,
-                                                                                     assembly_confirmed=assembly)
+                    interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(
+                        pisa_d, polymer_interface_ids, assembly_confirmed=assembly)
                 else:
                     missing_pisa.add(pdb_code)
         # Save the objects
         # {1AB3: {1, 3, 5}, ...}
-        utils.pickle_object(pdb_interface_d, pdb_interface_file, out_path='')
+        utils.pickle_object(pdb_interface_d, out_path=pdb_interface_file)
         # {1AB3: {'bio': {}, 'xtal': {3, 5}, 'unknown_bio': {1}, ...}
-        sorted_interfaces_file = utils.pickle_object(interface_sort_d, sorted_interfaces_file, out_path='')
+        sorted_interfaces_file = utils.pickle_object(interface_sort_d, out_path=sorted_interfaces_file)
 
     # Remove missing pdbs from pdb_of_interest
     pdbs_of_interest = set(pdbs_of_interest) - missing_pisa
@@ -498,7 +494,7 @@ if __name__ == '__main__':
     #                                                                          set(qsbio_confirmed[pdb_code]))
     #     else:
     #         missing_pisa_paths.append(pdb_code)
-    # sorted_interfaces_file = utils.pickle_object(interface_sort_d, sorted_interfaces_file, out_path='')
+    # sorted_interfaces_file = utils.pickle_object(interface_sort_d, out_path=sorted_interfaces_file)
 
     # OLD - Depreciate
     old_pdb_uniprot_file_name = '200206_MostCompleteAllPDBSpaceGroupUNPResInfo.pkl'  # Todo parameterize
@@ -513,11 +509,11 @@ if __name__ == '__main__':
     all_pdb_uniprot_file = os.path.join(current_interface_file_path, pdb_uniprot_file_name)
     if os.path.exists(all_pdb_uniprot_file):  # retrieve the pdb, DBreference, resolution, and crystal dictionary
         pdb_uniprot_info = utils.unpickle(all_pdb_uniprot_file)
-        pdb_uniprot_info.update({pdb_code: query.query_pdb_by(entry=pdb_code)
+        pdb_uniprot_info.update({pdb_code: query_pdb_by(entry=pdb_code)
                                  for pdb_code in set(pdbs_of_interest).difference(pdb_uniprot_info.keys())})
     else:
         # if args.query_web:  # Retrieve from the PDB web
-        pdb_uniprot_info = {pdb_code: query.query_pdb_by(entry=pdb_code) for pdb_code in pdbs_of_interest}
+        pdb_uniprot_info = {pdb_code: query_pdb_by(entry=pdb_code) for pdb_code in pdbs_of_interest}
         # else:  # From the database of files
         #     pdb_uniprot_info = {}
         #     for pdb_code in pdbs_of_interest:
@@ -525,7 +521,7 @@ if __name__ == '__main__':
         #         pdb_uniprot_info[pdb_code] = {'entity': pdb.entities, 'cryst': pdb.cryst, 'ref': pdb.dbref,
         #                                       'res': pdb.res}
 
-        utils.pickle_object(pdb_uniprot_info, all_pdb_uniprot_file, out_path='')
+        utils.pickle_object(pdb_uniprot_info, out_path=all_pdb_uniprot_file)
 
     # Output data/files for the interface and chain sorting
     uniprot_master_file_name = 'UniProtPDBMapping'
@@ -570,7 +566,7 @@ if __name__ == '__main__':
                                                                  min_resolution_threshold=pdb_resolution_threshold)
                       for uniprot_id, uniprot_entry in uniprot_partners.items()}
 
-    sorted_interfaces_file = utils.pickle_object(uniprot_master, uniprot_master_file, out_path='')
+    sorted_interfaces_file = utils.pickle_object(uniprot_master, out_path=uniprot_master_file)
 
     # Next, search for specific types of interfaces from the Master UniProt sorted dictionary
     # Find unique UniProtIDs which are representative of the homo-oligomer and unknown PDB interfaces
@@ -648,16 +644,27 @@ if __name__ == '__main__':
 
     if write_to_file:
         # All have format {pdb_code: [1, 3], ...} where the list is interface numbers
-        utils.pickle_object(uniprot_hetero_bio_interfaces, uniprot_heterooligomer_interface_file_name,
-                            out_path=current_interface_file_path)
-        utils.pickle_object(uniprot_filtered_xtal_interfaces, uniprot_xtal_interface_file_name,
-                            out_path=current_interface_file_path)
-        utils.pickle_object(unique_pdb_chains, unique_chains_file_name, out_path=current_interface_file_path)
-
-        utils.pickle_object(uniprot_homo_bio_interfaces, uniprot_homooligomer_interface_file_name,
-                            out_path=current_interface_file_path)
-        utils.pickle_object(uniprot_unknown_bio_interfaces, uniprot_unknown_bio_interface_file_name,
-                            out_path=current_interface_file_path)
+        utils.pickle_object(
+            uniprot_hetero_bio_interfaces,
+            out_path=current_interface_file_path,
+            name=uniprot_heterooligomer_interface_file_name,
+        )
+        utils.pickle_object(
+            uniprot_filtered_xtal_interfaces,
+            out_path=current_interface_file_path,
+            name=uniprot_xtal_interface_file_name,
+        )
+        utils.pickle_object(unique_pdb_chains, out_path=current_interface_file_path, name=unique_chains_file_name)
+        utils.pickle_object(
+            uniprot_homo_bio_interfaces,
+            out_path=current_interface_file_path,
+            name=uniprot_homooligomer_interface_file_name,
+        )
+        utils.pickle_object(
+            uniprot_unknown_bio_interfaces,
+            out_path=current_interface_file_path,
+            name=uniprot_unknown_bio_interface_file_name,
+        )
     if write_to_db:
         raise NotImplementedError('sql writing is not available yet')
         fragdb = FragmentDatabase(sql=True)  # Todo this isn't ready to write

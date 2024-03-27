@@ -186,4 +186,4 @@ Args:
 from . import utils, coordinates, fragment, sequence
 from . import base
 from . import model
-from .model import Entity, Model, Pose, Structure
+from .model import Chain, ContainsEntities, Entity, Model, Pose, PoseSpecification, Structure

@@ -21,7 +21,7 @@ from symdesign import flags, metrics, utils
 from symdesign.resources import sql, config
 from symdesign.resources.job import job_resources_factory
 from symdesign.utils.query import input_string, boolean_choice, validate_input
-from symdesign.structure.model import Pose
+from symdesign.structure import Pose
 from symdesign.sequence import constants, optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
 putils = utils.path
@@ -578,7 +578,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     sys.exit()
 
     # Format selected poses for output
-    putils.make_path(job.output_directory)
+    os.makedirs(job.output_directory, exist_ok=True)
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
@@ -643,7 +643,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         #
         # cluster_map_file = \
         #     os.path.join(job.clustered_poses, putils.default_clustered_pose_file.format(utils.starttime, location))
-        # pose_cluster_file = utils.pickle_object(cluster_map, name=cluster_map_file, out_path='')
+        # pose_cluster_file = utils.pickle_object(cluster_map, out_path=cluster_map_file)
         # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_jobs)} pose inputs. '
         #             f'All clusters stored in {pose_cluster_file}')
     # else:
@@ -826,7 +826,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'{len(selected_poses)} Poses were selected')
     logger.info(f'{len(save_poses_df)} Designs were selected')
     # Format selected sequences for output
-    putils.make_path(job.output_directory)
+    os.makedirs(job.output_directory, exist_ok=True)
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
@@ -1508,7 +1508,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # save_poses_df = pd.Series(selected_pose_ids, name=pose_id).to_frame()
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
 
-        putils.make_path(job.output_directory)
+        os.makedirs(job.output_directory, exist_ok=True)
         logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
         if job.output_structures:
             logger.info(f'Copying Pose files...')
@@ -1724,7 +1724,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
             pass
 
         logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
-        putils.make_path(job.output_directory)
+        os.makedirs(job.output_directory, exist_ok=True)
         logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
         if job.save_total:
             # Remove duplicate entries

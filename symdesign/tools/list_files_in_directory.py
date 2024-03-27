@@ -16,5 +16,5 @@ if __name__ == '__main__':
     args, additional_args = parser.parse_known_args()
     # ---------------------------------------------------
     with open(args.out_path, 'w') as f:
-        f.write('%s\n' % '\n'.join(utils.get_directory_file_paths(args.directory, suffix=args.suffix,
-                                                                  extension=args.extension)))
+        f.write('%s\n' % '\n'.join(utils.get_directory_file_paths(
+            args.directory, suffix=args.suffix, extension=args.extension)))

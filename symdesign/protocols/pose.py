@@ -15,6 +15,8 @@ from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Any, AnyStr
 
+import alphafold.data.pipeline as af_pipeline
+from alphafold.common import residue_constants
 from cycler import cycler
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
@@ -38,11 +40,9 @@ from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure.base import StructureBase
 from symdesign.structure.coordinates import superposition3d
-from symdesign.structure.model import ContainsEntities, Entity, Structure, Pose, PoseSpecification
+from symdesign.structure import ContainsEntities, Entity, Structure, Pose, PoseSpecification
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
-import alphafold.data.pipeline as af_pipeline
-from alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
     rosetta, starttime, SymDesignException
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
@@ -573,7 +573,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # directory = os.path.join(self.job.projects, self.project, self.name)
         super().__init__(root_directory=self.job.projects, project=self.project, name=self.name)  # Todo **kwargs)
 
-        putils.make_path(self.pose_directory)  # , condition=self.job.construct_pose)
+        os.makedirs(self.pose_directory, exist_ok=True)
 
         # Initialize the logger for the PoseJob
         if self.job.debug:
@@ -1277,7 +1277,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.output_fragments:
             # if not self.pose.fragment_pairs:
             #     self.pose.generate_interface_fragments()
-            putils.make_path(self.frags_path)
+            os.makedirs(self.frags_path, exist_ok=True)
             if self.job.output_trajectory:
                 # Write all fragments as one trajectory
                 if self.sym_entry.unit_cell:
@@ -1390,7 +1390,7 @@ class PoseProtocol(PoseData):
             if to_pose_directory:
                 out_path = self.assembly_path
             else:
-                putils.make_path(self.job.orient_dir)
+                os.makedirs(self.job.orient_dir, exist_ok=True)
                 out_path = os.path.join(self.job.orient_dir, f'{self.initial_pose.name}.pdb')
 
             orient_file = self.initial_pose.write(out_path=out_path)
@@ -1502,7 +1502,7 @@ class PoseProtocol(PoseData):
         rosetta_flags.append(f'-in:file:native {self.refined_pdb}')
         rosetta_flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
-        putils.make_path(out_dir)
+        os.makedirs(out_dir, exist_ok=True)
         out_file = os.path.join(out_dir, 'flags')
         with open(out_file, 'w') as f:
             f.write('%s\n' % '\n'.join(rosetta_flags))
@@ -1522,7 +1522,7 @@ class PoseProtocol(PoseData):
         if len(self.entity_data) == 1:  # There is no unbound state to query as only one entity
             return []
         if len(self.symmetry_definition_files) != len(self.entity_data) or self.job.force:
-            putils.make_path(self.data_path)
+            os.makedirs(self.data_path, exist_ok=True)
             for entity in self.pose.entities:
                 if entity.is_symmetric():  # Make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
@@ -1584,7 +1584,7 @@ class PoseProtocol(PoseData):
             pre_threaded_file = os.path.join(self.data_path, f'{sequence_id}.pdb')
             design_files.append(pose_copy.write(out_path=pre_threaded_file))
 
-        putils.make_path(self.scripts_path)
+        os.makedirs(self.scripts_path, exist_ok=True)
         design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
 
         # # Modify each sequence score to reflect the new "decoy" name
@@ -1804,7 +1804,7 @@ class PoseProtocol(PoseData):
                 idx = count(1)
                 for model_name, structure in structures.items():
                     out_dir = os.path.join(self.designs_path, design_name)
-                    putils.make_path(out_dir)
+                    os.makedirs(out_dir, exist_ok=True)
                     path = os.path.join(out_dir,
                                         f'{design_name}-{model_name}_rank{next(idx)}-{type_str}relaxed.pdb')
                     with open(path, 'w') as f:
@@ -1919,7 +1919,7 @@ class PoseProtocol(PoseData):
             else:
                 multimer_sequence_length = None
 
-            putils.make_path(self.designs_path)
+            os.makedirs(self.designs_path, exist_ok=True)
             model_names = []
             design_poses_from_asu = []
             asu_design_scores = {}
@@ -2116,7 +2116,7 @@ class PoseProtocol(PoseData):
 
                     # Put Entity Model into a directory in pose/designs/pose-design_id/entity.name.pdb
                     out_dir = os.path.join(self.designs_path, f'{design.name}')
-                    putils.make_path(out_dir)
+                    os.makedirs(out_dir, exist_ok=True)
                     path = os.path.join(out_dir, f'{entity.name}-{minimum_model}-{type_str}relaxed.pdb')
                     minimum_entity = design_models[minimum_model]
                     minimum_entity.write(out_path=path)
@@ -2273,7 +2273,7 @@ class PoseProtocol(PoseData):
 
         flags_file = os.path.join(flag_dir, 'flags')
         self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
-        putils.make_path(pdb_out_path)
+        os.makedirs(pdb_out_path, exist_ok=True)
 
         # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
         if design_files is not None or in_file_list is not None:  # Run a list of files produced elsewhere
@@ -2292,7 +2292,7 @@ class PoseProtocol(PoseData):
             if in_file_list:
                 design_files_file = in_file_list
                 generate_files_cmd = \
-                    ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-e', '.pdb',
+                    ['python', str(putils.list_pdb_files), '-d', self.designs_path, '-o', designed_files_file, '-e', '.pdb',
                      '-s', f'_{switch}']
             elif design_files:
                 design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
@@ -2421,14 +2421,14 @@ class PoseProtocol(PoseData):
             self.protocol = protocol_xml1 = putils.scout
             # metrics_pdb = ['-in:file:s', self.scouted_pdb]
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
+                ['python', str(putils.list_pdb_files), '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
                  '-s', f'_{self.protocol}']
             metrics_pdb = ['-in:file:l', design_files]
             # metrics_flags = 'repack=no'
             nstruct_instruct = ['-no_nstruct_label', 'true']
         else:
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
+                ['python', str(putils.list_pdb_files), '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
                  '-s', f'_{self.protocol}']
             metrics_pdb = ['-in:file:l', design_files]
             # metrics_flags = 'repack=yes'
@@ -2560,7 +2560,7 @@ class PoseProtocol(PoseData):
                         for _ in range(self.job.design.number)]
 
         # # Write every designed sequence to an individual file...
-        # putils.make_path(self.designs_path)
+        # os.makedirs(self.designs_path, exist_ok=True)
         # design_names = [design_data.name for design_data in designs_data]
         # sequence_files = [
         #     write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
@@ -2646,7 +2646,7 @@ class PoseProtocol(PoseData):
     #         # return write_json(design_scores, self.scores_file)
     #         return self.scores_file
     #
-    #     putils.make_path(self.data_path)
+    #     os.makedirs(self.data_path, exist_ok=True)
     #     write_per_residue_scores(design_ids, sequences_and_scores)
 
     def update_design_protocols(
@@ -2755,7 +2755,7 @@ class PoseProtocol(PoseData):
                 design_residues.index.set_names(sql.ResidueMetrics.design_id.name, inplace=True)
                 sql.write_dataframe(session, design_residues=design_residues)
         else:
-            putils.make_path(self.data_path)
+            os.makedirs(self.data_path, exist_ok=True)
             if residues is not None:
                 # Process dataframes for missing values NOT USED with SQL...
                 residues = residues.fillna(0.)

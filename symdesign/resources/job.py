@@ -656,7 +656,7 @@ class JobResources:
                       f'{flags.suffix.long} to modify the name. To proceed, append {flags.overwrite.long} to your '
                       f'command')
                 sys.exit(1)
-            putils.make_path(self.output_directory)
+            os.makedirs(self.output_directory, exist_ok=True)
 
         output_file = kwargs.get(flags.output_file._)
         if output_file:
@@ -1259,7 +1259,7 @@ class JobResources:
         hhblits_cmds, bmdca_cmds, msa_cmds = [], [], []
         # Set up sequence data using hhblits and profile bmDCA for each input entity
         # all_entity_ids = []
-        putils.make_path(self.sequences)
+        os.makedirs(self.sequences, exist_ok=True)
         if not putils.uniclust_db:
             # No database has been set up
             logger.warning(f"Couldn't locate a compatible database to run hhblits. Skipping evolutionary acquisition")
@@ -1338,8 +1338,8 @@ class JobResources:
             else:
                 assert_never(protocol)
 
-            putils.make_path(self.profiles)
-            putils.make_path(self.sbatch_scripts)
+            os.makedirs(self.profiles, exist_ok=True)
+            os.makedirs(self.sbatch_scripts, exist_ok=True)
             protocol_log_file = os.path.join(self.profiles, 'generate_profiles.log')
 
             # Run hhblits commands
@@ -1391,7 +1391,7 @@ class JobResources:
                 protocol_job_info_message += f'{shell} {protocol_script}'
                 info_messages.append(protocol_job_info_message)
         elif msa_cmds:  # These may still be missing
-            putils.make_path(self.profiles)
+            os.makedirs(self.profiles, exist_ok=True)
 
             if not os.access(putils.reformat_msa_exe_path, os.X_OK):
                 logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
@@ -1404,11 +1404,11 @@ class JobResources:
                     logger.warning(stderr.decode('utf-8'))
 
         if bmdca_cmds:
-            putils.make_path(self.profiles)
-            putils.make_path(self.sbatch_scripts)
+            os.makedirs(self.profiles, exist_ok=True)
+            os.makedirs(self.sbatch_scripts, exist_ok=True)
             # bmdca_cmds = \
-            #     [list2cmdline([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, '%s.fasta' % entity.name),
-            #                   '-d', os.path.join(self.profiles, '%s_bmDCA' % entity.name)])
+            #     [list2cmdline([str(putils.bmdca_exe_path), '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
+            #                   '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
             #      for entity in entities.values()]
             bmdca_cmd_file = \
                 distribute.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
@@ -1417,7 +1417,7 @@ class JobResources:
                                                  number_of_commands=len(bmdca_cmds),
                                                  log_file=os.path.join(self.profiles, 'generate_couplings.log'))
             # reformat_msa_cmd_file = \
-            #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
+            #     SDUtils.write_commands(reformat_msa_cmds, name=f'{utils.starttime}-reformat_msa',
             #                            out_path=self.profiles)
             # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=self.program_root,
             #                              scale='script', max_jobs=len(reformat_msa_cmds),

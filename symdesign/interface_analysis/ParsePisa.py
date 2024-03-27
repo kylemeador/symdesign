@@ -18,7 +18,7 @@ from symdesign.structure import Model, Structure
 logger = logging.getLogger(__name__)
 
 # Globals
-PISA_DB = os.path.join(utils.path.database, 'pisaDB')
+PISA_DB = os.path.join(utils.path.databases, 'pisaDB')
 """Local copy of the PISA database"""
 # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
 pisa_ref_d = {'multimers': {'ext': 'multimers.xml', 'source': 'pisa', 'mod': ''},
@@ -416,7 +416,7 @@ def extract_pisa_files_and_pickle(root, pdb_code):
     except OSError:
         return False
 
-    utils.pickle_object(individual_d, f'{pdb_code}_pisa', out_path=root)
+    utils.pickle_object(individual_d, out_path=root, name=f'{pdb_code}_pisa')
 
     return True
 

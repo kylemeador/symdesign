@@ -20,12 +20,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import lazyload
 
-import symdesign.utils.logging
+from symdesign import utils
 import symdesign.utils.path as putils
-logging.config.dictConfig(symdesign.utils.logging.cfg)
+# Setup logging config before other modules are imported
+logging.config.dictConfig(utils.logging_config.cfg)
 logger = logging.getLogger(putils.program_name.lower())
 
-from symdesign import flags, protocols, utils
+from symdesign import flags, protocols
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
@@ -82,7 +83,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
     # If so, move the oriented Entity.model_source (should be the ASU) to the respective directory
     if job.init.pre_refined:  # Indicate refine stuff is done
         refine_dir = job.structure_db.refined.location
-        putils.make_path(refine_dir)
+        os.makedirs(refine_dir, exist_ok=True)
         for data in metadata:
             if data.model_source is None:
                 continue
@@ -96,7 +97,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
             data.refined = True
     if job.init.pre_loop_modeled:  # Indicate loop model stuff is done
         full_model_dir = job.structure_db.full_models.location
-        putils.make_path(full_model_dir)
+        os.makedirs(full_model_dir, exist_ok=True)
         for data in metadata:
             if data.model_source is None:
                 continue
@@ -154,13 +155,16 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
     by_file = False
     if paths:
         by_file = True
-        if '.pdb' in paths:
+        if isinstance(paths, str) and '.pdb' in paths:
             pdb_filepaths = [paths]
         else:
             extension = '.pdb*'
-            pdb_filepaths = utils.get_directory_file_paths(paths, extension=extension)
+            pdb_filepaths = []
+            for path in paths:
+                pdb_filepaths.extend(utils.get_directory_file_paths(path, extension=extension))
+
             if not pdb_filepaths:
-                logger.warning(f'Found no {extension} files at {paths}')
+                logger.warning(f'Found no {extension} files from {paths}')
         # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
         structure_names = pdb_filepaths
     elif pdb_codes:
@@ -465,7 +469,7 @@ def main():
             # Make single file with names of each directory where poses can be found
             if output_analysis:
                 if poses_file is None:  # Make a default file name
-                    putils.make_path(job_paths)
+                    os.makedirs(job_paths, exist_ok=True)
                     poses_file = \
                         os.path.join(job_paths, putils.default_path_file.format(*job.default_output_tuple))
 
@@ -577,10 +581,6 @@ def main():
             sys.exit()
             # Known to be missing
             # [custom_script, check_clashes, residue_selector, visualize]
-            #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
-            #           % (putils.ex_path('pymol'), putils.program_exe,
-            #              putils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
-            #              putils.ex_path('design.paths')))
     elif args.setup:
         print(
             "If you have concerns or questions with setting up the correct configuration, check the documentation "
@@ -590,7 +590,7 @@ def main():
     elif args.help:
         pass  # Let the entire_parser handle their formatting
     else:  # Print the full program README.md and exit
-        utils.guide.print_readme()
+        utils.print_readme()
         sys.exit()
 
     #  ---------------------------------------------------
@@ -732,7 +732,7 @@ def main():
                         project_name = os.path.splitext(os.path.basename(file))[0]
                 break
         # Ensure the base directory is made if it is indeed new and in os.getcwd()
-        putils.make_path(root_directory)
+        os.makedirs(root_directory, exist_ok=True)
     else:
         new_program_output = False
     # -----------------------------------------------------------------------------------------------------------------
@@ -831,7 +831,7 @@ def main():
     #     # job.construct_pose = False
     #     # if job.module == flags.analysis:
     #     #     # Ensure analysis write directory exists
-    #     #     putils.make_path(job.all_scores)
+    #     #     os.makedirs(job.all_scores, exist_ok=True)
     #     # # if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
     #     # #     job.module = flags.select_sequences
     #     # #     job.skip_sequence_generation = True
@@ -1569,8 +1569,8 @@ def main():
                                    rotation2=trans1_rot2, translation2=trans1_tx2)
             transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
                                    rotation2=trans2_rot2, translation2=trans2_tx2)
-            file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
-            file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
+            file1 = utils.pickle_object(transformation1, out_path=os.getcwd(), name='transformations1')
+            file2 = utils.pickle_object(transformation2, out_path=os.getcwd(), name='transformations2')
             logger.info(f'Wrote transformation1 parameters to {file1}')
             logger.info(f'Wrote transformation2 parameters to {file2}')
 
@@ -1641,64 +1641,33 @@ def main():
             terminate(results=results)
         # ---------------------------------------------------
         elif job.module == 'visualize':
-            import visualization.VisualizeUtils as VSUtils
+            # print(f'Usage: {putils.ex_path("pymol")} -r {program_exe} -- [input-arguments] visualize --range 0-10')
             from pymol import cmd
 
-            # if 'escher' in sys.argv[1]:
-            if not args.directory:
-                print('A directory with the desired designs must be specified using '
-                      f'{flags.format_args(flags.directory_args)}')
+            file_dir = args.directory
+            if not file_dir:
+                logger.warning('A directory with the desired designs must be specified using '
+                               f'{flags.format_args(flags.directory_args)}')
                 sys.exit(1)
 
-            if ':' in args.directory:  # args.file  Todo job.location
-                print('Starting the data transfer from remote source now...')
-                os.system(f'scp -r {args.directory} .')
-                file_dir = os.path.basename(args.directory)
-            else:  # assume the files are local
-                file_dir = args.directory
-            # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
-
             if args.order == 'alphabetical':
-                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
-            else:  # if args.order == 'none':
-                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
+                files = utils.get_directory_file_paths(file_dir, extension='.pdb')
+            else:
+                files = utils.get_directory_file_paths(file_dir, extension='.pdb', sort=False)
 
-            print(f'FILES:\n {files[:4]}')
-            if args.order == 'paths':  # TODO FIX janky paths handling below
-                # for pose_job in pose_jobs:
-                with open(args.file[0], 'r') as f:
-                    paths = \
-                        map(str.replace, map(str.strip, f.readlines()),
-                            repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
-                                   'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
-                    paths = list(paths)
-                ordered_files = []
-                for path in paths:
-                    for file in files:
-                        if path in file:
-                            ordered_files.append(file)
-                            break
-                files = ordered_files
-                # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
-                # ordered_files = []
-                # for index in df.index:
-                #     for file in files:
-                #         if index in file:
-                #             ordered_files.append(file)
-                #             break
-                # files = ordered_files
-            elif args.order == 'dataframe':
+            if not files:
+                logger.warning(f"No .pdb files found at location '{job.location}'")
+                sys.exit(1)
+            else:
+                logger.debug(f'FILES:\n {files[:4]}')
+
+            if args.order == 'dataframe':
                 if not job.dataframe:
-                    df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
-                    try:
-                        job.dataframe = df_glob[0]
-                    except IndexError:
-                        raise IndexError(
-                            f"There was no {flags.dataframe.long} specified and one couldn't be located at the location"
-                            f" '{job.location}'. Initialize again with the path to the relevant dataframe")
+                    raise utils.InputError(
+                        f"{flags.dataframe.long} wasn't specified. Provide a path to a dataframe to order accordingly")
 
                 df = pd.read_csv(job.dataframe, index_col=0, header=[0])
-                print('INDICES:\n %s' % df.index.tolist()[:4])
+                logger.debug('INDICES:\n %s' % df.index.tolist()[:4])
                 ordered_files = []
                 for index in df.index:
                     for file in files:
@@ -1706,12 +1675,8 @@ def main():
                         if os.path.splitext(os.path.basename(file))[0] in index:
                             ordered_files.append(file)
                             break
-                # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
+                # logger.debug('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
                 files = ordered_files
-
-            if not files:
-                print(f'No .pdb files found at location "{job.location}"')
-                sys.exit(1)
 
             if job.range:
                 start_idx = job.low
@@ -1724,8 +1689,9 @@ def main():
                 else:  # if args.name == 'numerical':
                     cmd.load(file, object=idx)
 
-            print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
-                  '\nYou should replace "T" with whatever symmetry your design is in\n')
+            logger.info('To expand all designs to the proper symmetry, issue:\n'
+                        'PyMOL> expand name=all, symmetry=T\n'
+                        "Replace 'T' with whatever symmetry your design is in")
         else:  # Fetch the specified protocol
             protocol = getattr(protocols, flags.format_from_cmdline(job.module))
             if job.development:

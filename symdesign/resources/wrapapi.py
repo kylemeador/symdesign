@@ -16,7 +16,7 @@ from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, 
 from .query.uniprot import query_uniprot
 from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
 from symdesign.utils import path as putils
-# import dependencies.bmdca as bmdca
+# from symdesign.dependencies import bmdca
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -105,13 +105,13 @@ class APIDatabaseFactory:
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
-            putils.make_path(sequences)
-            putils.make_path(profiles)
+            os.makedirs(sequences, exist_ok=True)
+            os.makedirs(profiles, exist_ok=True)
             # external database subdirectories
             pdb = os.path.join(external_db, 'pdb')
-            putils.make_path(pdb)
+            os.makedirs(pdb, exist_ok=True)
             uniprot = os.path.join(external_db, 'uniprot')
-            putils.make_path(uniprot)
+            os.makedirs(uniprot, exist_ok=True)
             # self._databases[source] = APIDatabase(sequences, profiles, pdb, uniprot, sql=None)
             self._database = APIDatabase(sequences, profiles, pdb, uniprot, sql=None)
 
@@ -211,8 +211,8 @@ class PDBDataStore(DataStore):
         # pdb_assembly_api: AnyStr | Path = os.path.join(self.location, 'pdb_assembly')
         # self.entity_api = EntityDataStore(location=pdb_entity_api, extension='.json', sql=self.sql, log=self.log)
         # self.assembly_api = AssemblyDataStore(location=pdb_assembly_api, extension='.json', sql=self.sql, log=self.log)
-        # putils.make_path(pdb_entity_api)
-        # putils.make_path(pdb_assembly_api)
+        # os.makedirs(pdb_entity_api, exist_ok=True)
+        # os.makedirs(pdb_assembly_api, exist_ok=True)
 
     def entity_thermophilicity(self, name: str = None, **kwargs) -> float:  # bool:
         """Return the extent to which the EntityID in question is thermophilic

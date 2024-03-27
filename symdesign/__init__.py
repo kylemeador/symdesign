@@ -16,5 +16,28 @@ Modules exported by this package:
 import importlib.metadata
 from pathlib import Path
 
-__version__ = importlib.metadata.version(str(Path(__file__).parent.name))
+source_dir = Path(__file__).parent
+try:
+    __version__ = importlib.metadata.version(str(source_dir.name))
+except importlib.metadata.PackageNotFoundError as exc:
+    first_error = f"Unable to find the package '{source_dir.name}'. Have you installed it?"
+    try:  # to parse from packaging source
+        with open(source_dir.parent / 'pyproject.toml', 'r') as f:
+            package_info = f.read()
+
+        name_str = 'name = '
+        name_info = package_info[package_info.find(name_str) + len(name_str) + 1:]
+        pyproject_source_name = name_info.split()[0].strip("'").strip('"')
+        if source_dir.name != pyproject_source_name:
+            # This isn't the right file
+            raise FileNotFoundError
+        version_str = 'version = '
+        version_info = package_info[package_info.find(version_str) + len(version_str) + 1:]
+        __version__ = version_info.split()[0].strip("'").strip('"')
+    except FileNotFoundError as exc2:
+        print(first_error)
+        print("Falling back on pyproject.toml also failed")
+        raise RuntimeError(
+            f"Unable to parse '{source_dir.name}.version'..."
+        ) from exc
 version = __version__

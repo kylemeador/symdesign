@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 
-from symdesign.structure.model import Model
+from symdesign.structure import Model
 from symdesign.structure.coordinates import superposition3d
 
 

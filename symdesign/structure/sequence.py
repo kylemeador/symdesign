@@ -267,7 +267,7 @@ class Profile(UserList[ProfileEntry]):
         """The log of odds values, given for each amino acid type, for each entry in the Profile"""
         if 'lod' not in self.available_keys:
             raise ValueError(
-                f"Couldn't find the {self.__class__.__name__}.lods' as the underlying data is missing key 'lod'"
+                f"Couldn't find the {repr(self)}.lods' as the underlying data is missing key 'lod'"
             )
         return [position_info['lod'] for position_info in self]
 
@@ -276,7 +276,7 @@ class Profile(UserList[ProfileEntry]):
         """The amino acid type, for each entry in the Profile"""
         if 'type' not in self.available_keys:
             raise ValueError(
-                f"Couldn't find the {self.__class__.__name__}.types' as the underlying data is missing key 'type'"
+                f"Couldn't find the {repr(self)}.types' as the underlying data is missing key 'type'"
             )
         return [position_info['type'] for position_info in self]
 
@@ -285,7 +285,7 @@ class Profile(UserList[ProfileEntry]):
         """The weight assigned to each entry in the Profile"""
         if 'weight' not in self.available_keys:
             raise ValueError(
-                f"Couldn't find the {self.__class__.__name__}.weights' as the underlying data is missing key 'weight'"
+                f"Couldn't find the {repr(self)}.weights' as the underlying data is missing key 'weight'"
             )
         return [position_info['weight'] for position_info in self]
 
@@ -294,7 +294,7 @@ class Profile(UserList[ProfileEntry]):
         """The information present for each entry in the Profile"""
         if 'info' not in self.available_keys:
             raise ValueError(
-                f"Couldn't find the {self.__class__.__name__}.info' as the underlying data is missing key 'info'"
+                f"Couldn't find the {repr(self)}.info' as the underlying data is missing key 'info'"
             )
         return [position_info['info'] for position_info in self]
 
@@ -315,14 +315,14 @@ class Profile(UserList[ProfileEntry]):
                 data_source = self.lods
             else:
                 raise ValueError(
-                    f"There aren't any values available for {self.__class__.__name__}.lods")
+                    f"There aren't any values available for {repr(self)}.lods")
         else:
             data_source = self
 
         return np.array([[position_info[aa] for aa in alphabet]
                          for position_info in data_source], dtype=np.float32)
 
-    def write(self, file_name: AnyStr = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr:
+    def write(self, file_name: AnyStr | os.PathLike = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> str:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is 1 to last entry
 
         Args:
@@ -339,7 +339,7 @@ class Profile(UserList[ProfileEntry]):
         if self.dtype == 'fragment':
             # Need to convert np.nan to zeros
             data = [[0 if np.nan else num for num in entry] for entry in data]
-            logger.warning(f'Converting {self.dtype} type Profile np.nan values to 0.0')
+            logger.warning(f'Converting {repr(self)} np.nan values to 0.0')
 
         # Find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
         lods = self.lods
@@ -354,7 +354,7 @@ class Profile(UserList[ProfileEntry]):
         if file_name is None:
             if name is None:
                 raise ValueError(
-                    f"Must provide argument 'file_name' or 'name' as a str to {self.write.__name__}")
+                    f"Must provide argument 'file_name' or 'name' to {self.write.__name__}")
             else:
                 file_name = os.path.join(out_dir, name)
 
@@ -381,7 +381,10 @@ class Profile(UserList[ProfileEntry]):
                 f.write(f'{residue_number:>5d} {_type:1s}   {lod_string:80s} {counts_string:80s} '
                         f'{round(info, 4):4.2f} {round(weight, 4):4.2f}\n')
 
-        return file_name
+        return str(file_name)
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.dtype})'
 
 
 class GeneEntity(ABC):
@@ -841,7 +844,7 @@ class GeneEntity(ABC):
     #     """
     #     pssm_file = os.path.join(out_dir, f'{self.name}.pssm')
     #     sequence_file = self.write_sequence_to_fasta(out_dir=out_dir)
-    #     cmd = ['psiblast', '-db', putils.alignmentdb, '-query', sequence_file, '-out_ascii_pssm',
+    #     cmd = ['psiblast', '-db', str(putils.alignment_db_path), '-query', sequence_file, '-out_ascii_pssm',
     #            pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
     #     if remote:
     #         cmd.append('-remote')
@@ -1359,7 +1362,8 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #
 #         return outfile_name, p
 #
-#     cmd = ['psiblast', '-db', putils.alignmentdb, '-query', query + '.fasta', '-out_ascii_pssm', outfile_name,
+#     cmd = ['psiblast', '-db', str(putils.alignment_db_path), '-query', query + '.fasta', '-out_ascii_pssm',
+#     outfile_name,
 #            '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']
 #     if remote:
 #         cmd.append('-remote')

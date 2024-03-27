@@ -10,9 +10,10 @@ from collections import defaultdict
 from importlib.resources import files
 from pathlib import Path
 
-import alphafold
-
 from symdesign import utils
+from symdesign.structure.dependencies import errat_exe_path, errat_residue_path, freesasa_dir, orient_exe_path, \
+    stride_dir
+
 putils = utils.path
 
 logger = utils.start_log(name=__name__)
@@ -21,6 +22,8 @@ rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_document
 rosetta_extras_url = 'https://www.rosettacommons.org/docs/latest/rosetta_basics/running-rosetta-with-options#running-' \
                      'rosetta-with-multiple-threads'
 string_ops = [str.upper, str.lower, str.title]
+hhblits = 'hhblits'
+rosetta = 'rosetta'
 
 
 def search_env_for_variable(search_variable: str) -> str | None:
@@ -28,8 +31,9 @@ def search_env_for_variable(search_variable: str) -> str | None:
 
     Args:
         search_variable: The string to search the environment for
+
     Returns:
-        The name of the identified environmental variable
+        The name of the identified environmental variable if one was found
     """
     env_variable = string = None
     search_strings = []
@@ -38,20 +42,18 @@ def search_env_for_variable(search_variable: str) -> str | None:
         while env_variable is None:
             string = next(string_op_it)(search_variable)
             search_strings.append(string)
-            env_variable = os.environ.get(string)
+            env_variable = os.environ.get(string, None)
     except StopIteration:
         pass
 
     if env_variable is None:
-        logger.debug(f'"{search_variable}" environment inaccessible as no environmental variable was found at any of '
+        logger.debug(f"'{search_variable}' environment inaccessible as no environmental variable was found at any of "
                      f'${", $".join(search_strings)}. If you believe there was a mistake, add this environmental '
-                     f'variable to the {putils.config_file} file. Ex: '
-                     '{'
-                     f'"{search_variable}_env": {search_variable.upper()}, ...'
-                     '}'
-                     f' where the value {search_variable.upper()} is the environmental variable (ensure without $)')
+                     f'variable to the {putils.config_file} file. Ex:\n'
+                     f"\t{{'{search_variable}_env': {search_variable.upper()}, ...}} "
+                     f'where the value {search_variable.upper()} is the environmental variable (ensure without $)')
     else:
-        logger.debug(f'Found "{env_variable}" for the environmental variable ${string}')
+        logger.debug(f"Found '{env_variable}' for the environmental variable ${string}")
 
     return string  # env_variable
 
@@ -66,6 +68,7 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     Args:
         version: Whether a particular version should be used. The default is the latest
         dry_run: Whether to perform a "dry install" without any substantial commands
+
     Returns:
         The name of the database version fetched
     """
@@ -76,12 +79,12 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     source_url = f'https://storage.googleapis.com/alphafold/{version}'
     # version = os.path.basename(source_url)
 
-    putils.make_path(putils.alphafold_params_dir)
+    putils.alphafold_params_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(putils.alphafold_params_dir)
 
     # Use the version to wget the file to the dependencies/alphafold/params directory
-    putils.make_path(putils.hhsuite_db_dir)  # Make all dirs - dependencies/hhsuite/databases
-    download_cmd = ['wget', '--directory-prefix', putils.alphafold_params_dir, '--continue',
+    putils.hhsuite_db_dir.mkdir(parents=True, exist_ok=True)  # Make all dirs - dependencies/hhsuite/databases
+    download_cmd = ['wget', '--directory-prefix', str(putils.alphafold_params_dir), '--continue',
                     '-U', '\'Mozilla/5.0', '(X11;', 'U;', 'Linux', 'i686', '(x86_64);', 'en-GB;',
                     'rv:1.9.0.1)', 'Gecko/2008070206', 'Firefox/3.0.1\'', '--inet4-only',
                     '--no-check-certificate', source_url
@@ -97,7 +100,7 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
         # logger.debug(f'download stdout:\n{download_out}\n\ndownload stderr:\n{download_err}')
 
     # Unzip the file to the dependencies/alphafold/params directory
-    downloaded_file = os.path.join(putils.alphafold_params_dir, version)
+    downloaded_file = putils.alphafold_params_dir / version
     unzip_cmd = ['tar', 'xv', f'--file={downloaded_file}', f'--directory={putils.alphafold_params_dir}',
                  '--preserve-permissions']
     logger.debug(f'untar command:\n\t{subprocess.list2cmdline(unzip_cmd)}')
@@ -112,12 +115,13 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     if dry_run:
         pass
     else:
-        os.remove(downloaded_file)
+        downloaded_file.unlink()
 
     # Download the stereo chemical props file and copy to the correct place
+    import alphafold
     # shutil.mkdir -p /alphafold/alphafold/common
     alphafold_common_dir = files(alphafold.common)  # / 'alphafold' / 'common'
-    os.makedirs(alphafold_common_dir, exist_ok=True)
+    alphafold_common_dir.mkdir(parents=True, exist_ok=True)
     download_chem_cmd = ['wget', '-q', '-P', str(alphafold_common_dir),
                          'https://git.scicore.unibas.ch/schwede/openstructure/-/raw/'
                          '7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt']
@@ -133,7 +137,7 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     # shutil.mkdir -p conda/lib/python3.8/site-packages/alphafold/common/
     # shutil.copy('/content/stereo_chemical_props.txt /opt/conda/lib/python3.8/site-packages/alphafold/common/
 
-    return downloaded_file
+    return str(downloaded_file)
 
 
 def download_hhblits_latest_database(version: str = None, dry_run: bool = False) -> str:
@@ -142,6 +146,7 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     Args:
         version: Whether a particular version should be used. The default is the latest
         dry_run: Whether to perform a "dry install" without any substantial commands
+
     Returns:
         The name of the database version fetched
     """
@@ -184,7 +189,8 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     try:
         uniclust_latest_tar_file = re.search(f'[A-z0-9]*{putils.uniclust_hhsuite_file_identifier}', wget_out)[0]
     except IndexError:  # Found no matches
-        raise RuntimeError(f"Couldn't retrieve the latest UniClust database from the url:\n{uniclust_url}")
+        raise RuntimeError(
+            f"Couldn't retrieve the latest UniClust database from the url:\n{uniclust_url}")
     logger.info(f'UniClust latest file name: {uniclust_latest_tar_file}')
     # grep_latest_version = ['grep', '-Po', '\'indexcolname"><a\ href="\K[^"]*_hhsuite.tar.gz\'']
     # logger.debug(f'grep of desired version file command:\n\t{subprocess.list2cmdline(grep_latest_version)}')
@@ -195,8 +201,8 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     #              f'{uniclust_latest_tar_file}\ngrep stderr:\n{grep_err}')
 
     # Use the name of the latest file to wget the file to the dependencies/hhsuite directory
-    putils.make_path(putils.hhsuite_db_dir)  # Make all dirs - dependencies/hhsuite/databases
-    uniclust_download_cmd = ['wget', '--directory-prefix', putils.hhsuite_dir, '--continue',
+    putils.hhsuite_db_dir.mkdir(parents=True, exist_ok=True)
+    uniclust_download_cmd = ['wget', '--directory-prefix', str(putils.hhsuite_dir), '--continue',
                              '-U', '\'Mozilla/5.0', '(X11;', 'U;', 'Linux', 'i686', '(x86_64);', 'en-GB;',
                              'rv:1.9.0.1)', 'Gecko/2008070206', 'Firefox/3.0.1\'', '--inet4-only',
                              '--no-check-certificate', uniclust_url.format(uniclust_latest_tar_file)
@@ -213,8 +219,8 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
 
     # Unzip the file to the dependencies/hhsuite/databases directory
     os.chdir(putils.hhsuite_db_dir)
-    downloaded_file = os.path.join(putils.hhsuite_dir, uniclust_latest_tar_file)
-    unzip_uniclust_cmd = ['tar', 'xzf', downloaded_file]  # , '-C', putils.hhsuite_dir]
+    downloaded_file = putils.hhsuite_dir / uniclust_latest_tar_file
+    unzip_uniclust_cmd = ['tar', 'xzf', str(downloaded_file)]  # , '-C', str(putils.hhsuite_dir)]
     logger.debug(f'untar database command:\n\t{subprocess.list2cmdline(unzip_uniclust_cmd)}')
     if dry_run:
         pass
@@ -295,7 +301,7 @@ def setup(args):
                 if i == number_rosetta_variables:
                     while rosetta_env_variable == '':
                         print('Failed detection of Rosetta environmental variable = '
-                              f'{", ".join(op(putils.rosetta) for op in string_ops)}')
+                              f'{", ".join(op(rosetta) for op in string_ops)}')
                         print('For setup to be fully functional, the location of your Rosetta install needs to be '
                               'accessed. It is recommended to modify your shell to include an environmental variable '
                               "'ROSETTA' (accessed at '$ROSETTA'), leading to the 'main' directory of Rosetta.")
@@ -347,7 +353,7 @@ def setup(args):
                     'characters that are a suffix to each of the executables in the '
                     f'{putils.rosetta_default_bin_path} directory', make_types)
                 if rosetta_env_variable == '':
-                    rosetta_env_variable = search_env_for_variable(putils.rosetta)
+                    rosetta_env_variable = search_env_for_variable(rosetta)
                 break
             elif retry == retry_kw:
                 # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
@@ -377,14 +383,14 @@ def setup(args):
     #  Required PREINSTALL CHECK
     #  sudo apt install gfortran
     # Todo silence gfortran warnings
-    orient_comple_cmd = ['gfortran', '-o', str(putils.orient_exe_path), f'{putils.orient_exe_path}.f']
+    orient_comple_cmd = ['gfortran', '-o', str(orient_exe_path), f'{orient_exe_path}.f']
     # Set up errat dependency
-    errat_compile_cmd = ['g++', '-o', str(putils.errat_exe_path), str(putils.errat_residue_path)]
+    errat_compile_cmd = ['g++', '-o', str(errat_exe_path), str(errat_residue_path)]
     # Add a directory change to the command type
     change_dir_paths = defaultdict(lambda: os.getcwd(), {
         'git submodule set up': str(putils.git_source),
-        'autoreconf freesasa': str(putils.freesasa_dir),
-        'secondary structure analysis': str(putils.stride_dir),
+        'autoreconf freesasa': str(freesasa_dir),
+        'secondary structure analysis': str(stride_dir),
     })
     # Set up the commands in addressable order
     commands = {
@@ -417,7 +423,7 @@ def setup(args):
     config = {'rosetta_env': rosetta_env_variable,
               'rosetta_main': rosetta_main,
               'rosetta_make': rosetta_make,
-              'hhblits_env': search_env_for_variable(putils.hhblits),
+              'hhblits_env': search_env_for_variable(hhblits),
               }
 
     # Get hhblits database
@@ -474,7 +480,7 @@ if __name__ == '__main__':
     hhsuite_database_args = (f'--hhsuite-database',)
     hhsuite_database_kwargs = \
         dict(action='store_true', help=f'Whether {putils.program_name} should be set up with hhsuite databases')
-    rosetta_args = (f'--{putils.rosetta}',)
+    rosetta_args = (f'--{rosetta}',)
     rosetta_kwargs = \
         dict(action='store_true', help=f'Whether {putils.program_name} should be set up with Rosetta dependency')
     dry_run = 'dry_run'

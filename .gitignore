@@ -1,10 +1,10 @@
 __pycache__
 .DS_Store
 .idea
-dependencies/hhsuite
-dependencies/alphafold
-dependencies/_deps
-dependencies/orient/orient_oligomer
-dependencies/stride/stride
-symdesign/data/databases/fragment_db/biological_interfaces
-dependencies/ialign/bin/.svn/
+symdesign/dependencies/alphafold
+symdesign/data/databases/hhsuite
+symdesign/dependencies/bmDCA/_deps
+symdesign/dependencies/ialign/bin/.svn/
+symdesign/structure/dependencies/orient/orient_oligomer
+symdesign/structure/dependencies/stride/stride
+symdesign/structure/fragment/resources/biological_interfaces.pkl
