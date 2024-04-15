@@ -6,6 +6,7 @@ import operator
 import sys
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
+from functools import lru_cache
 from itertools import repeat
 from json import loads
 from typing import AnyStr, Any, Literal
@@ -16,7 +17,9 @@ import pandas as pd
 import torch
 
 from . import pose
-from symdesign.resources import config
+from . import library
+# Next import is for the symdesign.metrics namespace
+from .sql import DesignEntityMetrics, DesignMetrics, EntityMetrics, PoseMetrics, PoseResidueMetrics, ResidueMetrics
 from symdesign.utils.query import input_string, validate_type, verify_choice, header_string
 from symdesign import flags, sequence, utils
 putils = utils.path
@@ -26,26 +29,33 @@ residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
 per_residue_energy_states = \
     ['complex', 'bound', 'unbound', 'energy_delta', 'solv_complex', 'solv_bound', 'solv_unbound']
 energy_metric_names = [
-    'interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound', 'interface_energy',
-    'interface_solvation_energy_complex', 'interface_solvation_energy_bound', 'interface_solvation_energy_unbound']
+    library.interface_energy_complex.name, 'interface_energy_bound',
+    library.interface_energy_unbound.name, library.interface_energy.name,
+    library.interface_solvation_energy_complex.name, library.interface_solvation_energy_bound.name,
+    library.interface_solvation_energy_unbound.name]
 relative_sasa_states = ['sasa_relative_complex', 'sasa_relative_bound']
 per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_total_bound',
                            'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex']
-sasa_metric_names = ['area_hydrophobic_unbound', 'area_polar_unbound', 'area_total_unbound',
-                     'area_hydrophobic_complex', 'area_polar_complex', 'area_total_complex']
+sasa_metric_names = [library.area_hydrophobic_unbound.name, library.area_polar_unbound.name,
+                     library.area_total_unbound.name,
+                     library.area_hydrophobic_complex.name, library.area_polar_complex.name,
+                     library.area_total_complex.name]
 per_residue_interface_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
 interface_sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
-collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significance',
-                    'collapse_significance_by_contact_order_z', 'collapse_increase_significance_by_contact_order_z',
-                    'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
-                    'collapse_sequential_z']
+collapse_metrics = [library.collapse_new_positions.name, library.collapse_new_position_significance.name,
+                    library.collapse_significance_by_contact_order_z.name,
+                    library.collapse_increase_significance_by_contact_order_z.name,
+                    library.collapse_increased_z.name, library.collapse_deviation_magnitude.name,
+                    library.collapse_sequential_peaks_z.name,
+                    library.collapse_sequential_z.name]
 log_pseudovalue0p1 = -9.9657
 log_pseudovalue0p01 = -13.2877
 log_pseudovalue0p001 = -16.6096
 log_pseudovalue0p0001 = -19.9315
 zero_probability_frag_value = -20  # log_pseudovalue0p001  # -20 is a pseudovalue of ~0.001% (0.000953%)
 zero_probability_evol_value = log_pseudovalue0p001  # Targets a pseudovalue of 0.001%
-proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
+proteinmpnn_scores = [
+    'sequences', library.proteinmpnn_loss_complex.name, library.proteinmpnn_loss_unbound.name, 'design_indices']
 # Only slice the final 3 values
 # Currently dropped in sum_per_residue_metrics()
 # 'sasa_relative_bound': 'relative_area_bound',
@@ -57,8 +67,8 @@ sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 renamed_design_metrics = {
-    'design_residue': 'number_residues_design', 'interface_residue': 'number_residues_interface',
-    'hbond': 'number_hbonds', 'mutation': 'number_mutations', 'type': 'sequence'
+    'design_residue': library.number_residues_design.name, 'interface_residue': library.number_residues_interface.name,
+    'hbond': library.number_hbonds.name, 'mutation': library.number_mutations.name, 'type': library.sequence.name
 }
 
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
@@ -68,176 +78,37 @@ collapse_thresholds = {
 }
 collapse_reported_std = .05
 idx_slice = pd.IndexSlice
-filter_df = pd.DataFrame(config.metrics)
-dock_metrics = {
-    'proteinmpnn_dock_cross_entropy_loss',
-    'proteinmpnn_dock_cross_entropy_per_residue',
-    'proteinmpnn_v_design_probability_cross_entropy_loss',
-    'proteinmpnn_v_design_probability_cross_entropy_per_residue',
-    'proteinmpnn_v_evolution_probability_cross_entropy_loss',
-    'proteinmpnn_v_evolution_probability_cross_entropy_per_residue',
-    'proteinmpnn_v_fragment_probability_cross_entropy_loss',
-    'proteinmpnn_v_fragment_probability_cross_entropy_per_residue',
-    'dock_collapse_significance_by_contact_order_z_mean',
-    'dock_collapse_increased_z_mean',
-    'dock_collapse_sequential_peaks_z_mean',
-    'dock_collapse_sequential_z_mean',
-    'dock_collapse_deviation_magnitude',
-    'dock_collapse_increase_significance_by_contact_order_z',
-    'dock_collapse_increased_z',
-    'dock_collapse_new_positions',
-    'dock_collapse_new_position_significance',
-    'dock_collapse_sequential_peaks_z',
-    'dock_collapse_sequential_z',
-    'dock_collapse_significance_by_contact_order_z',
-    'dock_collapse_variance',
-    'dock_collapse_violation',
-    'dock_hydrophobicity',
-}
-pose_metrics = {
-    # 'entity_max_radius_ratio_v',
-    # 'entity_min_radius_ratio_v',
-    # 'entity_number_of_residues_ratio_v',
-    # 'entity_radius_ratio_v',
-    'entity_max_radius_average_deviation',
-    'entity_min_radius_average_deviation',
-    # 'entity_number_of_residues_average_deviation'
-    'entity_radius_average_deviation',
-    'interface_b_factor',
-    'interface1_secondary_structure_fragment_topology',
-    'interface1_secondary_structure_fragment_count',
-    'interface1_secondary_structure_topology',
-    'interface1_secondary_structure_count',
-    'interface2_secondary_structure_fragment_topology',
-    'interface2_secondary_structure_fragment_count',
-    'interface2_secondary_structure_topology',
-    'interface2_secondary_structure_count',
-    'interface_secondary_structure_fragment_topology',
-    'interface_secondary_structure_fragment_count',
-    'interface_secondary_structure_topology',
-    'interface_secondary_structure_count',
-    'maximum_radius',
-    'minimum_radius',
-    'multiple_fragment_ratio',
-    'nanohedra_score_normalized',
-    'nanohedra_score_center_normalized',
-    'nanohedra_score',
-    'nanohedra_score_center',
-    'number_residues_interface_fragment_total',
-    'number_residues_interface_fragment_center',
-    'number_fragments_interface',
-    'number_residues_interface',
-    'number_residues_interface_non_fragment',
-    'percent_fragment_helix',
-    'percent_fragment_strand',
-    'percent_fragment_coil',
-    'percent_residues_fragment_interface_total',
-    'percent_residues_fragment_interface_center',
-    'percent_residues_non_fragment_interface',
-    'pose_length',
-}
-fragment_metrics = {
-    'interface1_secondary_structure_fragment_topology',
-    'interface1_secondary_structure_fragment_count',
-    'interface1_secondary_structure_topology',
-    'interface1_secondary_structure_count',
-    'interface2_secondary_structure_fragment_topology',
-    'interface2_secondary_structure_fragment_count',
-    'interface2_secondary_structure_topology',
-    'interface2_secondary_structure_count',
-    'interface_secondary_structure_fragment_topology',
-    'interface_secondary_structure_fragment_count',
-    'interface_secondary_structure_topology',
-    'interface_secondary_structure_count',
-    'maximum_radius',
-    'minimum_radius',
-    'multiple_fragment_ratio',
-    'nanohedra_score_normalized',
-    'nanohedra_score_center_normalized',
-    'nanohedra_score',
-    'nanohedra_score_center',
-    'number_residues_interface_fragment_total',
-    'number_residues_interface_fragment_center',
-    'number_fragments_interface',
-    'number_residues_interface',
-    'number_residues_interface_non_fragment',
-    'percent_fragment_helix',
-    'percent_fragment_strand',
-    'percent_fragment_coil',
-    'percent_residues_fragment_interface_total',
-    'percent_residues_fragment_interface_center',
-    'percent_residues_non_fragment_interface',
-}
+collection: dict[str, library.Metric] = {}
+"""All of the registered metrics."""
+for _metric in dir(library):
+    library_obj = getattr(library, _metric)
+    if isinstance(library_obj, library.Metric):
+        collection[library_obj.name] = library_obj
+
+
+@lru_cache
+def filter_df() -> pd.DataFrame:
+    return pd.DataFrame({name: metric.get_filters() for name, metric in collection.items()})
+
+
 # These metrics are necessary for all calculations performed during the analysis module
 # They are formatted differently from Rosetta output. If missing, something will fail
 rosetta_required = {
-    'buried_unsatisfied_hbonds_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
-    'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
-    'interface_separation', 'interaction_energy_complex', 'rosetta_reference_energy', 'shape_complementarity',
-    # 'interface_connectivity1',
-    # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
-    # putils.protocol,
-    # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-    # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
-    # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
-    # 'buns2_unbound',
-    # 'hbonds_res_selection_2_bound', 'interface_connectivity2',
-    # 'interface_energy_2_bound', 'interface_energy_2_unbound',
-    # 'sasa_hydrophobic_2_bound', 'sasa_polar_2_bound', 'sasa_total_2_bound',
-    # 'solvation_energy_2_bound', 'solvation_energy_2_unbound',
-    # 'rmsd'
-    # 'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
-    # 'fsp_total_stability', 'full_stability_complex',
-    # 'number_hbonds', 'number_residues_interface',
-    # 'average_fragment_z_score', 'nanohedra_score', 'number_fragments_interface',
-    # 'interface_b_factor_per_res',
+    library.buried_unsatisfied_hbonds_complex.name, 'buns1_unbound', library.contact_count.name,
+    library.coordinate_constraint.name,
+    library.favor_residue_energy.name, 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
+    library.interface_separation.name, library.interaction_energy_complex.name, library.rosetta_reference_energy.name,
+    library.shape_complementarity.name,
 }
-columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
-                     'shape_complementarity_core_median_dist': 'interface_separation_core',
-                     'shape_complementarity_fragment_median_dist': 'interface_separation_fragment',
-                     'ref': 'rosetta_reference_energy',
-                     'interaction_energy_density_filter': 'interaction_energy_per_residue'
-                     # 'relax_switch': protocol, 'no_constraint_switch': protocol, 'limit_to_profile_switch': protocol,
-                     # 'combo_profile_switch': protocol, 'design_profile_switch': protocol,
-                     # 'favor_profile_switch': protocol, 'consensus_design_switch': protocol,
-                     # 'interface_energy_res_summary_complex': 'interface_energy_complex',
-                     # 'interface_energy_res_summary_1_bound': 'interface_energy_1_bound',
-                     # 'interface_energy_res_summary_2_bound': 'interface_energy_2_bound',
-                     # 'interface_energy_res_summary_1_unbound': 'interface_energy_1_unbound',
-                     # 'interface_energy_res_summary_2_unbound': 'interface_energy_2_unbound',
-                     # 'sasa_res_summary_hydrophobic_complex': 'sasa_hydrophobic_complex',
-                     # 'sasa_res_summary_polar_complex': 'sasa_polar_complex',
-                     # 'sasa_res_summary_total_complex': 'sasa_total_complex',
-                     # 'sasa_res_summary_hydrophobic_1_bound': 'sasa_hydrophobic_1_bound',
-                     # 'sasa_res_summary_polar_1_bound': 'sasa_polar_1_bound',
-                     # 'sasa_res_summary_total_1_bound': 'sasa_total_1_bound',
-                     # 'sasa_res_summary_hydrophobic_2_bound': 'sasa_hydrophobic_2_bound',
-                     # 'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
-                     # 'sasa_res_summary_total_2_bound': 'sasa_total_2_bound',
-                     # 'solvation_total_energy_complex': 'solvation_energy_complex',
-                     # 'solvation_total_energy_1_bound': 'solvation_energy_1_bound',
-                     # 'solvation_total_energy_2_bound': 'solvation_energy_2_bound',
-                     # 'solvation_total_energy_1_unbound': 'solvation_energy_1_unbound',
-                     # 'solvation_total_energy_2_unbound': 'solvation_energy_2_unbound',
-                     # 'R_int_connectivity_1': 'interface_connectivity1',
-                     # 'R_int_connectivity_2': 'interface_connectivity2',
+columns_to_rename = {'shape_complementarity_median_dist': library.interface_separation.name,
+                     'shape_complementarity_core_median_dist': library.interface_separation_core.name,
+                     'shape_complementarity_fragment_median_dist': library.interface_separation_fragment.name,
+                     'ref': library.rosetta_reference_energy.name,
+                     'interaction_energy_density_filter': library.interaction_energy_per_residue.name
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 clean_up_intermediate_columns = [
-    # 'int_energy_no_intra_residue_score',
-    # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-    # 'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
-    # 'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
-    # 'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
-    'buried_unsatisfied_hbonds_unbound',
-    # 'buried_unsatisfied_hbonds_complex', 'buried_unsatisfied_hbonds_unbound1', 'buried_unsatisfied_hbonds_unbound2',
-    # 'solvation_energy', 'solvation_energy_complex',
-    # 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
-    # 'solvation_energy_2_unbound',
-    # 'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
-    # 'interface_energy_2_unbound',
-    # 'interface_solvation_energy_bound',
-    # 'interface_solvation_energy_unbound', 'interface_solvation_energy_complex'
+    library.buried_unsatisfied_hbonds_unbound.name,
 ]
 protocol_specific_columns = ['HBNet_NumUnsatHpol', 'HBNet_Saturation', 'HBNet_Score']
 # Some of these are unneeded now, but hanging around in case renaming occurred
@@ -275,45 +146,36 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 # columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
-# Subtract columns using tuple [0] - [1] to make delta column
 rosetta_delta_pairs = {
-    'buried_unsatisfied_hbonds': ('buried_unsatisfied_hbonds_complex', 'buried_unsatisfied_hbonds_unbound'),  # Rosetta
-    # Replace by Residues summation
-    # 'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
-    # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
-    'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
-    'interface_solvation_energy':
-        ('interface_solvation_energy_unbound', 'interface_solvation_energy_complex'),  # Rosetta
-    'interface_solvation_energy_activation':
-        ('interface_solvation_energy_unbound', 'interface_solvation_energy_bound'),  # Rosetta
-    # 'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
-    # 'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
-    # 'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
+    library.buried_unsatisfied_hbonds.name:
+        (library.buried_unsatisfied_hbonds_complex.name, library.buried_unsatisfied_hbonds_unbound.name),
+    library.interface_bound_activation_energy.name: ('interface_energy_bound', library.interface_energy_unbound.name),
+    library.interface_solvation_energy.name:
+        (library.interface_solvation_energy_unbound.name, library.interface_solvation_energy_complex.name),
+    library.interface_solvation_energy_activation.name:
+        (library.interface_solvation_energy_unbound.name, library.interface_solvation_energy_bound.name),
 }
-#     'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
-#     'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
-#     'number_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
-
-
-# divide columns using tuple [0] / [1] to make divide column
+"""Subtract columns using tuple [0] - [1] to make delta column"""
 rosetta_division_pairs = {
-    'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),
-    'interface_energy_density': ('interface_energy', 'interface_area_total'),
-    'interface_solvation_energy_density': ('interface_solvation_energy', 'interface_area_total'),
+    library.buried_unsatisfied_hbond_density.name:
+        (library.buried_unsatisfied_hbonds.name, library.interface_area_total.name),
+    library.interface_energy_density.name: (library.interface_energy.name, library.interface_area_total.name),
+    library.interface_solvation_energy_density.name: (
+        library.interface_solvation_energy.name, library.interface_area_total.name),
 }
+"""Divide columns using tuple [0] / [1] to make divide column"""
 division_pairs = {
-    'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
-    'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
-    'percent_core': ('core', 'number_of_interface_class'),  # 'number_residues_interface'),
-    'percent_rim': ('rim', 'number_of_interface_class'),  # 'number_residues_interface'),
-    'percent_support': ('support', 'number_of_interface_class'),  # 'number_residues_interface'),
-}  # Rosetta
-
-# All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
+    library.percent_interface_area_hydrophobic.name:
+        (library.interface_area_hydrophobic, library.interface_area_total.name),
+    library.percent_interface_area_polar.name: (library.interface_area_polar, library.interface_area_total.name),
+    library.percent_core.name: (library.core, 'number_of_interface_class'),  # 'number_residues_interface'),
+    library.percent_rim.name: (library.rim, 'number_of_interface_class'),  # 'number_residues_interface'),
+    library.percent_support.name: (library.support, 'number_of_interface_class'),  # 'number_residues_interface'),
+}
 rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 'yhh_planarity', 'dslf_fa13',
                  'fa_atr', 'fa_dun', 'fa_elec', 'fa_intra_rep', 'fa_intra_sol_xover4', 'fa_rep', 'fa_sol',
                  'hbond_bb_sc', 'hbond_lr_bb', 'hbond_sc', 'hbond_sr_bb', 'ref']
-
+"""All Rosetta based score terms. 'ref' gives 'unfolded ground state' energy"""
 # Current protocols in use in interface_design.xml
 rosetta_design_protocols = [
     'design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
@@ -329,12 +191,12 @@ significance_columns = [
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
 multiple_sequence_alignment_dependent_metrics = \
-    ['collapse_increase_significance_by_contact_order_z', 'collapse_increased_z', 'collapse_deviation_magnitude',
-     'collapse_sequential_peaks_z', 'collapse_sequential_z']
-profile_dependent_metrics = ['divergence_evolution_per_residue', 'observed_evolution']
+    [library.collapse_increase_significance_by_contact_order_z.name,
+     library.collapse_increased_z.name, library.collapse_deviation_magnitude.name,
+     library.collapse_sequential_peaks_z.name, library.collapse_sequential_z.name]
+profile_dependent_metrics = [library.divergence_evolution_per_residue.name, library.observed_evolution.name]
 all_evolutionary_metrics = multiple_sequence_alignment_dependent_metrics + profile_dependent_metrics
-frag_profile_dependent_metrics = ['divergence_fragment_per_residue', 'observed_fragment']
-# per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
+frag_profile_dependent_metrics = [library.divergence_fragment_per_residue.name, library.observed_fragment.name]
 
 
 def parse_rosetta_scorefile(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
@@ -790,15 +652,15 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         # Add the concatenated collapse metrics to total
         folding_and_collapse.append({
             'hydrophobic_collapse': collapse,
-            'collapse_deviation_magnitude': collapse_deviation_magnitude,
-            'collapse_increase_significance_by_contact_order_z':
+            library.collapse_deviation_magnitude.name: collapse_deviation_magnitude,
+            library.collapse_increase_significance_by_contact_order_z.name:
                 residue_contact_order_inverted_z * increased_collapse_z,
-            'collapse_increased_z': increased_collapse_z,
-            'collapse_new_positions': new_collapse_peak_start,
-            'collapse_new_position_significance': new_collapse_peak_start * collapse_significance,
-            'collapse_sequential_peaks_z': collapse_sequential_peaks_z,
-            'collapse_sequential_z': collapse_sequential_z,
-            'collapse_significance_by_contact_order_z': collapse_significance
+            library.collapse_increased_z.name: increased_collapse_z,
+            library.collapse_new_positions.name: new_collapse_peak_start,
+            library.collapse_new_position_significance.name: new_collapse_peak_start * collapse_significance,
+            library.collapse_sequential_peaks_z.name: collapse_sequential_peaks_z,
+            library.collapse_sequential_z.name: collapse_sequential_z,
+            library.collapse_significance_by_contact_order_z.name: collapse_significance
         })
     return folding_and_collapse
 
@@ -960,7 +822,7 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
     # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
     groupby_df = df.T.groupby(level=-1)
     rename_columns = {
-        'hydrophobic_collapse': 'hydrophobicity',
+        'hydrophobic_collapse': library.hydrophobicity.name,
         **energy_metrics_rename_mapping,
         **sasa_metrics_rename_mapping,
         **renamed_design_metrics,
@@ -1288,15 +1150,52 @@ def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size
     return bool_df.mean()
 
 
-# def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
-#     total = len(final_metrics) * len(stats_metrics)
-#     total += len(significance_columns) * num_groups * len(stats_metrics)
-#     total += misc
-#     total += sig  # for protocol pair mean similarity measure
-#     total += sig * len(significance_columns)  # for protocol pair individual similarity measure
-#
-#     return total
+# def not_contains(__a: Container[object], __b: object) -> bool:
+#     return operator.not_(operator.contains(__a, __b))
 
+
+def not_contains(__a: pd.Series, __b: object) -> pd.Series:
+    return operator.invert(pd.Series.isin(__a, __b))
+
+
+# Put longer operations first so that they are scanned first, then shorter ones i.e. '>=' then '>'
+viable_operations = {
+    # '+': operator.add, '-': operator.sub,
+    # '*': operator.mul, '@': operator.matmul,
+    # '/': operator.truediv, '//': operator.floordiv,
+    '!->': not_contains,
+    '->': pd.Series.isin,  # operator.contains,  # value in metric
+    '>=': operator.ge,  # '=>': operator.ge,
+    '<=': operator.le,  # '=<': operator.le,
+    '!=': operator.ne,  # '=!': operator.ne,
+    '=': operator.eq,
+    '>': operator.gt,
+    '<': operator.lt,
+}
+inverse_operations = {
+    # '+': operator.add, '-': operator.sub,
+    # '*': operator.mul, '@': operator.matmul,
+    # '/': operator.truediv, '//': operator.floordiv,
+    # '->': operator.contains,  # value in metric
+    '>=': operator.lt,  # '=>': operator.ge,
+    '<=': operator.gt,  # '=<': operator.le,
+    # '!=': operator.eq,  # '=!': operator.ne,
+    # '=': operator.ne,
+    '>': operator.le,
+    '<': operator.ge,
+    # '!': operator.not_,
+}
+operator_strings = {
+    not_contains: '!->',
+    # operator.contains: '->',
+    pd.Series.isin: '->',
+    operator.ge: '>=',
+    operator.le: '<=',
+    operator.ne: '!=',
+    operator.eq: '=',
+    operator.gt: '>',
+    operator.lt: '<',
+}
 
 def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dict | str | int | float]) \
         -> dict[str, list[Any]]:
@@ -1318,7 +1217,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
             # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
             for idx, filter_op in enumerate(filter_ops, 1):
                 operation, pre_operation, pre_kwargs, value = filter_op
-                print_filters.append((metric_name, f'{flags.operator_strings[operation]} {value}'))
+                print_filters.append((metric_name, f'{operator_strings[operation]} {value}'))
 
                 try:
                     prepared_df = pre_operation(df[metric_name], **pre_kwargs)
@@ -1368,6 +1267,9 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
             elif specification == 'min':
                 filtered_indices[metric_name] = df[df[metric_name] <= filter_ops].index.tolist()
                 operator_string = '<='
+            else:
+                operator_string = None
+                assert True, f"'specification' can't be {specification}"
             # Add to the filters
             print_filters.append((metric_name, f'{operator_string} {filter_ops}'))
 
@@ -1591,10 +1493,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
                 # We have no errors and there are metrics
                 break
             else:
-                input_flag = flags.format_args(flags.filter_args) if mode == "filter" \
-                    else flags.format_args(flags.weight_args)
-                print("Metrics weren't provided... If this is what you want, run this module without the "
-                      f'{input_flag} flag')
+                print("Metrics weren't provided... try again")
                 if verify_choice():
                     break
             fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
@@ -1646,7 +1545,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
 
 
 def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = None,
-                                 function: config.weight_functions_literal = 'rank',
+                                 function: library.weight_functions_literal = 'rank',
                                  default_weight: str = 'interface_energy', **kwargs) -> pd.Series:
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
     weighting parameters

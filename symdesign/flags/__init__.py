@@ -12,7 +12,9 @@ from typing import Any, AnyStr, Literal, get_args
 import pandas as pd
 from psutil import cpu_count
 
-from symdesign.sequence import constants, optimization_species_literal
+from symdesign.metrics import collection as metrics_collection, inverse_operations, library, operator_strings, \
+    viable_operations
+from symdesign.sequence import constants, optimization_species_literal, profile_types
 from symdesign.resources import config
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, \
     design_programs_literal, termini_literal
@@ -603,48 +605,8 @@ def load_flags(file):
 #     return operator.not_(operator.contains(__a, __b))
 
 
-def not_contains(__a: pd.Series, __b: object) -> pd.Series:
-    return operator.invert(pd.Series.isin(__a, __b))
 
 
-# Put longer operations first so that they are scanned first, then shorter ones i.e. '>=' then '>'
-viable_operations = {
-    # '+': operator.add, '-': operator.sub,
-    # '*': operator.mul, '@': operator.matmul,
-    # '/': operator.truediv, '//': operator.floordiv,
-    '!->': not_contains,
-    '->': pd.Series.isin,  # operator.contains,  # value in metric
-    '>=': operator.ge,  # '=>': operator.ge,
-    '<=': operator.le,  # '=<': operator.le,
-    '!=': operator.ne,  # '=!': operator.ne,
-    '=': operator.eq,
-    '>': operator.gt,
-    '<': operator.lt,
-}
-inverse_operations = {
-    # '+': operator.add, '-': operator.sub,
-    # '*': operator.mul, '@': operator.matmul,
-    # '/': operator.truediv, '//': operator.floordiv,
-    # '->': operator.contains,  # value in metric
-    '>=': operator.lt,  # '=>': operator.ge,
-    '<=': operator.gt,  # '=<': operator.le,
-    # '!=': operator.eq,  # '=!': operator.ne,
-    # '=': operator.ne,
-    '>': operator.le,
-    '<': operator.ge,
-    # '!': operator.not_,
-}
-operator_strings = {
-    not_contains: '!->',
-    # operator.contains: '->',
-    pd.Series.isin: '->',
-    operator.ge: '>=',
-    operator.le: '<=',
-    operator.ne: '!=',
-    operator.eq: '=',
-    operator.gt: '>',
-    operator.lt: '<',
-}
 
 
 def parse_weights(weights: list[str] = None, file: AnyStr = None) \
@@ -768,7 +730,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
             return formatted_value
 
         # Find the values that are metrics and those that are values, then ensure they are parsed correct
-        metric = metric_specs = metric_idx = None
+        metric = metric_attributes = metric_idx = None
         invert_ops = True
         operations_syntax_iter = iter(operations_syntax)
         parsed_values = []
@@ -780,11 +742,12 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                 # Substitute any numerical characters to test if the provided component is a metric
                 substituted_component = component.translate(digit_remover())
                 logger.debug(f'substituted_component |{substituted_component}|')
-                _metric_specs = config.metrics.get(substituted_component.strip())
-                if _metric_specs:  # We found in the list of available program metrics
-                    logger.debug(f'metric specifications {",".join(f"{k}={v}" for k, v in _metric_specs.items())}')
+                _metric_attributes = metrics_collection.get(substituted_component.strip())
+                if _metric_attributes:  # Found in possible program metrics
+                    logger.debug('metric specifications '
+                                 f'{",".join(f"{k}={v}" for k, v in attrs.asdict(_metric_attributes).items())}')
                     if metric_idx is None:
-                        metric_specs = _metric_specs
+                        metric_attributes = _metric_attributes
                         metric = component.strip()
                         metric_idx = idx
                         # if idx != 0:
@@ -838,7 +801,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                     # ascending=metric_specs['direction'],
                     # Will determine how ties are sorted which depends on the directional preference of the filter
                     # 'min' makes equal values assume lower percent, 'max' higher percent
-                    method=metric_specs['direction'],
+                    method=metric_attributes.direction,
                     # Treat the rank as a percent so that a percentage can be used to filter
                     pct=True
                 )
@@ -1586,7 +1549,8 @@ all_weight_args = weight_args + weight_file_args
 weight_kwargs = dict(nargs='*', default=tuple(), help='Whether to weight selection results using metrics')  # default=None,
 # weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
 weight_function_args = ('-wf', weight_function.long)
-weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_functions, default='normalize', metavar='',
+weight_function_kwargs = dict(type=str.lower, choices=library.metric_weight_functions,
+                              default='normalize', metavar='',
                               help='How to standardize metrics during selection weighting'
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
 # ---------------------------------------------------

@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from symdesign import flags, utils
+from symdesign import metrics
 from symdesign.protocols.pose import insert_pose_jobs, PoseJob
 from symdesign.resources import job as symjob, sql
 from symdesign.structure.base import ContainsResidues, Residue, SS_HELIX_IDENTIFIERS
@@ -550,15 +551,16 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
             else:
                 external_tx_x, external_tx_y, external_tx_z = transformation['translation2']
 
-            entity_transform = dict(
-                # rotation_x=rotation_degrees_x,
-                # rotation_y=rotation_degrees_y,
-                # rotation_z=rotation_degrees_z,
-                internal_translation_z=internal_tx_z,
-                setting_matrix=set_mat_number,
-                external_translation_x=external_tx_x,
-                external_translation_y=external_tx_y,
-                external_translation_z=external_tx_z)
+            entity_transform = {
+                # metrics.library.rotation_x.name: rotation_degrees_x,
+                # metrics.library.rotation_y.name: rotation_degrees_y,
+                # metrics.library.rotation_z.name: rotation_degrees_z,
+                metrics.library.internal_translation_z.name: internal_tx_z,
+                metrics.library.setting_matrix.name: set_mat_number,
+                metrics.library.external_translation_x.name: external_tx_x,
+                metrics.library.external_translation_y.name: external_tx_y,
+                metrics.library.external_translation_z.name: external_tx_z,
+            }
         else:
             entity_transform = {}
         model1_entity_transformations.append(entity_transform)

@@ -2233,13 +2233,13 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             per_residue_evolutionary_profile_loss = \
                 resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
             profile_loss = {
-                # 'sequence_loss_design': per_residue_design_profile_loss,
-                'sequence_loss_evolution': per_residue_evolutionary_profile_loss,
+                # metrics.library.sequence_loss_design.name: per_residue_design_profile_loss,
+                metrics.library.sequence_loss_evolution.name: per_residue_evolutionary_profile_loss,
             }
 
         sequence_params = {
             **pose.per_residue_contact_order(),
-            # 'errat_deviation': np.concatenate(unbound_errat),
+            # metrics.library.errat_deviation.name: np.concatenate(unbound_errat),
             'type': tuple(pose.sequence),
             **profile_loss
             # Todo 1 each pose...
@@ -2455,12 +2455,12 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                     _per_residue_data_batched.append({
                         # This is required to save the interface_residues
                         'interface_residue': per_residue_design_indices[idx],
-                        'proteinmpnn_dock_cross_entropy_loss': per_residue_dock_cross_entropy[idx],
-                        'proteinmpnn_v_design_probability_cross_entropy_loss':
+                        metrics.library.proteinmpnn_dock_cross_entropy_loss.name: per_residue_dock_cross_entropy[idx],
+                        metrics.library.proteinmpnn_v_design_probability_cross_entropy_loss.name:
                             per_residue_design_cross_entropy[idx],
-                        'proteinmpnn_v_evolution_probability_cross_entropy_loss':
+                        metrics.library.proteinmpnn_v_evolution_probability_cross_entropy_loss.name:
                             per_residue_evolution_cross_entropy[idx],
-                        'proteinmpnn_v_fragment_probability_cross_entropy_loss':
+                        metrics.library.proteinmpnn_v_fragment_probability_cross_entropy_loss.name:
                             per_residue_fragment_cross_entropy[idx],
                     })
 
@@ -2520,7 +2520,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             # per_residue_data[pose_id] = {
             per_residue_data.append({
                 **sequence_params,
-                'sequence_loss_fragment': per_residue_fragment_profile_loss
+                metrics.library.sequence_loss_fragment.name: per_residue_fragment_profile_loss
             })
 
             # Remove saved pose attributes from the prior iteration calculations
@@ -2595,14 +2595,14 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         if proteinmpnn_score and collapse_profile.size:
             # collapse_profile required
             collapse_metrics = (
-                'collapse_deviation_magnitude',
-                'collapse_increase_significance_by_contact_order_z',
-                'collapse_increased_z',
-                'collapse_new_positions',
-                'collapse_new_position_significance',
-                'collapse_significance_by_contact_order_z',
-                'collapse_sequential_peaks_z',
-                'collapse_sequential_z',
+                metrics.library.collapse_deviation_magnitude.name,
+                metrics.library.collapse_increase_significance_by_contact_order_z.name,
+                metrics.library.collapse_increased_z.name,
+                metrics.library.collapse_new_positions.name,
+                metrics.library.collapse_new_position_significance.name,
+                metrics.library.collapse_significance_by_contact_order_z.name,
+                metrics.library.collapse_sequential_peaks_z.name,
+                metrics.library.collapse_sequential_z.name,
                 'hydrophobic_collapse')
             unique_columns = residues_df.columns.unique(level=-1)
             _columns = unique_columns.tolist()
@@ -2610,8 +2610,8 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             remap_columns.update(dict(zip(collapse_metrics, (f'dock_{metric_}' for metric_ in collapse_metrics))))
             residues_df.columns = residues_df.columns.set_levels(unique_columns.map(remap_columns), level=-1)
             # 'dock' metrics aren't included by default
-            per_res_columns = ['dock_hydrophobic_collapse', 'dock_collapse_deviation_magnitude']
-            mean_columns = ['dock_hydrophobicity', 'dock_collapse_variance']
+            per_res_columns = ['dock_hydrophobic_collapse', metrics.library.dock_collapse_deviation_magnitude.name]
+            mean_columns = [metrics.library.dock_hydrophobicity.name, metrics.library.dock_collapse_variance.name]
             _rename = dict(zip(per_res_columns, mean_columns))
         else:
             mean_columns = []
@@ -2624,58 +2624,58 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         # # Need to remove sequence as it is in pose.calculate_metrics()
         # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
         if proteinmpnn_score:
-            poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
+            poses_df = poses_df.join(summed_poses_df.drop(metrics.library.number_residues_interface.name, axis=1))
             # .droplevel(-1, axis=1) operations are REQUIRED here or the calculations are messed up
             interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
             # number_interface_residues_s = interface_df.sum(axis=1)
-            number_interface_residues_s = poses_df['number_residues_interface']
+            number_interface_residues_s = poses_df[metrics.library.number_residues_interface.name]
             # Update the total loss according to those residues that were actually specified as designable
-            poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']].droplevel(-1, axis=1)
+            poses_df[metrics.library.proteinmpnn_dock_cross_entropy_per_residue.name] = \
+                (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_dock_cross_entropy_loss.name]].droplevel(-1, axis=1)
                  * interface_df).sum(axis=1)
-            poses_df['proteinmpnn_dock_cross_entropy_per_residue'] /= number_interface_residues_s
-            poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
+            poses_df[metrics.library.proteinmpnn_dock_cross_entropy_per_residue.name] /= number_interface_residues_s
+            poses_df[metrics.library.proteinmpnn_v_design_probability_cross_entropy_per_residue.name] = \
+                (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_v_design_probability_cross_entropy_loss.name]]
                  .droplevel(-1, axis=1) * interface_df).sum(axis=1)
-            poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] /= number_interface_residues_s
-            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
+            poses_df[metrics.library.proteinmpnn_v_design_probability_cross_entropy_per_residue.name] /= number_interface_residues_s
+            poses_df[metrics.library.proteinmpnn_v_evolution_probability_cross_entropy_per_residue.name] = \
+                (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_v_evolution_probability_cross_entropy_loss.name]]
                  .droplevel(-1, axis=1) * interface_df).sum(axis=1)
-            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] /= number_interface_residues_s
+            poses_df[metrics.library.proteinmpnn_v_evolution_probability_cross_entropy_per_residue.name] /= number_interface_residues_s
             # poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
             #     (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
             #      .droplevel(-1, axis=1) * interface_df).sum(axis=1)
             # Update the per_residue loss according to fragment residues involved in the scoring
-            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
-                poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \
-                / poses_df['number_residues_interface_fragment_total']
+            poses_df[metrics.library.proteinmpnn_v_fragment_probability_cross_entropy_per_residue.name] = \
+                poses_df[metrics.library.proteinmpnn_v_fragment_probability_cross_entropy_loss.name] \
+                / poses_df[metrics.library.number_residues_interface_fragment_total.name]
 
             if collapse_profile.size:
                 # Check if there are new collapse islands and count
-                poses_df['dock_collapse_new_positions'] = \
-                    (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(-1, axis=1)
+                poses_df[metrics.library.dock_collapse_new_positions.name] = \
+                    (residues_df.loc[:, idx_slice[:, metrics.library.dock_collapse_new_positions.name]].droplevel(-1, axis=1)
                      * interface_df).sum(axis=1)
                 # If there are any dock_collapse_new_positions there is a collapse violation
-                poses_df['dock_collapse_violation'] = poses_df['dock_collapse_new_positions'] > 0
+                poses_df[metrics.library.dock_collapse_violation.name] = poses_df[metrics.library.dock_collapse_new_positions.name] > 0
 
-                poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
-                    poses_df['dock_collapse_significance_by_contact_order_z'] / \
-                    (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
+                poses_df[metrics.library.dock_collapse_significance_by_contact_order_z_mean.name] = \
+                    poses_df[metrics.library.dock_collapse_significance_by_contact_order_z.name] / \
+                    (residues_df.loc[:, idx_slice[:, metrics.library.dock_collapse_significance_by_contact_order_z.name]] != 0) \
                     .sum(axis=1)
                 # if measure_alignment:
-                dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
+                dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, metrics.library.dock_collapse_increased_z.name]]
                 total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)
-                poses_df['dock_collapse_increased_z_mean'] = \
+                poses_df[metrics.library.dock_collapse_increased_z_mean.name] = \
                     dock_collapse_increased_df.sum(axis=1) / total_increased_collapse
-                poses_df['dock_collapse_sequential_peaks_z_mean'] = \
-                    poses_df['dock_collapse_sequential_peaks_z'] / total_increased_collapse
-                poses_df['dock_collapse_sequential_z_mean'] = \
-                    poses_df['dock_collapse_sequential_z'] / total_increased_collapse
+                poses_df[metrics.library.dock_collapse_sequential_peaks_z_mean.name] = \
+                    poses_df[metrics.library.dock_collapse_sequential_peaks_z.name] / total_increased_collapse
+                poses_df[metrics.library.dock_collapse_sequential_z_mean.name] = \
+                    poses_df[metrics.library.dock_collapse_sequential_z.name] / total_increased_collapse
         else:
             poses_df = poses_df.join(summed_poses_df)
 
         # Finally add the precalculated pose_thermophilicity for completeness
-        poses_df['pose_thermophilicity'] = pose_thermophilicity
+        poses_df[metrics.library.pose_thermophilicity.name] = pose_thermophilicity
         # logger.debug(f'Found poses_df with columns: {poses_df.columns.tolist()}')
         # logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
 
@@ -3430,7 +3430,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     # These should all be the same order as w/ or w/o optimize_found_transformations_by_metrics() the order of
     # passing_transform_ids is fetched from the order of the selected_indices and each _df is sorted accordingly
     passing_index = pd.Index([f'{identifier:d}' for identifier in passing_transform_ids],
-                             name=sql.PoseMetrics.pose_id.name)
+                             name=metrics.PoseMetrics.pose_id.name)
     starting_transforms = len(passing_index)
     # Deduplicate the indices by keeping the first instance
     # The above sorting ensures that the first instance is the "best"
@@ -3504,27 +3504,29 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                 external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]
                 external_translation_x2, external_translation_y2, external_translation_z2 = _full_ext_tx2[idx]
                 entity_transformations = [
-                    dict(
-                        rotation_x=rotation_degrees_x1[idx],
-                        rotation_y=rotation_degrees_y1[idx],
-                        rotation_z=rotation_degrees_z1[idx],
-                        internal_translation_z=z_heights1[idx],
-                        setting_matrix=set_mat1_number,
-                        external_translation_x=external_translation_x1,
-                        external_translation_y=external_translation_y1,
-                        external_translation_z=external_translation_z1),
-                    dict(
-                        rotation_x=rotation_degrees_x2[idx],
-                        rotation_y=rotation_degrees_y2[idx],
-                        rotation_z=rotation_degrees_z2[idx],
-                        internal_translation_z=z_heights2[idx],
-                        setting_matrix=set_mat2_number,
-                        external_translation_x=external_translation_x2,
-                        external_translation_y=external_translation_y2,
-                        external_translation_z=external_translation_z2)
+                    {
+                        metrics.library.rotation_x.name: rotation_degrees_x1[idx],
+                        metrics.library.rotation_y.name: rotation_degrees_y1[idx],
+                        metrics.library.rotation_z.name: rotation_degrees_z1[idx],
+                        metrics.library.internal_translation_z.name: z_heights1[idx],
+                        metrics.library.setting_matrix.name: set_mat1_number,
+                        metrics.library.external_translation_x.name: external_translation_x1,
+                        metrics.library.external_translation_y.name: external_translation_y1,
+                        metrics.library.external_translation_z.name: external_translation_z1,
+                    },
+                    {
+                        metrics.library.rotation_x.name: rotation_degrees_x2[idx],
+                        metrics.library.rotation_y.name: rotation_degrees_y2[idx],
+                        metrics.library.rotation_z.name: rotation_degrees_z2[idx],
+                        metrics.library.internal_translation_z.name: z_heights2[idx],
+                        metrics.library.setting_matrix.name: set_mat2_number,
+                        metrics.library.external_translation_x.name: external_translation_x2,
+                        metrics.library.external_translation_y.name: external_translation_y2,
+                        metrics.library.external_translation_z.name: external_translation_z2,
+                    }
                 ]
 
-                # Update sql.EntityData, sql.EntityMetrics, sql.EntityTransform
+                # Update sql.EntityData, metrics.EntityMetrics, sql.EntityTransform
                 # pose_id = pose_job.id
                 # entity_data = []
                 # Todo the number of entities and the number of transformations could be different
@@ -3649,13 +3651,13 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         # Output acquired metrics
         if job.db:
             # Update the poses_df and residues_df index to reflect the new pose_ids
-            poses_df.index = pd.Index(pose_ids, name=sql.PoseMetrics.pose_id.name)
+            poses_df.index = pd.Index(pose_ids, name=metrics.PoseMetrics.pose_id.name)
             # Write dataframes to the sql database
-            sql.write_dataframe(session, poses=poses_df)
+            metrics.sql.write_dataframe(session, poses=poses_df)
             output_residues = False
             if output_residues:  # Todo job.metrics.residues
-                residues_df.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
-                sql.write_dataframe(session, pose_residues=residues_df)
+                residues_df.index = pd.Index(pose_ids, name=metrics.PoseResidueMetrics.pose_id.name)
+                metrics.sql.write_dataframe(session, pose_residues=residues_df)
         else:  # Write to disk
             residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
             os.makedirs(job.all_scores, exist_ok=True)

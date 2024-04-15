@@ -114,21 +114,21 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
             will have an as many entries corresponding to each Entity in EntityData for a total of DesignData's X number
             of Entities entries
     """
-    pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
+    pm_c = [c for c in metrics.PoseMetrics.__table__.columns if not c.primary_key]
     pm_names = [c.name for c in pm_c]
-    dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
+    dm_c = [c for c in metrics.DesignMetrics.__table__.columns if not c.primary_key]
     dm_names = [c.name for c in dm_c]
     # entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
     #                      sql.ProteinMetadata.c_terminal_helix,
     #                      sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in (*sql.EntityMetrics.__table__.columns,
+    em_c = [c for c in (*metrics.EntityMetrics.__table__.columns,
                         # *entity_metadata_c,
-                        *sql.DesignEntityMetrics.__table__.columns)
+                        *metrics.DesignEntityMetrics.__table__.columns)
             if not c.primary_key]
     # Remove design_id (its duplicated?)
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
+    em_c.pop(em_c.index(metrics.DesignEntityMetrics.design_id))
     # Remove entity_id, it's duplicated
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.entity_id))
+    em_c.pop(em_c.index(metrics.DesignEntityMetrics.entity_id))
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
     selected_column_names = (*pm_names, *dm_names, *em_names)
@@ -140,18 +140,18 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
     #     .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.design_id == sql.DesignData.id)
 
     join_stmt = select(selected_columns).select_from(sql.EntityData) \
-        .join(sql.PoseMetrics, sql.PoseMetrics.pose_id == sql.EntityData.pose_id) \
-        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id) \
-        .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.entity_id == sql.EntityData.id) \
-        .join(sql.DesignMetrics, sql.DesignMetrics.design_id == sql.DesignEntityMetrics.design_id)
+        .join(metrics.PoseMetrics, metrics.PoseMetrics.pose_id == sql.EntityData.pose_id) \
+        .join(metrics.EntityMetrics, metrics.EntityMetrics.entity_id == sql.EntityData.id) \
+        .join(metrics.DesignEntityMetrics, metrics.DesignEntityMetrics.entity_id == sql.EntityData.id) \
+        .join(metrics.DesignMetrics, metrics.DesignMetrics.design_id == metrics.DesignEntityMetrics.design_id)
 
     if pose_ids:
-        stmt = join_stmt.where(sql.PoseMetrics.pose_id.in_(pose_ids))
+        stmt = join_stmt.where(metrics.PoseMetrics.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
     if design_ids:
-        stmt = stmt.where(sql.DesignMetrics.design_id.in_(design_ids))
+        stmt = stmt.where(metrics.DesignMetrics.design_id.in_(design_ids))
     else:
         stmt = stmt
 
@@ -173,13 +173,13 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     """
     #     design_ids: DesignData instance identifiers for which metrics are desired
     # Accessing only the PoseMetrics and EntityMetrics
-    pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
+    pm_c = [c for c in metrics.PoseMetrics.__table__.columns if not c.primary_key]
     pm_names = [c.name for c in pm_c]
     # entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
     #                      sql.ProteinMetadata.c_terminal_helix,
     #                      sql.ProteinMetadata.thermophilicity]
     # em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
-    em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
+    em_c = [c for c in metrics.EntityMetrics.__table__.columns if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     # em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
     # em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
@@ -189,11 +189,11 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(sql.EntityData) \
-        .join(sql.PoseMetrics, sql.PoseMetrics.pose_id == sql.EntityData.pose_id) \
-        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id)
+        .join(metrics.PoseMetrics, metrics.PoseMetrics.pose_id == sql.EntityData.pose_id) \
+        .join(metrics.EntityMetrics, metrics.EntityMetrics.entity_id == sql.EntityData.id)
 
     if pose_ids:
-        stmt = join_stmt.where(sql.PoseMetrics.pose_id.in_(pose_ids))
+        stmt = join_stmt.where(metrics.PoseMetrics.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -213,16 +213,16 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
             each PoseJob
     """
     # Accessing only the PoseMetrics
-    pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
+    pm_c = [c for c in metrics.PoseMetrics.__table__.columns if not c.primary_key]
     # pm_names = [c.name for c in pm_c]
     selected_columns = (*pm_c,)
     selected_column_names = [c.name for c in selected_columns]  # (*pm_names,)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(sql.PoseMetrics)
+    join_stmt = select(selected_columns).select_from(metrics.PoseMetrics)
     if pose_ids:
-        stmt = join_stmt.where(sql.PoseMetrics.pose_id.in_(pose_ids))
+        stmt = join_stmt.where(metrics.PoseMetrics.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -249,14 +249,14 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     #                      sql.ProteinMetadata.c_terminal_helix,
     #                      sql.ProteinMetadata.thermophilicity]
     # em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
-    em_c = [c for c in (*sql.EntityMetrics.__table__.columns,
+    em_c = [c for c in (*metrics.EntityMetrics.__table__.columns,
                         # *entity_metadata_c,
-                        *sql.DesignEntityMetrics.__table__.columns)
+                        *metrics.DesignEntityMetrics.__table__.columns)
             if not c.primary_key]
     # # Remove design_id
     # em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
     # Remove entity_id as entity_id is duplicated
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.entity_id))
+    em_c.pop(em_c.index(metrics.DesignEntityMetrics.entity_id))
     em_names = [f'entity_{c.name}' if c.name not in ['entity_id', 'design_id'] else c.name for c in em_c]
     selected_columns = (pose_id_c, *em_c,)
     selected_column_names = (pose_id_c.name, *em_names,)
@@ -264,8 +264,8 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(sql.EntityData)\
-        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id) \
-        .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.entity_id == sql.EntityData.id)
+        .join(metrics.EntityMetrics, metrics.EntityMetrics.entity_id == sql.EntityData.id) \
+        .join(metrics.DesignEntityMetrics, metrics.DesignEntityMetrics.entity_id == sql.EntityData.id)
 
     if pose_ids:
         stmt = join_stmt.where(sql.EntityData.pose_id.in_(pose_ids))
@@ -273,7 +273,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
         stmt = join_stmt
 
     if design_ids:
-        stmt = stmt.where(sql.DesignEntityMetrics.design_id.in_(design_ids))
+        stmt = stmt.where(metrics.DesignEntityMetrics.design_id.in_(design_ids))
     else:
         stmt = stmt
 
@@ -297,7 +297,7 @@ def load_sql_design_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     # dd_c = [sql.DesignData.pose_id, sql.DesignData.design_id]
     dd_c = (sql.DesignData.pose_id,)
     dd_names = [c.name for c in dd_c]
-    dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
+    dm_c = [c for c in metrics.DesignMetrics.__table__.columns if not c.primary_key]
     dm_names = [c.name for c in dm_c]
     # em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
     # # Remove design_id
@@ -309,7 +309,7 @@ def load_sql_design_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(sql.DesignData)\
-        .join(sql.DesignMetrics)
+        .join(metrics.DesignMetrics)
     if pose_ids:
         stmt = join_stmt.where(sql.DesignData.pose_id.in_(pose_ids))
     else:
@@ -342,9 +342,9 @@ def load_sql_design_entities_dataframe(session: Session, pose_ids: Iterable[int]
     dd_names = [c.name for c in dd_c]
     # dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
     # dm_names = [c.name for c in dm_c]
-    em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
+    em_c = [c for c in metrics.DesignEntityMetrics.__table__.columns if not c.primary_key]
     # Remove design_id
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
+    em_c.pop(em_c.index(metrics.DesignEntityMetrics.design_id))
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*dd_c, *em_c)  # *dm_c,
     selected_column_names = (*dd_names, *em_names)  # *dm_names,
@@ -352,7 +352,7 @@ def load_sql_design_entities_dataframe(session: Session, pose_ids: Iterable[int]
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(sql.DesignData)\
-        .join(sql.DesignEntityMetrics)  # .join(PoseJob)
+        .join(metrics.DesignEntityMetrics)  # .join(PoseJob)
     if pose_ids:
         stmt = join_stmt.where(sql.DesignData.pose_id.in_(pose_ids))
     else:

@@ -3118,7 +3118,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
     # Metrics class attributes
     # _df: pd.Series  # Metrics
     # _metrics: sql.EntityMetrics  # Metrics
-    _metrics_table = sql.EntityMetrics
+    _metrics_table = metrics.EntityMetrics
     # _uniprot_id: str | None
     # _search_uniprot_id = False
     # """Whether the uniprot_id has been queried"""
@@ -5705,7 +5705,7 @@ class Pose(SymmetricModel, MetricsMixin):
     # Metrics class attributes
     # _df: pd.Series  # Metrics
     # _metrics: sql.PoseMetrics  # Metrics
-    _metrics_table = sql.PoseMetrics
+    _metrics_table = metrics.PoseMetrics
     _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
     _design_selection_entity_names: set[str]
@@ -6724,7 +6724,7 @@ class Pose(SymmetricModel, MetricsMixin):
         for idx, entity in enumerate(self.entities):
             contact_order.append(entity.contact_order)
 
-        return {'contact_order': np.concatenate(contact_order)}
+        return {metrics.library.contact_order.name: np.concatenate(contact_order)}
 
     def get_folding_metrics(
         self, profile_type: profile_types = 'evolutionary', **kwargs
@@ -6973,7 +6973,7 @@ class Pose(SymmetricModel, MetricsMixin):
         errat_start = time.time()
         _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
         self.log.debug(f'Finished Errat, took {time.time() - errat_start:6f} s')
-        per_residue_data['errat_deviation'] = per_residue_errat[:self.number_of_residues].tolist()
+        per_residue_data[metrics.library.errat_deviation.name] = per_residue_errat[:self.number_of_residues].tolist()
 
         return per_residue_data
 
@@ -7276,7 +7276,7 @@ class Pose(SymmetricModel, MetricsMixin):
         assembly_minimally_contacting = self.assembly_minimally_contacting
         assembly_minimally_contacting.spatial_aggregation_propensity_per_residue(distance=distance)
         assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
-        per_residue_sap['spatial_aggregation_propensity'] = \
+        per_residue_sap[metrics.library.spatial_aggregation_propensity.name] = \
             [residue.spatial_aggregation_propensity for residue in assembly_asu_residues]
         # Calculate sap for each Entity
         per_residue_sap_unbound = []
@@ -7287,7 +7287,7 @@ class Pose(SymmetricModel, MetricsMixin):
             per_residue_sap_unbound.extend(
                 [residue.spatial_aggregation_propensity for residue in oligomer_asu_residues])
 
-        per_residue_sap['spatial_aggregation_propensity_unbound'] = per_residue_sap_unbound
+        per_residue_sap[metrics.library.spatial_aggregation_propensity_unbound.name] = per_residue_sap_unbound
 
         return per_residue_sap
 
@@ -8209,6 +8209,8 @@ class Pose(SymmetricModel, MetricsMixin):
             A mapping of the following metrics for the requested structural region -
                 {'center_indices',
                  'total_indices',
+                 'number_residues_fragment_total',
+                 'number_residues_fragment_center',
                  'nanohedra_score',
                  'nanohedra_score_center',
                  'nanohedra_score_normalized',
@@ -8257,32 +8259,32 @@ class Pose(SymmetricModel, MetricsMixin):
 
                     metric_d[entity]['center_indices'].update(_metrics[align_type]['center']['indices'])
                     metric_d[entity]['total_indices'].update(_metrics[align_type]['total']['indices'])
-                    metric_d[entity]['nanohedra_score'] += _metrics[align_type]['total']['score']
-                    metric_d[entity]['nanohedra_score_center'] += _metrics[align_type]['center']['score']
-                    metric_d[entity]['multiple_fragment_ratio'] += _metrics[align_type]['multiple_ratio']
-                    metric_d[entity]['number_fragments_interface'] += _metrics['total']['observations']
-                    metric_d[entity]['percent_fragment_helix'] += _metrics[align_type]['index_count'][1]
-                    metric_d[entity]['percent_fragment_strand'] += _metrics[align_type]['index_count'][2]
-                    metric_d[entity]['percent_fragment_coil'] += _metrics[align_type]['index_count'][3] \
+                    metric_d[entity][metrics.library.nanohedra_score.name] += _metrics[align_type]['total']['score']
+                    metric_d[entity][metrics.library.nanohedra_score_center.name] += _metrics[align_type]['center']['score']
+                    metric_d[entity][metrics.library.multiple_fragment_ratio.name] += _metrics[align_type]['multiple_ratio']
+                    metric_d[entity][metrics.library.number_fragments_interface.name] += _metrics['total']['observations']
+                    metric_d[entity][metrics.library.percent_fragment_helix.name] += _metrics[align_type]['index_count'][1]
+                    metric_d[entity][metrics.library.percent_fragment_strand.name] += _metrics[align_type]['index_count'][2]
+                    metric_d[entity][metrics.library.percent_fragment_coil.name] += _metrics[align_type]['index_count'][3] \
                         + _metrics[align_type]['index_count'][4] + _metrics[align_type]['index_count'][5]
 
             # Finally, tabulate based on the total for each Entity
             for entity, _metrics in metric_d.items():
                 _metrics['number_residues_fragment_total'] = len(_metrics['total_indices'])
                 _metrics['number_residues_fragment_center'] = len(_metrics['center_indices'])
-                number_fragments_interface = _metrics['number_fragments_interface']
-                _metrics['percent_fragment_helix'] /= number_fragments_interface
-                _metrics['percent_fragment_strand'] /= number_fragments_interface
-                _metrics['percent_fragment_coil'] /= number_fragments_interface
+                number_fragments_interface = _metrics[metrics.library.number_fragments_interface.name]
+                _metrics[metrics.library.percent_fragment_helix.name] /= number_fragments_interface
+                _metrics[metrics.library.percent_fragment_strand.name] /= number_fragments_interface
+                _metrics[metrics.library.percent_fragment_coil.name] /= number_fragments_interface
                 try:
-                    _metrics['nanohedra_score_normalized'] = \
-                        _metrics['nanohedra_score'] / _metrics['number_residues_fragment_total']
-                    _metrics['nanohedra_score_center_normalized'] = \
-                        _metrics['nanohedra_score_center'] / _metrics['number_residues_fragment_center']
+                    _metrics[metrics.library.nanohedra_score_normalized.name] = \
+                        _metrics[metrics.library.nanohedra_score.name] / _metrics[metrics.library.number_residues_fragment_total.name]
+                    _metrics[metrics.library.nanohedra_score_center_normalized.name] = \
+                        _metrics[metrics.library.nanohedra_score_center.name] / _metrics[metrics.library.number_residues_fragment_center.name]
                 except ZeroDivisionError:
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
-                    _metrics['nanohedra_score_normalized'] = _metrics['nanohedra_score_center_normalized'] = 0.
+                    _metrics[metrics.library.nanohedra_score_normalized.name] = _metrics[metrics.library.nanohedra_score_center_normalized.name] = 0.
 
         elif total_interface:  # For the entire interface
             metric_d = deepcopy(fragment_metric_template)
@@ -8293,34 +8295,34 @@ class Pose(SymmetricModel, MetricsMixin):
                     _metrics['mapped']['center']['indices'].union(_metrics['paired']['center']['indices']))
                 metric_d['total_indices'].update(
                     _metrics['mapped']['total']['indices'].union(_metrics['paired']['total']['indices']))
-                metric_d['nanohedra_score'] += _metrics['total']['total']['score']
-                metric_d['nanohedra_score_center'] += _metrics['total']['center']['score']
-                metric_d['multiple_fragment_ratio'] += _metrics['total']['multiple_ratio']
-                metric_d['number_fragments_interface'] += _metrics['total']['observations']
-                metric_d['percent_fragment_helix'] += _metrics['total']['index_count'][1]
-                metric_d['percent_fragment_strand'] += _metrics['total']['index_count'][2]
-                metric_d['percent_fragment_coil'] += _metrics['total']['index_count'][3] \
+                metric_d[metrics.library.nanohedra_score.name] += _metrics['total']['total']['score']
+                metric_d[metrics.library.nanohedra_score_center.name] += _metrics['total']['center']['score']
+                metric_d[metrics.library.multiple_fragment_ratio.name] += _metrics['total']['multiple_ratio']
+                metric_d[metrics.library.number_fragments_interface.name] += _metrics['total']['observations']
+                metric_d[metrics.library.percent_fragment_helix.name] += _metrics['total']['index_count'][1]
+                metric_d[metrics.library.percent_fragment_strand.name] += _metrics['total']['index_count'][2]
+                metric_d[metrics.library.percent_fragment_coil.name] += _metrics['total']['index_count'][3] \
                     + _metrics['total']['index_count'][4] + _metrics['total']['index_count'][5]
 
             # Finally, tabulate based on the total
             metric_d['number_residues_fragment_total'] = len(metric_d['total_indices'])
             metric_d['number_residues_fragment_center'] = len(metric_d['center_indices'])
-            total_observations = metric_d['number_fragments_interface'] * 2  # 2x observations in ['total']['index_count']
+            total_observations = metric_d[metrics.library.number_fragments_interface.name] * 2  # 2x observations in ['total']['index_count']
             try:
-                metric_d['percent_fragment_helix'] /= total_observations
-                metric_d['percent_fragment_strand'] /= total_observations
-                metric_d['percent_fragment_coil'] /= total_observations
+                metric_d[metrics.library.percent_fragment_helix.name] /= total_observations
+                metric_d[metrics.library.percent_fragment_strand.name] /= total_observations
+                metric_d[metrics.library.percent_fragment_coil.name] /= total_observations
             except ZeroDivisionError:
-                metric_d['percent_fragment_helix'] = metric_d['percent_fragment_strand'] = \
-                    metric_d['percent_fragment_coil'] = 0.
+                metric_d[metrics.library.percent_fragment_helix.name] = metric_d[metrics.library.percent_fragment_strand.name] = \
+                    metric_d[metrics.library.percent_fragment_coil.name] = 0.
             try:
-                metric_d['nanohedra_score_normalized'] = \
-                    metric_d['nanohedra_score'] / metric_d['number_residues_fragment_total']
-                metric_d['nanohedra_score_center_normalized'] = \
-                    metric_d['nanohedra_score_center']/metric_d['number_residues_fragment_center']
+                metric_d[metrics.library.nanohedra_score_normalized.name] = \
+                    metric_d[metrics.library.nanohedra_score.name] / metric_d[metrics.library.number_residues_fragment_total.name]
+                metric_d[metrics.library.nanohedra_score_center_normalized.name] = \
+                    metric_d[metrics.library.nanohedra_score_center.name]/metric_d[metrics.library.number_residues_fragment_center.name]
             except ZeroDivisionError:
                 self.log.debug(f'{self.name}: No fragment residues were found')
-                metric_d['nanohedra_score_normalized'] = metric_d['nanohedra_score_center_normalized'] = 0.
+                metric_d[metrics.library.nanohedra_score_normalized.name] = metric_d[metrics.library.nanohedra_score_center_normalized.name] = 0.
 
         else:  # For the entire Pose?
             raise NotImplementedError("There isn't a mechanism to return fragments for the mode specified")

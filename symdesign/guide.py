@@ -1,5 +1,5 @@
+from symdesign import metrics
 from symdesign import flags
-from symdesign.resources import config
 from symdesign.utils import pretty_format_table, path as putils, rosetta
 
 
@@ -192,7 +192,7 @@ interface_design = \
 #     f'After {flags.interface_design} is completed, use the {flags.analysis} module to prepare metrics for the modules'
 #     ' {select_modules_str}. '
 formatted_metrics = \
-    pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(config.metrics.items())])
+    pretty_format_table([(name, metric.description) for name, metric in sorted(metrics.collection.items())])
 analysis = \
     f"After running '{putils.program_exe} {flags.analysis}', the following metrics will be available for each pose"\
     f' (unique design configuration) selected for analysis:\n\t{nltb.join(formatted_metrics)}\n\nAdditionally, you' \

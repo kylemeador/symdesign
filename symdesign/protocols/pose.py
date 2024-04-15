@@ -2008,11 +2008,11 @@ class PoseProtocol(PoseData):
                                                model_type=model_type, interface_indices=interface_indices)
             residue_indices = list(range(number_of_residues))
             # Set the index to use the design.id for each design instance
-            design_index = pd.Index(design_ids, name=sql.ResidueMetrics.design_id.name)
+            design_index = pd.Index(design_ids, name=metrics.ResidueMetrics.design_id.name)
             residue_sequences_df = pd.DataFrame([list(seq) for seq in sequences.values()],
                                                 index=predict_residues_df.index,
-                                                columns=pd.MultiIndex.from_product([residue_indices,
-                                                                                    [sql.ResidueMetrics.type.name]]))
+                                                columns=pd.MultiIndex.from_product(
+                                                    [residue_indices, [metrics.ResidueMetrics.type.name]]))
             residues_df = residues_df.join([predict_residues_df, residue_sequences_df])
             designs_df = designs_df.join(predict_designs_df)
             designs_df.index = residues_df.index = design_index
@@ -2145,8 +2145,8 @@ class PoseProtocol(PoseData):
                                                    model_type=model_type, interface_indices=entity_interface_indices)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
                 entity_designs_df.index = pd.MultiIndex.from_product(
-                    [design_ids, [entity_data.id]], names=[sql.DesignEntityMetrics.design_id.name,
-                                                           sql.DesignEntityMetrics.entity_id.name])
+                    [design_ids, [entity_data.id]], names=[metrics.DesignEntityMetrics.design_id.name,
+                                                           metrics.DesignEntityMetrics.entity_id.name])
                 entity_design_dfs.append(entity_designs_df)
 
                 # These aren't currently written...
@@ -2155,7 +2155,7 @@ class PoseProtocol(PoseData):
             # Save the entity_designs_df DataFrames
             with self.job.db.session(expire_on_commit=False) as session:
                 for entity_designs_df in entity_design_dfs:
-                    sql.write_dataframe(session, entity_designs=entity_designs_df)
+                    metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
                 session.commit()
 
             # Try to perform an analysis of the separated versus the combined prediction
@@ -2230,7 +2230,7 @@ class PoseProtocol(PoseData):
 
                     # Compare all folding_scores
                     design_deviation_df = (predict_designs_df - entity_designs_df).abs()
-                    design_deviation_df['rmsd_prediction_deviation'] = rmsds
+                    design_deviation_df[metrics.library.rmsd_prediction_ensemble_deviation.name] = rmsds
                     design_deviation_file = \
                         os.path.join(self.data_path, f'{starttime}-af_pose-entity-designs-deviation_scores.csv')
                     design_deviation_df.to_csv(design_deviation_file)
@@ -2587,7 +2587,7 @@ class PoseProtocol(PoseData):
             # analysis_start = time.time()
             designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
             entity_designs_df = self.analyze_design_entities_per_residue(residues_df)
-            sql.write_dataframe(session, entity_designs=entity_designs_df)
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
 
             # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
             #                f"{time.time() - design_start:8f}s total")
@@ -2722,38 +2722,38 @@ class PoseProtocol(PoseData):
             if designs is not None:
                 # design_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
-                # design_index_names = [sql.DesignMetrics.pose_id.name, sql.DesignMetrics.name.name]
+                # design_index_names = [metrics.DesignMetrics.pose_id.name, metrics.DesignMetrics.name.name]
                 # designs = pd.concat([designs], keys=[pose_identifier], axis=0)
-                # design_index_names = [sql.DesignMetrics.pose_id.name, sql.DesignMetrics.design_id.name]
+                # design_index_names = [metrics.DesignMetrics.pose_id.name, metrics.DesignMetrics.design_id.name]
                 # designs = pd.concat([designs], keys=[pose_identifier], axis=0)
                 # #                     names=design_index_names, axis=0)
                 # designs.index.set_names(design_index_names, inplace=True)
-                designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
+                designs.index.set_names(metrics.DesignMetrics.design_id.name, inplace=True)
                 # _design_ids = metrics.sql.write_dataframe(session, designs=designs)
-                sql.write_dataframe(session, designs=designs)
+                metrics.sql.write_dataframe(session, designs=designs)
 
             if residues is not None:
                 # residue_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
-                # residue_index_names = [sql.ResidueMetrics.pose_id.name, sql.ResidueMetrics.design_id.name, sql.ResidueMetrics.design_name.name]
+                # residue_index_names = [metrics.ResidueMetrics.pose_id.name, metrics.ResidueMetrics.design_id.name, metrics.ResidueMetrics.design_name.name]
                 # residues = pd.concat([residues], keys=list(zip(repeat(pose_identifier), _design_ids)), axis=0)
-                # residue_index_names = [sql.ResidueMetrics.pose_id.name, sql.ResidueMetrics.design_id.name]
+                # residue_index_names = [metrics.ResidueMetrics.pose_id.name, metrics.ResidueMetrics.design_id.name]
                 # residues = pd.concat([residues], keys=[pose_identifier], axis=0)
                 # #                      names=residue_index_names, axis=0)
                 # residues.index.set_names(residue_index_names, inplace=True)
                 if pose_metrics:
-                    index_name = sql.PoseResidueMetrics.pose_id.name
+                    index_name = metrics.PoseResidueMetrics.pose_id.name
                     dataframe_kwargs = dict(pose_residues=residues)
                 else:
-                    index_name = sql.ResidueMetrics.design_id.name
+                    index_name = metrics.ResidueMetrics.design_id.name
                     dataframe_kwargs = dict(residues=residues)
 
                 residues.index.set_names(index_name, inplace=True)
-                sql.write_dataframe(session, **dataframe_kwargs)
+                metrics.sql.write_dataframe(session, **dataframe_kwargs)
 
             if design_residues is not None:
-                design_residues.index.set_names(sql.ResidueMetrics.design_id.name, inplace=True)
-                sql.write_dataframe(session, design_residues=design_residues)
+                design_residues.index.set_names(metrics.ResidueMetrics.design_id.name, inplace=True)
+                metrics.sql.write_dataframe(session, design_residues=design_residues)
         else:
             os.makedirs(self.data_path, exist_ok=True)
             if residues is not None:
@@ -3169,7 +3169,7 @@ class PoseProtocol(PoseData):
             # If so, proceed with insert, file rename and commit
             self.output_metrics(session, designs=designs_df)
             if rosetta_provided_new_design_names:
-                sql.write_dataframe(session, entity_designs=entity_designs_df)
+                metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
             output_residues = False
             if output_residues:
                 self.output_metrics(session, residues=residues_df)
@@ -3371,7 +3371,7 @@ class PoseProtocol(PoseData):
                 pass
             else:
                 self.output_metrics(session, design_residues=residues_df)
-        sql.write_dataframe(session, entity_designs=entity_designs_df)
+        metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
         #     # Commit the newly acquired metrics
         #     session.commit()
 
@@ -3430,14 +3430,14 @@ class PoseProtocol(PoseData):
         #         median=sum(list(sorted(array_like))[middle]) / median_div
         #     )
 
-        score_types_mean = ['rmsd_prediction_ensemble']
+        score_types_mean = [metrics.library.rmsd_prediction_ensemble.name]
         if 'multimer' in model_type:
             measure_pae = True
-            score_types_mean += ['predicted_interface_template_modeling_score',
-                                 'predicted_template_modeling_score']
+            score_types_mean += [metrics.library.predicted_interface_template_modeling_score.name,
+                                 metrics.library.predicted_template_modeling_score.name]
         elif 'ptm' in model_type:
             measure_pae = True
-            score_types_mean += ['predicted_template_modeling_score']
+            score_types_mean += [metrics.library.predicted_template_modeling_score.name]
         else:
             measure_pae = False
 
@@ -3482,7 +3482,7 @@ class PoseProtocol(PoseData):
                         # pae = pae_container.mean(axis=0)
                     else:
                         pae = score
-                    array_scores['predicted_aligned_error'] = pae.mean(axis=0)[:pose_length]
+                    array_scores[metrics.library.predicted_aligned_error.name] = pae.mean(axis=0)[:pose_length]
 
                     if interface_indices1:
                         # Index the resulting pae to get the error at the interface residues in particular
@@ -3492,8 +3492,8 @@ class PoseProtocol(PoseData):
                         self.log.critical(f'Found interface_indices1: {interface_indices1}')
                         self.log.critical(f'Found interface_indices2: {interface_indices2}')
                         interface_pae = pae[interface_indices1][:, interface_indices2]
-                        scalar_scores['predicted_aligned_error_interface'] = interface_pae.mean()
-                        scalar_scores['predicted_aligned_error_interface_deviation'] = interface_pae.std()
+                        scalar_scores[metrics.library.predicted_aligned_error_interface.name] = interface_pae.mean()
+                        scalar_scores[metrics.library.predicted_aligned_error_interface_deviation.name] = interface_pae.std()
                 elif score_type == 'plddt':  # Todo combine with above
                     if isinstance(score, list):
                         number_models = len(score)
@@ -3505,7 +3505,7 @@ class PoseProtocol(PoseData):
                             plddt /= number_models
                     else:
                         plddt = score
-                    array_scores['plddt'] = plddt[:pose_length]
+                    array_scores[metrics.library.plddt.name] = plddt[:pose_length]
 
             logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
             logger.debug(f'Found array_scores with contents:\n{array_scores}')
@@ -3519,11 +3519,11 @@ class PoseProtocol(PoseData):
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                  for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         designs_df = designs_df.join(metrics.sum_per_residue_metrics(residues_df))
-        designs_df['plddt'] /= pose_length
-        designs_df['plddt_deviation'] = residues_df.loc[:, idx_slice[:, 'plddt']].std(axis=1)
-        designs_df['predicted_aligned_error'] /= pose_length
-        designs_df['predicted_aligned_error_deviation'] = \
-            residues_df.loc[:, idx_slice[:, 'predicted_aligned_error']].std(axis=1)
+        designs_df[metrics.library.plddt.name] /= pose_length
+        designs_df[metrics.library.plddt_deviation.name] = residues_df.loc[:, idx_slice[:, 'plddt']].std(axis=1)
+        designs_df[metrics.library.predicted_aligned_error.name] /= pose_length
+        designs_df[metrics.library.predicted_aligned_error_deviation.name] = \
+            residues_df.loc[:, idx_slice[:, metrics.library.predicted_aligned_error.name]].std(axis=1)
 
         return designs_df, residues_df
 
@@ -3563,7 +3563,7 @@ class PoseProtocol(PoseData):
         #                                   entity_designs_df.index.map(design_name_to_id_map).tolist()))
         # input(entity_designs_df)
         entity_designs_df.index = entity_designs_df.index.rename(
-            [sql.DesignEntityMetrics.entity_id.name, sql.DesignEntityMetrics.design_id.name])
+            [metrics.DesignEntityMetrics.entity_id.name, metrics.DesignEntityMetrics.design_id.name])
         # entity_designs_df.reset_index(level=-1, inplace=True)
         return entity_designs_df
 
@@ -3606,19 +3606,19 @@ class PoseProtocol(PoseData):
         #                        name='interface_local_density').to_frame()
         designs_df = metrics.sum_per_residue_metrics(residues_df)
         interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
-        designs_df['spatial_aggregation_propensity_interface'] = \
-            ((residues_df.loc[:, idx_slice[:, 'spatial_aggregation_propensity_unbound']].droplevel(-1, axis=1)
-              - residues_df.loc[:, idx_slice[:, 'spatial_aggregation_propensity']].droplevel(-1, axis=1))
+        designs_df[metrics.library.spatial_aggregation_propensity_interface.name] = \
+            ((residues_df.loc[:, idx_slice[:, metrics.library.spatial_aggregation_propensity_unbound.name]].droplevel(-1, axis=1)
+              - residues_df.loc[:, idx_slice[:, metrics.library.spatial_aggregation_propensity.name]].droplevel(-1, axis=1))
              * interface_df).sum(axis=1)
         # Divide by the number of interface residues
-        designs_df['spatial_aggregation_propensity_interface'] /= interface_df.sum(axis=1)
+        designs_df[metrics.library.spatial_aggregation_propensity_interface.name] /= interface_df.sum(axis=1)
 
         # Find the average for these summed design metrics
         pose_length = self.pose.number_of_residues
-        designs_df['spatial_aggregation_propensity_unbound'] /= pose_length
-        designs_df['spatial_aggregation_propensity'] /= pose_length
+        designs_df[metrics.library.spatial_aggregation_propensity_unbound.name] /= pose_length
+        designs_df[metrics.library.spatial_aggregation_propensity.name] /= pose_length
         # designs_df['number_residues_interface'] = pd.Series(number_residues_interface)
-        designs_df['interface_local_density'] = pd.Series(interface_local_density)
+        designs_df[metrics.library.interface_local_density.name] = pd.Series(interface_local_density)
 
         # self.load_pose()
         # # Make designs_df errat_deviation that takes into account the pose_source sequence errat_deviation
@@ -3647,14 +3647,14 @@ class PoseProtocol(PoseData):
 
         # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         # if 'interface_area_total' in designs_df and 'area_total_complex' in designs_df:
-        interface_bsa_df = designs_df['interface_area_total']
-        designs_df['interface_area_to_residue_surface_ratio'] = \
-            (interface_bsa_df / (interface_bsa_df + designs_df['area_total_complex']))
+        interface_bsa_df = designs_df[metrics.library.interface_area_total.name]
+        designs_df[metrics.library.interface_area_to_residue_surface_ratio.name] = \
+            (interface_bsa_df / (interface_bsa_df + designs_df[metrics.library.area_total_complex.name]))
 
         # designs_df['interface_area_total'] = pose_df['interface_area_total']
         designs_df['number_of_interface_class'] = designs_df.loc[:, metrics.residue_classification].sum(axis=1)
         designs_df = metrics.columns_to_new_column(designs_df, metrics.division_pairs, mode='truediv')
-        designs_df['interface_composition_similarity'] = \
+        designs_df[metrics.library.interface_composition_similarity.name] = \
             designs_df.apply(metrics.interface_composition_similarity, axis=1)
         designs_df.drop('number_of_interface_class', axis=1, inplace=True)
 
@@ -3689,35 +3689,35 @@ class PoseProtocol(PoseData):
         pose_df = self.pose.df
         # Calculate mutational content
         # designs_df['number_mutations'] = mutation_df.sum(axis=1)
-        designs_df['percent_mutations'] = designs_df['number_mutations'] / pose_length
+        designs_df[metrics.library.percent_mutations.name] = designs_df[metrics.library.number_mutations.name] / pose_length
 
-        designs_df['sequence_loss_design_per_residue'] = designs_df['sequence_loss_design'] / pose_length
+        designs_df[metrics.library.sequence_loss_design_per_residue.name] = designs_df[metrics.library.sequence_loss_design.name] / pose_length
         # The per residue average loss compared to the design profile
-        designs_df['sequence_loss_evolution_per_residue'] = designs_df['sequence_loss_evolution'] / pose_length
+        designs_df[metrics.library.sequence_loss_evolution_per_residue.name] = designs_df[metrics.library.sequence_loss_evolution.name] / pose_length
         # The per residue average loss compared to the evolution profile
         # Todo modify this when fragments come from elsewhere, not just interface
-        designs_df['sequence_loss_fragment_per_residue'] = \
-            designs_df['sequence_loss_fragment'] / pose_df['number_residues_interface_fragment_total']
+        designs_df[metrics.library.sequence_loss_fragment_per_residue.name] = \
+            designs_df[metrics.library.sequence_loss_fragment.name] / pose_df[metrics.library.number_residues_interface_fragment_total.name]
         # The per residue average loss compared to the fragment profile
 
         # designs_df['collapse_new_positions'] /= pose_length
         # designs_df['collapse_new_position_significance'] /= pose_length
-        designs_df['collapse_significance_by_contact_order_z_mean'] = \
-            designs_df['collapse_significance_by_contact_order_z'] / \
-            (residues_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
+        designs_df[metrics.library.collapse_significance_by_contact_order_z_mean.name] = \
+            designs_df[metrics.library.collapse_significance_by_contact_order_z.name] / \
+            (residues_df.loc[:, idx_slice[:, metrics.library.collapse_significance_by_contact_order_z.name]] != 0).sum(axis=1)
         # if self.measure_alignment:
         # Todo THESE ARE NOW DIFFERENT SOURCE if not self.measure_alignment
-        collapse_increased_df = residues_df.loc[:, idx_slice[:, 'collapse_increased_z']]
+        collapse_increased_df = residues_df.loc[:, idx_slice[:, metrics.library.collapse_increased_z.mean]]
         total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
         # designs_df['collapse_increase_significance_by_contact_order_z_mean'] = \
         #     designs_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
         # designs_df['collapse_increased_z'] /= pose_length
-        designs_df['collapse_increased_z_mean'] = collapse_increased_df.sum(axis=1) / total_increased_collapse
-        designs_df['collapse_violation'] = designs_df['collapse_new_positions'] > 0
-        designs_df['collapse_variance'] = designs_df['collapse_deviation_magnitude'] / pose_length
-        designs_df['collapse_sequential_peaks_z_mean'] = \
-            designs_df['collapse_sequential_peaks_z'] / total_increased_collapse
-        designs_df['collapse_sequential_z_mean'] = designs_df['collapse_sequential_z'] / total_increased_collapse
+        designs_df[metrics.library.collapse_increased_z_mean.name] = collapse_increased_df.sum(axis=1) / total_increased_collapse
+        designs_df[metrics.library.collapse_violation.name] = designs_df[metrics.library.collapse_new_positions.name] > 0
+        designs_df[metrics.library.collapse_variance.name] = designs_df[metrics.library.collapse_deviation_magnitude.name] / pose_length
+        designs_df[metrics.library.collapse_sequential_peaks_z_mean.name] = \
+            designs_df[metrics.library.collapse_sequential_peaks_z.name] / total_increased_collapse
+        designs_df[metrics.library.collapse_sequential_z_mean.name] = designs_df[metrics.library.collapse_sequential_z.name] / total_increased_collapse
 
         # Ensure summed observed_types are taken as the average over the pose_length
         for _type in observed_types:
@@ -3757,7 +3757,7 @@ class PoseProtocol(PoseData):
             design_paths_to_process = [design.structure_path for design in designs]
             select_stmt = select((sql.DesignResidues.design_id, sql.DesignResidues.index, sql.DesignResidues.design_residue))\
                 .where(sql.DesignResidues.design_id.in_(design_ids))
-            index_col = sql.ResidueMetrics.index.name
+            index_col = metrics.ResidueMetrics.index.name
             design_residue_df = \
                 pd.DataFrame.from_records(session.execute(select_stmt).all(),
                                           columns=['id', index_col, sql.DesignResidues.design_residue.name])
@@ -3810,7 +3810,7 @@ class PoseProtocol(PoseData):
 
         # Commit the newly acquired metrics to the database
         with self.job.db.session(expire_on_commit=False) as session:
-            sql.write_dataframe(session, entity_designs=entity_designs_df)
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
             self.output_metrics(session, designs=designs_df)
             output_residues = False
             if output_residues:
@@ -3898,39 +3898,38 @@ class PoseProtocol(PoseData):
         designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(-1, axis=1)
         number_designed_residues_s = designed_df.sum(axis=1)
 
-        # designs_df[putils.protocol] = 'proteinmpnn'
-        designs_df['proteinmpnn_score_complex'] = designs_df['proteinmpnn_loss_complex'] / pose_length
-        designs_df['proteinmpnn_score_unbound'] = designs_df['proteinmpnn_loss_unbound'] / pose_length
-        designs_df['proteinmpnn_score_delta'] = \
-            designs_df['proteinmpnn_score_complex'] - designs_df['proteinmpnn_score_unbound']
+        designs_df[metrics.library.proteinmpnn_score_complex.name] = designs_df[metrics.library.proteinmpnn_loss_complex.name] / pose_length
+        designs_df[metrics.library.proteinmpnn_score_unbound.name] = designs_df[metrics.library.proteinmpnn_loss_unbound.name] / pose_length
+        designs_df[metrics.library.proteinmpnn_score_delta.name] = \
+            designs_df[metrics.library.proteinmpnn_score_complex.name] - designs_df[metrics.library.proteinmpnn_score_unbound.name]
         # Find the mean of each of these using the boolean like array and the sum
-        designs_df['proteinmpnn_score_complex_per_designed_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(-1, axis=1)
+        designs_df[metrics.library.proteinmpnn_score_complex_per_designed_residue.name] = \
+            (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_loss_complex.name]].droplevel(-1, axis=1)
              * designed_df).sum(axis=1)
-        designs_df['proteinmpnn_score_complex_per_designed_residue'] /= number_designed_residues_s
-        designs_df['proteinmpnn_score_unbound_per_designed_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(-1, axis=1)
+        designs_df[metrics.library.proteinmpnn_score_complex_per_designed_residue.name] /= number_designed_residues_s
+        designs_df[metrics.library.proteinmpnn_score_unbound_per_designed_residue.name] = \
+            (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_loss_unbound.name]].droplevel(-1, axis=1)
              * designed_df).sum(axis=1)
-        designs_df['proteinmpnn_score_unbound_per_designed_residue'] /= number_designed_residues_s
-        designs_df['proteinmpnn_score_delta_per_designed_residue'] = \
-            designs_df['proteinmpnn_score_complex_per_designed_residue'] \
-            - designs_df['proteinmpnn_score_unbound_per_designed_residue']
+        designs_df[metrics.library.proteinmpnn_score_unbound_per_designed_residue.name] /= number_designed_residues_s
+        designs_df[metrics.library.proteinmpnn_score_delta_per_designed_residue.name] = \
+            designs_df[metrics.library.proteinmpnn_score_complex_per_designed_residue.name] \
+            - designs_df[metrics.library.proteinmpnn_score_unbound_per_designed_residue.name]
 
         # Make an array the length of the designs and size of the pose to calculate the interface residues
         interface_residues = np.zeros((len(designed_df), pose_length), dtype=bool)
         interface_residues[:, [residue.index for residue in self.pose.interface_residues]] = 1
         number_interface_residues = interface_residues.sum(axis=1)
-        designs_df['proteinmpnn_score_complex_per_interface_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(-1, axis=1)
+        designs_df[metrics.library.proteinmpnn_score_complex_per_interface_residue.name] = \
+            (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_loss_complex.name]].droplevel(-1, axis=1)
              * interface_residues).sum(axis=1)
-        designs_df['proteinmpnn_score_complex_per_interface_residue'] /= number_interface_residues
-        designs_df['proteinmpnn_score_unbound_per_interface_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(-1, axis=1)
+        designs_df[metrics.library.proteinmpnn_score_complex_per_interface_residue.name] /= number_interface_residues
+        designs_df[metrics.library.proteinmpnn_score_unbound_per_interface_residue.name] = \
+            (residues_df.loc[:, idx_slice[:, metrics.library.proteinmpnn_loss_unbound.name]].droplevel(-1, axis=1)
              * interface_residues).sum(axis=1)
-        designs_df['proteinmpnn_score_unbound_per_interface_residue'] /= number_interface_residues
-        designs_df['proteinmpnn_score_delta_per_interface_residue'] = \
-            designs_df['proteinmpnn_score_complex_per_interface_residue'] \
-            - designs_df['proteinmpnn_score_unbound_per_interface_residue']
+        designs_df[metrics.library.proteinmpnn_score_unbound_per_interface_residue.name] /= number_interface_residues
+        designs_df[metrics.library.proteinmpnn_score_delta_per_interface_residue.name] = \
+            designs_df[metrics.library.proteinmpnn_score_complex_per_interface_residue.name] \
+            - designs_df[metrics.library.proteinmpnn_score_unbound_per_interface_residue.name]
 
         # # Drop unused particular residues_df columns that have been summed
         # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
@@ -4116,9 +4115,9 @@ class PoseProtocol(PoseData):
         # Format all sequence info to DataFrame
         sequence_data = {
             'type': [list(sequence) for sequence in sequences],  # Ensure 2D array like
-            'sequence_loss_design': per_residue_design_profile_loss,
-            'sequence_loss_evolution': per_residue_evolutionary_profile_loss,
-            'sequence_loss_fragment': per_residue_fragment_profile_loss
+            metrics.library.sequence_loss_design.name: per_residue_design_profile_loss,
+            metrics.library.sequence_loss_evolution.name: per_residue_evolutionary_profile_loss,
+            metrics.library.sequence_loss_fragment.name: per_residue_fragment_profile_loss
         }
 
         sequence_df = pd.concat([pd.DataFrame(data, index=design_ids,

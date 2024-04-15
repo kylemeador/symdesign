@@ -6,10 +6,42 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from symdesign import metrics
+from symdesign.metrics import prioritize_design_indices
 
 # Globals
 logger = logging.getLogger(__name__)
+fragment_metrics = {
+    'interface1_secondary_structure_fragment_topology',
+    'interface1_secondary_structure_fragment_count',
+    'interface1_secondary_structure_topology',
+    'interface1_secondary_structure_count',
+    'interface2_secondary_structure_fragment_topology',
+    'interface2_secondary_structure_fragment_count',
+    'interface2_secondary_structure_topology',
+    'interface2_secondary_structure_count',
+    'interface_secondary_structure_fragment_topology',
+    'interface_secondary_structure_fragment_count',
+    'interface_secondary_structure_topology',
+    'interface_secondary_structure_count',
+    'maximum_radius',
+    'minimum_radius',
+    'multiple_fragment_ratio',
+    'nanohedra_score_normalized',
+    'nanohedra_score_center_normalized',
+    'nanohedra_score',
+    'nanohedra_score_center',
+    'number_residues_interface_fragment_total',
+    'number_residues_interface_fragment_center',
+    'number_fragments_interface',
+    'number_residues_interface',
+    'number_residues_interface_non_fragment',
+    'percent_fragment_helix',
+    'percent_fragment_strand',
+    'percent_fragment_coil',
+    'percent_residues_fragment_interface_total',
+    'percent_residues_fragment_interface_center',
+    'percent_residues_non_fragment_interface',
+}
 
 
 def predict_best_pose_from_transformation_cluster(train_trajectories_file, training_clusters):  # UNUSED
@@ -42,7 +74,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # standard_scale_traj_df[train_traj_df.columns] = standard_scale.transform(train_traj_df)
 
     # select the metrics which the linear model should be trained on
-    nano_traj = train_traj_df.loc[:, metrics.fragment_metrics]
+    nano_traj = train_traj_df.loc[:, fragment_metrics]
 
     # select the Rosetta metrics to train model on
     # potential_training_metrics = set(train_traj_df.columns).difference(nanohedra_metrics)
@@ -56,7 +88,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # assign each metric a weight proportional to it's share of the total weight
     rosetta_select_metrics = {item: 1 / len(rosetta_metrics) for item in rosetta_metrics}
     # weighting scheme inherently standardizes the weights between [0, 1] by taking a linear combination of the metrics
-    targets = metrics.prioritize_design_indices(train_trajectories_file, weights=rosetta_select_metrics)  # weight=True)
+    targets = prioritize_design_indices(train_trajectories_file, weights=rosetta_select_metrics)  # weight=True)
 
     # for proper MultiTask model training, must scale the selected metrics. This is performed on trajectory_df above
     # targets2d = train_traj_df.loc[:, rosetta_select_metrics.keys()]
@@ -98,6 +130,6 @@ def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):  
     test_docking_df = pd.read_csv(test_trajectories_file, index_col=0, header=[0, 1, 2])
 
     for cluster_representative, designs in clustered_poses.items():
-        trajectory_df = test_docking_df.loc[designs, metrics.fragment_metrics]
+        trajectory_df = test_docking_df.loc[designs, fragment_metrics]
         trajectory_df['model_predict'] = model.predict(trajectory_df)
         trajectory_df.sort_values('model_predict')
