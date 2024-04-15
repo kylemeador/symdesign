@@ -240,13 +240,17 @@ def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = Non
     return file_name
 
 
+profile_types_literal = Literal['design', 'evolutionary', 'fragment']
+profile_types = get_args(profile_types_literal)
+
+
 class Profile(UserList[ProfileEntry]):
     data: list[ProfileEntry]
     """[{'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
          'type': 'W', 'info': 3.20, 'weight': 0.73},
         {}, ...]
     """
-    def __init__(self, entries: Iterable[ProfileEntry], dtype: str = 'profile', **kwargs):
+    def __init__(self, entries: Iterable[ProfileEntry], dtype: profile_types_literal = 'design', **kwargs):
         """Construct the instance
 
         Args:

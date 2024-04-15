@@ -26,7 +26,7 @@ import symdesign.utils.path as putils
 logging.config.dictConfig(utils.logging_config.cfg)
 logger = logging.getLogger(putils.program_name.lower())
 
-from symdesign import flags, protocols
+from symdesign import flags, guide, protocols
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
@@ -517,14 +517,14 @@ def main():
             def _get_module_specific_protocol(module: str) -> str:
                 if module == flags.design:
                     if job.design.interface:
-                        if job.design.method == putils.consensus:
+                        if job.design.method == flags.consensus:
                             scale = flags.refine
                         elif job.design.method == flags.proteinmpnn:
                             scale = flags.proteinmpnn
-                        else:  # if job.design.method == putils.rosetta_str:
-                            scale = putils.scout if job.design.scout \
-                                else (putils.hbnet_design_profile if job.design.hbnet
-                                      else (putils.structure_background if job.design.structure_background
+                        else:  # if job.design.method == flags.rosetta:
+                            scale = rosetta.scout if job.design.scout \
+                                else (rosetta.hbnet_design_profile if job.design.hbnet
+                                      else (rosetta.structure_background if job.design.structure_background
                                             else flags.interface_design))
                     else:
                         # Todo
@@ -575,7 +575,7 @@ def main():
     if args.module:
         if args.guide:
             try:
-                print(getattr(utils.guide, args.module.replace('-', '_')))
+                print(getattr(guide, args.module.replace('-', '_')))
             except AttributeError:
                 print(f'There is no guide created for {args.module} yet. Try --help instead of --guide')
             sys.exit()
@@ -635,7 +635,7 @@ def main():
         # if not args.query:
         #     args.query = 'all-entries'
         if args.query not in utils.SymEntry.query_mode_args:
-            print(f"Error: Please specify the query mode after '{flags.query.long}' to proceed")
+            print(f"Error: Please specify the query mode after '{flags.query.as_long()}' to proceed")
             sys.exit(1)
         utils.SymEntry.query(args.query, *additional_args, nanohedra=args.nanohedra)
         sys.exit()
@@ -1105,7 +1105,7 @@ def main():
             #     paths, job.location = utils.collect_designs(directory=args.directory)
             else:
                 raise utils.InputError(
-                    f"Can't --load-to-db without passing {flags.format_args(flags.project_args)} or "
+                    f"Can't {flags.load_to_db.as_long()} without passing {flags.format_args(flags.project_args)} or "
                     f"{flags.format_args(flags.single_args)}")
 
             pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
@@ -1523,7 +1523,7 @@ def main():
             job.load_job_protocol()
 
             # Fetch the specified protocol with python acceptable naming
-            protocol = getattr(protocols, flags.format_from_cmdline(job.module))
+            protocol = getattr(protocols, flags.as_attribute(job.module))
             # Figure out how the job should be set up
             if job.module in protocols.config.run_on_pose_job:  # Single poses
                 if job.multi_processing:
@@ -1668,7 +1668,8 @@ def main():
             if args.order == 'dataframe':
                 if not job.dataframe:
                     raise utils.InputError(
-                        f"{flags.dataframe.long} wasn't specified. Provide a path to a dataframe to order accordingly")
+                        f"{flags.dataframe.as_long()} wasn't specified. Provide a path to a dataframe to order "
+                        "accordingly")
 
                 df = pd.read_csv(job.dataframe, index_col=0, header=[0])
                 logger.debug('INDICES:\n %s' % df.index.tolist()[:4])
@@ -1697,7 +1698,7 @@ def main():
                         'PyMOL> expand name=all, symmetry=T\n'
                         "Replace 'T' with whatever symmetry your design is in")
         else:  # Fetch the specified protocol
-            protocol = getattr(protocols, flags.format_from_cmdline(job.module))
+            protocol = getattr(protocols, flags.as_attribute(job.module))
             if job.development:
                 if job.profile_memory:
                     try:

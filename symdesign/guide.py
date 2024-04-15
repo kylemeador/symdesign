@@ -87,19 +87,19 @@ orient = \
     f'undertaken on the oriented design submission.{module_help_string}'
 cluster_poses = \
     f'The {flags.cluster_poses} module is useful for taking a specified pose input and clustering each according to a ' \
-    f'desired metric to ensure that two poses in the set are not too similar. In the case that poses are similar or ' \
-    f'identical, the most favorable one can be used while the others are overlooked. It is recommended to perform ' \
+    'desired metric to ensure that two poses in the set are not too similar. In the case that poses are similar or ' \
+    'identical, the most favorable one can be used while the others are overlooked. It is recommended to perform ' \
     f'{flags.cluster_poses} before moving forward with a large set of candidate poses which may have some similarities ' \
-    f'in structure or conformation. By combining redundancies, viable poses that are obscured can be revealed as well' \
-    f' as narrowing down a set of 10 to 20 very similar poses.\n\tCurrently, there are three clustering metrics for ' \
+    'in structure or conformation. By combining redundancies, viable poses that are obscured can be revealed as well' \
+    ' as narrowing down a set of 10 to 20 very similar poses.\n\tCurrently, there are three clustering metrics for ' \
     f'{flags.cluster_poses}. The first is an interface alignment clustering algorithim carried out by the program iAlign. ' \
-    f"iAlign takes an interface and measures how it's constituent CB atoms are configured, then matches that " \
-    f'configuration to other poses in the set. The second clustering methodology is to use a transformational cluster' \
-    f'. Transformational clustering compares the transforms present in each symmetry group in a pose with other poses' \
-    f' symmetry group transforms. This clustering method is a bit coarse, but is much more rapid and quickly finds ' \
+    "iAlign takes an interface and measures how it's constituent CB atoms are configured, then matches that " \
+    'configuration to other poses in the set. The second clustering methodology is to use a transformational cluster' \
+    '. Transformational clustering compares the transforms present in each symmetry group in a pose with other poses' \
+    ' symmetry group transforms. This clustering method is a bit coarse, but is much more rapid and quickly finds ' \
     f'the best poses in fragment based {flags.nanohedra.title()} docking. For instance, if two structural homologs are used in a' \
-    f' set of poses, their similarity may be completely apparent to iAlign, but their entities are different ' \
-    f"identities and therefore they wouldn't be equal by transformation. When thousands of poses are under " \
+    ' set of poses, their similarity may be completely apparent to iAlign, but their entities are different ' \
+    "identities and therefore they wouldn't be equal by transformation. When thousands of poses are under " \
     f'consideration, such as in the case of {flags.nanohedra.title()} outputs, spatial transformation can quickly identify ' \
     f'matching poses.{nltb}Cluster maps are implemented through the --{flags.cluster_map} and can be used in many ' \
     f'cases during a selection scheme such as in {select_modules_str}, This will allow a' \
@@ -107,37 +107,37 @@ cluster_poses = \
     f' from those considered.{module_help_string}'
 design = \
     f'{flags.design} initializes all the necessary data and job files to create protein sequences capable of ' \
-    f'forming a viably folded structure containing all components of interest, whether in a ' \
-    f'symmetric system or not. The choice of amino acid at each position can be constrained ' \
-    f'according to multiple requirements, all of which adopt the design philosophy that each individual residue ' \
+    'forming a viably folded structure containing all components of interest, whether in a ' \
+    'symmetric system or not. The choice of amino acid at each position can be constrained ' \
+    'according to multiple requirements, all of which adopt the design philosophy that each individual residue ' \
     f"should be modeled in it's position specific context. As the most important factor in {flags.design} is " \
-    f'whether the design is capable of forming a folded protein, all modeling explores the prospects for a given ' \
-    f'design using the sequence design process, broadly understood as sampling random amino acid types at each ' \
+    'whether the design is capable of forming a folded protein, all modeling explores the prospects for a given ' \
+    'design using the sequence design process, broadly understood as sampling random amino acid types at each ' \
     f'designable position while searching for the minima in a chosen energy function. {available_design_methods}' \
     "To perform this search successfully and quickly, we can constrain each residue's available amino acid types " \
-    f'according to the local environment. If no constraints are requested, pass the flag ' \
-    f'"--{flags.structure_background}"' \
-    f' and no sequence constraints will be used. Using evolutionarily allowed amino acids, defined as those amino ' \
-    f'acids present in sequence homologs to the protein of interest, we ensure that sequence design favors the ' \
-    f'production of soluble, folded proteins. As sequence homology captures the latent sequence information that ' \
+    'according to the local environment. If no constraints are requested, pass the flag ' \
+    f"'{flags.structure_background.as_long()}'" \
+    ' and no sequence constraints will be used. Using evolutionarily allowed amino acids, defined as those amino ' \
+    'acids present in sequence homologs to the protein of interest, we ensure that sequence design favors the ' \
+    'production of soluble, folded proteins. As sequence homology captures the latent sequence information that ' \
     "prescribes a protein's overall 3D fold, utilizing evolutionary constraint ensures the design generally " \
-    f'maintains its initial conformation upon mutation as during the interface design task. Evolutionary constraint ' \
-    f'is utilized by default, however, providing the flag "--no-{flags.evolution_constraint}" removes this ' \
+    'maintains its initial conformation upon mutation as during the interface design task. Evolutionary constraint ' \
+    f"is utilized by default, however, providing the flag '{flags.evolution_constraint.as_no_long()}' removes this " \
     f'constraint. In essence, the evolutionarily observed frequencies guide the selection of amino acid types to ' \
     f'sample during design.' \
     f'{nltb}As an additional constraint, position specific sequence design is augmented ' \
-    f'with tertiary motifs (TERM). TERMs represent structural motifs between a pair of naturally observed secondary ' \
-    f'structures that confer a unique sequence-structure relationship favoring their geometric displacement and ' \
-    f'interaction. As TERMs are placed across the design, each TERM signifies a pair of residue' \
-    f' orientations that are highly prevalent in natural protein motifs. By using associated TERM sequence ' \
-    f'information, we can ensure the designed sequence reinforces the existing structure. ' \
-    f'Practically speaking, TERM inclusion typically involves increasing the placement of hydrophobic ' \
-    f'residues to form a tightly packed secondary structures. By default, design with TERMs is enabled, however, ' \
-    f'providing the flag "--no-{flags.term_constraint}" will disable this search.' \
+    'with tertiary motifs (TERM). TERMs represent structural motifs between a pair of naturally observed secondary ' \
+    'structures that confer a unique sequence-structure relationship favoring their geometric displacement and ' \
+    'interaction. As TERMs are placed across the design, each TERM signifies a pair of residue' \
+    ' orientations that are highly prevalent in natural protein motifs. By using associated TERM sequence ' \
+    'information, we can ensure the designed sequence reinforces the existing structure. ' \
+    'Practically speaking, TERM inclusion typically involves increasing the placement of hydrophobic ' \
+    'residues to form a tightly packed secondary structures. By default, design with TERMs is enabled, however, ' \
+    f"providing the flag '{flags.term_constraint.as_no_long()}' will disable this search." \
     f'{nltb}Finally, to prevent excessive sampling and perform ' \
-    f'rapid design on a small number of candidates to filter down to the most promising ones, provide the flag ' \
-    f'"--{flags.scout}" which greatly expedites design at a sacrifice for ultimate sampling depth and therefore ' \
-    f'accuracy. It is not recommended to use any of the designs produced by the scout procedure, however. Instead, ' \
+    'rapid design on a small number of candidates to filter down to the most promising ones, provide the flag ' \
+    f"'{flags.scout.as_long()}' which greatly expedites design at a sacrifice for ultimate sampling depth and therefore " \
+    'accuracy. It is not recommended to use any of the designs produced by the scout procedure, however. Instead, ' \
     f'they should be immediately followed by the {flags.select_poses} module to understand which out of a handful of ' \
     f'input poses are the most advantageous to the design task. After {flags.design} is completed, use the ' \
     f'{flags.analysis} module to prepare metrics for the modules {select_modules_str}. Importantly, {flags.design} can be' \
@@ -154,36 +154,35 @@ interface_design = \
     f'designable position while searching for the minima in a chosen energy function. {available_design_methods}' \
     "To perform this search successfully and quickly, we constrain each residue's available amino acid types " \
     f'according to the local environment. If no constraints are requested, pass the flag ' \
-    f'"--{flags.structure_background}"' \
+    f"'{flags.structure_background.as_long()}'" \
     f' and no sequence constraints will be used. Using evolutionarily allowed amino acids, defined as those amino ' \
     f'acids present in sequence homologs to the protein of interest, we ensure that sequence design favors the ' \
     f'production of soluble, folded proteins. As sequence homology captures the latent sequence information that ' \
     "prescribes a protein's overall 3D fold, utilizing evolutionary constraint ensures the design generally " \
     f'maintains its initial conformation upon mutation as during the interface design task. Evolutionary constraint ' \
-    f'is utilized by default, however, providing the flag "--no-{flags.evolution_constraint}" removes this constraint.' \
+    f"is utilized by default, however, providing the flag '{flags.evolution_constraint.as_no_long()}' removes this constraint." \
     f' In essence, the evolutionarily observed frequencies guide the selection of amino acid types to sample during ' \
     f'design.' \
     f'{nltb}As an additional constraint to form bound interfaces, position specific sequence design is augmented ' \
-    f'with tertiary motifs (TERMs). TERMs represent structural motifs between a pair of naturally observed secondary ' \
-    f'structures that confer a unique sequence-structure relationship favoring their geometric displacement and ' \
-    f'interaction. As TERMs are placed across the interface, each additional TERM signifies a pair of surface residue' \
-    f' orientations that are highly prevalent in natural protein motifs. By using associated TERM sequence ' \
-    f'information, we can ensure the designed sequence reinforces the existing structure while ensuring interface ' \
-    f'interactions. Practically speaking, TERM inclusion typically involves increasing the placement of hydrophobic ' \
-    f'residues to form a tightly packed interface core. The inclusion of this sequence structure information ' \
-    f'contrasts the typical surface environment of proteins and provides much needed interactions to favor tight ' \
-    f'interfaces free of entropically disordered water. By default, design with TERMs is enabled, however, ' \
-    f'providing the flag "--no-{flags.term_constraint}" will disable this search.' \
+    'with tertiary motifs (TERMs). TERMs represent structural motifs between a pair of naturally observed secondary ' \
+    'structures that confer a unique sequence-structure relationship favoring their geometric displacement and ' \
+    'interaction. As TERMs are placed across the interface, each additional TERM signifies a pair of surface residue ' \
+    'orientations that are highly prevalent in natural protein motifs. By using associated TERM sequence ' \
+    'information, we can ensure the designed sequence reinforces the existing structure while ensuring interface ' \
+    'interactions. Practically speaking, TERM inclusion typically involves increasing the placement of hydrophobic ' \
+    'residues to form a tightly packed interface core. The inclusion of this sequence structure information ' \
+    'contrasts the typical surface environment of proteins and provides much needed interactions to favor tight ' \
+    'interfaces free of entropically disordered water. By default, design with TERMs is enabled, however, ' \
+    f"providing the flag '{flags.term_constraint.as_no_long()}' will disable this search." \
     f'{nltb}After specifying position specific amino acid constraints, we explicitly design hydrogen bond ' \
-    f'networks into the interface at applicable ' \
-    f'positions and perform sequence design on the surrounding residues to promote the strongest interface possible. ' \
-    f'By default, hydrogen bond network generation occurs, however, this can be skipped with "--no-{flags.hbnet}". If' \
+    'networks into the interface at applicable ' \
+    'positions and perform sequence design on the surrounding residues to promote the strongest interface possible. ' \
+    f"By default, hydrogen bond network generation occurs, however, this can be skipped with '{flags.hbnet.as_no_long()}'. If" \
     f' the design set up is favorable, it has the effect of utilizing hydrophobic residues to achieve tight binding, ' \
     f'but extensive hydrophobics are interrupted by polar networks which are intended to maintain the protein fold, ' \
-    f'increase solubility, and provide interface specificity.' \
-    f'{nltb}Finally, to prevent excessive sampling and perform ' \
+    f'increase solubility, and provide interface specificity.{nltb}Finally, to prevent excessive sampling and perform ' \
     f'rapid design on a small number of candidates to filter down to the most promising ones, provide the flag ' \
-    f'"--{flags.scout}" which greatly expedites interface design at a sacrifice for ultimate sampling depth and therefore ' \
+    f"'{flags.scout.as_long()}' which greatly expedites interface design at a sacrifice for ultimate sampling depth and therefore " \
     f'accuracy. It is not recommended to use any of the designs produced by the scout procedure, however. Instead, ' \
     f'they should be immediately followed by the analysis module to understand which out of a handful of input poses ' \
     f'are the most advantageous to the design task. ' \

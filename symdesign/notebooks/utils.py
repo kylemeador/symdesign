@@ -362,16 +362,16 @@ class NotebookUtils:
                                         else:
                                             choices_ = choices
 
-                                        if long_argument == '--design-method':
+                                        if long_argument == flags.design_method.as_long():
                                             try:
-                                                bad_index = choices_.index('rosetta')
+                                                bad_index = choices_.index(flags.rosetta)
                                             except ValueError:
                                                 pass
                                             else:
                                                 choices_ = (*choices_[:bad_index], *choices_[bad_index + 1:])
 
                                             try:
-                                                bad_index = choices_.index('consensus')
+                                                bad_index = choices_.index(flags.consensus)
                                             except ValueError:
                                                 pass
                                             else:
@@ -459,7 +459,7 @@ class NotebookUtils:
             if getattr(widget, 'children', None):
                 # print(widget.children)
                 desc, box = widget.children
-                if desc.value == flags.query.long:
+                if desc.value == flags.query.as_long():
                     # print(box.options)
                     query_options = box.options
                     break
@@ -560,7 +560,7 @@ class NotebookUtils:
                 # print(module_tags.value)
 
                 if len(module_tags.value) > 1:
-                    valid_arguments = [['symdesign', 'protocol', '--modules', *module_tags.value]]
+                    valid_arguments = [['symdesign', 'protocol', flags.modules.as_long(), *module_tags.value]]
                 else:
                     valid_arguments = [['symdesign', *module_tags.value]]
 
@@ -621,11 +621,11 @@ class NotebookUtils:
                     sys.argv.extend(arg)
 
                 # Special case for symmetric queries
-                if flags.query.long in sys.argv:
-                    query_index = sys.argv.index(flags.query.long)
+                if flags.query.as_long() in sys.argv:
+                    query_index = sys.argv.index(flags.query.as_long())
                     add_indices = [query_index]
                     for index in range(query_index, len(sys.argv)):
-                        if sys.argv[index] == flags.query.long:
+                        if sys.argv[index] == flags.query.as_long():
                             continue
                         elif '-' in sys.argv[index]:
                             break
@@ -633,8 +633,8 @@ class NotebookUtils:
                             add_indices.append(index)
 
                     sys.argv = ['symdesign', 'symmetry'] + [sys.argv[idx] for idx in add_indices]
-                    if flags.nanohedra.long in sys.argv:
-                        sys.argv += [flags.nanohedra.long]
+                    if flags.nanohedra.as_long() in sys.argv:
+                        sys.argv += [flags.nanohedra.as_long()]
 
                 # # Debugging
                 # sys.argv.append('--help')

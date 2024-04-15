@@ -52,3 +52,12 @@ solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 variables = [('scripts', rosetta_scripts_dir), ('sym_score_patch', sym_weights),
              ('solvent_sym_score_patch', solvent_weights_sym),
              ('solvent_score_patch', solvent_weights)]
+design_profile = 'design_profile'
+hbnet_design_profile = 'hbnet_design_profile'
+refine = 'refine'
+structure_background = 'structure_background'
+scout = 'scout'
+hbnet_scout = 'hbnet_scout'
+protocol = 'protocol'
+protocols_of_interest = {design_profile, structure_background, hbnet_design_profile}
+# protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models

@@ -588,9 +588,9 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     else:
         #  score_functions = {}
         if job.dock.proteinmpnn_score:
-            weight_method = f'{putils.nanohedra}+{flags.proteinmpnn}'
+            weight_method = f'{flags.nanohedra}+{flags.proteinmpnn}'
         else:
-            weight_method = putils.nanohedra
+            weight_method = flags.nanohedra
 
         default_weight_metric = resources.config.default_weight_parameter[weight_method]
 
@@ -1169,7 +1169,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
     if job.multi_processing:
         raise NotImplementedError(
-            f"Can't perform {fragment_dock.__name__} using {flags.multi_processing.long} yet")
+            f"Can't perform {fragment_dock.__name__} using {flags.multi_processing.as_long()} yet")
         rotation_pairs = None
         results = utils.mp_map(initial_euler_search, rotation_pairs, processes=job.cores)
     else:

@@ -6371,7 +6371,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
     @torch.no_grad()  # Ensure no gradients are produced
     def score_sequences(self, sequences: Sequence[str] | Sequence[Sequence[str]] | np.array,
-                        method: design_programs_literal = putils.proteinmpnn,
+                        method: design_programs_literal = 'proteinmpnn',
                         measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
         """Analyze the output of sequence design
 
@@ -6403,10 +6403,10 @@ class Pose(SymmetricModel, MetricsMixin):
 
             For rosetta, this function isn't implemented
         """
-        if method == putils.rosetta:
+        if method == 'rosetta':
             sequences_and_scores = {}
             raise NotImplementedError(f"Can't score with Rosetta from this method yet...")
-        elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
+        elif method == 'proteinmpnn':  # Design with vanilla version of ProteinMPNN
             # Convert the sequences to correct format
             # missing_alphabet = ''
             warn_alphabet = 'With passed sequences type of {}, ensure that the order of ' \
@@ -6523,7 +6523,7 @@ class Pose(SymmetricModel, MetricsMixin):
         return sequences_and_scores
 
     @torch.no_grad()  # Ensure no gradients are produced
-    def design_sequences(self, method: design_programs_literal = putils.proteinmpnn, number: int = 10,
+    def design_sequences(self, method: design_programs_literal = 'proteinmpnn', number: int = 10,
                          temperatures: Sequence[float] = (0.1,), interface: bool = False, neighbors: bool = False,
                          measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
@@ -6563,10 +6563,10 @@ class Pose(SymmetricModel, MetricsMixin):
             For rosetta, this function isn't implemented
         """
         # rosetta: Whether to design using Rosetta energy functions
-        if method == putils.rosetta:
+        if method == 'rosetta':
             sequences_and_scores = {}
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
-        elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
+        elif method == 'proteinmpnn':  # Design with vanilla version of ProteinMPNN
             pose_length = self.number_of_residues
             # Set up parameters and model sampling type based on symmetry
             if self.is_symmetric():

@@ -286,8 +286,8 @@ def design(job: pose.PoseJob):
     job.identify_interface()
 
     os.makedirs(job.data_path, exist_ok=True)
-    # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-    if job.job.design.method == putils.rosetta:
+    # Create files which store the evolutionary_profile and/or fragment_profile -> design_profile
+    if job.job.design.method == flags.rosetta:
         # Update upon completion given results of designs list file...
         # NOT # Update the Pose with the number of designs
         # raise NotImplementedError('Need to generate design_number matching job.proteinmpnn_design()...')
@@ -300,7 +300,7 @@ def design(job: pose.PoseJob):
         favor_fragments = evo_fill = True
         if job.job.design.term_constraint:
             job.generate_fragments(interface=True)  # job.job.design.interface
-    elif job.job.design.method == putils.consensus:
+    elif job.job.design.method == flags.consensus:
         raise NotImplementedError('Consensus calculation needs work')
     else:
         favor_fragments = evo_fill = False
@@ -324,7 +324,7 @@ def design(job: pose.PoseJob):
     job.calculate_pose_metrics()
 
     # match job.job.design.method:  # Todo python 3.10
-    #     case [putils.rosetta_str | putils.consensus]:
+    #     case [flags.rosetta | flags.consensus]:
     #         # Write generated files
     #         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
     #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
@@ -338,7 +338,7 @@ def design(job: pose.PoseJob):
     #         job.proteinmpnn_design()  # Sets job.protocol
     #     case _:
     #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    if job.job.design.method in [putils.rosetta, putils.consensus]:
+    if job.job.design.method in [flags.rosetta, flags.consensus]:
         # Write generated files
         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
@@ -372,7 +372,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         # design_file=None (str): The name of a particular design file present in the designs output
         threshold: The threshold above which background amino acid frequencies are allowed for mutation
     """
-    job.protocol = protocol_xml1 = flags.optimize_designs._
+    job.protocol = protocol_xml1 = flags.optimize_designs.as_attr()
     # job.protocol = putils.pross
 
     generate_files_cmd = pose.null_cmd

@@ -1442,9 +1442,9 @@ class PoseProtocol(PoseData):
         variables = rosetta.variables \
             + [('dist', distance), ('repack', 'yes'),
                ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        variables.extend([(putils.design_profile, self.design_profile_file)]
+        variables.extend([('design_profile', self.design_profile_file)]
                          if os.path.exists(self.design_profile_file) else [])
-        variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
+        variables.extend([('fragment_profile', self.fragment_profile_file)]
                          if os.path.exists(self.fragment_profile_file) else [])
 
         if self.pose.is_symmetric():
@@ -2281,9 +2281,9 @@ class PoseProtocol(PoseData):
             if self.protocol in possible_refine_protocols:
                 switch = self.protocol
             elif self.protocol is None:
-                switch = putils.refine
+                switch = 'refine'
             else:
-                switch = putils.refine
+                switch = 'refine'
                 self.log.warning(f"{self.refine.__name__}: The requested protocol '{self.protocol}', wasn't recognized "
                                  f"and is being treated as the standard '{switch}' protocol")
 
@@ -2312,7 +2312,7 @@ class PoseProtocol(PoseData):
             metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
-            self.protocol = switch = putils.refine
+            self.protocol = switch = 'refine'
             if self.job.interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
                 # Ensure the mutations to the pose are wiped
                 pose_copy = self.pose.copy()
@@ -2418,7 +2418,7 @@ class PoseProtocol(PoseData):
         out_file = []
         design_files = os.path.join(self.scripts_path, f'{starttime}_design-files_{self.protocol}.txt')
         if self.job.design.scout:
-            self.protocol = protocol_xml1 = putils.scout
+            self.protocol = protocol_xml1 = rosetta.scout
             # metrics_pdb = ['-in:file:s', self.scouted_pdb]
             generate_files_cmd = \
                 ['python', str(putils.list_pdb_files), '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
@@ -2433,10 +2433,10 @@ class PoseProtocol(PoseData):
             metrics_pdb = ['-in:file:l', design_files]
             # metrics_flags = 'repack=yes'
             if self.job.design.structure_background:
-                self.protocol = protocol_xml1 = putils.structure_background
+                self.protocol = protocol_xml1 = rosetta.structure_background
                 nstruct_instruct = ['-nstruct', str(self.job.design.number)]
             elif self.job.design.hbnet:  # Run hbnet_design_profile protocol
-                self.protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
+                self.protocol, protocol_xml1 = rosetta.hbnet_design_profile, rosetta.hbnet_scout
                 nstruct_instruct = ['-no_nstruct_label', 'true']
                 # Set up an additional command to perform interface design on hydrogen bond network from hbnet_scout
                 additional_cmds = \
@@ -2466,8 +2466,8 @@ class PoseProtocol(PoseData):
         # DESIGN: Prepare command and flags file
         self.prepare_rosetta_flags(out_dir=self.scripts_path)
 
-        if self.job.design.method == putils.consensus:
-            self.protocol = putils.consensus
+        if self.job.design.method == flags.consensus:
+            self.protocol = flags.consensus
             design_cmd = main_cmd + rosetta.relax_flags_cmdline \
                 + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                    # '-in:file:native', self.refined_pdb,
@@ -2849,16 +2849,7 @@ class PoseProtocol(PoseData):
         # Drop designs where required data isn't present
         if putils.protocol in scores_df.columns:
             # Format protocol columns
-            # # Todo remove not DEV
-            # missing_group_indices = scores_df[putils.protocol].isna()
-            # scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-            # scores_df.loc[scout_indices, putils.protocol] = putils.scout
-            # structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-            # scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
-            # # Todo Done remove
-            missing_group_indices = scores_df[putils.protocol].isna()
-            # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
-
+            missing_group_indices = scores_df[rosetta.protocol].isna()
             scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
 
         # Replace empty strings with np.nan and convert remaining to float
@@ -4369,10 +4360,10 @@ class PoseProtocol(PoseData):
                 missing_group_indices = scores_df[putils.protocol].isna()
                 # Todo remove not DEV
                 scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-                scores_df.loc[scout_indices, putils.protocol] = putils.scout
+                scores_df.loc[scout_indices, putils.protocol] = rosetta.scout
                 structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index
                                            if 'no_constraint' in idx]
-                scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
+                scores_df.loc[structure_bkgnd_indices, putils.protocol] = rosetta.structure_background
                 # Todo Done remove
                 # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # Ensure proper name
 
@@ -4448,8 +4439,8 @@ class PoseProtocol(PoseData):
         # unique_protocols = list(designs_by_protocol.keys())
         # Remove refine and consensus if present as there was no design done over multiple protocols
         # Todo change if we did multiple rounds of these protocols
-        designs_by_protocol.pop(putils.refine, None)
-        designs_by_protocol.pop(putils.consensus, None)
+        designs_by_protocol.pop(rosetta.refine, None)
+        designs_by_protocol.pop(flags.consensus, None)
         # Get unique protocols
         unique_design_protocols = set(designs_by_protocol.keys())
         self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
@@ -4823,7 +4814,7 @@ class PoseProtocol(PoseData):
         # refine_index = scores_df[scores_df[putils.protocol] == putils.refine].index
         # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # residues_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-        # residue_info.pop(putils.refine, None)  # Remove refine from analysis
+        # residue_info.pop(rosetta.refine, None)  # Remove refine from analysis
         # residues_no_frags = residues_df.columns[residues_df.isna().all(axis=0)].remove_unused_levels().levels[0]
         # Remove completely empty columns such as obs_interface
         residues_df.dropna(how='all', inplace=True, axis=1)
@@ -4834,11 +4825,11 @@ class PoseProtocol(PoseData):
         # scores_df = pd.concat([scores_df, proteinmpnn_df], axis=1)
         scores_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
         # Refine is not considered sequence design and destroys mean. remove v
-        # designs_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
+        # designs_df = scores_df.sort_index().drop(rosetta.refine, axis=0, errors='ignore')
         # Consensus cst_weights are very large and destroy the mean.
         # Remove this drop for consensus or refine if they are run multiple times
         designs_df = \
-            scores_df.drop([pose_name, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+            scores_df.drop([pose_name, rosetta.refine, flags.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[putils.protocol] = protocol_s
@@ -4883,12 +4874,12 @@ class PoseProtocol(PoseData):
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match,
+        scout_protocols = list(filter(re.compile(f'.*{rosetta.scout}').match,
                                       protocol_s[~protocol_s.isna()].unique().tolist()))
-        similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
+        similarity_protocols = unique_design_protocols.difference([rosetta.refine, job_key] + scout_protocols)
         sim_series = []
-        if putils.structure_background not in unique_design_protocols:
-            self.log.info(f"Missing background protocol '{putils.structure_background}'. No protocol significance "
+        if rosetta.structure_background not in unique_design_protocols:
+            self.log.info(f"Missing background protocol '{rosetta.structure_background}'. No protocol significance "
                           f'measurements available for this pose')
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info("Can't measure protocol significance, only one protocol of interest")
@@ -4951,11 +4942,11 @@ class PoseProtocol(PoseData):
                     # structure background mean (if structure background, is the mean is useful too?)
                     background_distance = \
                         cdist(residue_energy_pc,
-                              grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
+                              grouped_pc_energy_df.loc[rosetta.structure_background, :].values[np.newaxis, :])
                     designs_df = \
                         pd.concat([designs_df,
                                    pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                             name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
+                                             name=f'energy_distance_from_{rosetta.structure_background}_mean')], axis=1)
 
                     # if renaming is necessary
                     # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
