@@ -231,6 +231,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         (with fragment_length length) for that residue, where each index in the inner set can have multiple
         observations
     """
+    fragment_profile: Profile | None
 
     def __init__(self, metadata: sql.ProteinMetadata = None, uniprot_ids: tuple[str, ...] = None,
                  thermophilicity: bool = None, reference_sequence: str = None, **kwargs):
@@ -502,7 +503,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 f'{self.simplify_fragment_profile.__name__}(). No fragments were set')
         elif not fragment_db:
             raise AttributeError(
-                f"{self.simplify_fragment_profile.__name__}: No '.fragment_db'. Can't calculate "
+                f"{self.simplify_fragment_profile.__name__}(): No '.fragment_db'. Can't calculate "
                 'fragment contribution without one')
 
         database_bkgnd_aa_freq = fragment_db.aa_frequencies

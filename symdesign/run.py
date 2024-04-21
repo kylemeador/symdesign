@@ -34,6 +34,7 @@ from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
 from symdesign.structure import Entity, Pose
 from symdesign.structure import fragment
 from symdesign.structure.utils import StructureException
+from symdesign.utils import rosetta
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],

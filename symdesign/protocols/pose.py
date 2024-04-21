@@ -2456,7 +2456,7 @@ class PoseProtocol(PoseData):
                 + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                    # '-in:file:native', self.refined_pdb,
                    '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'consensus.xml'),
-                   '-out:suffix', f'_{self.protocol}', '-parser:script_vars', f'switch={putils.consensus}']
+                   '-out:suffix', f'_{self.protocol}', '-parser:script_vars', f'switch={self.protocol}']
         else:
             design_cmd = main_cmd + profile_cmd + \
                 [f'@{self.flags}', '-in:file:s', self.refined_pdb,
