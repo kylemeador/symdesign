@@ -61,12 +61,10 @@ missing_pose_transformation = "The design couldn't be transformed as it is missi
                               '"pose_transformation" attribute. Was this generated properly?'
 
 
-def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: ContainsEntities,
-                              warn_metrics: bool = False) -> tuple[bool, bool]:
+def load_evolutionary_profile(model: ContainsEntities, warn_metrics: bool = False) -> tuple[bool, bool]:
     """Add evolutionary profile information to the provided Entity
 
     Args:
-        api_db: The database which store all information pertaining to evolutionary information
         model: The ContainsEntities instance to check for Entity instances to load evolutionary information
         warn_metrics: Whether to warn the user about missing files for metric collection
 
@@ -74,6 +72,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Cont
         A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
             the Entity instances
     """
+    api_db = resources.wrapapi.api_database_factory()
     # Assume True given this function call and set False if not possible for one of the Entities
     measure_evolution = measure_alignment = True
     warn = False
@@ -96,7 +95,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Cont
 
                 evolutionary_profile.update(null_entries)
                 # # Try and add... This would be better at the program level due to memory issues
-                # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                # entity.add_evolutionary_profile(out_dir=api_db.hhblits_profiles.location)
             else:
                 if evolutionary_profile:
                     # Renumber the profile based on the current length
@@ -163,6 +162,43 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Cont
     # else:
     #     self.pose.evolutionary_profile = self.pose.create_null_profile()
     return measure_evolution, measure_alignment
+
+
+def load_bmdca(model: ContainsEntities, sequences_by_entity: list[dict[str, str]]) -> np.ndarray:
+    """Add direct coupling analysis (DCA) data to the model
+
+    Args:
+        model: The ContainsEntities instance to check for Entity instances to load DCA information
+        sequences_by_entity: The sequences present for each Entity
+
+    Returns:
+        Array of per-residue DCA energies for each Entity instance, concatenated into one array
+    """
+    api_db = resources.wrapapi.api_database_factory()
+
+    dca_design_residues_concat = []
+    dca_background_energies, dca_design_energies = {}, {}
+    for entity, designed_entity_sequences in zip(model.entities, sequences_by_entity):
+        try:  # Todo add these to the analysis
+            entity.h_fields = api_db.bmdca_fields.retrieve_data(name=entity.name)
+            entity.j_couplings = api_db.bmdca_couplings.retrieve_data(name=entity.name)
+            dca_background_residue_energies = entity.direct_coupling_analysis()
+            # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
+            entity_alignment = \
+                MultipleSequenceAlignment.from_dictionary(designed_entity_sequences)
+            entity.msa = entity_alignment
+            dca_design_residue_energies = entity.direct_coupling_analysis()
+            dca_design_residues_concat.append(dca_design_residue_energies)
+            # dca_background_energies.append(dca_background_energies.sum(axis=1))
+            # dca_design_energies.append(dca_design_energies.sum(axis=1))
+            dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # Turns data to 1D
+            dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
+        except AttributeError:
+            logger.debug(f"For {repr(entity)}, DCA analysis couldn't be performed. Missing required parameter files")
+            dca_design_residues_concat = []
+            break
+
+    return np.concatenate(dca_design_residues_concat, axis=1)
 
 
 # class PoseDirectory(ABC):  # Raises error about the subclass types not being the same...
@@ -1259,8 +1295,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         if self.job.use_evolution:
             if self.measure_evolution is None and self.measure_alignment is None:
-                self.measure_evolution, self.measure_alignment = \
-                    load_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
+                self.measure_evolution, self.measure_alignment = load_evolutionary_profile(self.pose, **kwargs)
             # else:  # Already set these
             #     return
 
@@ -4102,6 +4137,8 @@ class PoseProtocol(PoseData):
             sequences_by_entity.append([sequence[entity_slice] for sequence in sequences])
 
         sequences_split_at_entity: list[tuple[str, ...]] = list(zip(*sequences_by_entity))
+        named_sequences_by_entity: list[dict[str, str]] = [
+            dict(zip(design_names, sequences)) for sequences in sequences_by_entity]
 
         # Calculate hydrophobic collapse for each design
         if self.measure_evolution:
@@ -4141,35 +4178,10 @@ class PoseProtocol(PoseData):
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
-        dca_design_residues_concat = []
-        dca_succeed = True
-        # dca_background_energies, dca_design_energies = [], []
-        dca_background_energies, dca_design_energies = {}, {}
-        for entity, entity_sequences in zip(self.pose.entities, sequences_by_entity):
-            try:  # Todo add these to the analysis
-                entity.h_fields = self.job.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                entity.j_couplings = self.job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-                dca_background_residue_energies = entity.direct_coupling_analysis()
-                # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
-                entity_alignment = \
-                    MultipleSequenceAlignment.from_dictionary(dict(zip(design_names, entity_sequences)))
-                entity.msa = entity_alignment
-                dca_design_residue_energies = entity.direct_coupling_analysis()
-                dca_design_residues_concat.append(dca_design_residue_energies)
-                # dca_background_energies.append(dca_background_energies.sum(axis=1))
-                # dca_design_energies.append(dca_design_energies.sum(axis=1))
-                dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # Turns data to 1D
-                dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
-            except AttributeError:
-                self.log.debug(f"For {entity.name}, DCA analysis couldn't be performed. "
-                               f"Missing required parameter files")
-                dca_succeed = False
-                break
-
-        if dca_succeed:
+        dca_design_residues_concat = load_bmdca(self.pose, named_sequences_by_entity)
+        if dca_design_residues_concat:
             # concatenate along columns, adding residue index to column, design name to row
-            dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                               index=design_ids, columns=residue_indices)
+            dca_concatenated_df = pd.DataFrame(dca_design_residues_concat, index=design_ids, columns=residue_indices)
             # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
             dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
             # Merge with residues_df
@@ -4490,12 +4502,13 @@ class PoseProtocol(PoseData):
         #     reference_std = np.nanstd(collapse_profile, axis=-2)
         # else:
         #     reference_mean = reference_std = None
-        entity_sequences = []
+        named_sequences_by_entity: list[dict[str, str]] = []
         for entity in self.pose.entities:
             entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
-            entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
+            named_sequences_by_entity.append(
+                {design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
 
-        all_sequences_split = [list(designed_sequences.values()) for designed_sequences in entity_sequences]
+        all_sequences_split = [list(designed_sequences.values()) for designed_sequences in named_sequences_by_entity]
         all_sequences_by_entity = list(zip(*all_sequences_split))
 
         folding_and_collapse = \
@@ -4605,36 +4618,13 @@ class PoseProtocol(PoseData):
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
-        #      for idx, designed_sequences in entity_sequences.items()}
+        #      for idx, designed_sequences in enumerate(named_sequences_by_entity)}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
-        dca_design_residues_concat = []
-        dca_succeed = True
-        # dca_background_energies, dca_design_energies = [], []
-        dca_background_energies, dca_design_energies = {}, {}
-        for idx, entity in enumerate(self.pose.entities):
-            try:  # Todo add these to the analysis
-                entity.h_fields = self.job.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                entity.j_couplings = self.job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-                dca_background_residue_energies = entity.direct_coupling_analysis()
-                # Todo
-                #  Instead of below, split Pose.MultipleSequenceAlignment at entity.chain_break...
-                entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
-                entity.msa = entity_alignment
-                dca_design_residue_energies = entity.direct_coupling_analysis()
-                dca_design_residues_concat.append(dca_design_residue_energies)
-                # dca_background_energies.append(dca_background_energies.sum(axis=1))
-                # dca_design_energies.append(dca_design_energies.sum(axis=1))
-                dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
-                dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
-            except AttributeError:
-                self.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
-                                 f"Missing required parameter files")
-                dca_succeed = False
-
-        if dca_succeed:
+        dca_design_residues_concat = load_bmdca(self.pose, named_sequences_by_entity)
+        if dca_design_residues_concat:
             # concatenate along columns, adding residue index to column, design name to row
-            dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                               index=viable_designs, columns=residue_indices)
+            dca_concatenated_df = pd.DataFrame(
+                dca_design_residues_concat, index=viable_designs, columns=residue_indices)
             # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
             dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
             # Merge with residues_df

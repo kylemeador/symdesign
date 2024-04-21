@@ -43,6 +43,7 @@ from .utils import ConstructionError, chain_id_generator, coords_type_literal, d
     default_clash_distance, DesignError, design_programs_literal, StructureException, SymmetryError
 from symdesign import metrics, resources, utils
 from symdesign.resources import ml, query, sql
+from symdesign.resources.wrapapi import api_database_factory
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
     numerical_translation_alph1_unknown_gaped_bytes, numerical_translation_alph3_unknown_gaped_bytes, \
@@ -284,10 +285,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             self.thermophilicity: bool
         """
         entity_id = self.entity_id
-        try:
-            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-        except AttributeError:
-            retrieve_api_info = query.pdb.query_pdb_by
+        retrieve_api_info = api_database_factory().pdb.retrieve_data
         api_return = retrieve_api_info(entity_id=entity_id)
         """Get the data on it's own since retrieve_api_info returns
         {'EntityID':
@@ -1977,16 +1975,7 @@ class ContainsEntities(ContainsChains):
                             'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 }
         """
-        # api_entry = self.api_entry
-        # if api_entry is not None:  # Already tried to solve this
-        #     return
-
-        # if self.api_db:
-        try:
-            # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-        except AttributeError:
-            retrieve_api_info = query.pdb.query_pdb_by
+        retrieve_api_info = api_database_factory().pdb.retrieve_data
 
         # if self.name:  # Try to solve API details from name
         parsed_name = self.name
@@ -2183,16 +2172,7 @@ class ContainsEntities(ContainsChains):
             self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
             entity_api_entry = {}
-            api_entry = {'entity': entity_api_entry}
-            # entity_api_entry = self.api_entry.get('entity', {})
-            # if not entity_api_entry:
-            #     self.api_entry['entity'] = entity_api_entry
-            # if self.api_db:
-            try:
-                # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-            except AttributeError:
-                retrieve_api_info = query.pdb.query_pdb_by
+            retrieve_api_info = api_database_factory().pdb.retrieve_data
 
             for entity_name, data in self.entity_info.items():
                 # update_entity_info_from_api(new_entity_name)

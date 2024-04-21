@@ -2115,7 +2115,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
     # Load evolutionary profiles of interest for optimization/analysis
     if job.use_evolution:
-        measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
+        measure_evolution, measure_alignment = load_evolutionary_profile(pose)
 
         evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
         with catch_warnings():

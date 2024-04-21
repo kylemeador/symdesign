@@ -749,7 +749,6 @@ class StructureDatabase(Database):
             else:
                 shell = distribute.default_shell
 
-        api_db = self.job.api_db  # wrapapi.api_database_factory()
         self.full_models.make_path()
         self.refined.make_path()
         full_model_names = self.full_models.retrieve_names()
@@ -852,7 +851,7 @@ class StructureDatabase(Database):
 
                             # If the msa features are present, the prediction should succeed with high probability...
                             # Attach evolutionary info to the entity
-                            evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
+                            evolution_loaded, alignment_loaded = load_evolutionary_profile(entity)
 
                             # After all sequence modifications, create the entity.assembly
                             entity.make_oligomer(symmetry=protein.symmetry_group)
