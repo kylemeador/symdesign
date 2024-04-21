@@ -4,18 +4,7 @@ import pickle
 from copy import deepcopy
 
 import symdesign.structure.fragment.resources
-
-# GLOBALS
-bio_fragmentDB = '/home/kmeador/yeates/fragment_database/bio'
-
-
-def get_all_base_root_paths(directory):
-    dir_paths = []
-    for root, dirs, files in os.walk(directory):
-        if not dirs:
-            dir_paths.append(root)
-
-    return dir_paths
+from symdesign import utils
 
 
 def parameterize_frag_length(length):
@@ -78,27 +67,6 @@ def get_cluster_dicts(db: str = biological_interfaces, id_list: list[str] = None
         cluster_dict[os.path.basename(cluster)] = utils.unpickle(filename)
 
     return cluster_dict
-
-
-def get_cluster_dicts(info_db=bio_fragmentDB, id_list=None):
-    # generate an interface specific scoring matrix from the fragment library
-    # assuming residue_cluster_id_list has form [(1_2_24, [78, 87]), ...]
-    if id_list is None:
-        directory_list = get_all_base_root_paths(info_db)
-    else:
-        directory_list = []
-        for c_id in id_list:
-            directory = os.path.join(info_db, c_id[0], c_id[0] + '_' + c_id[1], c_id[0] + '_' + c_id[1] + '_' + c_id[2])
-            directory_list.append(directory)
-
-    cluster_dict_dict = {}
-    for cluster in directory_list:
-        filename = os.path.join(cluster, os.path.basename(cluster) + '.pkl')
-        with open(filename, 'rb') as f:
-            cluster_dict_dict[os.path.basename(cluster)] = pickle.load(f)
-
-    # OUTPUT format: {'1_2_45': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
-    return cluster_dict_dict
 
 
 def get_cluster_info(cluster_dict, frag_size=5):

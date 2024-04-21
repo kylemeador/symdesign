@@ -37,7 +37,7 @@ import torch
 from .utils import warn_missing_symmetry
 from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
-from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
+from symdesign.sequence import MultipleSequenceAlignment, write_sequences
 from symdesign.structure.base import StructureBase
 from symdesign.structure.coordinates import superposition3d
 from symdesign.structure import ContainsEntities, Entity, Structure, Pose, PoseSpecification
@@ -72,7 +72,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Cont
 
     Returns:
         A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
-        the Entity instances
+            the Entity instances
     """
     # Assume True given this function call and set False if not possible for one of the Entities
     measure_evolution = measure_alignment = True
@@ -255,7 +255,7 @@ class PoseDirectory:
             # """/output_path/{self.output_modifier}_asu.pdb"""
             self.output_assembly_path: str | Path = \
                 os.path.join(self.output_path, f'{self.output_modifier}_assembly.pdb')
-            """/output_path/{self.output_modifier}_{putils.assembly}.pdb """
+            """self.output_path/{self.output_modifier}_assembly.pdb """
             # pose_directory = self.job.output_directory  # /output_directory <- self.pose_directory/design.pdb
 
         super().__init__(**kwargs)
@@ -273,7 +273,7 @@ class PoseDirectory:
     # These next two file locations are used to dynamically update whether preprocessing should occur for designs
     @property
     def refined_pdb(self) -> str:
-        """Access the file which holds refined coordinates. These are not necessaryily refined, but if a file exists in
+        """Access the file which holds refined coordinates. These are not necessarily refined, but if a file exists in
         the designs_path with the pose name, it was generated from either Rosetta energy function minimization or from
         structure prediction, which is assumed to be refined. If none, exists, use the self.pose_path
         """
@@ -347,14 +347,14 @@ class PoseDirectory:
         source = sorted(glob(glob_target))
         if len(source) > 1:
             raise InputError(
-                f'Found {len(source)} files matching the path "{glob_target}". No more than one expected')
+                f"Found {len(source)} files matching the path '{glob_target}'. No more than one expected")
         else:
             try:
                 file = source[0]
             except IndexError:  # glob found no files
                 self.log.debug(f"Couldn't find any structural files matching the path '{glob_target}'")
                 file = None
-                raise FileNotFoundError
+                raise FileNotFoundError(glob_target)
 
         return file
 
@@ -868,53 +868,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             raise ValueError(
                 f'The attribute design_selector must be a dict, not {type(design_selector).__name__}')
 
-    # @property
-    # def design_indices(self) -> list[int]:
-    #     """Provide the design_indices for the design in question
-    #
-    #     Returns:
-    #         All the indices in the design which are considered designable
-    #     """
-    #     try:
-    #         return self._design_indices
-    #     except AttributeError:  # Get from the pose state
-    #         self._design_indices = self.info.get('design_indices', [])
-    #         return self._design_indices
-    #
-    # @design_indices.setter
-    # def design_indices(self, design_indices: Sequence[int]):
-    #     if isinstance(design_indices, Sequence):
-    #         self._design_indices = self.info['design_indices'] = list(design_indices)
-    #     else:
-    #         raise ValueError(f'The attribute design_indices must be a Sequence type, not '
-    #                          f'{type(design_indices).__name__}')
-
-    # @property
-    # def fragment_observations(self) -> list | None:
-    #     """Provide the observed fragments as measured from the Pose
-    #
-    #     Returns:
-    #         The fragment instances observed from the pose
-    #             Ex: [{'cluster': (1, 2, 24), 'mapped': 78, 'paired': 287, 'match':0.46843}, ...]
-    #     """
-    #     try:
-    #         return self._fragment_observations
-    #     except AttributeError:  # Get from the pose state
-    #         self._fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-    #         return self._fragment_observations
-    #
-    # @fragment_observations.setter
-    # def fragment_observations(self, fragment_observations: list):
-    #     if isinstance(fragment_observations, list):
-    #         self._fragment_observations = self.info['fragments'] = fragment_observations
-    #     else:
-    #         raise ValueError(f'The attribute fragment_observations must be a list, not '
-    #                          f'{type(fragment_observations).__name__}')
-    #
-    # @property
-    # def number_fragments_interface(self) -> int:
-    #     return len(self.fragment_observations) if self.fragment_observations else 0
-
     # Both pre_* properties are really implemented to take advantage of .setter
     @property
     def refined(self) -> bool:
@@ -923,13 +876,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Whether refinement has occurred
         """
-        # return self._pre_refine
         return all(data.meta.refined for data in self.entity_data)
-        # try:
-        #     return self._pre_refine
-        # except AttributeError:  # Get from the pose state
-        #     self._pre_refine = self.info.get('refined', True)
-        #     return self._pre_refine
 
     @property
     def loop_modeled(self) -> bool:
@@ -938,13 +885,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Whether loop modeling has occurred
         """
-        # return self._pre_loop_model
         return all(data.meta.loop_modeled for data in self.entity_data)
-        # try:
-        #     return self._pre_loop_model
-        # except AttributeError:  # Get from the pose state
-        #     self._pre_loop_model = self.info.get('loop_modeled', True)
-        #     return self._pre_loop_model
 
     def get_designs_without_structure(self) -> list[sql.DesignData]:
         """For each design, access whether there is a structure that exists for it. If not, return the design
@@ -988,6 +929,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         Args:
             structures: The ContainsResidues instances to transform
+
         Returns:
             The transformed ContainsResidues instances if a transformation was possible
         """
@@ -1010,6 +952,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Args:
             refined: Whether to use the refined directory
             oriented: Whether to use the oriented directory
+
         Returns:
             The list of Entity instances that belong to this PoseData
         """
@@ -1102,89 +1045,89 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Check to see if Pose is already loaded and nothing new provided
         if self.pose and file is None and entities is None:
             return
-        else:
-            if entities is not None:
-                self.structure_source = 'Protocol derived'
-                # Use the entities as provided
-            elif self.source_path is None or not os.path.exists(self.source_path):
-                # In case a design was initialized without a file
-                self.log.info(f"No '.source_path' found. Fetching structure_source from "
-                              f'{type(self.job.structure_db).__name__} and transforming to Pose')
-                # Minimize I/O with transform...
-                # Must add the instance to a session to load any self.transformations present
-                with self.job.db.session(expire_on_commit=False) as session:
-                    session.add(self)
-                    entities = self.transform_entities_to_pose()
-                # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
-                #  some small amount as this will ensure that files are refined and that loops are included...
-                # Collect the EntityTransform for these regardless of symmetry since the file will be coming from the
-                # oriented/origin position...
-                self.structure_source = 'Database'
 
-            # Initialize the Pose using provided PDB numbering so that design_selectors are respected
-            if entities:
-                # Chains should be renamed if the chain_id's are the same
-                if len({entity.chain_id for entity in entities}) != len(entities):
-                    rename = True
-                else:
-                    rename = False
-                self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.job_kwargs)
-            elif self.initial_pose:
-                # This is a fresh Model that was already loaded so reuse
-                # Careful, if processing has occurred to the initial_pose, then this may be wrong!
-                self.pose = Pose.from_structure(
-                    self.initial_pose, name=self.name, entity_info=self.initial_pose.entity_info, **self.job_kwargs)
-                # Use entity_info from already parsed
-                self.structure_source = self.source_path
+        if entities is not None:
+            self.structure_source = 'Protocol derived'
+            # Use the entities as provided
+        elif self.source_path is None or not os.path.exists(self.source_path):
+            # In case a design was initialized without a file
+            self.log.info(f"No '.source_path' found. Fetching structure_source from "
+                          f'{type(self.job.structure_db).__name__} and transforming to Pose')
+            # Minimize I/O with transform...
+            # Must add the instance to a session to load any self.transformations present
+            with self.job.db.session(expire_on_commit=False) as session:
+                session.add(self)
+                entities = self.transform_entities_to_pose()
+            # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
+            #  some small amount as this will ensure that files are refined and that loops are included...
+            # Collect the EntityTransform for these regardless of symmetry since the file will be coming from the
+            # oriented/origin position...
+            self.structure_source = 'Database'
+
+        # Initialize the Pose using provided PDB numbering so that design_selectors are respected
+        if entities:
+            # Chains should be renamed if the chain_id's are the same
+            if len({entity.chain_id for entity in entities}) != len(entities):
+                rename = True
             else:
-                self.structure_source = file if file else self.source_path
-                self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
+                rename = False
+            self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.job_kwargs)
+        elif self.initial_pose:
+            # This is a fresh Model that was already loaded so reuse
+            # Careful, if processing has occurred to the initial_pose, then this may be wrong!
+            self.pose = Pose.from_structure(
+                self.initial_pose, name=self.name, entity_info=self.initial_pose.entity_info, **self.job_kwargs)
+            # Use entity_info from already parsed
+            self.structure_source = self.source_path
+        else:
+            self.structure_source = file if file else self.source_path
+            self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
 
-            if self.design_selector:
-                self.pose.apply_design_selector(**self.design_selector)
+        if self.design_selector:
+            self.pose.apply_design_selector(**self.design_selector)
 
-            try:
-                self.pose.is_clash(measure=self.job.design.clash_criteria,
-                                   distance=self.job.design.clash_distance,
-                                   warn=not self.job.design.ignore_clashes)
-            except ClashError:  # as error:
-                if self.job.design.ignore_pose_clashes:
-                    self.report_exception(context='Clash checking')
-                    self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
-                                     f"{self.format_see_log_msg()}")
+        try:
+            self.pose.is_clash(measure=self.job.design.clash_criteria,
+                               distance=self.job.design.clash_distance,
+                               warn=not self.job.design.ignore_clashes)
+        except ClashError:  # as error:
+            if self.job.design.ignore_pose_clashes:
+                self.report_exception(context='Clash checking')
+                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
+                                 f"{self.format_see_log_msg()}")
+            else:
+                # Todo get the message from error and raise a ClashError(
+                #      f'{message}. If you would like to proceed regardless, re-submit the job with '
+                #      f'{flags.format_args(flags.ignore_pose_clashes_args)}'
+                raise
+        if self.pose.is_symmetric():
+            if self.pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
+                                                     distance=self.job.design.clash_distance):
+                if self.job.design.ignore_symmetric_clashes:
+                    # self.format_error_for_log()
+                    self.log.warning(
+                        f"The Pose symmetric assembly from '{self.structure_source}' contains clashes.")
+                    #     f"{self.format_see_log_msg()}")
                 else:
-                    # Todo get the message from error and raise a ClashError(
-                    #      f'{message}. If you would like to proceed regardless, re-submit the job with '
-                    #      f'{flags.format_args(flags.ignore_pose_clashes_args)}'
-                    raise
-            if self.pose.is_symmetric():
-                if self.pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
-                                                         distance=self.job.design.clash_distance):
-                    if self.job.design.ignore_symmetric_clashes:
-                        # self.format_error_for_log()
-                        self.log.warning(
-                            f"The Pose symmetric assembly from '{self.structure_source}' contains clashes.")
-                        #     f"{self.format_see_log_msg()}")
-                    else:
-                        raise ClashError(
-                            "The symmetric assembly contains clashes and won't be considered. If you "
-                            'would like to proceed regardless, re-submit the job with '
-                            f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
+                    raise ClashError(
+                        "The symmetric assembly contains clashes and won't be considered. If you "
+                        'would like to proceed regardless, re-submit the job with '
+                        f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
 
-                # If there is an empty list for the transformations, save the transformations identified from the Pose
-                try:
-                    any_database_transformations = any(self.transformations)
-                except DetachedInstanceError:
-                    any_database_transformations = False
+            # If there is an empty list for the transformations, save the transformations identified from the Pose
+            try:
+                any_database_transformations = any(self.transformations)
+            except DetachedInstanceError:
+                any_database_transformations = False
 
-                if not any_database_transformations:
-                    # Add the transformation data to the database
-                    for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
-                        # Make an empty EntityTransform
-                        data.transform = sql.EntityTransform()
-                        data.transform.transformation = transformation
-                    # Ensure this information is persistent
-                    self._update_db()
+            if not any_database_transformations:
+                # Add the transformation data to the database
+                for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
+                    # Make an empty EntityTransform
+                    data.transform = sql.EntityTransform()
+                    data.transform.transformation = transformation
+                # Ensure this information is persistent
+                self._update_db()
 
         # Save the Pose asu
         if not os.path.exists(self.pose_path) or self.job.overwrite or self.job.load_to_db:
@@ -1211,6 +1154,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             out_path: The path to save the self.pose.
                 All other outputs are done to the self.pose_directory or self.output_path
             force: Whether to force writing of the pose
+
         Returns:
             None
         """
@@ -1412,6 +1356,7 @@ class PoseProtocol(PoseData):
             sym_def_file: A Rosetta specific file specifying the symmetry system
             pdb_out_path: Disk location to write the resulting design files
             out_dir: Disk location to write the flags file
+
         Returns:
             Disk location of the flags file
         """
@@ -1515,6 +1460,7 @@ class PoseProtocol(PoseData):
 
         Args:
             base_command: The base command to build Entity metric commands off of
+
         Returns:
             The formatted command for every Entity in the Pose
         """
@@ -1662,7 +1608,7 @@ class PoseProtocol(PoseData):
                 f"For {self.predict_structure.__name__}, the method {self.job.predict.method} isn't implemented yet")
 
     def alphafold_predict_structure(self, sequences: dict[sql.DesignData, str],
-                                    model_type: resources.ml.af_model_literal = 'monomer', **kwargs):
+                                    model_type: resources.ml.af_model_literal = 'monomer', **kwargs) -> None:
         """Use Alphafold to predict structures for sequences of interest. The sequences will be fit to the Pose
         parameters, however will have sequence features unique to that sequence. By default, no multiple sequence
         alignment will be used and the AlphafoldInitialGuess model will be used wherein the starting coordinates for
@@ -1670,10 +1616,12 @@ class PoseProtocol(PoseData):
 
         According to Deepmind Alphafold.ipynb (2/3/23), the usage of multimer with > 3000 residues isn't validated.
         while a memory requirement of 4000 is the theoretical limit. I think it depends on the available memory
+
         Args:
             sequences: The mapping for DesignData to sequence
             model_type: The type of Alphafold model to use. Choose from 'monomer', 'monomer_casp14', 'monomer_ptm',
                 or 'multimer'
+
         Returns:
             None
         """
@@ -1716,10 +1664,9 @@ class PoseProtocol(PoseData):
             num_predictions_per_model = self.job.predict.num_predictions_per_model
 
         # Set up the various model_runners to supervise the prediction task for each sequence
-        model_runners = resources.ml.set_up_model_runners(model_type=model_type,
-                                                          num_predictions_per_model=num_predictions_per_model,
-                                                          num_ensemble=num_ensemble,
-                                                          development=self.job.development)
+        model_runners = resources.ml.set_up_model_runners(
+            model_type=model_type, num_predictions_per_model=num_predictions_per_model, num_ensemble=num_ensemble,
+            development=self.job.development)
 
         def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) -> FeatureDict:
             """Set up a sequence that has similar features to the Pose, but different sequence, say from design output
@@ -1727,6 +1674,7 @@ class PoseProtocol(PoseData):
             Args:
                 seq_of_interest: The sequence of interest
                 multimer_length: The length of the multimer features, if the features are multimeric
+
             Returns:
                 The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
             """
@@ -1856,6 +1804,7 @@ class PoseProtocol(PoseData):
                 sequence_: The sequence to use as a template to generate the coordinates
                 assembly: Whether the coordinates should reflect the Pose Assembly
                 entity: If coordinates should come from a Pose Entity, which one?
+
             Returns:
                 The alphafold formatted sequence coords in a JAX array
             """
@@ -1926,7 +1875,7 @@ class PoseProtocol(PoseData):
             for design, sequence in sequences.items():
                 this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                 logger.debug(f'Found this_seq_features:\n\t%s'
-                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                             % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                 model_features = {'prev_pos': get_prev_pos_coords(sequence, assembly=self.job.predict.assembly)}
                 logger.info(f'Predicting Design {design.name} structure')
                 asu_structures, asu_scores = \
@@ -2042,7 +1991,7 @@ class PoseProtocol(PoseData):
                 [idx for _, idx in sorted(entity_number_of_residues, key=lambda pair: pair[0], reverse=True)]
             sorted_entities_and_data = [(entities[idx], self.entity_data[idx])
                                         for idx in entity_idx_sorted_residue_number_highest_to_lowest]
-            entity_structure_by_design: dict[str, list[ContainsEntities]] = defaultdict(list)
+            entity_structure_by_design: dict[sql.DesignData, list[ContainsEntities]] = defaultdict(list)
             entity_design_dfs = []
             entity_residue_dfs = []
             for entity, entity_data in sorted_entities_and_data:
@@ -2660,6 +2609,7 @@ class PoseProtocol(PoseData):
             protocols: The sequence of protocols to associate with DesignProtocol
             temperatures: The temperatures to associate with DesignProtocol
             files: The sequence of files to associate with DesignProtocol
+
         Returns:
             The new instances of the sql.DesignProtocol
         """
@@ -2800,6 +2750,7 @@ class PoseProtocol(PoseData):
 
         Args:
             scores: The dictionary of scores to be parsed
+
         Returns:
             A tuple of DataFrame where each contains (
                 A per-design metric DataFrame where each index is the design id and the columns are design metrics,
@@ -2822,7 +2773,6 @@ class PoseProtocol(PoseData):
                 f'Missing required metrics: "{", ".join(metric_set)}"')
 
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
-        # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
         remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
         # Todo remove dirty when columns are correct (after P432)
         #  and column tabulation precedes residue/hbond_processing
@@ -2894,6 +2844,7 @@ class PoseProtocol(PoseData):
         Args:
             scores_df: A DataFrame with Rosetta based metrics that should be combined with other metrics to produce new
                 summary metrics
+
         Returns:
             A per-design metric DataFrame where each index is the design id and the columns are design metrics,
         """
@@ -3383,6 +3334,7 @@ class PoseProtocol(PoseData):
             pose_length: The length of the scores to return for metrics with an array
             model_type: The type of model used during prediction
             interface_indices: The Residue instance of two sides of a predicted interface
+
         Returns:
             A tuple of DataFrame where each contains (
                 A per-design metric DataFrame where each index is the design id and the columns are design metrics,
@@ -3524,6 +3476,7 @@ class PoseProtocol(PoseData):
         Args:
             residues_df: A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
+
         Returns:
             A per-entity metric DataFrame where each index is a combination of (design_id, entity_id) and the columns
                 are design metrics
@@ -3552,7 +3505,6 @@ class PoseProtocol(PoseData):
         # entity_designs_df.index = \
         #     pd.MultiIndex.from_tuples(zip(entity_designs.keys(),
         #                                   entity_designs_df.index.map(design_name_to_id_map).tolist()))
-        # input(entity_designs_df)
         entity_designs_df.index = entity_designs_df.index.rename(
             [metrics.DesignEntityMetrics.entity_id.name, metrics.DesignEntityMetrics.design_id.name])
         # entity_designs_df.reset_index(level=-1, inplace=True)
@@ -3566,6 +3518,7 @@ class PoseProtocol(PoseData):
             residues_df: The typical per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
             designs: The designs to perform analysis on. By default, fetches all available structures
+
         Returns:
             A per-design metric DataFrame where each index is the design id and the columns are design metrics
             Including metrics 'interface_area_total' and 'number_residues_interface' which are used in other analysis
@@ -3658,6 +3611,7 @@ class PoseProtocol(PoseData):
         Args:
             residues_df: The typical per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
+
         Returns:
             A per-design metric DataFrame where each index is the design id and the columns are design metrics
         """
@@ -3724,6 +3678,7 @@ class PoseProtocol(PoseData):
 
         Args:
             designs: The DesignData instances to perform analysis on. By default, fetches all PoseJob.designs
+
         Returns:
             Series containing summary metrics for all designs
         """
@@ -3823,6 +3778,7 @@ class PoseProtocol(PoseData):
     #         designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
     #             design metrics
     #         designs: The subsequent designs to perform analysis on
+    #
     #     Returns:
     #         Series containing summary metrics for all designs
     #     """
@@ -3839,6 +3795,7 @@ class PoseProtocol(PoseData):
         Args:
             design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
             sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
+
         Returns:
             A tuple of DataFrame where each contains (
                 A per-design metric DataFrame where each index is the design id and the columns are design metrics,
@@ -3939,6 +3896,7 @@ class PoseProtocol(PoseData):
 
         Args:
             designs: The designs to analyze. The StructureBase.name attribute is used for naming DataFrame indices
+
         Returns:
             A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
@@ -3980,8 +3938,8 @@ class PoseProtocol(PoseData):
         for idx, interface_indices in enumerate(interface_residues):
             interface_residue_bool[idx, interface_indices] = 1
         interface_residue_df = pd.DataFrame(data=interface_residue_bool, index=residues_df.index,
-                                            columns=pd.MultiIndex.from_product((residue_indices,
-                                                                                ['interface_residue'])))
+                                            columns=pd.MultiIndex.from_product(
+                                                (residue_indices, ['interface_residue'])))
         residues_df = residues_df.join(interface_residue_df)
         # Make buried surface area (bsa) columns, and classify residue types
         residues_df = metrics.calculate_residue_buried_surface_area(residues_df)
@@ -3994,6 +3952,7 @@ class PoseProtocol(PoseData):
         Args:
             sequences: The sequences to analyze compared to the "pose source" sequence
             design_ids: If sequences isn't a mapping from identifier to sequence, the identifiers for each sequence
+
         Returns:
             A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
@@ -4223,6 +4182,7 @@ class PoseProtocol(PoseData):
 
         Args:
             designs: The designs to perform analysis on. By default, fetches all available structures
+
         Returns:
             Series containing summary metrics for all designs
         """
@@ -4343,16 +4303,12 @@ class PoseProtocol(PoseData):
                     f'Missing required metrics: "{", ".join(metric_set)}"')
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
-            # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
             remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
-            # Todo remove dirty when columns are correct (after P432)
-            #  and column tabulation precedes residue/hbond_processing
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.process_rosetta_residue_scores(structure_design_scores))
             # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
             residue_info = metrics.process_residue_info(
                 residue_info, hbonds=self.pose.rosetta_hbond_processing(structure_design_scores))
-            # residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
 
             # Drop designs where required data isn't present
             # Format protocol columns
@@ -5277,8 +5233,10 @@ def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: st
         session: An open sqlalchemy session
         pose_jobs: The PoseJob instances which should be inserted
         project: The name of the project which the `pose_jobs` belong
+
     Raises:
         sqlalchemy.exc.IntegrityError
+
     Returns:
         The PoseJob instances that are already present
     """

@@ -396,13 +396,11 @@ class GeneEntity(ABC):
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
     _evolutionary_profile: dict | ProfileDict
-    # _fragment_profile: list[list[set[dict]]] | list[ProfileEntry] | None
     _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
     _sequence_array: np.ndarray
     _sequence_numeric: np.ndarray
     alpha: list[float]
-    fragment_profile: Profile | None
     h_fields: np.ndarray | None
     j_couplings: np.ndarray | None
     name: str
@@ -506,9 +504,8 @@ class GeneEntity(ABC):
             self._hydrophobic_collapse = metrics.hydrophobic_collapse_index(self.sequence, **kwargs)
             return self._hydrophobic_collapse
 
-
     def _verify_evolutionary_profile(self) -> bool:
-        """Returns True if the evolutionary_profile and ContainsResidues sequences are equivalent"""
+        """Returns True if the evolutionary_profile and sequence are equivalent"""
         evolutionary_profile_len = len(self._evolutionary_profile)
         if self.number_of_residues != evolutionary_profile_len:
             self.log.debug(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
@@ -1161,20 +1158,20 @@ def format_frequencies(frequency_list: list, flip: bool = False) -> dict[str, di
     return freq_d
 
 
-def overlap_consensus(issm, aa_set):  # UNUSED
+def overlap_consensus(issm: dict, aa_set: dict) -> dict:  # UNUSED
     """Find the overlap constrained consensus sequence
 
     Args:
-        issm (dict): {1: {'A': 0.1, 'C': 0.0, ...}, 14: {...}, ...}
-        aa_set (dict): {residue: {'A', 'I', 'M', 'V'}, ...}
+        issm: {1: {'A': 0.1, 'C': 0.0, ...}, 14: {...}, ...}
+        aa_set: {residue: {'A', 'I', 'M', 'V'}, ...}
+
     Returns:
-        (dict): {23: 'T', 29: 'A', ...}
+        {23: 'T', 29: 'A', ...}
     """
     consensus = {}
-    for res in aa_set:
+    for res, amino_acids in aa_set.items():
         max_freq = 0.0
-        for aa in aa_set[res]:
-            # if max_freq < issm[(res, partner)][]:
+        for aa in amino_acids:
             if issm[res][aa] > max_freq:
                 max_freq = issm[res][aa]
                 consensus[res] = aa

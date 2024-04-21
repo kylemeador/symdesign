@@ -28,10 +28,11 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree, KDTree
 # from sqlalchemy.ext.hybrid import hybrid_property
 
-from .dependencies import orient_dir_path, orient_exe_path, orient_symmetry_files_dir
 from .base import ContainsResidues, Residue, Structures, StructureBase, atom_or_residue_literal, \
     SymmetryBase, ContainsAtoms, read_pdb_file, read_mmcif_file
+from .config import default_sasa_burial_threshold
 from .coordinates import Coordinates, superposition3d, superposition3d_quat, transform_coordinate_sets
+from .dependencies import orient_dir_path, orient_exe_path, orient_symmetry_files_dir
 from .fragment import find_fragment_overlap, create_fragment_info_from_pairs
 from .fragment.db import alignment_types, alignment_types_literal, FragmentDatabase, FragmentInfo, FragmentObservation
 from .fragment.metrics import fragment_metric_template
@@ -6685,11 +6686,11 @@ class Pose(SymmetricModel, MetricsMixin):
                         f"found in the {repr(self)}")
 
         if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward
-            if entity_chain.n_terminal_residue.relative_sasa > metrics.default_sasa_burial_threshold:
+            if entity_chain.n_terminal_residue.relative_sasa > default_sasa_burial_threshold:
                 n_term = True
 
         if entity.termini_proximity_from_reference(termini='c', reference=entity_reference) == 1:  # if outward
-            if entity_chain.c_terminal_residue.relative_sasa > metrics.default_sasa_burial_threshold:
+            if entity_chain.c_terminal_residue.relative_sasa > default_sasa_burial_threshold:
                 c_term = True
 
         if report_if_helix:
@@ -7113,7 +7114,7 @@ class Pose(SymmetricModel, MetricsMixin):
         return per_residue_data
 
     def _per_residue_interface_classification(
-            self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs) -> pd.DataFrame:
+            self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> pd.DataFrame:
         """Perform residue classification on the interface residues
 
         Args:
@@ -7164,8 +7165,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
     @property
     def rim_residues(
-            self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs
-    ) -> list[Residue]:
+            self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> list[Residue]:
         """Get the Residue instances that reside in the rim of the interface
 
         Args:
@@ -7187,8 +7187,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
     @property
     def support_residues(
-            self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs
-    ) -> list[Residue]:
+            self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> list[Residue]:
         """Get the Residue instances that support the interface
 
         Args:

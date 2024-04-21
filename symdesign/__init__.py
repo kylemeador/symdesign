@@ -1,5 +1,5 @@
 """
-#### Model, design, and analyze proteins without explicit considerations for applying local and global symmetry.
+#### Dock, design, and analyze proteins with local, global, asymmetry symmetry considerations.
 
 Modules exported by this package:
 

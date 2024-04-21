@@ -17,7 +17,8 @@ from sqlalchemy.orm import declarative_base, relationship, Session  # column_pro
 
 from . import config
 from .query.pdb import UKB
-from symdesign.utils import path as putils, SymDesignException, symmetry, types
+from symdesign.utils.symmetry import setting_matrices
+from symdesign.utils.types import TransformationMapping
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class PoseMetadata(Base):
     # # Set up one-to-many relationship with entity_data table
     # Set up many-to-many relationship with entity_data table
     # entity_data = relationship('EntityData', secondary='pose_entity_association',
-    #                                back_populates='poses')
+    #                            back_populates='poses')
     # # Set up one-to-many relationship with entity_metrics table
     # entity_metrics = relationship('EntityMetrics', back_populates='pose')
     # Set up one-to-many relationship with entity_data table
@@ -332,7 +333,7 @@ class EntityData(Base):
         return self.meta.entity_info
 
     @property
-    def transformation(self) -> types.TransformationMapping | dict:
+    def transformation(self) -> TransformationMapping | dict:
         try:
             return self.transform.transformation
         except AttributeError:  # self.transform is probably None
@@ -366,7 +367,7 @@ class EntityTransform(Base):
     external_translation_z = Column(Float, default=0.)
 
     @property
-    def transformation(self) -> types.TransformationMapping | dict:
+    def transformation(self) -> TransformationMapping | dict:
         """Provide the names of all Entity instances mapped to the Pose"""
         # Todo hook in self.rotation_x, self.rotation_y
         if self.setting_matrix is None:
@@ -375,7 +376,7 @@ class EntityTransform(Base):
             #                                   self.external_rotation_y,
             #                                   self.external_rotation_z], degrees=True).as_matrix()
         else:
-            rotation2 = symmetry.setting_matrices[self.setting_matrix]
+            rotation2 = setting_matrices[self.setting_matrix]
         return dict(
             rotation=Rotation.from_rotvec([self.rotation_x, self.rotation_y, self.rotation_z], degrees=True).as_matrix(),
             translation=np.array([self.internal_translation_x,
@@ -389,7 +390,7 @@ class EntityTransform(Base):
         )
 
     @transformation.setter
-    def transformation(self, transform: types.TransformationMapping):
+    def transformation(self, transform: TransformationMapping):
         if any((self.rotation_x, self.rotation_y, self.rotation_z,
                 self.internal_translation_x, self.internal_translation_y, self.internal_translation_z,
                 self.setting_matrix,
@@ -400,7 +401,7 @@ class EntityTransform(Base):
 
         if not isinstance(transform, dict):
             raise ValueError(
-                f"The attribute 'transformation' must be a {types.TransformationMapping.__name__}, not "
+                f"The attribute 'transformation' must be a {TransformationMapping.__name__}, not "
                 f'{type(transform).__name__}')
 
         for operation_type, operation in transform.items():
@@ -415,7 +416,7 @@ class EntityTransform(Base):
                     self.internal_translation_z = operation
             elif operation_type == 'rotation2':
                 # Convert to setting number
-                for number, matrix in symmetry.setting_matrices.items():
+                for number, matrix in setting_matrices.items():
                     # input(f'setting matrix number: {number}')
                     if np.allclose(operation, matrix):
                         # input(f'found all_close: {operation}\n{matrix}')

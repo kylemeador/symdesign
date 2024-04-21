@@ -21,7 +21,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
 from . import config, distribute, sql, structure_db, wrapapi
-from symdesign import flags, sequence, structure, utils
+from symdesign import flags, guide, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.utils import SymEntry, path as putils
 
@@ -54,6 +54,7 @@ def generate_chain_mask(chains: str) -> set[str]:
 
     Args:
         chains: The specified chains separated by commas to split
+
     Returns:
         The provided chain ids in pose format
     """
@@ -267,8 +268,9 @@ class JobResources:
         if arguments is not None:
             kwargs.update(deepcopy(vars(arguments)))
 
-        # Set the module for the current job. This will always be a '-' separated string when more than one name
+        # Set the module for the current job.
         self.module: str = kwargs.get(flags.module)
+        """This will always be '-' separated string when more than one name"""
         # Ensure that the protocol is viable
         if self.module == flags.protocol:
             self.protocol_module = True
@@ -316,8 +318,8 @@ class JobResources:
         # Input parameters
         self.project_name = kwargs.get(flags.project_name.as_attr())
         # program_root subdirectories
-        self.data = os.path.join(self.program_root, putils.data.title())
-        self.projects = os.path.join(self.program_root, putils.projects)
+        self.data = os.path.join(self.program_root, 'Data')
+        self.projects = os.path.join(self.program_root, 'Projects')
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
         self.all_scores = os.path.join(self.program_root, 'AllScores')
@@ -883,28 +885,14 @@ class JobResources:
     def modules(self, modules: Iterable[str]):
         self._modules = list(modules)
 
-    # @property
-    # def current_session(self) -> Session:
-    #     """Contains the sqlalchemy.orm.Session that is currently in use for access to database attributes"""
-    #     try:
-    #         return self._session
-    #     except AttributeError:  # No session connected
-    #         raise AttributeError("Couldn't return current_session as there is not an active Session. Ensure you "
-    #                              "initialize a job context manager, i.e.\n"
-    #                              "with job.db.session() as session:\n"
-    #                              "    job.current_session = session\n"
-    #                              "Before you attempt to use the current_session")
-    #
-    # @current_session.setter
-    # def current_session(self, session: Session):
-    #     """Set the sqlalchemy.orm.Session that is currently in use to access database attributes later during the job"""
-    #     if isinstance(session, Session):
-    #         self._session = session
+    @property
+    def number_of_modules(self) -> int:
+        """The number of modules for the specified Job"""
+        return len(self.modules)
 
     @property
     def output_to_directory(self) -> bool:
         """If True, broadcasts that output is not typical putils.program_output directory structure"""
-        # self.output_to_directory: bool = True if self.output_directory else False
         if self.module in flags.select_modules:
             # Make this explicitly False so that selection doesn't copy extra files
             return False
@@ -976,6 +964,7 @@ class JobResources:
 
         Args:
             jobs: The work that should be sliced by the specified range
+
         Returns:
             The work, limited to the range provided by -r/--range input flag
         """
@@ -1053,8 +1042,6 @@ class JobResources:
             flags.select_designs
         ]
         disallowed_modules = [
-            # 'custom_script',
-            # flags.select_sequences,
             flags.initialize_building_blocks
         ]
 
@@ -1142,6 +1129,7 @@ class JobResources:
 
         Args:
             arguments: The arguments as parsed from the command-line argparse namespace
+
         Returns:
             Arguments specified during program execution
         """
@@ -1184,9 +1172,9 @@ class JobResources:
             for arg in group._group_actions:
                 if isinstance(arg, argparse._SubParsersAction):  # This is a subparser, recurse
                     for name, sub_parser in arg.choices.items():
-                        for sub_group in sub_parser._action_groups:
-                            for arg in sub_group._group_actions:
-                                report_arg(arg.dest, arg.default)
+                        for group in sub_parser._action_groups:
+                            for module_arg in group._group_actions:
+                                report_arg(module_arg.dest, module_arg.default)
                 else:
                     report_arg(arg.dest, arg.default)
 
@@ -1217,10 +1205,10 @@ class JobResources:
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
 
-    @property
-    def number_of_modules(self) -> int:
-        """The number of modules for the specified Job"""
-        return len(self.modules)
+    def load_mp_data(self):
+        """Loads all data desired for multiprocessing split"""
+        self.structure_db.load_all_data()
+        self.api_db.load_all_data()
 
     @staticmethod
     def can_process_evolutionary_profiles() -> bool:
@@ -1249,6 +1237,7 @@ class JobResources:
             uniprot_entities: A list of the UniProtIDs for the Job
             entities: A list of the Entity instances initialized for the Job
             batch_commands: Whether commands should be made for batch submission
+
         Returns:
             A list evolutionary setup instructions
         """
@@ -1276,9 +1265,10 @@ class JobResources:
                     if not os.access(putils.reformat_msa_exe_path, os.X_OK):
                         logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
                         # raise RuntimeError(
-                        #     f"Couldn't locate {putils.reformat_msa_exe_path}. Ensure the file exists then try your job "
-                        #     f"again. Otherwise, use the argument --no-{flags.use_evolution} OR set up hhblits to run."
-                        #     f"{utils.guide.hhblits_setup_instructions}")
+                        #     f"Couldn't locate the {putils.reformat_msa_exe_path} executable. Ensure the executable "
+                        #     "exists then try your job again. Otherwise, use the argument "
+                        #     f'{flags.use_evolution.as_no_long()} OR set up hhblits to run.'
+                        #     f'{guide.hhblits_setup_instructions}')
                     else:
                         sto_cmd = [
                             putils.reformat_msa_exe_path, 'a3m', 'sto',
@@ -1310,9 +1300,10 @@ class JobResources:
                     if not os.access(putils.reformat_msa_exe_path, os.X_OK):
                         logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
                         # raise RuntimeError(
-                        #     f"Couldn't locate {putils.reformat_msa_exe_path}. Ensure the file exists then try your job "
-                        #     f"again. Otherwise, use the argument --no-{flags.use_evolution} OR set up hhblits to run."
-                        #     f"{utils.guide.hhblits_setup_instructions}")
+                        #     f"Couldn't locate the {putils.reformat_msa_exe_path} executable. Ensure the executable "
+                        #     "exists then try your job again. Otherwise, use the argument "
+                        #     f'{flags.use_evolution.as_no_long()} OR set up hhblits to run.'
+                        #     f'{guide.hhblits_setup_instructions}')
                     else:
                         sto_cmd = [
                             putils.reformat_msa_exe_path, 'a3m', 'sto',

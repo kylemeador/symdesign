@@ -81,6 +81,7 @@ def load_and_format(session: Session, stmt: Select, selected_column_names: Itera
         session: A currently open transaction within sqlalchemy
         stmt: The SELECTable query statement
         selected_column_names: The column names to use during DataFrame construction
+
     Returns:
         The specified columns/attributes formatted as DataFrame.columns and their rows as the DataFrame.index
     """
@@ -109,6 +110,7 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         A DataFrame formatted with every metric in PoseMetrics, EntityMetrics, and DesignMetrics. The final DataFrame
             will have an as many entries corresponding to each Entity in EntityData for a total of DesignData's X number
@@ -167,6 +169,7 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     Args:
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
+
     Returns:
         A DataFrame formatted with every metric in PoseMetrics and EntityMetrics. The final DataFrame will have an entry
             corresponding to each Entity in EntityData for a total of PoseJob's X number of Entities entries
@@ -208,6 +211,7 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
     Args:
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
+
     Returns:
         A DataFrame formatted with every metric in PoseMetrics. The final DataFrame will have an entry corresponding to
             each PoseJob
@@ -239,6 +243,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         A DataFrame formatted with the pose_id, EntityMetrics, and DesignEntityMetrics. The final DataFrame will have an
             entry corresponding to each Entity in EntityData for a total of PoseJob's X number of entities entries
@@ -290,6 +295,7 @@ def load_sql_design_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         A pandas DataFrame formatted with every metric in DesignMetrics/DesignEntityMetrics. The final DataFrame will
             have an entry for each DesignEntity for each DesignData
@@ -333,6 +339,7 @@ def load_sql_design_entities_dataframe(session: Session, pose_ids: Iterable[int]
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         A pandas DataFrame formatted with every metric in DesignMetrics/DesignEntityMetrics. The final DataFrame will
             have an entry for each DesignEntity for each DesignData
@@ -376,6 +383,7 @@ def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] =
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: Not used, but here for API. DesignData instance identifiers for which metrics are desired
+
     Returns:
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
@@ -409,6 +417,7 @@ def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int]
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
@@ -462,11 +471,12 @@ def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     Args:
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
-        # design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
     """
+    # design_ids: DesignData instance identifiers for which metrics are desired
     # pj_c = [PoseJob.id]
     # pj_names = [c.name for c in pj_c]
     pose_id_c = [sql.EntityData.pose_id, sql.EntityData.id]
@@ -510,6 +520,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
+
     Returns:
         The matching PoseJob instances
     """
@@ -556,10 +567,10 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                               function=job.weight_function)
         # Remove excess pose instances
         number_chosen = 0
-        selected_indices, selected_poses = [], set()
+        selected_indices, selected_poses = [], []
         for pose_job, design in selected_poses_df.index.tolist():
             if pose_job not in selected_poses:
-                selected_poses.add(pose_job)
+                selected_poses.append(pose_job)
                 selected_indices.append((pose_job, design))
                 number_chosen += 1
                 if number_chosen == job.select_number:
@@ -571,11 +582,6 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
         # # convert selected_poses to PoseJob objects
         # selected_poses = [pose_job for pose_job in pose_jobs if pose_job_name in selected_poses]
-    # else:
-    #     logger.critical('Missing a required method to provide or find metrics from %s. If you meant to gather '
-    #                     'metrics from every pose in your input specification, ensure you include the --global '
-    #                     'argument' % putils.program_output)
-    #     sys.exit()
 
     # Format selected poses for output
     os.makedirs(job.output_directory, exist_ok=True)
@@ -666,6 +672,7 @@ def select_from_cluster_map(selected_pose_jobs: Sequence[Any], cluster_map: dict
         selected_pose_jobs: A sorted list of members that are members of the cluster_map
         cluster_map: A mapping of cluster representatives to their members
         number: The number of members to select
+
     Returns:
         The indices of selected_members, trimmed and retrieved according to cluster_map membership
     """
@@ -709,6 +716,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
+
     Returns:
         The matching PoseJob instances mapped to design name
     """
@@ -879,6 +887,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
+
     Returns:
         The matching PoseJob instances
     """
@@ -1251,6 +1260,7 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
         designs_df: A DataFrame with design metrics. Must contain a column corresponding to PoseJob.id named "pose_id"
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
+
     Returns:
         A DataFrame formatted with the PoseMetrics, EntityMetrics, and DesignEntityMetrics. The final DataFrame will
             have an entry for each PoseJob with separate metric columns grouped by 'structure_entity', i.e. Pose and
@@ -1324,6 +1334,7 @@ def load_pose_job_from_id(session: Session, ids: Sequence[int]) -> list[PoseJob]
     Args:
         session:
         ids:
+
     Returns:
         The matching PoseJobs
     """
@@ -1361,6 +1372,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
+
     Returns:
         The selected PoseJob instances
     """
@@ -1569,6 +1581,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
         pose_jobs: The PoseJob instances for which selection is desired
         return_pose_jobs: Whether to force the creation of PoseJob instances and load selected designs into
             PoseJob.current_designs
+
     Returns:
         The selected PoseJob instances with selected designs stored in the .current_designs attribute
     """
@@ -1845,9 +1858,10 @@ def solve_tags(n_of_tags: int, tag_entities: flags.tagging_literal = None) -> tu
 
     Args:
         n_of_tags: The number of taggable entities
-        tag_entities: A specification of how the tagable entities could be tagged
+        tag_entities: A specification of how the taggable entities could be tagged
+
     Returns:
-        The number of tags requested and the indices in which the tags could be applied
+        The number of tags requested and True in the list indices where the tags could be applied
     """
     if tag_entities is None:
         boolean_tags = [False for _ in range(n_of_tags)]
@@ -1859,7 +1873,7 @@ def solve_tags(n_of_tags: int, tag_entities: flags.tagging_literal = None) -> tu
         n_of_tags = 1
     else:
         boolean_tags = []
-        for tag_specification in map(str.strip, job.tag_entities.split(',')):
+        for tag_specification in map(str.strip, tag_entities.split(',')):
             # Remove non-numeric stuff
             if tag_specification == '':  # Probably a trailing ',' ...
                 continue
@@ -1884,6 +1898,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
+
     Returns:
         The matching PoseJob instances
     """

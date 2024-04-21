@@ -547,8 +547,8 @@ class StructureDatabase(Database):
     #         batch_commands: Whether commands should be made for batch submission
     #
     #     Returns:
-    #         Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
-    #         occurred (True) or if files are not reported as having this modeling yet
+    #         Any instructions if processing is needed, then booleans for whether refinement and loop modeling has
+    #             already occurred (True) or if files are not reported as having this modeling yet
     #     """
     #     # and loop_modeled (True)
     #     self.refined.make_path()

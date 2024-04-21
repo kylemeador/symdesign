@@ -461,7 +461,7 @@ class UniProtEntity(sql.Base):
                     self._reference_sequence = sequence['value']
                     return self._reference_sequence
                 else:
-                    logger.error(f"Couldn't find UniProt data for {self.id}")
+                    logger.error(f"Couldn't find 'sequence' data from UniProt for {self.id}")
 
             # else:  # uniprot_id found no data from UniProt API
             # Todo this isn't correct due to many-to-many association

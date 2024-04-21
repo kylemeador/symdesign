@@ -6,9 +6,10 @@ import logging
 import os
 import operator
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, AnyStr, Literal, get_args
 
+import attrs
 import pandas as pd
 from psutil import cpu_count
 
@@ -18,19 +19,14 @@ from symdesign.sequence import constants, optimization_species_literal, profile_
 from symdesign.resources import config
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, \
     design_programs_literal, termini_literal
-from symdesign.utils import handle_errors, InputError, log_levels, digit_remover, path as putils, \
-    pretty_format_table, to_iterable, logging_levels
+from symdesign.utils import InputError, log_levels, digit_remover, to_iterable, logging_levels
 from symdesign.utils.path import default_clustered_pose_file, default_path_file, ex_path, \
     program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
 from symdesign.structure.fragment.resources import biological_interfaces, fragment_database_sources
 from symdesign.utils.logging_config import DEFAULT_LOGGING_LEVEL
-from symdesign.utils.path import design_profile, evolutionary_profile, fragment_profile, consensus
-from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
-    format_string
 from symdesign.utils.rosetta import current_energy_function
 from symdesign.utils.SymEntry import query_mode_args
 
-# Gloabls
 logger = logging.getLogger(__name__)
 FLAG_DELIMITER = '-'
 
@@ -45,9 +41,9 @@ def load_flags_from_file(file_: AnyStr | os.PathLike) -> dict[str, str]:
     return file_flags
 
 
-
-def parse_weights(weights: list[str] = None, file: AnyStr = None) \
-        -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
+def parse_weights(
+    weights: list[str] = None, file: AnyStr = None
+) -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
     """Given a command line specified set of metrics and values, parse into weights to select DataFrames accordingly
 
     Args:
@@ -59,11 +55,11 @@ def parse_weights(weights: list[str] = None, file: AnyStr = None) \
     """
     parsed_weights = parse_filters(weights, file=file)
     # Ensure proper formatting of weight specific parameters
-    for idx, (metric_name, weight) in enumerate(parsed_weights.items()):
-        if len(weight) != 1:
+    for idx, (metric_name, weight_) in enumerate(parsed_weights.items()):
+        if len(weight_) != 1:
             raise InputError(
                 f"Can't assign more than one weight for every provided metric. '{weights[idx]}' is invalid")
-        operation, pre_operation, pre_kwargs, value = weight[0]
+        operation, pre_operation, pre_kwargs, value = weight_[0]
         if operation != operator.eq:
             raise InputError(
                 f"Can't assign a selection weight with the operator '{operator_strings[operation]}'. "
@@ -75,8 +71,9 @@ def parse_weights(weights: list[str] = None, file: AnyStr = None) \
     return parsed_weights
 
 
-def parse_filters(filters: list[str] = None, file: AnyStr = None) \
-        -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
+def parse_filters(
+    filters: list[str] = None, file: AnyStr = None
+) -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
     """Given a command line specified set of metrics and values, parse into filters to select DataFrames accordingly
 
     Args:
@@ -286,17 +283,16 @@ class StoreDictKeyPair(argparse.Action):
         self._nargs = nargs
         super(StoreDictKeyPair, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
 
-    def __call__(self, parser_, namespace, values, option_string=None):
-        # print(f'{StoreDictKeyPair.__name__} received values: {values}')
+    def __call__(self, parser_, namespace, values: Iterable[str], option_string=None):
+        # logger.debug(f'{StoreDictKeyPair.__name__} received values: {values}')
         # # May have to use this if used as a subparser
         # my_dict = getattr(namespace, self.dest, {})
-        # input(f'existing my_dict: {my_dict}')
         my_dict = {}
         for kv in values:
             k, v = kv.split('=')
             my_dict[k] = ast.literal_eval(v)
 
-        # print(f'Final parsed: {my_dict}')
+        # logger.debug(f'Final parsed: {my_dict=}')
         setattr(namespace, self.dest, my_dict)
 
 
@@ -616,7 +612,7 @@ select_modules = (
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
 # add_argument(), e.g. %(default)s, %(type)s, etc.:
 # Todo Found the following for formatting the prog use case in subparsers
-#  {'refine': ArgumentParser(prog='{putils.program_exe} module [module_arguments] [input_arguments]'
+#  {'refine': ArgumentParser(prog='{program_exe} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
 # make_no_argument = '--no-{}'.format
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
@@ -1853,17 +1849,14 @@ init_defaults = dict(namespace='init')
 """Contains all the arguments and their default parameters used in structure/sequence initialization"""
 predict_defaults = dict(namespace='predict')
 """Contains all the arguments and their default parameters used in structure prediction"""
-available_modules = []
-"""Contains all the registered modules"""
 
 
-def parse_flags_to_namespaces(parser: argparse.ArgumentParser):
+def parse_flags_to_namespaces(parser: argparse.ArgumentParser) -> list[str]:
+    sub_modules = []
     for group in parser._action_groups:
-        # input(group._group_actions)
         for arg in group._group_actions:
             if isinstance(arg, argparse._SubParsersAction):
-                global available_modules
-                available_modules = sorted(arg.choices.keys())
+                sub_modules.extend(arg.choices.keys())
                 # This is a SubParser, recurse
                 for name, sub_parser in arg.choices.items():
                     parse_flags_to_namespaces(sub_parser)
@@ -1878,8 +1871,12 @@ def parse_flags_to_namespaces(parser: argparse.ArgumentParser):
             elif arg.dest in predict_namespace:
                 predict_defaults[arg.dest] = arg.default
 
+    return sorted(sub_modules)
 
-parse_flags_to_namespaces(entire_parser)
+
+available_modules = parse_flags_to_namespaces(entire_parser)
+"""Contains all the registered modules"""
+assert available_modules, "submodule parsing isn't working"
 registered_tools = [multicistronic, update_db]  # , distribute]
 # Todo register these tools!
 #  ['concatenate-files', 'list-overlap', 'retrieve-oligomers', 'retrieve-pdb-codes']

@@ -69,8 +69,9 @@ def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: i
         model: The ProteinMPNN model
         number_of_residues: The number of residues used in the ProteinMPNN model
         element_memory: Where each element is np.int64, np.float32, etc.
+
     Returns:
-        The size of the batch that can be completed for the ProteinMPNN model given it's device
+        The size of the batch that can be completed for the ProteinMPNN model given its device
     """
     memory_constraint = get_device_memory(model.device)
 
@@ -1063,7 +1064,7 @@ def jnp_to_np(jax_dict: dict[str, Any]) -> dict[str, Any]:
 # limitations under the License.
 
 """Code for constructing the model."""
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional
 
 from absl import logging
 import haiku as hk

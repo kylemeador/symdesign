@@ -1,5 +1,5 @@
 import os
-from shutil import copy, move
+from shutil import copy
 from typing import AnyStr
 
 from symdesign.structure import base, model

@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 TQDM_BAR_FORMAT = '{l_bar}{bar}| {n_fmt}/{total_fmt} [elapsed: {elapsed} ~remaining: {remaining}]'
 
 
-def is_frag_type_same(frags1, frags2, dtype='ii'):
+def is_frag_type_same(frags1, frags2, dtype='ii'):  # UNUSED
     frag1_type = f'{dtype[0]}_type'
     frag2_type = f'{dtype[1]}_type'
     frag1_indices = np.array([getattr(frag, frag1_type) for frag in frags1])
@@ -650,7 +650,6 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     if job.output_trajectory:
         if sym_entry.unit_cell:
             logger.warning('No unit cell dimensions applicable to the trajectory file')
-
 
     # Set up the TransformHasher to assist in scoring/pose output
     radius1 = model1.radius  # .distance_from_reference(measure='max')
@@ -1505,9 +1504,14 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                  rotation2=set_mat2, translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :])
         )
 
-    def remove_non_viable_indices_inverse(passing_indices: np.ndarray | list[int]):
+    def remove_non_viable_indices_inverse(passing_indices: np.ndarray | list[int]) -> None:
         """Responsible for updating docking intermediate transformation parameters for inverse transform operations
-        These include: full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, and full_ext_tx_sum
+
+        Includes:
+            full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, and full_ext_tx_sum
+
+        Args:
+            passing_indices: The indices which should be kept
         """
         nonlocal full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, full_ext_tx_sum
         full_inv_rotation1 = full_inv_rotation1[passing_indices]
@@ -1519,7 +1523,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         if sym_entry.unit_cell:
             full_ext_tx_sum = full_ext_tx_sum[passing_indices]
 
-    def filter_transforms_by_indices(passing_indices: np.ndarray | list[int]):
+    def filter_transforms_by_indices(passing_indices: np.ndarray | list[int]) -> None:
         """Responsible for updating docking transformation parameters for transform operations. Will set the
         transformation in the order of the passing_indices
 
@@ -1574,7 +1578,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         if not number_of_dense_transforms:  # There were no successful transforms
             logger.warning(f'No viable transformations found. Terminating {building_blocks} docking')
             return []
-        # ------------------ TERMINATE DOCKING ------------------------
+            # ------------------ TERMINATE DOCKING ------------------------
         # Update the transformation array and counts with the sufficiently_dense_indices
         # Remove non-viable transforms by indexing sufficiently_dense_indices
         remove_non_viable_indices_inverse(sufficiently_dense_indices)
@@ -1635,7 +1639,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     if not number_non_clashing_transforms:
         logger.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return []
-    # ------------------ TERMINATE DOCKING ------------------------
+        # ------------------ TERMINATE DOCKING ------------------------
     # Clean memory
     del asu_clash_counts, ball_tree_kwargs, overlap_return
     # Remove non-viable transforms by indexing asu_is_viable_indices
@@ -1879,7 +1883,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     if number_viable_pose_interfaces == 0:
         logger.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
         return []
-    # ------------------ TERMINATE DOCKING ------------------------
+        # ------------------ TERMINATE DOCKING ------------------------
     # Clean memory
     del inverse_transformed_model2_tiled_cb_coords, inverse_transformed_surf_frags2_guide_coords
     del ghost_residue_indices1, surf_residue_indices2
@@ -1971,7 +1975,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     #      new_pose.coords = np.concatenate(new_coords)
     #      return new_pose
 
-    def update_pose_coords(idx: int):
+    def update_pose_coords(idx: int) -> None:
         """Take the current transformation index and update the reference coordinates with the provided transforms
 
         Args:
@@ -2017,6 +2021,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
         Args:
             viable_pose_indices: The indices from the transform array to test for clashes
+
         Returns:
             An array with the transformation indices that passed clash testing
         """
@@ -2060,7 +2065,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         if number_passing_symmetric_clashes == 0:  # There were no successful transforms
             logger.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
             return []
-        # ------------------ TERMINATE DOCKING ------------------------
+            # ------------------ TERMINATE DOCKING ------------------------
         # Update the passing_transforms
         # passing_transforms contains all the transformations that are still passing
         # index the previously passing indices (sufficiently_dense_indices)
@@ -2205,12 +2210,12 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     #     """
     idx_slice = pd.IndexSlice
 
-    def collect_dock_metrics(proteinmpnn_score: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:  # -> dict[str,
-        # np.ndarray]:
+    def collect_dock_metrics(proteinmpnn_score: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform analysis on the docked Pose instances
 
         Args:
             proteinmpnn_score: Whether proteinmpnn scores should be collected
+
         Returns:
             A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
         """
@@ -3215,6 +3220,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
         Args:
             df: The Pose DataFrame which should be prioritized from docking
+
         Returns:
             The DataFrame that has been sorted according to the specified filters/weights
         """

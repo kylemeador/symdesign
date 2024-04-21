@@ -32,14 +32,13 @@ from .config import protein_letters_3to1_extended_mse, atom_and_resiude_type_to_
     gxg_sasa, directives, mutation_directives, residue_properties, aa_by_property, atom_or_residue_literal, \
     dna_sugar_atom_types, DEFAULT_SS_COIL_IDENTIFIER, SS_HELIX_IDENTIFIERS, SS_DISORDER_IDENTIFIERS, \
     SS_TURN_IDENTIFIERS, sasa_types_literal, sasa_types, DEFAULT_SS_PROGRAM, hydrophobicity_values_glycine_centered, \
-    element_radius
+    element_radius, default_sasa_burial_threshold
 from .coordinates import Coordinates, superposition3d
 from . import fragment, utils as stutils
 from .dependencies import errat_exe_path, freesasa_config_path, freesasa_debug_dir, freesasa_exe_path, stride_exe_path
 from symdesign.sequence import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended, \
     protein_letters3_alph1_literal
 from symdesign import utils
-from symdesign.metrics import default_sasa_burial_threshold
 putils = utils.path
 
 # Globals
@@ -2148,8 +2147,8 @@ class ContainsAtoms(StructureBase, ABC):
     def _key(self) -> tuple[str, int, ...]:
         return self.name, *self.atom_indices
 
-    def __eq__(self, other: StructureBase) -> bool:
-        if isinstance(other, StructureBase):
+    def __eq__(self, other: ContainsAtoms) -> bool:
+        if isinstance(other, ContainsAtoms):
             return self._key == other._key
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")

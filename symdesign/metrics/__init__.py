@@ -16,13 +16,11 @@ import numpy as np
 import pandas as pd
 import torch
 
-from . import pose
 from . import library
-# Next import is for the symdesign.metrics namespace
+# Next import is for the .metrics namespace
 from .sql import DesignEntityMetrics, DesignMetrics, EntityMetrics, PoseMetrics, PoseResidueMetrics, ResidueMetrics
+from symdesign import sequence, utils
 from symdesign.utils.query import input_string, validate_type, verify_choice, header_string
-from symdesign import flags, sequence, utils
-putils = utils.path
 
 logger = logging.getLogger(__name__)
 residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
@@ -179,10 +177,6 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 # Current protocols in use in interface_design.xml
 rosetta_design_protocols = [
     'design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
-# Todo adapt to any user protocol!
-protocols_of_interest = {putils.design_profile, putils.structure_background, putils.hbnet_design_profile}
-# protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
-
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
 significance_columns = [
@@ -207,6 +201,7 @@ def parse_rosetta_scorefile(file: AnyStr, key: str = 'decoy') -> dict[str, dict[
     Args:
         file: Location on disk of scorefile
         key: Name of the json key to use as outer dictionary identifier
+
     Returns:
         The parsed scorefile
             Ex {'design_identifier1': {'metric_key': metric_value, ...}, 'design_identifier2': {}, ...}
@@ -235,35 +230,18 @@ def parse_rosetta_scorefile(file: AnyStr, key: str = 'decoy') -> dict[str, dict[
     return scores
 
 
-def keys_from_trajectory_number(pdb_dict):
-    """Remove all string from dictionary keys except for string after last '_'. Ex 'design_0001' -> '0001'
-
-    Returns:
-        (dict): {cleaned_key: value, ...}
-    """
-    return {key.split('_')[-1]: value for key, value in pdb_dict.items()}
-
-
-def join_columns(row):  # UNUSED
-    """Combine columns in a dataframe with the same column name. Keep only the last column record
-
-    Returns:
-        (str): The column name
-    """
-    new_data = ','.join(row[row.notnull()].astype(str))
-    return new_data.split(',')[-1]
-
-
 def columns_to_new_column(df: pd.DataFrame, columns: dict[str, tuple[str, ...]], mode: str = 'add'):
     """Set new column value by taking an operation of one column on another
 
     Can perform summation and subtraction if a set of columns is provided
+
     Args:
         df: Dataframe where the columns are located
         columns: Keys are new column names, values are tuple of existing columns where
             df[key] = value[0] mode(operation) value[1] mode(operation) ...
         mode: What operator to use?
             Viable options are included in the operator module {'sub', 'mul', 'truediv', ...}
+
     Returns:
         Dataframe with new column values
     """
@@ -280,45 +258,7 @@ def columns_to_new_column(df: pd.DataFrame, columns: dict[str, tuple[str, ...]],
                     df[new_column] = operator.attrgetter(mode)(operator)(df[new_column], df[extra_column])
                 except KeyError:
                     pass
-
     return df
-
-
-def hbond_processing(design_scores: dict, columns: list[str]) -> dict[str, set]:
-    """Process Hydrogen bond Metrics from Rosetta score dictionary
-
-    if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
-    Args:
-        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
-                                'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
-                                'hbonds_res_selection_1_bound': '26A'}, ...}
-        columns : ['hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
-                   'hbonds_res_selection_2_unbound']
-    Returns:
-        {'0001': {34, 54, 67, 68, 106, 178}, ...}
-    """
-    hbonds = {}
-    for design, scores in design_scores.items():
-        unbound_bonds, complex_bonds = set(), set()
-        for column in columns:
-            if column not in scores:
-                continue
-            meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-            parsed_hbonds = set(int(hbond.translate(utils.digit_keeper()))
-                                for hbond in scores.get(column, '').split(',') if hbond != '')  # check if '' in case no hbonds
-            if meta_data[3] == 'complex':
-                complex_bonds = parsed_hbonds
-            else:  # from another state
-                unbound_bonds = unbound_bonds.union(parsed_hbonds)
-        if complex_bonds:  # 'complex', '1', '2'
-            hbonds[design] = complex_bonds.difference(unbound_bonds)
-            # hbonds[entry] = [hbonds_entry['complex'].difference(hbonds_entry['1']).difference(hbonds_entry['2']))]
-            #                                                         hbonds_entry['A']).difference(hbonds_entry['B'])
-        else:  # no hbonds were found in the complex
-            hbonds[design] = complex_bonds
-            # logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
-
-    return hbonds
 
 
 def hot_spot(residue_dict: dict[Any, dict], energy: float = -1.5):  # UNUSED
@@ -345,6 +285,7 @@ def interface_composition_similarity(series: Mapping) -> float:
 
     Args:
         series: Mapping from 'interface_area_total', 'core', 'rim', and 'support' to values
+
     Returns:
         Average similarity for expected residue classification given the observed classification
     """
@@ -376,57 +317,6 @@ def interface_composition_similarity(series: Mapping) -> float:
     return sum(class_ratio_differences) / len(class_ratio_differences)
 
 
-def incorporate_sequence_info(design_residue_scores: dict[str, dict], sequences: dict[str, Sequence[str]]) \
-        -> dict[str, dict]:
-    """Incorporate mutation measurements into residue info. design_residue_scores and mutations must be the same index
-
-    Args:
-        design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
-                                             'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
-                                             'fsp': 0., 'cst': 0.}, ...}, ...}
-        sequences: {'001': 'MKDLSAVLIRLAD...', '002': '', ...}
-    Returns:
-        {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
-                 ...}, ...}
-    """
-    # warn = False
-    # reference_data = mutations.get(putils.reference_name)
-    # pose_length = len(reference_data)
-    for design, residue_info in design_residue_scores.items():
-        sequence = sequences.get(design)
-        # mutation_data = mutations.get(design)
-        # if not mutation_data:
-        #     continue
-
-        # remove_residues = []
-        for residue_index, data in residue_info.items():
-            data['type'] = sequence[residue_index]
-            # try:  # Set residue AA type based on provided mutations
-            #     data['type'] = mutation_data[residue_index]
-            # except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
-            #     try:  # Fill in with AA from putils.reference_name seq
-            #         data['type'] = reference_data[residue_index]
-            #     except KeyError:  # Residue is out of bounds on pose length
-            #         # Possibly a virtual residue or string that was processed incorrectly from the digit_keeper()
-            #         if not warn:
-            #             logger.error(f'Encountered residue index "{residue_index}" which is not within the pose size '
-            #                          f'"{pose_length}" and will be removed from processing. This is likely an error '
-            #                          f'with residue processing or residue selection in the specified rosetta protocol.'
-            #                          f' If there were warnings produced indicating a larger residue number than pose '
-            #                          f'size, this problem was not addressable heuristically and something else has '
-            #                          f'occurred. It is likely that this residue number is not useful if you indeed have'
-            #                          f' output_as_pdb_nums="true"')
-            #             warn = True
-            #         remove_residues.append(residue_index)
-            #         continue
-
-        # # Clean up any incorrect residues
-        # for residue in remove_residues:
-        #     residue_info.pop(residue)
-
-    return design_residue_scores
-
-
 def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> dict:
     """Process energy metrics to Pose formatted dictionary from multiple measurements per residue
     and incorporate hydrogen bond information. design_residue_scores and hbonds must be the same index
@@ -436,6 +326,7 @@ def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> di
                                              'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
                                              'fsp': 0., 'cst': 0.}, ...}, ...}
         hbonds: {'001': [34, 54, 67, 68, 106, 178], ...}
+
     Returns:
         {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
                  ...}, ...}
@@ -464,9 +355,10 @@ def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> di
     return design_residue_scores
 
 
-def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
-                         residue_contact_order_z: np.ndarray, reference_collapse: np.ndarray, **kwargs) \
-        -> list[dict[str, float]]:
+def collapse_per_residue(
+    sequence_groups: Iterable[Iterable[Sequence[str]]],
+    residue_contact_order_z: np.ndarray, reference_collapse: np.ndarray, **kwargs
+) -> list[dict[str, float]]:
     # collapse_profile: np.ndarray = None,
     # reference_mean: float | np.ndarray = None,
     # reference_std: float | np.ndarray = None,
@@ -665,46 +557,6 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
     return folding_and_collapse
 
 
-def mutation_conserved(residue_info: dict, bkgnd: dict) -> dict:
-    """Process residue mutations compared to evolutionary background. Returns 1 if residue is observed in background
-
-    Both residue_dict and background must be same index
-    Args:
-        residue_info: {15: {'type': 'T', ...}, ...}
-        bkgnd: {0: {'A': 0, 'R': 0, ...}, ...}
-    Returns:
-        conservation_dict: {15: 1, 21: 0, 25: 1, ...}
-    """
-    return {res: 1 if bkgnd[res][info['type']] > 0 else 0 for res, info in residue_info.items() if res in bkgnd}
-    # return [1 if bgd[info['type']] > 0 else 0 for info, bgd in zip(residue_info, bkgnd)]
-
-
-def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, float]], key: str = None) -> float:
-    """Find metric value average over all residues in a per residue dictionary with metric specified by key
-
-    Args:
-        sequence_metrics: {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
-        key: Name of the metric to average
-    Returns:
-        The average metric 0.367
-    """
-    s, total = 0.0, 0
-    if key:
-        for residue_metrics in sequence_metrics.values():
-            value = residue_metrics.get(key)
-            if value:
-                s += value
-                total += 1
-    else:
-        for total, residue_metric in enumerate(sequence_metrics.values(), 1):
-            s += residue_metric
-
-    if total == 0:
-        return 0.
-    else:
-        return s / total
-
-
 def calculate_residue_buried_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     """From a DataFrame with per-residue values, calculate values relating to interface surface area
 
@@ -716,6 +568,7 @@ def calculate_residue_buried_surface_area(per_residue_df: pd.DataFrame) -> pd.Da
                 'sasa_hydrophobic_complex',
                 'sasa_polar_complex'
             ]
+
     Returns:
         The same dataframe with added columns [
             'bsa_hydrophobic',
@@ -747,11 +600,9 @@ def calculate_residue_buried_surface_area(per_residue_df: pd.DataFrame) -> pd.Da
     return per_residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total])
 
 
-default_sasa_burial_threshold = 0.25  # Default relative_sasa amount from Levy 2010
-
-
-def classify_interface_residues(per_residue_df: pd.DataFrame,
-                                relative_sasa_thresh: float = default_sasa_burial_threshold) -> pd.DataFrame:
+def classify_interface_residues(
+    per_residue_df: pd.DataFrame, relative_sasa_thresh: float = 0.25
+) -> pd.DataFrame:
     """From a DataFrame with per-residue values, calculate the classification of residues by interface surface area
 
     Args:
@@ -759,6 +610,7 @@ def classify_interface_residues(per_residue_df: pd.DataFrame,
             containing the metrics ['bsa_total', 'sasa_relative_complex', 'sasa_relative_bound']
         relative_sasa_thresh: The area threshold that the Residue should fall below before it is considered 'core'
             Default cutoff percent is based on Levy, E. 2010
+
     Returns:
         The same dataframe with added columns ['core', 'interior', 'rim', 'support', 'surface']
     """
@@ -807,6 +659,7 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
         df: The DataFrame with MultiIndex columns where level -1 = metric
         rename_columns: Columns to rename as a result of the summation
         mean_metrics: Columns to take the mean instead of the sum
+
     Returns:
         A new DataFrame with the summation of each metric from all residue_numbers in the per_residue columns
     """
@@ -836,10 +689,9 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
     return summed_df
 
 
-def calculate_sequence_observations_and_divergence(alignment: sequence.MultipleSequenceAlignment,
-                                                   backgrounds: dict[str, np.ndarray]) \
-        -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
-    #                                                select_indices: list[int] = None) \
+def calculate_sequence_observations_and_divergence(
+    alignment: sequence.MultipleSequenceAlignment, backgrounds: dict[str, np.ndarray]
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     """Gather the observed frequencies from each sequence in a MultipleSequenceAlignment"""
     # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
     # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
@@ -876,64 +728,10 @@ def calculate_sequence_observations_and_divergence(alignment: sequence.MultipleS
     # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
     #                                              both mut_freq and profile_background[profile] are one-indexed
     divergence = {f'divergence_{profile}':
-                  # position_specific_jsd(pose_alignment.frequencies, background)
                   position_specific_divergence(alignment.frequencies, background)  # [select_indices]
                   for profile, background in backgrounds.items()}
 
     return observed, divergence
-
-
-# def position_specific_jsd(msa: dict[int, dict[str, float]], background: dict[int, dict[str, float]]) -> \
-#         dict[int, float]:
-#     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
-#
-#     Both msa and background must be the same index
-#     Args:
-#         msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-#         background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
-#             Containing residue index with inner dictionary of single amino acid types
-#     Returns:
-#         divergence_dict: {15: 0.732, 16: 0.552, ...}
-#     """
-#     return {idx: js_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
-#
-#
-# def js_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
-#         float:
-#     """Calculate residue specific Jensen-Shannon Divergence value
-#
-#     Args:
-#         frequencies: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-#         bgd_frequencies: {'A': 0, 'R': 0, ...}
-#         lambda_: Value bounded between 0 and 1 to calculate the contribution from the observation versus the background
-#     Returns:
-#         Bounded between 0 and 1. 1 is more divergent from background frequencies
-#     """
-#     sum_prob1, sum_prob2 = 0, 0
-#     for item, frequency in frequencies.items():
-#         bgd_frequency = bgd_frequencies.get(item)
-#         try:
-#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
-#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
-#             continue
-#         try:
-#             with warnings.catch_warnings():
-#                 # Cause all warnings to always be ignored
-#                 warnings.simplefilter('ignore')
-#                 try:
-#                     prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
-#                     sum_prob2 += prob2
-#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
-#                     pass  # continue
-#                 try:
-#                     prob1 = (frequency * log(frequency / r, 2))
-#                     sum_prob1 += prob1
-#                 except (ValueError, RuntimeWarning):  # math domain error
-#                     continue
-#         except ZeroDivisionError:  # r = 0
-#             continue
-#
-#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
 def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_freq: np.ndarray, **kwargs) -> np.ndarray:
@@ -990,8 +788,7 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
 
 
 def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
-                  mask: np.array = None, axis: int | tuple[int, ...] = None) \
-        -> np.ndarray | float:
+                  mask: np.array = None, axis: int | tuple[int, ...] = None) -> np.ndarray | float:
     """Calculate Kullback–Leibler Divergence entropy between observed and background (true) frequency distribution(s)
 
     The divergence will be summed across the last axis/dimension of the input array
@@ -1002,6 +799,7 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
         per_entry: Whether the result should be returned after summation over the last axis
         mask: A mask to restrict calculations to certain entries
         axis: If the input should be summed over additional axis, which one(s)?
+
     Returns:
         The additional entropy needed to represent the frequencies as the background frequencies.
             The minimum divergence is 0 when both distributions are identical
@@ -1018,8 +816,7 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
 
 
 def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
-                  mask: np.array = None, axis: int | tuple[int, ...] = None) \
-        -> np.ndarray | float:
+                  mask: np.array = None, axis: int | tuple[int, ...] = None) -> np.ndarray | float:
     """Calculate the cross entropy between observed and background (truth) frequency distribution(s)
 
     The entropy will be summed across the last axis/dimension of the input array
@@ -1030,6 +827,7 @@ def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
         per_entry: Whether the result should be returned after summation over the last axis
         mask: A mask to restrict calculations to certain entries
         axis: If the input should be summed over additional axis, which one(s)?
+
     Returns:
         The total entropy to represent the frequencies as the background frequencies.
             The minimum entropy is 0 where both distributions are identical
@@ -1052,6 +850,7 @@ def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_:
         frequencies: [0.05, 0.001, 0.1, ...] The model distribution
         bgd_frequencies: [0, 0, ...] The true distribution
         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+
     Returns:
         Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
@@ -1062,15 +861,16 @@ def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_:
         + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum())
 
 
-# This is for a multiaxis ndarray
-def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> \
-        np.ndarray:
-    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+def position_specific_divergence(
+    frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5
+) -> np.ndarray:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies for a multiaxis ndarray
 
     Args:
         frequencies: [0.05, 0.001, 0.1, ...]
         bgd_frequencies: [0, 0, ...]
         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+
     Returns:
         An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
     """
@@ -1083,43 +883,6 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
     return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum(axis=1)) \
         + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum(axis=1))
 
-# def js_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
-#         float:
-#     """Calculate Jensen-Shannon Divergence value from observed and background frequencies
-#
-#     Args:
-#         frequencies: [0.05, 0.001, 0.1, ...]
-#         bgd_frequencies: [0, 0, ...]
-#         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
-#     Returns:
-#         Bounded between 0 and 1. 1 is more divergent from background frequencies
-#     """
-#     sum_prob1, sum_prob2 = 0, 0
-#     for frequency, bgd_frequency in zip(frequencies, bgd_frequencies):
-#         # bgd_frequency = bgd_frequencies.get(item)
-#         try:
-#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
-#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
-#             continue
-#         try:
-#             with warnings.catch_warnings():
-#                 # Cause all warnings to always be ignored
-#                 warnings.simplefilter('ignore')
-#                 try:
-#                     prob2 = bgd_frequency * log(bgd_frequency / r, 2)
-#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
-#                     prob2 = 0
-#                 sum_prob2 += prob2
-#                 try:
-#                     prob1 = frequency * log(frequency / r, 2)
-#                 except (ValueError, RuntimeWarning):  # math domain error
-#                     continue
-#                 sum_prob1 += prob1
-#         except ZeroDivisionError:  # r = 0
-#             continue
-#
-#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
-
 
 def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
                         permutations: int = 1000) -> pd.Series:
@@ -1131,6 +894,7 @@ def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size
         group1_size: Size of the observations in group1
         compare: Choose from any pandas.DataFrame attribute that collapses along a column. Other options might be median
         permutations: The number of permutations to perform
+
     Returns:
         Contains the p-value(s) of the permutation test using the 'compare' statistic against diff_s
     """
@@ -1197,8 +961,10 @@ operator_strings = {
     operator.lt: '<',
 }
 
-def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dict | str | int | float]) \
-        -> dict[str, list[Any]]:
+
+def filter_df_for_index_by_value(
+    df: pd.DataFrame, metrics: dict[str, list | dict | str | int | float]
+) -> dict[str, list[Any]]:
     """Retrieve the indices from a DataFrame which have column values passing an indicated operation threshold
 
     Args:
@@ -1206,6 +972,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
         metrics: {metric_name: [(operation (Callable), pre_operation (Callable), pre_kwargs (dict), value (Any)),], ...}
             {metric_name: 0.3, ...} OR
             {metric_name: {'direction': 'min', 'value': 0.3}, ...} to specify a sorting direction
+
     Returns:
         {metric_name: ['0001', '0002', ...], ...}
     """
@@ -1282,9 +1049,10 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
 selection_weight_column = 'selection_weight'
 
 
-def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = None, weights: dict | bool = None,
-                              protocols: str | list[str] = None, default_weight: str = 'interface_energy', **kwargs) \
-        -> pd.DataFrame:
+def prioritize_design_indices(
+    df: pd.DataFrame | AnyStr, filters: dict | bool = None, weights: dict | bool = None,
+    protocols: str | list[str] = None, default_weight: str = 'interface_energy', **kwargs
+) -> pd.DataFrame:
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
@@ -1406,7 +1174,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
     return final_df
 
 
-describe_string = '\nTo see a description of the data, enter "describe"\n'
+describe_string = "\nTo see a description of the data, enter 'describe'\n"
 describe = ['describe', 'desc', 'DESCRIBE', 'DESC', 'Describe', 'Desc']
 
 
@@ -1414,7 +1182,7 @@ def describe_data(df: pd.DataFrame = None) -> None:
     """Describe the DataFrame to STDOUT"""
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input. To see descriptions for only certain metrics, enter them here. '
-          'Otherwise, hit "Enter"')
+          "Otherwise, hit 'Enter'")
     metrics_input = input(input_string)
     chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                             repeat(' '), repeat('_'))))\
@@ -1442,6 +1210,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
         df: A DataFrame from which to use metrics (provided as columns)
         mode: The mode in which to query and format metrics information. Either 'filter' or weight'
         level: The hierarchy of selection to use. Could be one of 'poses', 'designs', or 'sequences'
+
     Returns:
         The mapping of metric name to value
     """
@@ -1511,7 +1280,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
                 while True:
                     # Todo make ability to use boolean descriptions
                     # Todo make ability to specify direction
-                    value = input(f'For "{metric}" what value should be used for {level} {mode}ing? %s{input_string}'
+                    value = input(f"For '{metric}' what value should be used for {level} {mode}ing? %s{input_string}"
                                   % ('Designs with metrics %s than this value will be included' %
                                      direction[filter_df.loc['direction', substituted_metric]].upper()
                                      if mode == "filter" else ""))
@@ -1555,6 +1324,7 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         weights: {'metric': value, ...}. If not provided, sorts by default_sort
         function: The function to use for weighting. Either 'rank' or 'normalize' is possible
         default_weight: The metric to weight the dataframe by default if no weights are provided
+
     Returns:
         A sorted pandas.Series with the best indices first in the Series.index, and the resulting optimization values
         in the corresponding value.
@@ -1610,7 +1380,8 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
                 metric_df[metric_name] = \
                     ((metric_s - metric_min) / (metric_max - metric_min)) * parameters['value']
         else:
-            raise ValueError(f"The value {function} isn't a viable choice for metric weighting 'function'")
+            raise ValueError(
+                f"The value {function} isn't a viable choice for metric weighting 'function'")
 
         if metric_df:
             logger.info('Applied weights:\n\t%s' % '\n\t'.join(utils.pretty_format_table(print_weights)))
@@ -1626,7 +1397,8 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         # return df.sort_values(default_sort, ascending=sort_direction[direction])
         return df[default_weight].sort_values(ascending=sort_direction[direction])
     else:
-        raise KeyError(f"There wasn't a metric named '{default_weight}' which was specified as the default")
+        raise KeyError(
+            f"There wasn't a metric named '{default_weight}' which was specified as the default")
 
 
 def window_function(data: Sequence[int | float], windows: Iterable[int] = None, lower: int = None,
@@ -1639,6 +1411,7 @@ def window_function(data: Sequence[int | float], windows: Iterable[int] = None, 
         windows: An iterable of window lengths to use. If a single, pass as the Iterable
         lower: The lower range of the window to operate on. "window" is inclusive of this value
         upper: The upper range of the window to operate on. "window" is inclusive of this value
+
     Returns:
         The (number of windows, length of data) array of values with each requested window along axis=0
             and the particular value of the windowed data along axis=1
@@ -1648,8 +1421,8 @@ def window_function(data: Sequence[int | float], windows: Iterable[int] = None, 
         if lower is not None and upper is not None:
             windows = list(range(lower, upper + 1))  # +1 makes inclusive in range
         else:
-            raise ValueError(f'{window_function.__name__}:'
-                             f' Must provide either window, or lower and upper')
+            raise ValueError(
+                f"{window_function.__name__}(): Must provide either 'window', or 'lower' and 'upper'")
 
     # Make an array with axis=0 equal to number of windows used, axis=1 equal to length of values
     # range_size = len(windows)
@@ -1758,6 +1531,7 @@ def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
         alphabet_type: The amino acid alphabet if seq consists of integer characters
         lower_window: The smallest window used to measure
         upper_window: The largest window used to measure
+
     Returns:
         1D array with the hydrophobic collapse index at every position on the input sequence(s)
     """
@@ -1765,16 +1539,16 @@ def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
         hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
         # hydrophobicity == 'background':  # Todo
         if not hydrophobicity_values:
-            raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it '
-                             f'should be')
+            raise ValueError(
+                f"The hydrophobicity table '{hydrophobicity}' isn't available")
     else:
         hydrophobicity_values = custom
 
     def solve_alphabet() -> sequence.alphabets_literal:
         if alphabet_type is None:
             raise ValueError(
-                f'{hydrophobic_collapse_index.__name__}: Must pass keyword "alphabet_type" when calculating '
-                f'using integer sequence values')
+                f"{hydrophobic_collapse_index.__name__}(): Must pass keyword 'alphabet_type' when calculating "
+                'using integer sequence values')
         else:
             alphabet_ = sequence.alphabet_type_to_alphabet.get(alphabet_type)
             if alphabet_ is None:
@@ -1809,7 +1583,8 @@ def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
                 sequence_array = sequence_array.sum(axis=-1)
                 # print('sequence_array', sequence_array)
             else:
-                raise ValueError(f"Can't process a {seq.ndim}-dimensional array yet")
+                raise ValueError(
+                    f"Can't process a {seq.ndim}-dimensional array yet")
         else:  # We assume it is a sequence array with bytes?
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = seq * np.vectorize(hydrophobicity_values.__getitem__)(seq)
@@ -1818,9 +1593,9 @@ def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
         # elif isinstance(sequence, Sequence):
         #     sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
     else:
-        raise ValueError(f'The provided sequence must comprise the canonical amino acid string characters or '
-                         f'integer values corresponding to numerical amino acid conversions. '
-                         f'Got type={type(seq[0]).__name__} instead')
+        raise ValueError(
+            'The provided sequence must comprise the canonical amino acid string characters or integer values '
+            f'corresponding to numerical amino acid conversions. Got type={type(seq[0]).__name__} instead')
 
     window_array = window_function(sequence_array, lower=lower_window, upper=upper_window)
 
@@ -1832,6 +1607,7 @@ def index_intersection(index_groups: Iterable[Iterable[Any]]) -> list[Any]:
 
     Args:
         index_groups: Groups of indices
+
     Returns:
         The union of all provided indices
     """
@@ -1846,7 +1622,7 @@ def index_intersection(index_groups: Iterable[Iterable[Any]]) -> list[Any]:
     return list(final_indices)
 
 
-@jit(nopython=True)  # , cache=True)
+@jit(nopython=True)
 def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
     """From sample(s), calculate the positional z-score, i.e. z-score = (sample - mean) / stdev
 
@@ -1854,11 +1630,8 @@ def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float |
         sample: An array with the sample at every position
         mean: An array with the mean at every position
         stdev: An array with the standard deviation at every position
+
     Returns:
         The z-score of every sample
     """
-    # try:
     return (sample-mean) / stdev
-    # except ZeroDivisionError:
-    #     logger.error('The passed standard deviation (stdev) was 0! z-score calculation failed')
-    #     return 0.

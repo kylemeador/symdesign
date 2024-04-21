@@ -235,48 +235,6 @@ def generate_cryst1_record(dimensions: tuple[float, float, float, float, float, 
             f"Can't {generate_cryst1_record.__name__} without passing 'dimensions'")
 
 
-def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from FragDock then Depreciate
-    asu_com_frac = cart_to_frac(pdb.center_of_mass, uc_dimensions)
-
-    # array_range = np.full(21, 1)
-    # asu_com_frac_array = array_range[:, np.newaxis] * asu_com_frac
-    shift_range = np.arange(-10, 11)
-    # shift_zeros = np.zeros(len(shift_range))
-    shift = np.array([shift_range, shift_range, shift_range]).T
-    # y_shift = np.array([shift_zeros, shift_range, shift_zeros]).T
-    # z_shift = np.array([shift_zeros, shift_zeros, shift_range]).T
-
-    asu_com_shifted_frac_array = asu_com_frac + shift
-    # asu_com_y_shifted_frac_array = asu_com_frac + y_shift
-    # asu_com_z_shifted_frac_array = asu_com_frac + z_shift
-    asu_com_shifted_cart_array = frac_to_cart(asu_com_shifted_frac_array, uc_dimensions)
-    # asu_com_y_shifted_cart_array = frac_to_cart(asu_com_y_shifted_frac_array, uc_dimensions)
-    # asu_com_z_shifted_cart_array = frac_to_cart(asu_com_z_shifted_frac_array, uc_dimensions)
-    min_shift_idx = np.abs(asu_com_shifted_cart_array).argmin(axis=0)
-    # y_min_shift_idx = abs(asu_com_y_shifted_cart_array).argmin(axis=0)[1]
-    # z_min_shift_idx = abs(asu_com_z_shifted_cart_array).argmin(axis=0)[2]
-
-    xyz_min_shift_vec_frac = asu_com_shifted_frac_array[min_shift_idx, [0, 1, 2]]
-    #                        asu_com_y_shifted_frac_array[y_min_shift_idx],
-    #                        asu_com_z_shifted_frac_array[z_min_shift_idx]]
-
-    if design_dimension == 2:
-        xyz_min_shift_vec_frac[2] = 0
-
-    if xyz_min_shift_vec_frac.sum() == 0:
-        return pdb
-    else:
-        xyz_min_shifted_pdb_asu_coords_frac = cart_to_frac(pdb.coords, uc_dimensions) + xyz_min_shift_vec_frac
-        pdb.coords = frac_to_cart(xyz_min_shifted_pdb_asu_coords_frac, uc_dimensions)
-        # xyz_min_shifted_asu_pdb = copy.copy(pdb)
-        # xyz_min_shifted_asu_pdb.set_coords(xyz_min_shifted_pdb_asu_coords_cart)
-
-        # xyz_min_shifted_cart_tx = frac_to_cart(xyz_min_shift_vec_frac, uc_dimensions)
-        # xyz_min_shifted_asu_pdb = copy.copy(pdb)
-        # xyz_min_shifted_asu_pdb.set_coords(pdb.coords + xyz_min_shifted_cart_tx)
-        # return pdb.get_transformed_copy(translation=xyz_min_shifted_cart_tx)
-        # xyz_min_shifted_asu_pdb.set_atom_coordinates(xyz_min_shifted_pdb_asu_coords_cart)
-        return pdb
 
 
 def get_ptgrp_sym_op(

@@ -34,6 +34,8 @@ SS_TURN_IDENTIFIERS = 'TS'
 SS_HELIX_IDENTIFIERS = 'H'
 SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
+default_sasa_burial_threshold = 0.25
+"""Default relative_sasa amount from Levy 2010"""
 directives = Literal[
     'special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)

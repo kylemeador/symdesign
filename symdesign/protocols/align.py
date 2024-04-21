@@ -135,6 +135,7 @@ def make_guide(n_ca_c_atoms: np.ndarray, scale: float = 1.) -> np.ndarray:
     Args:
         n_ca_c_atoms: A 'F' order (vectors as columns) array with shape (3, 3) representing N, Ca, and C coordinates
         scale: The magnitude of the guide vectors
+
     Returns:
         The guide coordinates in a
     """
@@ -241,6 +242,7 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
         joint_residue: The Residue where the bending should be applied
         direction: Specify which direction, compared to the Residue, should be bent.
             'c' bends the c-terminal residues, 'n' the n-terminal residues
+
     Returns:
         A generator which yields a transformation mapping for a single 'bending mode' upon each access
     """
@@ -290,6 +292,7 @@ def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples
         samples: How many times should the coordinates be bent
         additional_entity_ids: If there are additional Entity instances desired to be carried through bending,
             pass their Entity.name attributes
+
     Returns:
         A list of the transformed pose coordinates at the bent site
     """
@@ -350,6 +353,7 @@ def prepare_alignment_motif(
         termini: The termini to utilize
         extension_length: How many residues should the helix be extended
         alignment_length: The number of residues used to calculate overlap of the target to the ideal helix
+
     Returns:
         The original model without the selected helix and the selected helix
     """
@@ -416,7 +420,7 @@ def prepare_alignment_motif(
 # def solve_termini_start_index(secondary_structure: str, termini: termini_literal) -> int:  # tuple[int, int]:
 def get_terminal_helix_start_index_and_length(secondary_structure: str, termini: termini_literal,
                                               start_index: int = None, end_index: int = None) -> tuple[int, int]:
-    """
+    """Retrieves indices to slice residue arrays according to runs of a single secondary structure type.
 
     Args:
         secondary_structure: The secondary structure sequence of characters to search
@@ -424,6 +428,7 @@ def get_terminal_helix_start_index_and_length(secondary_structure: str, termini:
         start_index: The termini to search
         start_index: The first index in the terminal helix
         end_index: The last index in the terminal helix
+
     Returns:
         A tuple of the index from the secondary_structure argument where SS_HELIX_IDENTIFIERS begin at the provided
             termini and the length that they persist for
@@ -464,12 +469,12 @@ def get_terminal_helix_start_index_and_length(secondary_structure: str, termini:
     return start_index, alignment_length
 
 
-# @profile
 def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
-    """
+    """Aligns, then fuses separate Structure models using secondary structure motifs to search for overlaps
 
     Args:
         models: The Structure instances to be used in docking
+
     Returns:
         The PoseJob instances created as a result of fusion
     """
@@ -572,6 +577,7 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
 
         Args:
             name: The name to associate with this job
+
         Returns:
             None
         """
@@ -1185,81 +1191,8 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
 
     def terminate(pose_jobs: list[PoseJob]) -> list[PoseJob]:  # poses_df_: pd.DataFrame, residues_df_: pd.DataFrame)
         """Finalize any remaining work and return to the caller"""
-        pose_jobs = insert_pose_jobs(session, pose_jobs, project)
 
-        # # Format output data, fix missing
-        # if job.db:
-        #     pose_ids = [pose_job.id for pose_job in pose_jobs]
-        # else:
-        #     pose_ids = pose_names
-
-        # # Extract transformation parameters for output
-        # def populate_pose_metadata():
-        #     """Add all required PoseJob information to output the created Pose instances for persistent storage"""
-        #     # nonlocal poses_df_, residues_df_
-        #     # Save all pose transformation information
-        #     # From here out, the transforms used should be only those of interest for outputting/sequence design
-        #
-        #     # # Format pose transformations for output
-        #     # # Get all rotations in terms of the degree of rotation along the z-axis
-        #     # # Using the x, y rotation to enforce the degeneracy matrix...
-        #     # rotation_degrees_x, rotation_degrees_y, rotation_degrees_z = \
-        #     #     zip(*Rotation.from_matrix(rotation).as_rotvec(degrees=True).tolist())
-        #     #
-        #     # blank_parameter = [None, None, None]
-        #     # if sym_entry.is_internal_tx1:
-        #     #     # nonlocal full_int_tx1
-        #     #     if len(full_int_tx1) > 1:
-        #     #         full_int_tx1 = full_int_tx1.squeeze()
-        #     #     z_height1 = full_int_tx1[:, -1]
-        #     # else:
-        #     #     z_height1 = blank_parameter
-        #     #
-        #     # set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
-        #     # # if sym_entry.unit_cell:
-        #     # #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
-        #     # #     full_ext_tx1 = full_ext_tx1[:]
-        #     # #     full_ext_tx2 = full_ext_tx2[:]
-        #     # #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-        #     # external_translation_x, external_translation_y, external_translation_z = \
-        #     #     blank_parameter if ext_translation is None else ext_translation
-        #
-        #     # Update the sql.EntityData with transformations
-        #     # for idx, pose_job in enumerate(pose_jobs):
-        #     #     # Update sql.EntityData, sql.EntityMetrics, sql.EntityTransform
-        #     #     # pose_id = pose_job.id
-        #
-        #
-        #     # if job.db:
-        #     #     # Update the poses_df_ and residues_df_ index to reflect the new pose_ids
-        #     #     poses_df_.index = pd.Index(pose_ids, name=sql.PoseMetrics.pose_id.name)
-        #     #     # Write dataframes to the sql database
-        #     #     metrics.sql.write_dataframe(session, poses=poses_df_)
-        #     #     output_residues = False
-        #     #     if output_residues:  # Todo job.metrics.residues
-        #     #         residues_df_.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
-        #     #         metrics.sql.write_dataframe(session, pose_residues=residues_df_)
-        #     # else:  # Write to disk
-        #     #     residues_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
-        #     #     os.makedirs(job.all_scores, exist_ok=True)
-        #     #     residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
-        #     #     residues_df_.to_csv(residue_metrics_csv)
-        #     #     logger.info(f'Wrote residue metrics to {residue_metrics_csv}')
-        #     #     trajectory_metrics_csv = \
-        #     #         os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
-        #     #     job.dataframe = trajectory_metrics_csv
-        #     #     poses_df_ = pd.concat([poses_df_], keys=[('dock', 'pose')], axis=1)
-        #     #     poses_df_.columns = poses_df_.columns.swaplevel(0, 1)
-        #     #     poses_df_.sort_index(level=2, axis=1, inplace=True, sort_remaining=False)
-        #     #     poses_df_.sort_index(level=1, axis=1, inplace=True, sort_remaining=False)
-        #     #     poses_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-        #     #     poses_df_.to_csv(trajectory_metrics_csv)
-        #     #     logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
-        #
-        # # Populate the database with pose information. Has access to nonlocal session
-        # populate_pose_metadata()
-
-        return pose_jobs
+        return insert_pose_jobs(session, pose_jobs, project)
 
     with job.db.session(expire_on_commit=False) as session:
         pose_jobs = terminate(pose_jobs)  # , poses_df, residues_df)

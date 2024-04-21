@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache
 from json import dumps, load
-from typing import Annotated, Any, get_args, Literal
+from typing import Any, get_args, Literal
 
 import requests
 

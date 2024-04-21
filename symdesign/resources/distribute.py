@@ -10,7 +10,7 @@ from collections.abc import Iterable, Sequence
 from typing import AnyStr, Literal, get_args
 
 from symdesign import flags
-from symdesign.utils import collect_designs, InputError, path as putils
+from symdesign.utils import InputError, path as putils, to_iterable
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -151,10 +151,10 @@ def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
     # Automatically detect if the commands file has executable scripts or errors
     if directives is None:
         if file is None:
-            raise ValueError(f"Must pass either 'directives' or 'file'. Neither were passed")
+            raise ValueError("Must pass either 'directives' or 'file'")
         else:
-            # Use collect_designs to get commands from the provided file
-            scripts, _ = collect_designs(files=[file])
+            # Get commands from the provided file
+            directives = to_iterable(file, ensure_file=True)
 
     # Check if the file lines (commands) contain a script or a command
     first_directive, *remaining_directives = directives

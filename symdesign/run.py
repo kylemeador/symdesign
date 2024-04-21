@@ -45,9 +45,6 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
         uniprot_entities: All UniProtEntity instances which should be checked for evolutionary info
         metadata: The ProteinMetadata instances that are being imported for the first time
         batch_commands: Whether commands should be made for batch submission
-
-    Returns:
-        The processed structures
     """
 
     def check_if_script_and_exit(messages: list[str]):
@@ -291,8 +288,9 @@ def destruct_factories():
     # factories = [JobResourcesFactory, ProteinMPNNFactory, APIDatabaseFactory, SymEntryFactory,
     #              FragmentDatabaseFactory, EulerLookupFactory, StructureDatabaseFactory]
     from symdesign.structure.fragment.db import fragment_factory, euler_factory
-    factories = [job_resources_factory, ml.proteinmpnn_factory, wrapapi.api_database_factory, utils.SymEntry.symmetry_factory,
-                 fragment_factory, euler_factory, structure_db.structure_database_factory]
+    factories = [job_resources_factory, ml.proteinmpnn_factory, wrapapi.api_database_factory,
+                 utils.SymEntry.symmetry_factory, fragment_factory, euler_factory,
+                 structure_db.structure_database_factory]
     for factory in factories:
         factory.destruct()
 
@@ -345,16 +343,6 @@ def main():
                 for path in paths:
                     name, project, *_ = reversed(path.split(os.sep))
                     pose_identifiers.append(f'{project}{os.sep}{name}')
-            # elif args.project:
-            #     job.location = args.project
-            #     projects = [os.path.basename(project) for project in args.project]
-            #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-            # else:  # args.single:
-            #     job.location = args.project
-            #     singles = [os.path.basename(single) for single in args.project]
-            #     for single in singles:
-            #         name, project, *_ = reversed(single.split(os.sep))
-            #         pose_identifiers.append(f'{project}{os.sep}{name}')
         if not pose_identifiers:
             raise utils.InputError(
                 f"No pose identifiers found from input location '{job.location}'")
@@ -597,12 +585,6 @@ def main():
         utils.print_readme()
         sys.exit()
 
-    #  ---------------------------------------------------
-    #  elif args.flags:  # Todo
-    #      if args.template:
-    #          flags.query_user_for_flags(template=True)
-    #      else:
-    #          flags.query_user_for_flags(mode=args.flags_module)
     #  ---------------------------------------------------
     #  elif args.residue_selector:  # Todo
     #      def generate_sequence_template(file):
@@ -1481,8 +1463,7 @@ def main():
             # Todo
             #  Set up a job based data acquisition as this takes awhile and loading scope isn't clear or even necessary
             logger.debug('Loading Database for multiprocessing fork')
-            job.structure_db.load_all_data()
-            job.api_db.load_all_data()
+            job.load_mp_data()
 
         # Todo
         #  f'Found {len(pose_jobs)}...' not accurate with select_from_directory
@@ -1654,10 +1635,11 @@ def main():
                                f'{flags.format_args(flags.directory_args)}')
                 sys.exit(1)
 
+            files = Path(file_dir).glob('*.pdb')
             if args.order == 'alphabetical':
-                files = utils.get_directory_file_paths(file_dir, extension='.pdb')
+                files = sorted(files, key=lambda p: p.stem)
             else:
-                files = utils.get_directory_file_paths(file_dir, extension='.pdb', sort=False)
+                files = list(files)
 
             if not files:
                 logger.warning(f"No .pdb files found at location '{job.location}'")
@@ -1676,8 +1658,7 @@ def main():
                 ordered_files = []
                 for index in df.index:
                     for file in files:
-                        # if index in file:
-                        if os.path.splitext(os.path.basename(file))[0] in index:
+                        if file.stem in index:
                             ordered_files.append(file)
                             break
                 # logger.debug('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
@@ -1690,9 +1671,9 @@ def main():
 
             for idx, file in enumerate(job.get_range_slice(files), start_idx):
                 if args.name == 'original':
-                    cmd.load(file)
+                    cmd.load(str(file))
                 else:  # if args.name == 'numerical':
-                    cmd.load(file, object=idx)
+                    cmd.load(str(file), object=idx)
 
             logger.info('To expand all designs to the proper symmetry, issue:\n'
                         'PyMOL> expand name=all, symmetry=T\n'
