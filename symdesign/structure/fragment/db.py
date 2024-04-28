@@ -355,74 +355,6 @@ class FragmentDatabase(info.FragmentInfo):
         return self
 
 
-class FragmentDatabaseFactory:
-    """Return a FragmentDatabase instance by calling the Factory instance with the FragmentDatabase source name
-
-    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
-    allocating a shared pointer to the named FragmentDatabase
-    """
-    def __init__(self, **kwargs):
-        self._databases = {}
-
-    def destruct(self, **kwargs):
-        pass
-        self._databases = {}
-
-    def __call__(
-        self, source: str = biological_interfaces, token: int = None, **kwargs
-    ) -> FragmentDatabase | None:
-        """Return the specified FragmentDatabase object singleton
-
-        Args:
-            source: The FragmentDatabase source name
-            token: Provide the initialization token to skip construction
-        Returns:
-            The instance of the specified FragmentDatabase
-        """
-        fragment_db = self._databases.get(source)
-        if fragment_db:
-            return fragment_db
-        elif source == biological_interfaces:
-            if token == RELOAD_DB:
-                return None
-            try:
-                fragment_db = utils.unpickle(biological_fragment_db_pickle)
-            except (ModuleNotFoundError, FileNotFoundError):
-                from .resources.pickle_database import main as pickle_deps
-                logger.warning("Creating the fragment database from files. This is a one time build...")
-                pickle_deps()
-                fragment_db = utils.unpickle(biological_fragment_db_pickle)
-        else:
-            fragment_db = FragmentDatabase(source=source, **kwargs)
-
-        logger.info(f'Initializing {FragmentDatabase.__name__}({source})')
-        # Attach the EulerLookup singleton
-        fragment_db.euler_lookup = euler_factory()
-
-        self._databases[source] = fragment_db
-        return self._databases[source]
-
-    def get(self, **kwargs) -> FragmentDatabase:
-        """Return the specified FragmentDatabase object singleton
-
-        Keyword Args:
-            source: str = putils.biological_interfaces - The FragmentDatabase source name
-            token: int = None - Provide the initialization token to skip construction
-
-        Returns:
-            The instance of the specified FragmentDatabase
-        """
-        return self.__call__(**kwargs)
-
-
-fragment_factory: Annotated[FragmentDatabaseFactory,
-                            'Calling this factory method returns the single instance of the FragmentDatabase class '
-                            'containing fragment information specified by the "source" keyword argument'] = \
-    FragmentDatabaseFactory()
-"""Calling this factory method returns the single instance of the FragmentDatabase class containing fragment information
- specified by the "source" keyword argument"""
-
-
 def nanohedra_fragment_match_score(per_residue_match_scores: Iterable[Iterable[float]]) -> float:
     """Calculate the Nanohedra score from a dictionary with the 'center' residues and 'match_scores'
 
@@ -854,45 +786,82 @@ class EulerLookup:
         return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
 
 
-class EulerLookupFactory:
+class EulerLookupFactory(utils.factory.SingletonABC):
     """Return an EulerLookup instance by calling the Factory instance
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
     allocating a shared pointer
     """
 
-    def __init__(self, **kwargs):
-        self._lookup_tables = {}
-
     def destruct(self, **kwargs):
         pass
-        # self._lookup_tables = {}
+        # self._singleton = None
 
     def __call__(self, **kwargs) -> EulerLookup:
-        """Return the specified EulerLookup object singleton
+        """Returns the EulerLookup singleton
 
         Returns:
             The instance of the specified EulerLookup
         """
-        lookup = self._lookup_tables.get('euler')
-        if lookup:
-            return lookup
-        else:
+        if self._singleton is None:
             logger.info(f'Initializing {EulerLookup.__name__}()')
-            self._lookup_tables['euler'] = EulerLookup(**kwargs)
+            self._singleton = EulerLookup(**kwargs)
 
-        return self._lookup_tables['euler']
-
-    def get(self, **kwargs) -> EulerLookup:
-        """Return the specified EulerLookup object singleton
-
-        Returns:
-            The instance of the specified EulerLookup
-        """
-        return self.__call__(**kwargs)
+        return self._singleton
 
 
 euler_factory: Annotated[EulerLookupFactory,
                          'Calling this factory method returns the single instance of the EulerLookup class'] = \
     EulerLookupFactory()
 """Calling this factory method returns the single instance of the EulerLookup class"""
+
+
+class FragmentDatabaseFactory(utils.factory.FactoryABC):
+    """Return a FragmentDatabase instance by calling the Factory instance with the FragmentDatabase source name
+
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer to the named FragmentDatabase
+    """
+
+    def __call__(
+        self, source: str = biological_interfaces, token: int = None, **kwargs
+    ) -> FragmentDatabase | None:
+        """Return the specified FragmentDatabase object singleton
+
+        Args:
+            source: The FragmentDatabase source name
+            token: Provide the initialization token to return None
+
+        Returns:
+            The instance of the specified FragmentDatabase or None
+        """
+        fragment_db = self._instances.get(source)
+        if fragment_db is None:
+            if token == RELOAD_DB:
+                return None
+            elif source == biological_interfaces:
+                try:
+                    fragment_db = utils.unpickle(biological_fragment_db_pickle)
+                except (ModuleNotFoundError, FileNotFoundError):
+                    from .resources.pickle_database import main as pickle_deps
+                    logger.warning("Creating the fragment database from files. This is a one time build...")
+                    pickle_deps()
+                    fragment_db = utils.unpickle(biological_fragment_db_pickle)
+            else:
+                fragment_db = FragmentDatabase(source=source, **kwargs)
+
+            logger.info(f'Initializing {FragmentDatabase.__name__}({source})')
+            # Attach the EulerLookup singleton
+            fragment_db.euler_lookup = euler_factory()
+
+            self._instances[source] = fragment_db
+
+        return fragment_db
+
+
+fragment_factory: Annotated[FragmentDatabaseFactory,
+                            'Calling this factory method returns the single instance of the FragmentDatabase class '
+                            'containing fragment information specified by the "source" keyword argument'] = \
+    FragmentDatabaseFactory()
+"""Calling this factory method returns the single instance of the FragmentDatabase class containing fragment information
+ specified by the "source" keyword argument"""

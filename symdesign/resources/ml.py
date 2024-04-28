@@ -315,22 +315,17 @@ class _ProteinMPNN(ProteinMPNN):
         return f'{self.__class__.__name__}({self.model_name})'
 
 
-class ProteinMPNNFactory:
+class ProteinMPNNFactory(utils.factory.FactoryABC):
     """Return a ProteinMPNN instance by calling the Factory instance with the ProteinMPNN model name
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
     allocating a shared pointer to the named ProteinMPNN model
     """
-    def __init__(self, **kwargs):
-        self._models = {}
-
-    def destruct(self, **kwargs):
-        self._models = {}
 
     def __call__(
         self, model_name: str = 'v_48_020', backbone_noise: float = 0., ca_only: bool = False, **kwargs
     ) -> ProteinMPNN:
-        """Return the specified ProteinMPNN object singleton
+        """Returns the specified ProteinMPNN singleton
 
         Args:
             model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
@@ -355,7 +350,7 @@ class ProteinMPNNFactory:
             required_memory = vanilla_model_memory
 
         model_name_key = f'{model_name}{ca}_{backbone_noise}'
-        model = self._models.get(model_name_key)
+        model = self._instances.get(model_name_key)
         if model:
             return model
         else:  # Create a new ProteinMPNN model instance
@@ -409,22 +404,9 @@ class ProteinMPNNFactory:
             # number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
             # logger.debug(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
-            self._models[model_name_key] = model
+            self._instances[model_name_key] = model
 
         return model
-
-    def get(self, **kwargs) -> ProteinMPNN:
-        """Return the specified ProteinMPNN object singleton
-
-        Keyword Args:
-            model_name - str = 'v_48_020' - The name of the model to use from ProteinMPNN.
-                v_X_Y where X is neighbor distance, and Y is noise
-            backbone_noise - float = 0.0 - The amount of backbone noise to add to the pose during design
-
-        Returns:
-            The instance of the initialized ProteinMPNN model
-        """
-        return self.__call__(**kwargs)
 
 
 proteinmpnn_factory: Annotated[ProteinMPNNFactory,

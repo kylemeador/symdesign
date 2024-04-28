@@ -286,7 +286,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             self.thermophilicity: bool
         """
         entity_id = self.entity_id
-        retrieve_api_info = api_database_factory().pdb.retrieve_data
+        retrieve_api_info = api_database_factory.get().pdb.retrieve_data
         api_return = retrieve_api_info(entity_id=entity_id)
         """Get the data on it's own since retrieve_api_info returns
         {'EntityID':
@@ -1976,7 +1976,7 @@ class ContainsEntities(ContainsChains):
                             'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 }
         """
-        retrieve_api_info = api_database_factory().pdb.retrieve_data
+        retrieve_api_info = api_database_factory.get().pdb.retrieve_data
 
         # if self.name:  # Try to solve API details from name
         parsed_name = self.name
@@ -2173,7 +2173,7 @@ class ContainsEntities(ContainsChains):
             self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
             entity_api_entry = {}
-            retrieve_api_info = api_database_factory().pdb.retrieve_data
+            retrieve_api_info = api_database_factory.get().pdb.retrieve_data
 
             for entity_name, data in self.entity_info.items():
                 # update_entity_info_from_api(new_entity_name)

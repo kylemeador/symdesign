@@ -72,7 +72,7 @@ def load_evolutionary_profile(model: ContainsEntities, warn_metrics: bool = Fals
         A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
             the Entity instances
     """
-    api_db = resources.wrapapi.api_database_factory()
+    api_db = resources.wrapapi.api_database_factory.get()
     # Assume True given this function call and set False if not possible for one of the Entities
     measure_evolution = measure_alignment = True
     warn = False
@@ -174,7 +174,7 @@ def load_bmdca(model: ContainsEntities, sequences_by_entity: list[dict[str, str]
     Returns:
         Array of per-residue DCA energies for each Entity instance, concatenated into one array
     """
-    api_db = resources.wrapapi.api_database_factory()
+    api_db = resources.wrapapi.api_database_factory.get()
 
     dca_design_residues_concat = []
     dca_background_energies, dca_design_energies = {}, {}

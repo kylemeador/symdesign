@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Annotated, AnyStr
 
@@ -15,129 +14,11 @@ from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, 
     parse_entry_json, thermophilic_taxonomy_ids, thermophilicity_from_entity_json
 from .query.uniprot import query_uniprot
 from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
-from symdesign.utils import path as putils
+from symdesign.utils import factory
 # from symdesign.dependencies import bmdca
 
 # Globals
 logger = logging.getLogger(__name__)
-
-
-class APIDatabase(Database):
-    """A Database which stores general API queries"""
-    def __init__(self, sequences: AnyStr | Path = None,
-                 hhblits_profiles: AnyStr | Path = None, pdb: AnyStr | Path = None,
-                 uniprot: AnyStr | Path = None, **kwargs):
-        """Construct the instance
-
-        Args:
-            sequences: The path the data stored for these particular queries
-            hhblits_profiles: The path the data stored for these particular queries
-            pdb: The path the data stored for these particular queries
-            uniprot: The path the data stored for these particular queries
-            **kwargs:
-        """
-        # passed to Database
-        # sql: sqlite = None, log: Logger = logger
-        super().__init__(**kwargs)  # Database
-
-        self.sequences = DataStore(location=sequences, extension='.fasta', sql=self.sql, log=self.log,
-                                   load_file=read_fasta_file, save_file=write_sequence_to_fasta)
-        # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
-        #  load_file = MultipleSequenceAlignment.from_fasta
-        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=self.sql, log=self.log,
-                                    load_file=MultipleSequenceAlignment.from_stockholm)
-        # if extension == '.pssm':  # Todo for psiblast
-        #  load_file = parse_pssm
-        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=self.sql, log=self.log,
-                                          load_file=parse_hhblits_pssm)
-        self.pdb = PDBDataStore(location=pdb, extension='.json', sql=self.sql, log=self.log)
-        self.uniprot = UniProtDataStore(location=uniprot, extension='.json', sql=self.sql, log=self.log)
-        # self.bmdca_fields = \
-        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep,
-        #     sql=self.sql, log=self.log)
-        #  elif extension == f'_bmDCA{os.sep}parameters_h_final.bin':
-        #      self.load_file = bmdca.load_fields
-        #      self.save_file = not_implemented
-        # self.bmdca_couplings = \
-        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_J_final.bin' % os.sep,
-        #     sql=self.sql, log=self.log)
-        #  elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
-        #      self.load_file = bmdca.load_couplings
-        #      self.save_file = not_implemented
-
-        self.sources = [self.sequences, self.alignments, self.hhblits_profiles, self.pdb, self.uniprot]
-
-
-class APIDatabaseFactory:
-    """Return a APIDatabase instance by calling the Factory instance with the APIDatabase source name
-
-    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
-    allocating a shared pointer to the named APIDatabase
-    """
-
-    def __init__(self, **kwargs):
-        self._database = None
-
-    def destruct(self, **kwargs):
-        self._database = None
-
-    def __call__(self, source: str = os.path.join(os.getcwd(), f'{putils.program_name}{putils.data.title()}'),
-                 sql: bool = False, **kwargs) -> APIDatabase:
-        """Return the specified APIDatabase object singleton
-
-        Args:
-            source: The APIDatabase source path, or name if SQL database
-            sql: Whether the APIDatabase is a SQL database
-        Returns:
-            The instance of the specified Database
-        """
-        # Todo potentially configure, however, we really only want a single database
-        # database = self._databases.get(source)
-        # if database:
-        #     return database
-        if self._database:
-            return self._database
-        elif sql:
-            raise NotImplementedError('SQL set up has not been completed!')
-        else:
-            sequence_info_dir = os.path.join(source, 'SequenceInfo')
-            external_db = os.path.join(source, 'ExternalDatabases')
-            # sequence_info subdirectories
-            sequences = os.path.join(sequence_info_dir, 'sequences')
-            profiles = os.path.join(sequence_info_dir, 'profiles')
-            os.makedirs(sequences, exist_ok=True)
-            os.makedirs(profiles, exist_ok=True)
-            # external database subdirectories
-            pdb = os.path.join(external_db, 'pdb')
-            os.makedirs(pdb, exist_ok=True)
-            uniprot = os.path.join(external_db, 'uniprot')
-            os.makedirs(uniprot, exist_ok=True)
-            # self._databases[source] = APIDatabase(sequences, profiles, pdb, uniprot, sql=None)
-            self._database = APIDatabase(sequences, profiles, pdb, uniprot, sql=None)
-
-        # return self._databases[source]
-        return self._database
-
-    def get(self, **kwargs) -> APIDatabase:
-        """Return the specified APIDatabase object singleton
-
-        Keyword Args:
-            source: str = 'current_working_directory/Data' - The APIDatabase source path, or name if SQL database
-            sql: bool = False - Whether the Database is a SQL database
-
-        Returns:
-            The instance of the specified Database
-        """
-        return self.__call__(**kwargs)
-
-
-api_database_factory: Annotated[APIDatabaseFactory,
-                                'Calling this factory method returns the single instance of the Database class located'
-                                ' at the "source" keyword argument'] = \
-    APIDatabaseFactory()
-"""Calling this factory method returns the single instance of the Database class located at the "source" keyword 
-argument
-"""
 
 
 # class EntityDataStore(DataStore):
@@ -425,6 +306,99 @@ class UniProtDataStore(DataStore):
         return 0.0  # False
 
 
+class APIDatabase(Database):
+    """A Database which stores general API queries"""
+
+    def __init__(self, sequences: AnyStr | Path = None,
+                 hhblits_profiles: AnyStr | Path = None, pdb: AnyStr | Path = None,
+                 uniprot_path: AnyStr | Path = None, **kwargs):
+        """Construct the instance
+
+        Args:
+            sequences: The path the data stored for these particular queries
+            hhblits_profiles: The path the data stored for these particular queries
+            pdb: The path the data stored for these particular queries
+            uniprot_path: The path the data stored for these particular queries
+            **kwargs:
+        """
+        # passed to Database
+        # sql: sqlite = None, log: Logger = logger
+        super().__init__(**kwargs)  # Database
+
+        self.sequences = DataStore(location=sequences, extension='.fasta', sql=self.sql, log=self.log,
+                                   load_file=read_fasta_file, save_file=write_sequence_to_fasta)
+        # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
+        #  load_file = MultipleSequenceAlignment.from_fasta
+        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=self.sql, log=self.log,
+                                    load_file=MultipleSequenceAlignment.from_stockholm)
+        # if extension == '.pssm':  # Todo for psiblast
+        #  load_file = parse_pssm
+        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=self.sql, log=self.log,
+                                          load_file=parse_hhblits_pssm)
+        self.pdb = PDBDataStore(location=pdb, extension='.json', sql=self.sql, log=self.log)
+        self.uniprot = UniProtDataStore(location=uniprot_path, extension='.json', sql=self.sql, log=self.log)
+        # self.bmdca_fields = \
+        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep,
+        #     sql=self.sql, log=self.log)
+        #  elif extension == f'_bmDCA{os.sep}parameters_h_final.bin':
+        #      self.load_file = bmdca.load_fields
+        #      self.save_file = not_implemented
+        # self.bmdca_couplings = \
+        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_J_final.bin' % os.sep,
+        #     sql=self.sql, log=self.log)
+        #  elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
+        #      self.load_file = bmdca.load_couplings
+        #      self.save_file = not_implemented
+
+        self.sources = [self.sequences, self.alignments, self.hhblits_profiles, self.pdb, self.uniprot]
+
+
+class APIDatabaseFactory(factory.SingletonABC):
+    """Return a APIDatabase instance by calling the Factory instance with the APIDatabase source name
+
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer to the named APIDatabase
+    """
+
+    def __call__(self, source: str = None, sql: bool = False, **kwargs) -> APIDatabase:
+        """Returns the APIDatabase singleton
+
+        Args:
+            source: The APIDatabase source path, or name if SQL database
+            sql: Whether the APIDatabase is a SQL database
+
+        Returns:
+            The instance of the specified Database
+        """
+        if self._singleton is None:
+            if sql:
+                raise NotImplementedError('SQL set up has not been completed!')
+            if source is None:
+                raise ValueError("The argument 'source' is required to instantiate this singleton")
+            # Evolutionary information subdirectories
+            sequence_info_dir = Path(source, 'SequenceInfo')
+            sequences_path = sequence_info_dir / 'sequences'
+            profiles_path = sequence_info_dir / 'profiles'
+            sequences_path.mkdir(parents=True, exist_ok=True)
+            profiles_path.mkdir(parents=True, exist_ok=True)
+            # External database subdirectories
+            external_db = Path(source, 'ExternalDatabases')
+            pdb_path = external_db / 'pdb'
+            pdb_path.mkdir(parents=True, exist_ok=True)
+            uniprot_path = external_db / 'uniprot'
+            uniprot_path.mkdir(parents=True, exist_ok=True)
+            self._singleton = APIDatabase(sequences_path, profiles_path, pdb_path, uniprot_path, sql=None)
+
+        return self._singleton
+
+
+api_database_factory: Annotated[APIDatabaseFactory,
+                                'Calling this factory method returns the single instance of the Database class located'
+                                ' at the "source" keyword argument'] = \
+    APIDatabaseFactory()
+"""Calling this factory method returns the single instance of the Database class located at the "source" keyword 
+argument
+"""
 uniprot_accession_length = 10
 
 
@@ -453,7 +427,7 @@ class UniProtEntity(sql.Base):
         try:
             return self._reference_sequence
         except AttributeError:
-            api_db = api_database_factory()
+            api_db = api_database_factory.get()
             response_json = api_db.uniprot.retrieve_data(name=self.id)
             if response_json is not None:
                 sequence = response_json.get('sequence')

@@ -1094,18 +1094,13 @@ class CrystSymEntry(SymEntry):
 CrystRecord = CrystSymEntry(space_group='P1')
 
 
-class SymEntryFactory:
+class SymEntryFactory(utils.factory.FactoryABC):
     """Return a SymEntry instance by calling the Factory instance with the SymEntry entry number and symmetry map
     (sym_map)
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
     allocating a shared pointer to the SymEntry
     """
-    def __init__(self, **kwargs):
-        self._entries = {}
-
-    def destruct(self, **kwargs):
-        self._entries = {}
 
     def __call__(self, entry: int, sym_map: list[str] = None, **kwargs) -> SymEntry:
         """Return the specified SymEntry object singleton
@@ -1113,6 +1108,7 @@ class SymEntryFactory:
         Args:
             entry: The entry number
             sym_map: The particular mapping of the symmetric groups
+
         Returns:
             The instance of the specified SymEntry
         """
@@ -1126,11 +1122,11 @@ class SymEntryFactory:
             return CrystSymEntry(sym_map=sym_map, **kwargs)
 
         entry_key = f'{entry}|{sym_map_string}'
-        symmetry = self._entries.get(entry_key)
+        symmetry = self._instances.get(entry_key)
         if symmetry:
             return symmetry
         else:
-            self._entries[entry_key] = sym_entry = SymEntry(entry, sym_map=sym_map, **kwargs)
+            self._instances[entry_key] = sym_entry = SymEntry(entry, sym_map=sym_map, **kwargs)
             return sym_entry
 
     def get(self, entry: int, sym_map: list[str] = None, **kwargs) -> SymEntry:
@@ -1139,6 +1135,7 @@ class SymEntryFactory:
         Args:
             entry: The entry number
             sym_map: The particular mapping of the symmetric groups
+
         Returns:
             The instance of the specified SymEntry
         """

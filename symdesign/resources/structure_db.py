@@ -25,7 +25,7 @@ from symdesign.structure.coordinates import superposition3d
 from symdesign.structure import ContainsEntities, Entity, Pose, Structure
 from symdesign.utils.SymEntry import SymEntry, sdf_lookup
 from symdesign.utils.symmetry import CRYST
-from symdesign.utils import rosetta, starttime, symmetry, to_iterable, path as putils
+from symdesign.utils import factory, rosetta, starttime, symmetry, to_iterable, path as putils
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
@@ -1089,33 +1089,29 @@ class StructureDatabase(Database):
         return info_messages
 
 
-class StructureDatabaseFactory:
+class StructureDatabaseFactory(factory.SingletonABC):
     """Return a StructureDatabase instance by calling the Factory instance with the StructureDatabase source name
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
     allocating a shared pointer to the named StructureDatabase
     """
 
-    def __init__(self, **kwargs):
-        self._database = None
-
-    def destruct(self, **kwargs):
-        self._database = None
-
     def __call__(self, source: str = None, sql: bool = False, **kwargs) -> StructureDatabase:
-        """Return the specified StructureDatabase object singleton
+        """Returns the StructureDatabase singleton
 
         Args:
             source: The StructureDatabase source path, or name if SQL database
             sql: Whether the StructureDatabase is a SQL database
+
         Returns:
             The instance of the specified StructureDatabase
         """
-        if self._database:
-            return self._database
-        elif sql:
-            raise NotImplementedError('SQL set up has not been completed')
-        else:
+        if self._singleton is None:
+            if sql:
+                raise NotImplementedError('SQL set up has not been completed')
+            elif source is None:
+                raise ValueError(
+                    f"Couldn't initialize the {StructureDatabase.__name__} without a 'source' argument")
             pdb_dir = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(source, 'stride')
@@ -1131,22 +1127,10 @@ class StructureDatabaseFactory:
             os.makedirs(full_model_dir, exist_ok=True)
             logger.info(f'Initializing {StructureDatabase.__name__}({source})')
 
-            self._database = \
+            self._singleton = \
                 StructureDatabase(pdb_dir, full_model_dir, orient_dir, orient_asu_dir, refine_dir, stride_dir, sql=None)
 
-        return self._database
-
-    def get(self, source: str = None, **kwargs) -> StructureDatabase:
-        """Return the specified Database object singleton
-
-        Keyword Args:
-            source: str = None - The StructureDatabase source path, or name if SQL database
-            sql: bool = False - Whether the StructureDatabase is a SQL database
-
-        Returns:
-            The instance of the specified StructureDatabase
-        """
-        return self.__call__(source, **kwargs)
+        return self._singleton
 
 
 structure_database_factory: Annotated[StructureDatabaseFactory,

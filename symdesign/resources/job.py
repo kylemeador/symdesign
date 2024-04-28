@@ -23,7 +23,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from . import config, distribute, sql, structure_db, wrapapi
 from symdesign import flags, guide, sequence, structure, utils
 from symdesign.sequence import hhblits
-from symdesign.utils import SymEntry, path as putils
+from symdesign.utils import factory, SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
 gb_divisior = 1_000_000_000
@@ -324,14 +324,14 @@ class JobResources:
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
         self.all_scores = os.path.join(self.program_root, 'AllScores')
 
-        self.api_db = wrapapi.api_database_factory.get(source=self.data)
-        self.sequences = self.api_db.sequences.location
-        self.profiles = self.api_db.hhblits_profiles.location
-        self.pdb_api = self.api_db.pdb.location
-        self.uniprot_api = self.api_db.uniprot.location
+        api_db = wrapapi.api_database_factory(source=self.data)
+        self.sequences = api_db.sequences.location
+        self.profiles = api_db.hhblits_profiles.location
+        self.pdb_api = api_db.pdb.location
+        self.uniprot_api = api_db.uniprot.location
         # data subdirectories
         self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
-        self.structure_db = structure_db.structure_database_factory.get(
+        self.structure_db = structure_db.structure_database_factory(
             source=os.path.join(self.data, 'StructureInfo'))
         self.pdb_dir = self.structure_db.models.location  # Used to store downloaded PDB's
         # pdb_dir subdirectories
@@ -342,7 +342,6 @@ class JobResources:
         self.stride_db_dir = self.structure_db.stride.location
 
         # Set the job instance on these db objects
-        self.api_db.job = self
         self.structure_db.job = self
         self.fragment_source = kwargs.get(flags.fragment_source.as_attr())
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
@@ -1208,7 +1207,7 @@ class JobResources:
     def load_mp_data(self):
         """Loads all data desired for multiprocessing split"""
         self.structure_db.load_all_data()
-        self.api_db.load_all_data()
+        wrapapi.api_database_factory.get().load_all_data()
 
     @staticmethod
     def can_process_evolutionary_profiles() -> bool:
@@ -1249,69 +1248,72 @@ class JobResources:
         if not putils.uniclust_db:
             # No database has been set up
             logger.warning(f"Couldn't locate a compatible database to run hhblits. Skipping evolutionary acquisition")
-        elif uniprot_entities is not None:
-            for uniprot_entity in uniprot_entities:
-                evolutionary_profile_file = self.api_db.hhblits_profiles.retrieve_file(name=uniprot_entity.id)
-                if not evolutionary_profile_file:
-                    hhblits_cmds.append(hhblits(uniprot_entity.id,
-                                                sequence=uniprot_entity.reference_sequence,
-                                                out_dir=self.profiles, threads=self.threads,
-                                                return_command=True))
-                    msa_file = None
-                else:
-                    msa_file = self.api_db.alignments.retrieve_file(name=uniprot_entity.id)
-
-                if not msa_file:
-                    if not os.access(putils.reformat_msa_exe_path, os.X_OK):
-                        logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
-                        # raise RuntimeError(
-                        #     f"Couldn't locate the {putils.reformat_msa_exe_path} executable. Ensure the executable "
-                        #     "exists then try your job again. Otherwise, use the argument "
-                        #     f'{flags.use_evolution.as_no_long()} OR set up hhblits to run.'
-                        #     f'{guide.hhblits_setup_instructions}')
+        else:
+            api_db = wrapapi.api_database_factory.get()
+            if uniprot_entities is not None:
+                for uniprot_entity in uniprot_entities:
+                    evolutionary_profile_file = api_db.hhblits_profiles.retrieve_file(name=uniprot_entity.id)
+                    if not evolutionary_profile_file:
+                        hhblits_cmds.append(hhblits(uniprot_entity.id,
+                                                    sequence=uniprot_entity.reference_sequence,
+                                                    out_dir=self.profiles, threads=self.threads,
+                                                    return_command=True))
+                        msa_file = None
                     else:
-                        sto_cmd = [
-                            putils.reformat_msa_exe_path, 'a3m', 'sto',
-                            f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.sto', '-num', '-uc']
-                        fasta_cmd = [
-                            putils.reformat_msa_exe_path, 'a3m', 'fas',
-                            f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.fasta', '-M', 'first', '-r']
-                        msa_cmds.extend([sto_cmd, fasta_cmd])
+                        msa_file = api_db.alignments.retrieve_file(name=uniprot_entity.id)
 
-        elif entities is not None:
-            raise NotImplementedError(
-                f'Currently must use {wrapapi.UniProtEntity.__class__.__name__} in '
-                f'{self.process_evolutionary_info.__name__}'
-            )
-            for entity in entities:
-                evolutionary_profile_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-                if not evolutionary_profile_file:
-                    sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
-                    if not sequence_file:
-                        sequence_file = entity.write_sequence_to_fasta(out_dir=self.sequences)
+                    if not msa_file:
+                        if not os.access(putils.reformat_msa_exe_path, os.X_OK):
+                            logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
+                            # raise RuntimeError(
+                            #     f"Couldn't locate the {putils.reformat_msa_exe_path} executable. Ensure the "
+                            #     "executable exists then try your job again. Otherwise, use the argument "
+                            #     f'{flags.use_evolution.as_no_long()} OR set up hhblits to run.'
+                            #     f'{guide.hhblits_setup_instructions}')
+                        else:
+                            sto_cmd = [
+                                putils.reformat_msa_exe_path, 'a3m', 'sto',
+                                f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.sto', '-num', '-uc']
+                            fasta_cmd = [
+                                putils.reformat_msa_exe_path, 'a3m', 'fas',
+                                f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}",
+                                '.fasta', '-M', 'first', '-r']
+                            msa_cmds.extend([sto_cmd, fasta_cmd])
 
-                    hhblits_cmds.append(entity.hhblits(sequence_file=sequence_file, out_dir=self.profiles,
-                                                       return_command=True))
-                    msa_file = None
-                else:
-                    msa_file = self.api_db.alignments.retrieve_file(name=entity.name)
+            elif entities is not None:
+                raise NotImplementedError(
+                    f'Currently must use {wrapapi.UniProtEntity.__class__.__name__} in '
+                    f'{self.process_evolutionary_info.__name__}'
+                )
+                for entity in entities:
+                    evolutionary_profile_file = api_db.hhblits_profiles.retrieve_file(name=entity.name)
+                    if not evolutionary_profile_file:
+                        sequence_file = api_db.sequences.retrieve_file(name=entity.name)
+                        if not sequence_file:
+                            sequence_file = entity.write_sequence_to_fasta(out_dir=self.sequences)
 
-                if not msa_file:
-                    if not os.access(putils.reformat_msa_exe_path, os.X_OK):
-                        logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
-                        # raise RuntimeError(
-                        #     f"Couldn't locate the {putils.reformat_msa_exe_path} executable. Ensure the executable "
-                        #     "exists then try your job again. Otherwise, use the argument "
-                        #     f'{flags.use_evolution.as_no_long()} OR set up hhblits to run.'
-                        #     f'{guide.hhblits_setup_instructions}')
+                        hhblits_cmds.append(entity.hhblits(sequence_file=sequence_file, out_dir=self.profiles,
+                                                           return_command=True))
+                        msa_file = None
                     else:
-                        sto_cmd = [
-                            putils.reformat_msa_exe_path, 'a3m', 'sto',
-                            f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.sto', '-num', '-uc']
-                        fasta_cmd = [
-                            putils.reformat_msa_exe_path, 'a3m', 'fas',
-                            f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.fasta', '-M', 'first', '-r']
-                        msa_cmds.extend([sto_cmd, fasta_cmd])
+                        msa_file = api_db.alignments.retrieve_file(name=entity.name)
+
+                    if not msa_file:
+                        if not os.access(putils.reformat_msa_exe_path, os.X_OK):
+                            logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
+                            # raise RuntimeError(
+                            #     f"Couldn't locate the {putils.reformat_msa_exe_path} executable. Ensure the "
+                            #     "executable exists then try your job again. Otherwise, use the argument "
+                            #     f'{flags.use_evolution.as_no_long()} OR set up hhblits to run.'
+                            #     f'{guide.hhblits_setup_instructions}')
+                        else:
+                            sto_cmd = [
+                                putils.reformat_msa_exe_path, 'a3m', 'sto',
+                                f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.sto', '-num', '-uc']
+                            fasta_cmd = [
+                                putils.reformat_msa_exe_path, 'a3m', 'fas',
+                                f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.fasta', '-M', 'first', '-r']
+                            msa_cmds.extend([sto_cmd, fasta_cmd])
 
         if hhblits_cmds:
             protocol = putils.hhblits
@@ -1427,53 +1429,23 @@ class JobResources:
         return info_messages
 
 
-class JobResourcesFactory:
+class JobResourcesFactory(factory.SingletonABC):
     """Return a JobResource instance by calling the Factory instance
 
     Handles creation and allotment to other processes by making a shared pointer to the JobResource for the current Job
     """
-    def __init__(self, **kwargs):
-        self._resources = {}
-        self._warn = True
 
-    def destruct(self, **kwargs):
-        self._resources = {}
-        self._warn = True
-
-    def __call__(self, **kwargs) -> JobResources:
-        """Return the specified JobResources object singleton
+    def __call__(self, path: AnyStr | Path = None, **kwargs) -> JobResources:
+        """Returns the JobResources singleton
 
         Returns:
             The instance of the specified JobResources
         """
-        #         Args:
-        #             source: The JobResources source name
-        source = 'single'
-        job = self._resources.get(source)
-        if job:
-            if kwargs and self._warn:
-                # try:
-                #     fragment_db.update(kwargs)
-                # except RuntimeError:
-                self._warn = False
-                logger.warning(f"Can't pass the new arguments {', '.join(kwargs.keys())} to JobResources "
-                               f'since it was already initialized and is a singleton')
-            return job
-        else:
-            logger.info(f'Initializing {JobResources.__name__}({kwargs.get("program_root", os.getcwd())})')
-            self._resources[source] = JobResources(**kwargs)
+        if self._singleton is None:
+            logger.info(f'Initializing {JobResources.__name__}()')
+            self._singleton = JobResources(path, **kwargs)
 
-        return self._resources[source]
-
-    def get(self, **kwargs) -> JobResources:
-        """Return the specified JobResources object singleton
-
-        Returns:
-            The instance of the specified JobResources
-        """
-        # Keyword Args:
-        #     source: The JobResource source name
-        return self.__call__(**kwargs)
+        return self._singleton
 
 
 job_resources_factory: Annotated[JobResourcesFactory,

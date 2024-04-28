@@ -700,7 +700,7 @@ def create_mulitcistronic_sequences(args):
     # if not args.multicistronic_intergenic_sequence:
     #     args.multicistronic_intergenic_sequence = expression.ncoI_multicistronic_sequence
     # raise NotImplementedError('Please refactor to a protocols/tools module so that JobResources can be used.')
-    job = job_resources_factory()
+    job = job_resources_factory.get()
     file = args.file[0]  # Since args.file is collected with nargs='*', select the first
     if file.endswith('.csv'):
         with open(file) as f:
