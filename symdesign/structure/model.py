@@ -43,6 +43,7 @@ from .utils import ConstructionError, chain_id_generator, coords_type_literal, d
     default_clash_distance, DesignError, design_programs_literal, StructureException, SymmetryError
 from symdesign import metrics, resources, utils
 from symdesign.resources import ml, query, sql
+from symdesign.dependencies import rosetta
 from symdesign.resources.wrapapi import api_database_factory
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
@@ -717,7 +718,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         if favor_fragments:
             fragment_db = self.fragment_db
             boltzman_energy = 1
-            favor_seqprofile_score_modifier = 0.2 * utils.rosetta.reference_average_residue_weight
+            favor_seqprofile_score_modifier = 0.2 * rosetta.reference_average_residue_weight
             if not fragment_db:
                 raise AttributeError(
                     f"{self.calculate_profile.__name__}: No fragment database connected. Can't 'favor_fragments' "
@@ -4214,7 +4215,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             chains.append(self.find_dihedral_chain().chain_id)
 
         sdf_cmd = [
-            'perl', str(putils.make_sdf_path), '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'
+            'perl', str(rosetta.make_sdf_path), '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'
         ] + chains
         self.log.info(f'Creating symmetry definition file: {subprocess.list2cmdline(sdf_cmd)}')
         # with open(out_file, 'w') as file:

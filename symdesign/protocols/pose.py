@@ -36,6 +36,7 @@ import torch
 
 from .utils import warn_missing_symmetry
 from symdesign import flags, metrics, resources
+from symdesign.dependencies import rosetta
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, write_sequences
 from symdesign.structure.base import StructureBase
@@ -44,7 +45,7 @@ from symdesign.structure import ContainsEntities, Entity, Structure, Pose, PoseS
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
-    rosetta, starttime, SymDesignException
+    starttime, SymDesignException
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 
 # Globals
@@ -1435,8 +1436,7 @@ class PoseProtocol(PoseData):
             variables.append(('symmetry', symmetry_protocol))
             # The current self.sym_entry can still be None if requested for this particular job
             if sym_def_file is None and self.sym_entry is not None:
-                sym_def_file = self.sym_entry.sdf_lookup()
-                variables.append(('sdf', sym_def_file))
+                variables.append(('sdf', str(self.sym_entry.sdf_lookup())))
 
             self.log.info(f'Symmetry Option: {symmetry_protocol}')
             out_of_bounds_residue = number_of_residues*self.pose.number_of_symmetry_mates + 1
@@ -1510,7 +1510,7 @@ class PoseProtocol(PoseData):
                                     modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
                 # Todo monitor if Rosetta energy modifier changed from 2x for crystal set up and adjust accordingly
                 else:
-                    shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
+                    shutil.copy(os.path.join(rosetta.symmetry_definition_dir, 'C1.sym'),
                                 os.path.join(self.data_path, f'{entity.name}.sdf'))
 
         entity_metric_commands = []
@@ -2331,7 +2331,7 @@ class PoseProtocol(PoseData):
 
         # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition \
-            + [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
+            + [f'@{flags_file}', '-parser:protocol', os.path.join(rosetta.scripts_dir, f'refine.xml'),
                '-parser:script_vars', f'switch={switch}'] + infile + suffix \
             + (['-overwrite'] if self.job.overwrite else [])
         self.log.info(f'{switch.title()} Command: {list2cmdline(relax_cmd)}')
@@ -2339,15 +2339,15 @@ class PoseProtocol(PoseData):
         if gather_metrics or self.job.metrics:
             gather_metrics = True
             if self.job.mpi > 0:
-                main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+                main_cmd = rosetta.run_cmds[rosetta.exe_make] + [str(self.job.mpi)] + main_cmd
             # main_cmd += metrics_pdb
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true'] + metrics_pdb + ['-parser:protocol']
             dev_label = '_DEV' if self.job.development else ''
             metric_cmd_bound = main_cmd \
-                + [os.path.join(putils.rosetta_scripts_dir, f'interface_metrics{dev_label}.xml')] \
+                + [os.path.join(rosetta.scripts_dir, f'interface_metrics{dev_label}.xml')] \
                 + symmetry_definition
-            entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir, f'metrics_entity{dev_label}.xml')]
+            entity_cmd = main_cmd + [os.path.join(rosetta.scripts_dir, f'metrics_entity{dev_label}.xml')]
             self.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
             metric_cmds = [metric_cmd_bound] \
                 + self.generate_entity_metrics_commands(entity_cmd)
@@ -2431,7 +2431,7 @@ class PoseProtocol(PoseData):
                           '-in:file:silent_struct_type', 'binary',  # '-out:suffix', f'_{self.protocol}',
                           # adding no_nstruct_label true as only hbnet uses this mechanism
                           # hbnet_design_profile.xml could be just design_profile.xml
-                          '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')] \
+                          '-parser:protocol', os.path.join(rosetta.scripts_dir, f'{self.protocol}.xml')] \
                        + nstruct_instruct]
                 # Set up additional out_file
                 out_file = ['-out:file:silent', os.path.join(self.data_path, 'hbnet_silent.o'),
@@ -2455,13 +2455,13 @@ class PoseProtocol(PoseData):
             design_cmd = main_cmd + rosetta.relax_flags_cmdline \
                 + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                    # '-in:file:native', self.refined_pdb,
-                   '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'consensus.xml'),
+                   '-parser:protocol', os.path.join(rosetta.scripts_dir, f'consensus.xml'),
                    '-out:suffix', f'_{self.protocol}', '-parser:script_vars', f'switch={self.protocol}']
         else:
             design_cmd = main_cmd + profile_cmd + \
                 [f'@{self.flags}', '-in:file:s', self.refined_pdb,
                  # self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
+                 '-parser:protocol', os.path.join(rosetta.scripts_dir, f'{protocol_xml1}.xml'),
                  '-out:suffix', f'_{self.protocol}'] + out_file + nstruct_instruct
         if self.job.overwrite:
             design_cmd += ['-overwrite']
@@ -2470,11 +2470,12 @@ class PoseProtocol(PoseData):
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         entity_cmd = rosetta.script_cmd + metrics_pdb + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
+             '-parser:protocol', os.path.join(rosetta.scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0 and not self.job.design.scout:
-            design_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            base_cmd = rosetta.run_cmds[rosetta.exe_make] + [str(self.job.mpi)]
+            design_cmd = base_cmd + design_cmd
+            entity_cmd = base_cmd + entity_cmd
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = self.generate_entity_metrics_commands(entity_cmd)

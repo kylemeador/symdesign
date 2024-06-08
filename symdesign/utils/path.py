@@ -141,17 +141,6 @@ alphafold_params_dir = alphafold_db_dir / 'params'
 alphafold_params_name = config.get('af_params')
 """The version of the AlphaFold parameters downloaded"""
 # openmm_path = shutil.which('openmm')
-# Rosetta
-rosetta_extras = config.get('rosetta_make')
-rosetta_main = os.environ.get(config.get('rosetta_env'))
-rosetta_main = rosetta_main if rosetta_main else 'main'  # Ensure not None
-rosetta_source = Path(rosetta_main, 'source')
-rosetta_default_bin_path = rosetta_source / 'bin'
-make_sdf_path = rosetta_source / 'src' / 'apps' / 'public' / 'symmetry' / 'make_symmdef_file.pl'
-# Rosetta Scripts and Misc Files'
-rosetta_scripts_dir = os.path.join(dependency_dir, 'rosetta')
-symmetry_def_files = os.path.join(rosetta_scripts_dir, 'sdf')
-scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 symmetry_utils_path = utils_dir / 'symmetry.py'
 # Help and warnings
 documentation_url = 'https://kylemeador.github.io/symdesign/'

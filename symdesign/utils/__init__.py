@@ -1281,8 +1281,7 @@ def condensed_to_square(k: int, n: int) -> tuple[int, int]:
     return i, j
 
 
-from . import factory, path, rosetta, SymEntry, symmetry
-# guide causes import error due to flags import
+from . import factory, path, SymEntry, symmetry
 
 
 def print_readme():

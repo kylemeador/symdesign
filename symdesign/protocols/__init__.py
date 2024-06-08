@@ -18,6 +18,7 @@ from scipy.spatial.distance import pdist
 from . import align, cluster, config, fragdock, pose, select
 from .utils import handle_job_errors, protocol_decorator, warn_missing_symmetry
 from symdesign import flags, metrics
+from symdesign.dependencies import rosetta
 from symdesign.resources.config import default_pca_variance
 from symdesign.resources import distribute
 from symdesign.resources.job import job_resources_factory  # job has namespace overloaded
@@ -102,16 +103,16 @@ def interface_metrics(job: pose.PoseJob):
                  '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
     #              '-in:file:native', job.refined_pdb,
     if job.job.mpi > 0:
-        main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + main_cmd
+        main_cmd = rosetta.run_cmds[rosetta.exe_make] + [str(job.job.mpi)] + main_cmd
 
     metric_cmd_bound = main_cmd.copy()
     if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
         metric_cmd_bound += ['-symmetry_definition', 'CRYST1']
     metric_cmd_bound += \
-        [os.path.join(putils.rosetta_scripts_dir, f'interface_metrics{"_DEV" if job.job.development else ""}.xml')]
+        [os.path.join(rosetta.scripts_dir, f'interface_metrics{"_DEV" if job.job.development else ""}.xml')]
     job.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
-    entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
-                                          f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
+    entity_cmd = main_cmd + [os.path.join(
+        rosetta.scripts_dir, f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
     entity_metric_cmds = job.generate_entity_metrics_commands(entity_cmd)
 
     # Create executable to gather interface Metrics on all Designs
@@ -452,7 +453,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         design_cmds.append(
             main_cmd + profile_cmd + infile  # <- infile must be 'in:file:s'
             + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file, '-parser:protocol',
-               os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')]
+               os.path.join(rosetta.scripts_dir, f'{protocol_xml1}.xml')]
             + nstruct_instruct + ['-parser:script_vars', f'{putils.design_parent}={design_.name}'])
 
     # metrics_pdb = ['-in:file:l', designed_files_file]
@@ -461,11 +462,11 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     # metric_cmd = main_cmd + ['-in:file:s', job.specific_design if job.specific_design else job.refined_pdb] + \
     entity_cmd = main_cmd + ['-in:file:l', designed_files_file] + \
         [f'@{job.flags}', '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true',
-         '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
+         '-parser:protocol', os.path.join(rosetta.scripts_dir, 'metrics_entity.xml')]
 
     if job.job.mpi > 0:
-        design_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + design_cmd
-        entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + entity_cmd
+        design_cmd = rosetta.run_cmds[rosetta.exe_make] + [str(job.job.mpi)] + design_cmd
+        entity_cmd = rosetta.run_cmds[rosetta.exe_make] + [str(job.job.mpi)] + entity_cmd
 
     job.log.info(f'{optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
     metric_cmds = []

@@ -1,7 +1,7 @@
 from symdesign import metrics
 from symdesign import flags
-from symdesign.utils import pretty_format_table, path as putils, rosetta
-
+from symdesign.dependencies import rosetta
+from symdesign.utils import pretty_format_table, path as putils
 
 rosetta_required_metrics = []
 # Program specific strings

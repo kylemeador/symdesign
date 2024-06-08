@@ -19,13 +19,14 @@ from .ml import af_predict, set_up_model_runners
 from .query.pdb import get_qsbio_confirmed_assemblies
 from symdesign import flags
 from symdesign.protocols.pose import load_evolutionary_profile
+from symdesign.dependencies import rosetta
 from symdesign.sequence import generate_mutations, expression
 from symdesign.structure.utils import SymmetryError, parse_stride
 from symdesign.structure.coordinates import superposition3d
 from symdesign.structure import ContainsEntities, Entity, Pose, Structure
 from symdesign.utils.SymEntry import SymEntry, sdf_lookup
 from symdesign.utils.symmetry import CRYST
-from symdesign.utils import factory, rosetta, starttime, symmetry, to_iterable, path as putils
+from symdesign.utils import factory, starttime, symmetry, to_iterable, path as putils
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
@@ -560,7 +561,7 @@ class StructureDatabase(Database):
     #     # Identify the entities to refine and to model loops before proceeding
     #     structures_to_refine, structures_to_loop_model, sym_def_files = [], [], {}
     #     for _structure in structures:  # If _structure is here, the file should've been oriented...
-    #         sym_def_files[_structure.symmetry] = SymEntry.sdf_lookup(_structure.symmetry)
+    #         sym_def_files[_structure.symmetry] = sdf_lookup(_structure.symmetry)
     #         if _structure.name not in refine_names:  # Assumes oriented_asu structure name is the same
     #             structures_to_refine.append(_structure)
     #         if _structure.name not in full_model_names:  # Assumes oriented_asu structure name is the same
@@ -612,7 +613,7 @@ class StructureDatabase(Database):
     #                 f.write('%s\n' % '\n'.join(_flags))
     #
     #             refine_cmd = [f'@{flags_file}', '-parser:protocol',
-    #                           os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
+    #                           os.path.join(rosetta.scripts_dir, f'{putils.refine}.xml')]
     #             refine_cmds = [rosetta.script_cmd + refine_cmd
     #                            + ['-in:file:s', _structure.file_path, '-parser:script_vars']
     #                            + [f'sdf={sym_def_files[_structure.symmetry]}',
@@ -669,7 +670,7 @@ class StructureDatabase(Database):
     #             with open(flags_file, 'w') as f:
     #                 f.write('%s\n' % '\n'.join(_flags))
     #             loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
-    #                               os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
+    #                               os.path.join(rosetta.scripts_dir, 'loop_model_ensemble.xml'),
     #                               '-parser:script_vars']
     #             # Make all output paths and files for each loop ensemble
     #             # logger.info('Preparing blueprint and loop files for structure:')
@@ -933,12 +934,12 @@ class StructureDatabase(Database):
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(_flags))
                     loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
-                                      os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
+                                      str(rosetta.scripts_dir / 'loop_model_ensemble.xml'),
                                       '-parser:script_vars']
                     # Make all output paths and files for each loop ensemble
                     # logger.info('Preparing blueprint and loop files for structure:')
                     loop_model_cmds = []
-                    sym_def_files = {}
+                    sym_def_files: dict[str, Path] = {}
                     for idx, protein_data in enumerate(protein_data_to_loop_model):
                         if data.symmetry_group not in sym_def_files:
                             sym_def_files[data.symmetry_group] = sdf_lookup(data.symmetry_group)
@@ -1053,8 +1054,7 @@ class StructureDatabase(Database):
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(_flags))
 
-                refine_cmd = [f'@{flags_file}', '-parser:protocol',
-                              os.path.join(putils.rosetta_scripts_dir, f'refine.xml')]
+                refine_cmd = [f'@{flags_file}', '-parser:protocol', str(rosetta.scripts_dir / f'refine.xml')]
                 refine_cmds = [rosetta.script_cmd + refine_cmd
                                + ['-in:file:s', protein.model_source, '-parser:script_vars']
                                + [f'sdf={sym_def_files[protein.symmetry_group]}',

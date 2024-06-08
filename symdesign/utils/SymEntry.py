@@ -7,12 +7,14 @@ import sys
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import AnyStr, Literal, get_args
+from pathlib import Path
+from typing import Literal, get_args
 
 import numpy as np
 
 from symdesign import utils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
+from symdesign.dependencies import rosetta
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
     sub_symmetries, flip_y_matrix, MAX_SYMMETRY, valid_symmetries, CRYST
 
@@ -997,27 +999,27 @@ class SymEntry:
 
         return external_translation_shifts
 
-    def sdf_lookup(self) -> AnyStr:
+    def sdf_lookup(self) -> Path:
         """Locate the proper symmetry definition file depending on the specified symmetry
 
         Returns:
-            The location of the symmetry definition file on disk
+            The path to the symmetry definition file
         """
         if self.dimension > 0:
-            return os.path.join(putils.symmetry_def_files, 'C1.sym')
+            return rosetta.symmetry_definition_dir / 'C1.sym'
 
         symmetry = self.simple_specification
-        for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
-            if symmetry == file:
-                return os.path.join(putils.symmetry_def_files, file + ext)
+        for path in rosetta.symmetry_definition_dir.iterdir():
+            if symmetry == path.name:
+                return path
 
         symmetry = self.resulting_symmetry
-        for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
-            if symmetry == file:
-                return os.path.join(putils.symmetry_def_files, file + ext)
+        for path in rosetta.symmetry_definition_dir.iterdir():
+            if symmetry == path.name:
+                return path
 
         raise FileNotFoundError(
-            f"Couldn't locate symmetry definition file at '{putils.symmetry_def_files}' for {self.__class__.__name__} "
+            f"Couldn't locate symmetry definition file at '{rosetta.symmetry_definition_dir}' for {self.__class__.__name__} "
             f"{self.number}")
 
     def log_parameters(self):
@@ -1400,26 +1402,27 @@ def parse_symmetry_to_sym_entry(sym_entry_number: int = None, symmetry: str = No
     return symmetry_factory.get(sym_entry_number, sym_map=sym_map)
 
 
-def sdf_lookup(symmetry: str = None) -> AnyStr:
+def sdf_lookup(symmetry: str = None) -> Path:
     """From the set of possible point groups, locate the proper symmetry definition file depending on the specified
     symmetry. If none is specified, a C1 symmetry will be returned (this doesn't make sense but is completely viable)
 
     Args:
         symmetry: Can be a valid_point_group, or None
     Returns:
-        The location of the symmetry definition file on disk
+        The path to the symmetry definition file
     """
     if not symmetry or symmetry.upper() == 'C1':
-        return os.path.join(putils.symmetry_def_files, 'C1.sym')
+        return rosetta.symmetry_definition_dir / 'C1.sym'
     else:
         symmetry = symmetry.upper()
 
-    for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
-        if symmetry == file:
-            return os.path.join(putils.symmetry_def_files, file + ext)
+    # for file, ext in map(os.path.splitext, os.listdir(rosetta.symmetry_definition_dir)):
+    for path in rosetta.symmetry_definition_dir.iterdir():
+        if symmetry == path.name:
+            return path
 
     raise FileNotFoundError(
-        f"For symmetry: {symmetry}, couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}'")
+        f"For symmetry: {symmetry}, couldn't locate correct symmetry definition file at '{rosetta.symmetry_definition_dir}'")
 
 
 repeat_with_sym_entry = "Can't distinguish between the desired entries. " \

@@ -13,6 +13,7 @@ import attrs
 import pandas as pd
 from psutil import cpu_count
 
+from symdesign.dependencies.rosetta import current_energy_function
 from symdesign.metrics import collection as metrics_collection, inverse_operations, library, operator_strings, \
     viable_operations
 from symdesign.sequence import constants, optimization_species_literal, profile_types
@@ -24,7 +25,6 @@ from symdesign.utils.path import default_clustered_pose_file, default_path_file,
     program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
 from symdesign.structure.fragment.resources import biological_interfaces, fragment_database_sources
 from symdesign.utils.logging_config import DEFAULT_LOGGING_LEVEL
-from symdesign.utils.rosetta import current_energy_function
 from symdesign.utils.SymEntry import query_mode_args
 
 logger = logging.getLogger(__name__)

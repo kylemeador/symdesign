@@ -11,6 +11,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from symdesign import utils
+from symdesign.dependencies import rosetta
 from symdesign.structure.dependencies import errat_exe_path, errat_residue_path, freesasa_dir, orient_exe_path, \
     stride_dir
 
@@ -22,8 +23,6 @@ rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_document
 rosetta_extras_url = 'https://www.rosettacommons.org/docs/latest/rosetta_basics/running-rosetta-with-options#running-' \
                      'rosetta-with-multiple-threads'
 string_ops = [str.upper, str.lower, str.title]
-hhblits = 'hhblits'
-rosetta = 'rosetta'
 
 
 def search_env_for_variable(search_variable: str) -> str | None:
@@ -283,7 +282,7 @@ def setup(args):
 
         # Todo use search_env_for_variable() to accomplish this
         print('Attempting to find environmental variable for Rosetta "main" directory')
-        rosetta_variable_dictionary = {0: rosetta.upper(), 1: rosetta.title(), 2: rosetta}
+        rosetta_variable_dictionary = {0: 'rosetta'.upper(), 1: 'rosetta'.title(), 2: 'rosetta'}
         number_rosetta_variables = len(rosetta_variable_dictionary)
         retry_kw = 'retry'
         retry = None
@@ -301,7 +300,7 @@ def setup(args):
                 if i == number_rosetta_variables:
                     while rosetta_env_variable == '':
                         print('Failed detection of Rosetta environmental variable = '
-                              f'{", ".join(op(rosetta) for op in string_ops)}')
+                              f'{", ".join(op("rosetta") for op in string_ops)}')
                         print('For setup to be fully functional, the location of your Rosetta install needs to be '
                               'accessed. It is recommended to modify your shell to include an environmental variable '
                               "'ROSETTA' (accessed at '$ROSETTA'), leading to the 'main' directory of Rosetta.")
@@ -351,9 +350,9 @@ def setup(args):
                 rosetta_make = utils.query.validate_input(
                     'Did you make Rosetta with any particular build? This is usually a string of '
                     'characters that are a suffix to each of the executables in the '
-                    f'{putils.rosetta_default_bin_path} directory', make_types)
+                    f'{rosetta.source_dir / "bin"} directory', make_types)
                 if rosetta_env_variable == '':
-                    rosetta_env_variable = search_env_for_variable(rosetta)
+                    rosetta_env_variable = search_env_for_variable('rosetta')
                 break
             elif retry == retry_kw:
                 # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
@@ -423,7 +422,7 @@ def setup(args):
     config = {'rosetta_env': rosetta_env_variable,
               'rosetta_main': rosetta_main,
               'rosetta_make': rosetta_make,
-              'hhblits_env': search_env_for_variable(hhblits),
+              'hhblits_env': search_env_for_variable('hhblits'),
               }
 
     # Get hhblits database
@@ -431,7 +430,7 @@ def setup(args):
     #  collab use bfd minimal...
     if args.hhsuite_database:
         _input = utils.query.validate_input(
-            f'To use {putils.hhblits}, a sequence database needs to be available. Default use is with UniClust and the '
+            f"To use 'hhblits', a sequence database needs to be available. Default use is with UniClust and the "
             f'database file will take >50 GB of hard drive space. Ensure that you have the capacity for this operation.'
             f" This will automatically be downloaded in the directory '{putils.hhsuite_db_dir}' if you consent.",
             ['Y', 'n'])
@@ -480,7 +479,7 @@ def main():
     hhsuite_database_args = (f'--hhsuite-database',)
     hhsuite_database_kwargs = \
         dict(action='store_true', help=f'Whether {putils.program_name} should be set up with hhsuite databases')
-    rosetta_args = (f'--{rosetta}',)
+    rosetta_args = (f'--rosetta',)
     rosetta_kwargs = \
         dict(action='store_true', help=f'Whether {putils.program_name} should be set up with Rosetta dependency')
     dry_run = 'dry_run'
