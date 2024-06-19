@@ -115,9 +115,13 @@ class PoseMetadata(Base):
     # Set up one-to-one relationship with pose_metrics table
     metrics = relationship('PoseMetrics', back_populates='pose', uselist=False, lazy='selectin')
     # Set up one-to-many relationship with design_data table
-    designs = relationship('DesignData', back_populates='pose',
-                           # collection_class=ordering_list('id'),
-                           order_by='DesignData.id')  # lazy='selectin'
+    _designs = relationship('DesignData', back_populates='pose',
+                            # collection_class=ordering_list('id'),
+                            order_by='DesignData.id')  # lazy='selectin'
+
+    @property
+    def designs(self) -> list[DesignData]:
+        return self._designs[1:]
 
     @property
     def number_of_designs(self) -> int:
@@ -155,7 +159,7 @@ class PoseMetadata(Base):
     @property
     def pose_source(self) -> DesignData:
         """Provide the DesignData for the Pose itself"""
-        return self.designs[0]
+        return self._designs[0]
 
     # # Set up one-to-many relationship with residue_metrics table
     # residues = relationship('ResidueMetrics', back_populates='pose')

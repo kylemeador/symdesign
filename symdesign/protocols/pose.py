@@ -931,7 +931,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             Each instance of the DesignData that is missing a structure
         """
         missing = []
-        for design in self.designs[1:]:  # Slice only real designs, not the pose_source
+        for design in self.designs:  # Slice only real designs, not the pose_source
             if design.structure_path and os.path.exists(design.structure_path):
                 continue
             else:
@@ -2941,8 +2941,7 @@ class PoseProtocol(PoseData):
         # Find all designs files
         with self.job.db.session(expire_on_commit=False) as session:
             session.add(self)
-            design_names = self.design_names
-        design_files = self.get_design_files()  # Todo PoseJob(.path)
+            design_names = [self.pose_source.name] + self.design_names
         scored_design_names = design_scores.keys()
         new_design_paths_to_process = []
         rosetta_provided_new_design_names = []
@@ -2978,9 +2977,9 @@ class PoseProtocol(PoseData):
         # Process the parsed scores to scores_df, rosetta_residues_df
         scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
 
-        # Format DesignData
-        # Get all existing
-        design_data = self.designs  # This is loaded above at 'design_names = self.design_names'
+        # Get all existing DesignData to format
+        # These are loaded from db above at `design_names = self.design_names`
+        design_data = [self.pose_source] + self.designs
         # Set current_designs to a fresh list
         self._current_designs = [design_data[idx] for idx in existing_design_indices]
         # Find parent info and remove from scores_df
@@ -3724,8 +3723,7 @@ class PoseProtocol(PoseData):
                 if self.current_designs:
                     designs = self.current_designs
                 else:
-                    # Slice off the self.pose_source from these
-                    self.current_designs = designs = self.designs[1:]
+                    self.current_designs = designs = self.designs
 
             if not designs:
                 return  # There is nothing to analyze
