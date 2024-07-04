@@ -292,7 +292,7 @@ def destruct_factories():
     # factories = [JobResourcesFactory, ProteinMPNNFactory, APIDatabaseFactory, SymEntryFactory,
     #              FragmentDatabaseFactory, EulerLookupFactory, StructureDatabaseFactory]
     from symdesign.structure.fragment.db import fragment_factory, euler_factory
-    factories = [job_resources_factory, ml.proteinmpnn_factory, wrapapi.api_database_factory,
+    factories = [job_resources_factory, ml.proteinmpnn.factory, wrapapi.api_database_factory,
                  utils.SymEntry.symmetry_factory, fragment_factory, euler_factory,
                  structure_db.structure_database_factory]
     for factory in factories:

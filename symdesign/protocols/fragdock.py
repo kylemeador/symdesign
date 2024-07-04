@@ -22,8 +22,8 @@ from tqdm.auto import tqdm
 
 from . import cluster
 from .pose import insert_pose_jobs, load_evolutionary_profile, PoseJob
-from symdesign import flags, metrics, resources, utils
-from symdesign.resources import ml, job as symjob, sql
+from symdesign import flags, metrics, ml, resources, utils
+from symdesign.resources import job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Residue
 from symdesign.structure.coordinates import transform_coordinate_sets, superposition3d
@@ -1607,8 +1607,8 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     # Todo this is used in perturb_transformations with different 'size' and 'batch_length' that are going to snag
     #  at some point given the size of the perturb could be larger than the batch_length
     # Create the balltree clash check as a batched function
-    @resources.ml.batch_calculation(size=calculation_size, batch_length=batch_length, setup=np_tile_wrap,
-                                    compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
+    @ml.batch_calculation(size=calculation_size, batch_length=batch_length, setup=np_tile_wrap,
+                          compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
     def init_check_tree_for_query_overlap(*args, **kwargs):
         return check_tree_for_query_overlap(*args, **kwargs)
 
@@ -2181,7 +2181,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     #             corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
     #                                                  nan=np.nan, neginf=metrics.zero_probability_frag_value)
     #         per_residue_fragment_profile_loss = \
-    #             resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
+    #             ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
     #
     #         # Remove saved pose attributes from the prior iteration calculations
     #         pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
@@ -2236,7 +2236,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         else:
             torch_log_evolutionary_profile = torch.from_numpy(corrected_log_evolutionary_profile)
             per_residue_evolutionary_profile_loss = \
-                resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
+                ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
             profile_loss = {
                 # metrics.library.sequence_loss_design.name: per_residue_design_profile_loss,
                 metrics.library.sequence_loss_evolution.name: per_residue_evolutionary_profile_loss,
@@ -2253,7 +2253,8 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
         if proteinmpnn_score:
             # Initialize and retrieve the ProteinMPNN model for dock analysis
-            mpnn_model = ml.proteinmpnn_factory(ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model)
+            mpnn_model = ml.proteinmpnn.factory(
+                ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model)
             # Set up model sampling type based on symmetry
             if pose.is_symmetric():
                 number_of_residues = pose.number_of_symmetric_residues
@@ -2263,7 +2264,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             # Modulate memory requirements
             # calculation_size = len(full_rotation1)  # This is the number of transformations
             # The batch_length indicates how many models could fit in the allocated memory
-            batch_length = ml.calculate_proteinmpnn_batch_length(mpnn_model, number_of_residues)
+            batch_length = ml.proteinmpnn.calculate_batch_length(mpnn_model, number_of_residues)
             logger.info(f'Found ProteinMPNN batch_length={batch_length}')
 
             # Set up parameters to run ProteinMPNN design
@@ -2283,13 +2284,13 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             # parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
 
             # Set up interface unbound coordinates
-            mpnn_null_idx = resources.ml.MPNN_NULL_IDX
+            mpnn_null_idx = ml.proteinmpnn.MPNN_NULL_IDX
             if measure_interface_during_dock:
                 X_unbound = pose.get_proteinmpnn_unbound_coords(ca_only=job.design.ca_only)
                 unbound_batch = \
-                    ml.setup_pose_batch_for_proteinmpnn(1, mpnn_model.device, X_unbound=X_unbound,
-                                                        mask=parameters['mask'], residue_idx=parameters['residue_idx'],
-                                                        chain_encoding=parameters['chain_encoding'])
+                    ml.proteinmpnn.setup_pose_batch(
+                        1, mpnn_model.device, X_unbound=X_unbound, mask=parameters['mask'],
+                        residue_idx=parameters['residue_idx'], chain_encoding=parameters['chain_encoding'])
                 with torch.no_grad():
                     unconditional_log_probs_unbound = \
                         mpnn_model.unconditional_probs(unbound_batch['X_unbound'], unbound_batch['mask'],
@@ -2313,7 +2314,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             # # Set the design temperature
             # temperature = job.design.temperatures[0]
 
-            batch_parameters = ml.setup_pose_batch_for_proteinmpnn(batch_length, mpnn_model.device, **parameters)
+            batch_parameters = ml.proteinmpnn.setup_pose_batch(batch_length, mpnn_model.device, **parameters)
             mask = batch_parameters['mask']
             residue_idx = batch_parameters['residue_idx']
             chain_encoding = batch_parameters['chain_encoding']
@@ -2521,7 +2522,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                 corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
                                                      nan=np.nan, neginf=metrics.zero_probability_frag_value)
             per_residue_fragment_profile_loss = \
-                resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
+                ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
             # per_residue_data[pose_id] = {
             per_residue_data.append({
                 **sequence_params,
@@ -2743,8 +2744,8 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
         batch_length_ = min((batch_length_, number_perturbations_applied))
 
         # Define local check_tree_for_query_overlap function to check clashes
-        @resources.ml.batch_calculation(size=calculation_size_, batch_length=batch_length_, setup=np_tile_wrap,
-                                        compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
+        @ml.batch_calculation(size=calculation_size_, batch_length=batch_length_, setup=np_tile_wrap,
+                              compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
         def perturb_check_tree_for_query_overlap(*args, **kwargs):
             return check_tree_for_query_overlap(*args, **kwargs)
 

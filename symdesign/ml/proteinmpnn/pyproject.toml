@@ -1,0 +1,20 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = true
+name = "proteinmpnn"
+version = "24.0.0"
+description = "Fork of code from the paper: Robust deep learning-based protein sequence design using ProteinMPNN"
+authors = ["Justas Dauparas <justas@uw.edu>"]
+readme = 'README.md'
+license = 'LICENSE'
+#packages=[{ include = "proteinmpnn", from = ".."}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "*"
+torch = "*"
+torchvision = "*"
+torchaudio = "*"

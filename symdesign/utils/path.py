@@ -34,6 +34,7 @@ conda_env_path = git_source / 'env.yml'
 tools = python_source / 'tools'
 setup_exe = tools / 'setup.py'
 hhsuite_setup_command = f'python {setup_exe} --hhsuite-database'
+program_install = f'pip install {program_name.lower()}'
 # Program operations strings
 program_help = f'{program_exe} --help'
 program_guide = f'{program_exe} --guide'
@@ -140,6 +141,8 @@ alphafold_db_dir = dependency_dir / 'alphafold'
 alphafold_params_dir = alphafold_db_dir / 'params'
 alphafold_params_name = config.get('af_params')
 """The version of the AlphaFold parameters downloaded"""
+alphafold_git = 'https://github.com/deepmind/alphafold.git'
+alphafold_install_instructions = f'Ensure that after {program_install}, you perform pip install git+{alphafold_git}'
 # openmm_path = shutil.which('openmm')
 symmetry_utils_path = utils_dir / 'symmetry.py'
 # Help and warnings

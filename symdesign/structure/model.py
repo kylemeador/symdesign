@@ -15,12 +15,6 @@ from random import random
 from typing import Any, AnyStr, IO, TypedDict, Union
 from typing_extensions import assert_never
 
-import alphafold.data.feature_processing as af_feature_processing
-import alphafold.data.parsers as af_data_parsers
-import alphafold.data.msa_pairing as af_msa_pairing
-import alphafold.data.pipeline as af_pipeline
-import alphafold.data.pipeline_multimer as af_pipeline_multimer
-from alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 import numpy as np
 import pandas as pd
 import torch
@@ -41,15 +35,14 @@ from .sequence import GeneEntity, Profile, pssm_as_array, sequence_to_numeric, s
     sequence_to_one_hot, aa_counts_alph3, aa_nan_counts_alph3
 from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, \
     default_clash_distance, DesignError, design_programs_literal, StructureException, SymmetryError
-from symdesign import metrics, resources, utils
-from symdesign.resources import ml, query, sql
+from symdesign import metrics, ml, utils
 from symdesign.dependencies import rosetta
+from symdesign.resources import query, sql
 from symdesign.resources.wrapapi import api_database_factory
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
-    numerical_translation_alph1_unknown_gaped_bytes, numerical_translation_alph3_unknown_gaped_bytes, \
-    protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
-    protein_letters_alph1_unknown_gaped, get_lod, protein_letters_alph3
+    numerical_translation_alph3_unknown_gaped_bytes, protein_letters_3to1_extended, protein_letters_1to3_extended, \
+    get_lod, protein_letters_alph3
 from symdesign.utils import types
 
 FeatureDict = MutableMapping[str, np.ndarray]
@@ -3878,181 +3871,6 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         }
         return template_features
 
-    def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, msas: Sequence = tuple(),
-                               no_msa: bool = False, templates: bool = False, **kwargs) -> FeatureDict:
-        # multimer: bool = False,
-        """Retrieve the required feature dictionary for this instance to use in Alphafold inference
-
-        Args:
-            symmetric: Whether the symmetric Entity should be used for feature production. If True, this function will
-                fully process the FeatureDict in the symmetric form compatible with Alphafold multimer
-            heteromer: Whether Alphafold should be run as a heteromer. Features directly used in
-                Alphafold from this instance should never be used with heteromer=True
-            msas: A sequence of multiple sequence alignments if they should be included in the features
-            no_msa: Whether multiple sequence alignments should be included in the features
-            templates: Whether the Entity should be returned with it's template features
-
-        Returns:
-            The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
-        """
-        if heteromer:
-            if symmetric:
-                raise ValueError(
-                    f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
-                    f"'heteromer' True. Only run with symmetric True if this {self.__class__.__name__} "
-                    "instance alone should be predicted as a multimer")
-        # if templates:
-        #     if symmetric:
-        #         # raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
-        #         logger.warning(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
-        #                        f"'templates' True. Templates not set up for multimer")
-        # elif symmetric:
-        #     # Set multimer True as we need to make_msa_features_multimeric
-        #     multimer = True
-
-        # # IS THIS NECESSARY. DON'T THINK SO IF I HAVE MSA
-        # chain_features = alphafold.alphafold.data.pipeline.DataPipeline.process(input_fasta_path=P, msa_output_dir=P)
-        # This ^ runs
-        number_of_residues = self.number_of_residues
-        sequence = self.sequence
-        sequence_features = af_pipeline.make_sequence_features(
-            sequence=sequence, description=self.name, num_res=number_of_residues)
-        # sequence_features = {
-        #     'aatype': ,  # MAKE ONE HOT with X i.e.unknown are X
-        #     'between_segment_residues': np.zeros((number_of_residues,), dtype=np.int32),
-        #     'domain_name': np.array([input_description.encode('utf-8')], dtype=np.object_),
-        #     'residue_index': np.arange(number_of_residues, dtype=np.int32),
-        #     'seq_length': np.full(number_of_residues, number_of_residues, dtype=np.int32),
-        #     'sequence': np.array([sequence.encode('utf-8')], dtype=np.object_)
-        # }
-
-        def make_msa_features_multimeric(msa_feats: FeatureDict) -> FeatureDict:
-            """Create the feature names for Alphafold heteromeric inputs run in multimer mode"""
-            valid_feats = af_msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
-            return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
-
-        # Multiple sequence alignment processing
-        if msas:
-            msa_features = af_pipeline.make_msa_features(msas)
-            # Can use a single one...
-            # Other types from AlphaFold include: (uniref90_msa, bfd_msa, mgnify_msa)
-            if heteromer:
-                # Todo ensure that uniref90 runner was used...
-                #  OR equivalent so that each sequence in a multimeric msa is paired
-                # Stockholm format looks like
-                # #=GF DE                          path/to/profiles/entity_id
-                # #=GC RF                          AY--R...
-                # 2gtr_1                           AY--R...
-                # UniRef100_A0A455ABB#2            NC--R...
-                # UniRef100_UPI00106966C#3         CI--L...
-                raise NotImplementedError('No uniprot90 database hooked up...')
-                # with open(self.msa_file, 'r') as f:
-                #     uniref90_lines = f.read()
-
-                uniref90_msa = af_data_parsers.parse_stockholm(uniref90_lines)
-                msa_features = af_pipeline.make_msa_features((uniref90_msa,))
-                msa_features.update(make_msa_features_multimeric(msa_features))
-        else:
-            msa = self.msa
-            if no_msa or msa is None:  # or self.msa_file is None:
-                # When no msa_used, construct our own
-                num_sequences = 1
-                deletion_matrix = np.zeros((num_sequences, number_of_residues), dtype=np.int32)
-                species_ids = ['']  # Must include an empty '' as the first "reference" sequence
-                msa_numeric = sequences_to_numeric(
-                    [sequence], translation_table=numerical_translation_alph1_unknown_gaped_bytes
-                ).astype(dtype=np.int32)
-            elif msa:
-                deletion_matrix = msa.deletion_matrix.astype(np.int32)  # [:, msa.query_indices]
-                num_sequences = msa.length
-                species_ids = msa.sequence_identifiers
-                # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
-                msa.alphabet_type = protein_letters_alph1_unknown_gaped
-                msa_numeric = msa.numerical_alignment[:, msa.query_indices]
-                # self.log.critical(f'982 Found {len(np.flatnonzero(msa.query_indices))} indices utilized in design')
-            # Todo
-            #  move to additional AlphaFold set up function...
-            #  elif os.path.exists(self.msa_file):
-            #      with open(self.msa_file, 'r') as f:
-            #          uniclust_lines = f.read()
-            #      file, extension = os.path.splitext(self.msa_file)
-            #      if extension == '.sto':
-            #          uniclust30_msa = af_data_parsers.parse_stockholm(uniclust_lines)
-            #      else:
-            #          raise ValueError(
-            #              f"Currently, the multiple sequence alignment file type '{extension}' isn't supported\n"
-            #              f"\tOffending file located at: {self.msa_file}")
-            #      msas = (uniclust30_msa,)
-            else:
-                raise ValueError("Couldn't acquire AlphaFold msa features")
-
-            self.log.debug(f"Found the first 5 species_ids: {species_ids[:5]}")
-            msa_features = {
-                'deletion_matrix_int': deletion_matrix,
-                # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
-                # 'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
-                'msa': msa_numeric,
-                'num_alignments': np.full(number_of_residues, num_sequences, dtype=np.int32),
-                # Fill by the number of residues how many sequences are in the MSA
-                'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
-            }
-            # Debug features
-            for feat, values in msa_features.items():
-                self.log.debug(f'For feature {feat}, found shape {values.shape}')
-
-            if heteromer:
-                # Make a deepcopy just incase this screws up something
-                msa_features.update(make_msa_features_multimeric(deepcopy(msa_features)))
-
-        # Template processing
-        if templates:
-            template_features = self.get_alphafold_template_features()  # symmetric=symmetric, heteromer=heteromer)
-        else:
-            template_features = empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
-        # Debug template features
-        for feat, values in template_features.items():
-            self.log.debug(f'For feature {feat}, found shape {values.shape}')
-
-        entity_features = {
-            **msa_features,
-            **sequence_features,
-            **template_features
-        }
-        if symmetric and self.is_symmetric():
-            # Hard code in chain_id as we are using a multimeric predict on the oligomeric version
-            chain_id = 'A'
-            entity_features = af_pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
-
-            chain_count = count(1)
-            entity_integer = 1
-            entity_id = af_pipeline_multimer.int_id_to_str_id(entity_integer)
-            all_chain_features = {}
-            for sym_idx in range(1, 1 + self.number_of_symmetry_mates):
-                # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
-                this_entity_features = deepcopy(entity_features)
-                # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
-                # Where entity_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 1, ...
-                # Where sym_id increments for each new Entity instance regardless of chain i.e. A_1 is 1, A_2 is 2, ...,
-                # B_1 is 1, B2 is 2
-                this_entity_features.update({'asym_id': next(chain_count) * np.ones(number_of_residues),
-                                             'sym_id': sym_idx * np.ones(number_of_residues),
-                                             'entity_id': entity_integer * np.ones(number_of_residues)})
-                chain_name = f'{entity_id}_{sym_idx}'
-                all_chain_features[chain_name] = this_entity_features
-
-            # Alternative to pair_and_merge using hhblits a3m output
-            # See PMID:36224222 "Structural predictions of dimeric and trimeric subcomponents" methods section
-            # The first of the two MSAs is constructed by extracting the organism identifiers (OX) from the resulting
-            # a3m file and pairing sequences using the top hit from each OX. The second is constructed by block
-            # diagonalizing the resulting a3m file.
-            np_example = af_feature_processing.pair_and_merge(all_chain_features=all_chain_features)
-            # Pad MSA to avoid zero-sized extra_msa.
-            np_example = af_pipeline_multimer.pad_msa(np_example, 512)
-
-            return np_example  # This is still a FeatureDict and could be named entity_features
-        else:
-            return entity_features
-
     def find_chain_symmetry(self):
         """Search for the chain symmetry by using quaternion geometry to solve the symmetric order of the rotations
          which superimpose chains on the Entity. Translates the Entity to the origin using center of mass, then the axis
@@ -6039,109 +5857,6 @@ class Pose(SymmetricModel, MetricsMixin):
         """Returns the Residue instances that are required according to DesignSelector"""
         return self.get_residues_by_atom_indices(self._required_atom_indices)
 
-    def get_alphafold_features(
-            self, symmetric: bool = False, multimer: bool = False, **kwargs
-    ) -> FeatureDict:
-        """Retrieve the required feature dictionary for this instance to use in Alphafold inference
-
-        Args:
-            symmetric: Whether the symmetric version of the Pose should be used for feature production
-            multimer: Whether to run as a multimer. If multimer is True while symmetric is False, the Pose will
-                be processed according to the ASU
-
-        Keyword Args:
-            msas: Sequence - A sequence of multiple sequence alignments if they should be included in the features
-            no_msa: bool = False - Whether multiple sequence alignments should be included in the features
-
-        Returns:
-            The alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
-        """
-        # heteromer = heteromer or self.number_of_entities > 1
-        # symmetric = symmetric or heteromer or self.number_of_chains > 1
-        # if multimer:
-
-        # Set up the ASU unless otherwise specified
-        number_of_symmetry_mates = 1
-        if self.is_symmetric():
-            if symmetric:
-                number_of_symmetry_mates = self.number_of_symmetry_mates
-                multimer = True
-        # else:
-        #     self.log.warning("Can't run as symmetric since Pose isn't symmetric")
-
-        if self.number_of_entities > 1:
-            # self.log.warning(f"Can't run with symmetric=True while multimer=False on a {self.__class__.__name__}. "
-            #                  f"Setting heteromer=True")
-            heteromer = multimer = True
-        else:
-            heteromer = False
-            # if self.number_of_chains > 1:
-            #     multimer = True
-            # raise ValueError(f"Can't run monomer when {self.number_of_entities} entities are present in the "
-            #                  f"{self.__class__.__name__}. Use Entity.{Entity.get_alphafold_features.__name__} on "
-            #                  f"each entity individually instead")
-
-        chain_count = count(1)
-        all_chain_features = {}
-        available_chain_ids = list(chain_id_generator())[:self.number_of_entities * self.number_of_symmetry_mates]
-        available_chain_ids_iter = iter(available_chain_ids)
-        for entity_idx, entity in enumerate(self.entities):
-            entity_features = entity.get_alphafold_features(heteromer=heteromer, **kwargs)  # no_msa=no_msa)
-            # The above function creates most of the work for the adaptation
-            # particular importance needs to be given to the MSA used.
-            # Should fragments be utilized in the MSA? If so, naming them in some way to pair is required!
-            # Follow the example in:
-            #    af_pipeline.make_msa_features(msas: Sequence[af_data_parsers.Msa]) -> FeatureDict
-            # to featurize
-
-            if multimer:  # symmetric:
-                # The chain_id passed to this function is used by the entity_features to (maybe) tie different chains
-                # to this chain. In alphafold implementation, the chain_id passed should be oriented so that each
-                # additional entity has the chain_id of the chain number within the entire system.
-                # For example, for an A4B4 heteromer with C4 symmetry, the chain_id for entity idx 0 would be A and for
-                # entity idx 1 would be E. This may not be important, but this is how symmetric is prepared
-                chain_id = available_chain_ids[self.number_of_symmetry_mates * entity_idx]
-                entity_features = af_pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
-
-                entity_integer = entity_idx + 1
-                entity_id = af_pipeline_multimer.int_id_to_str_id(entity_integer)
-
-            entity_length = entity.number_of_residues
-            # for _ in range(self.number_of_symmetry_mates):
-            for sym_idx in range(1, 1 + number_of_symmetry_mates):
-                # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
-                this_entity_features = deepcopy(entity_features)
-                # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
-                # Where entity_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 1, ...
-                # Where sym_id increments for each new Entity instance regardless of chain i.e. A_1 is 1, A_2 is 2, ...,
-                # B_1 is 1, B2 is 2
-                if multimer:  # symmetric:
-                    this_entity_features.update({'asym_id': next(chain_count) * np.ones(entity_length),
-                                                 'sym_id': sym_idx * np.ones(entity_length),
-                                                 'entity_id': entity_integer * np.ones(entity_length)})
-                    chain_name = f'{entity_id}_{sym_idx}'
-                else:
-                    chain_name = next(available_chain_ids_iter)
-                # Make the key '<seq_id>_<sym_id>' where seq_id is the chain name assigned to the Entity where
-                # chain names increment according to reverse spreadsheet style i.e. A,B,...AA,BA,...
-                # and sym_id increments from 1 to number_of_symmetry_mates
-                all_chain_features[chain_name] = this_entity_features
-                # all_chain_features[next(available_chain_ids_iter)] = this_entity_features
-                # all_chain_features[next(available_chain_ids_iter)] = this_entity_features
-                # NOT HERE chain_features = convert_monomer_features(copy.deepcopy(entity_features), chain_id=chain_id)
-                # all_chain_features[chain_id] = chain_features
-
-        # This v performed above during all_chain_features creation
-        # all_chain_features = \
-        #     af_pipeline_multimer.add_assembly_features(all_chain_features)
-
-        if multimer:  # symmetric:
-            all_chain_features = af_feature_processing.pair_and_merge(all_chain_features=all_chain_features)
-            # Pad MSA to avoid zero-sized extra_msa.
-            all_chain_features = af_pipeline_multimer.pad_msa(all_chain_features, 512)
-
-        return all_chain_features
-
     def get_proteinmpnn_params(self, ca_only: bool = False, pssm_bias_flag: bool = False, pssm_multi: float = 0.,
                                bias_pssm_by_probabilities: bool = False, pssm_log_odds_flag: bool = False,
                                interface: bool = False, neighbors: bool = False, **kwargs) -> dict[str, np.ndarray]:
@@ -6194,9 +5909,9 @@ class Pose(SymmetricModel, MetricsMixin):
         residue_mask = np.zeros(number_of_residues, dtype=np.int32)  # (number_of_residues,)
         residue_mask[design_indices] = 1
 
-        omit_AAs_np = np.zeros(ml.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
+        omit_AAs_np = np.zeros(ml.proteinmpnn.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
         bias_AAs_np = np.zeros_like(omit_AAs_np)  # (alphabet_length,)
-        omit_AA_mask = np.zeros((number_of_residues, ml.mpnn_alphabet_length),
+        omit_AA_mask = np.zeros((number_of_residues, ml.proteinmpnn.mpnn_alphabet_length),
                                 dtype=np.int32)  # (number_of_residues, alphabet_length)
         bias_by_res = np.zeros(omit_AA_mask.shape, dtype=np.float32)  # (number_of_residues, alphabet_length)
 
@@ -6413,7 +6128,7 @@ class Pose(SymmetricModel, MetricsMixin):
             # Convert the sequences to correct format
             # missing_alphabet = ''
             warn_alphabet = 'With passed sequences type of {}, ensure that the order of ' \
-                            f'integers is of the default ProteinMPNN alphabet "{ml.mpnn_alphabet}"'
+                            f"integers is of the default ProteinMPNN alphabet '{ml.proteinmpnn.mpnn_alphabet}'"
 
             def convert_and_check_sequence_type(sequences_) -> Sequence[Sequence[str | int]]:
                 incorrect_input = ValueError(f'The passed sequences must be an Sequence[Sequence[Any]]')
@@ -6432,7 +6147,7 @@ class Pose(SymmetricModel, MetricsMixin):
                     if final_level == 1:
                         if item_type is str:
                             sequences_ = sequences_to_numeric(
-                                sequences, translation_table=ml.proteinmpnn_default_translation_table)
+                                sequences, translation_table=ml.proteinmpnn.default_translation_table)
                         else:
                             raise incorrect_input
                     elif final_level == 2:
@@ -6441,7 +6156,7 @@ class Pose(SymmetricModel, MetricsMixin):
                                 sequences[idx] = ''.join(sequence)
 
                             sequences_ = sequences_to_numeric(
-                                sequences, translation_table=ml.proteinmpnn_default_translation_table)
+                                sequences, translation_table=ml.proteinmpnn.default_translation_table)
                         else:
                             self.log.warning(warn_alphabet.format('int'))
                             sequences_ = np.array(sequences_)
@@ -6464,7 +6179,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
             # pose_length = self.number_of_residues
             size, pose_length, *_ = numeric_sequences.shape
-            batch_length = ml.PROTEINMPNN_SCORE_BATCH_LEN
+            batch_length = ml.proteinmpnn.PROTEINMPNN_SCORE_BATCH_LEN
 
             # Set up parameters and model sampling type based on symmetry
             if measure_unbound:
@@ -6492,20 +6207,19 @@ class Pose(SymmetricModel, MetricsMixin):
             parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 
             @ml.batch_calculation(size=size, batch_length=batch_length,
-                                  setup=ml.setup_pose_batch_for_proteinmpnn,
-                                  compute_failure_exceptions=(RuntimeError,
-                                                              np.core._exceptions._ArrayMemoryError))
+                                  setup=ml.proteinmpnn.setup_pose_batch,
+                                  compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
             def _proteinmpnn_batch_score(*args, **_kwargs):
-                return ml.proteinmpnn_batch_score(*args, **_kwargs)
+                return ml.proteinmpnn.batch_score(*args, **_kwargs)
 
             # Set up the model with the desired weights
-            proteinmpnn_model = ml.proteinmpnn_factory(ca_only=ca_only, **kwargs)
+            proteinmpnn_model = ml.proteinmpnn.factory(ca_only=ca_only, **kwargs)
             device = proteinmpnn_model.device
 
             # Send the numpy array to torch.tensor and the device
             # Pass sequences as 'S' parameter to _proteinmpnn_batch_score instead of as setup_kwargs
-            # unique_parameters = ml.proteinmpnn_to_device(device, S=sequences, decoding_order=decoding_order)
-            unique_parameters = ml.proteinmpnn_to_device(device, S=numeric_sequences_)
+            # unique_parameters = ml.proteinmpnn.to_device(device, S=sequences, decoding_order=decoding_order)
+            unique_parameters = ml.proteinmpnn.to_device(device, S=numeric_sequences_)
             # score_start = time.time()
             scores = \
                 _proteinmpnn_batch_score(proteinmpnn_model, **unique_parameters,  # S=sequences,
@@ -6593,9 +6307,9 @@ class Pose(SymmetricModel, MetricsMixin):
 
             # Set up the model with the desired weights
             size = number
-            proteinmpnn_model = ml.proteinmpnn_factory(ca_only=ca_only, **kwargs)
+            proteinmpnn_model = ml.proteinmpnn.factory(ca_only=ca_only, **kwargs)
             device = proteinmpnn_model.device
-            batch_length = ml.calculate_proteinmpnn_batch_length(proteinmpnn_model, number_of_residues)
+            batch_length = ml.proteinmpnn.calculate_batch_length(proteinmpnn_model, number_of_residues)
             # batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
             logger.info(f'Found ProteinMPNN batch_length={batch_length}')
 
@@ -6605,11 +6319,11 @@ class Pose(SymmetricModel, MetricsMixin):
             design_indices = np.zeros((size, pose_length), dtype=bool)
 
             @ml.batch_calculation(size=size, batch_length=batch_length,
-                                  setup=ml.setup_pose_batch_for_proteinmpnn,
+                                  setup=ml.proteinmpnn.setup_pose_batch,
                                   compute_failure_exceptions=(RuntimeError,
                                                               np.core._exceptions._ArrayMemoryError))
             def _proteinmpnn_batch_design(*args, **_kwargs):
-                return ml.proteinmpnn_batch_design(*args, **_kwargs)
+                return ml.proteinmpnn.batch_design(*args, **_kwargs)
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
             number_of_temps = len(temperatures)

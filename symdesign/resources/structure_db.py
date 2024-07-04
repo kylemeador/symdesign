@@ -15,9 +15,9 @@ import jax.numpy as jnp
 
 from . import distribute, sql
 from .database import Database, DataStore
-from .ml import af_predict, set_up_model_runners
-from .query.pdb import get_qsbio_confirmed_assemblies
+from .query.pdb import qsbio_confirmed_assemblies
 from symdesign import flags
+from symdesign.ml import alphafold
 from symdesign.protocols.pose import load_evolutionary_profile
 from symdesign.dependencies import rosetta
 from symdesign.sequence import generate_mutations, expression
@@ -796,8 +796,15 @@ class StructureDatabase(Database):
             #
             # if loop_model_input:
                 # Generate loop model commands
-                use_alphafold = True
-                if use_alphafold and self.job.gpu_available:
+                # try:
+                #     from symdesign.ml import alphafold
+                # except ModuleNotFoundError:
+                #     raise ModuleNotFoundError(
+                #         f"Couldn't locate the alphafold source code. To use {flags.loop_model_input.as_long()}, "
+                #         f"ensure that 'alphafold' is properly installed. {putils.alphafold_install_instructions}"
+                #     )
+
+                if alphafold.AVAILABLE and job.gpu_available:
                     if batch_commands:
                         # Write all commands to a file to perform in batches
                         cmd = [putils.program_exe, flags.initialize_building_blocks,
@@ -822,8 +829,10 @@ class StructureDatabase(Database):
                         # model_type = 'monomer'
                         relaxed = job.predict.models_to_relax is not None
                         # Set up the various model_runners to supervise the prediction task for each sequence
-                        monomer_runners = set_up_model_runners(model_type='monomer', development=self.job.development)
-                        multimer_runners = set_up_model_runners(model_type='multimer', development=self.job.development)
+                        monomer_runners = alphafold.set_up_model_runners(
+                            model_type='monomer', development=job.development)
+                        multimer_runners = alphafold.set_up_model_runners(
+                            model_type='multimer', development=job.development)
                         # I don't suppose I need to reinitialize these for different length inputs, but I'm sure I will
 
                         # Predict each
@@ -873,15 +882,15 @@ class StructureDatabase(Database):
                                 model_runners = monomer_runners
                                 previous_position_coords = jnp.asarray(entity.alphafold_coords)
                             # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
-                            features = entity.get_alphafold_features(
-                                symmetric=af_symmetric, no_msa=not alignment_loaded, templates=True)
+                            features = alphafold.get_entity_features(
+                                entity, symmetric=af_symmetric, no_msa=not alignment_loaded, templates=True)
                             # Put the entity oligomeric coordinates in as a prior to bias the prediction
                             features['prev_pos'] = previous_position_coords
                             # Run the prediction
                             entity_structures, entity_scores = \
-                                af_predict(features, model_runners,  # {**features, **template_features},
-                                           gpu_relax=self.job.predict.use_gpu_relax,
-                                           models_to_relax='best')  # self.job.predict.models_to_relax)
+                                alphafold.predict(features, model_runners,  # {**features, **template_features},
+                                                  gpu_relax=job.predict.use_gpu_relax,
+                                                  models_to_relax='best')  # job.predict.models_to_relax)
                             if relaxed:
                                 structures_to_load = entity_structures.get('relaxed', [])
                             else:

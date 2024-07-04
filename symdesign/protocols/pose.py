@@ -15,8 +15,6 @@ from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Any, AnyStr
 
-import alphafold.data.pipeline as af_pipeline
-from alphafold.common import residue_constants
 from cycler import cycler
 import jax.numpy as jnp
 from matplotlib import figure, pyplot as plt
@@ -32,7 +30,7 @@ from sqlalchemy.orm.exc import DetachedInstanceError
 import torch
 
 from .utils import warn_missing_symmetry
-from symdesign import flags, metrics, resources
+from symdesign import flags, metrics, ml, resources
 from symdesign.dependencies import rosetta
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, write_sequences
@@ -1555,7 +1553,7 @@ class PoseProtocol(PoseData):
                 f"For {self.predict_structure.__name__}, the method {self.job.predict.method} isn't implemented yet")
 
     def alphafold_predict_structure(self, sequences: dict[sql.DesignData, str],
-                                    model_type: resources.ml.af_model_literal = 'monomer', **kwargs) -> None:
+                                    model_type: ml.alphafold.AlphaFoldModelLiteral = 'monomer', **kwargs) -> None:
         """Use Alphafold to predict structures for sequences of interest. The sequences will be fit to the Pose
         parameters, however will have sequence features unique to that sequence. By default, no multiple sequence
         alignment will be used and the AlphafoldInitialGuess model will be used wherein the starting coordinates for
@@ -1572,6 +1570,12 @@ class PoseProtocol(PoseData):
         Returns:
             None
         """
+        if not ml.alphafold.AVAILABLE:
+            raise ModuleNotFoundError(
+                f"Couldn't locate the AlphaFold source code. To use {self.alphafold_predict_structure.__name__}, "
+                f"ensure that 'alphafold' is properly installed. {putils.alphafold_install_instructions}"
+            )
+
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
         logger.info(f'Performing structure prediction on {len(sequences)} sequences')
@@ -1608,7 +1612,7 @@ class PoseProtocol(PoseData):
             num_predictions_per_model = self.job.predict.num_predictions_per_model
 
         # Set up the various model_runners to supervise the prediction task for each sequence
-        model_runners = resources.ml.set_up_model_runners(
+        model_runners = ml.alphafold.set_up_model_runners(
             model_type=model_type, num_predictions_per_model=num_predictions_per_model, num_ensemble=num_ensemble,
             development=self.job.development)
 
@@ -1625,11 +1629,11 @@ class PoseProtocol(PoseData):
             # Set up scores for each model
             sequence_length = len(seq_of_interest)
             # Set the sequence up in the FeatureDict
-            # Todo the way that I am adding this here instead of during construction, seems that I should
-            #  symmetrize the sequence before passing to af_predict(). This would occur by entity, where the first
+            # Todo the way that I am adding this here instead of during construction, seems that I should symmetrize
+            #  the sequence before passing to ml.alphafold.predict(). This would occur by entity, where the first
             #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
             #  as all_atom_mask would be able to be made here
-            _seq_features = af_pipeline.make_sequence_features(
+            _seq_features = ml.alphafold.make_sequence_features(
                 sequence=seq_of_interest, description='', num_res=sequence_length)
             # Always use the outer "domain_name" feature if there is one
             _seq_features.pop('domain_name')
@@ -1667,7 +1671,7 @@ class PoseProtocol(PoseData):
             #     # increasing for each sequence position, restarting at the beginning of a chain
             # Make the atom positions according to the sequence
             # Add all_atom_mask and dummy all_atom_positions based on aatype.
-            all_atom_mask = residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
+            all_atom_mask = ml.alphafold.residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
             _seq_features['all_atom_mask'] = all_atom_mask
             _seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
 

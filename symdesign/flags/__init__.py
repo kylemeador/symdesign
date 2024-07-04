@@ -872,8 +872,8 @@ predict_structure_arguments = {
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (models_to_relax.as_long(),):
         dict(type=str.lower, default='best', metavar='',
-             choices=config.relax_options, help='Specify which predictions should be relaxed'
-                                                '\nChoices=%(choices)s\nDefault=%(default)s'),
+             choices=alphafold.relax_options, help='Specify which predictions should be relaxed'
+                                                   '\nChoices=%(choices)s\nDefault=%(default)s'),
     (use_gpu_relax.as_long(),):
         dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }
