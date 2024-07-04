@@ -1145,8 +1145,8 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
                                                                       if entity.name in additional_entity_ids2])
                             for bend_idx, coords in enumerate(bent_coords, 1):
                                 pose.coords = coords
-                                if pose.is_clash(measure=self.job.design.clash_criteria,
-                                                 distance=self.job.design.clash_distance, silence_exceptions=True):
+                                if pose.is_clash(measure=job.design.clash_criteria,
+                                                 distance=job.design.clash_distance, silence_exceptions=True):
                                     logger.info(f'Alignment {fusion_name}, bend {bend_idx} clashes')
                                     if job.design.ignore_pose_clashes:
                                         pass
@@ -1154,8 +1154,8 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
                                         continue
 
                                 if pose.is_symmetric():
-                                    if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
-                                                                        distance=self.job.design.clash_distance):
+                                    if pose.symmetric_assembly_is_clash(measure=job.design.clash_criteria,
+                                                                        distance=job.design.clash_distance):
                                         logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
                                                     'symmetric clashes')
                                         if job.design.ignore_symmetric_clashes:

@@ -660,7 +660,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
-    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=model1.fragment_db)
+    surf_frags1 = model1.get_fragment_residues(residues=model1.get_surface_residues(), fragment_db=model1.fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     fragment_content1 = np.bincount([surf_frag.i_type for surf_frag in surf_frags1])
@@ -691,7 +691,7 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
     surf_frags2 = \
-        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=model2.fragment_db)
+        model2.get_fragment_residues(residues=model2.get_surface_residues(), fragment_db=model2.fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in surf_frags2])

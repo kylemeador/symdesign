@@ -290,7 +290,7 @@ class StoreDictKeyPair(argparse.Action):
         # my_dict = getattr(namespace, self.dest, {})
         my_dict = {}
         for kv in values:
-            k, v = kv.split('=')
+            k, v = kv.split('=', maxsplit=2)
             my_dict[k] = ast.literal_eval(v)
 
         # logger.debug(f'Final parsed: {my_dict=}')

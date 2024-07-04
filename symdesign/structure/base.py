@@ -671,6 +671,14 @@ class SymmetryBase(ABC):
                 raise ValueError(
                     f"Couldn't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
                     f"Must be class 'str'")
+        else:  # Ensure the attribute name exists
+            try:
+                getattr(self, self._symmetric_dependents)
+            except AttributeError:
+                raise AttributeError(
+                    f"Couldn't set .symmetric_dependents='{self._symmetric_dependents}'. "
+                    "No attribute with that name exists"
+                )
 
 
 class StructureMetadata:
@@ -4902,8 +4910,9 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         """Return a per-residue array of the apolar (hydrophobic) solvent accessible area for the Structure"""
         return [residue.sasa_polar for residue in self.residues]
 
-    @property
-    def surface_residues(self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> list[Residue]:
+    def get_surface_residues(
+        self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs
+    ) -> list[Residue]:
         """Get the Residue instances that reside on the surface of the molecule
 
         Args:
@@ -4923,8 +4932,9 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         return [residue for residue in self.residues if residue.relative_sasa >= relative_sasa_thresh]
 
-    @property
-    def interior_residues(self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> list[Residue]:
+    def get_interior_residues(
+        self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs
+    ) -> list[Residue]:
         """Get the Residue instances that reside in the interior of the molecule
 
         Args:

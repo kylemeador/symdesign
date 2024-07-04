@@ -13,6 +13,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from glob import glob
 from itertools import count, repeat, product, combinations
+from pathlib import Path
 from subprocess import list2cmdline
 from typing import Any, AnyStr, Iterable
 
@@ -161,27 +162,27 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
             extension = '.pdb*'
             pdb_filepaths = []
             for path in paths:
-                pdb_filepaths.extend(utils.get_directory_file_paths(path, extension=extension))
+                pdb_filepaths.extend(Path(path).glob(f'*{extension}'))
 
             if not pdb_filepaths:
                 logger.warning(f'Found no {extension} files from {paths}')
         # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
-        structure_names = pdb_filepaths
+        structure_names = map(str, sorted(pdb_filepaths, key=lambda p: p.stem))
     elif pdb_codes:
         # Make all names lowercase
-        structure_names = list(map(str.lower, pdb_codes))
+        structure_names = map(str.lower, pdb_codes)
     elif query_codes:
         save_query = utils.query.validate_input_return_response_value(
             'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
         print(f'\nStarting PDB query\n')
         structure_names = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
         # Make all names lowercase
-        structure_names = list(map(str.lower, structure_names))
+        structure_names = map(str.lower, structure_names)
     else:
         structure_names = []
 
     # Select entities, orient them, then load ProteinMetadata for further processing
-    return job.structure_db.orient_structures(structure_names, sym_entry=sym_entry, by_file=by_file)
+    return job.structure_db.orient_structures(list(structure_names), sym_entry=sym_entry, by_file=by_file)
 
 
 def load_poses_from_structure_and_entity_pairs(job: JobResources,
@@ -312,9 +313,9 @@ def main():
             # Todo
             #  no --file and --specification-file at the same time
             # These poses are already included in the "program state"
-            if not in_root or not args.directory:
+            if not in_root and not args.directory:
                 directory_required = f'A {flags.format_args(flags.directory_args)} must be provided when using '
-                not_in_current = f" if the target {putils.program_name} isn't in, or the current working directory"
+                not_in_current = f" if the target {putils.program_output} isn't in, or is the current working directory"
                 if args.poses:
                     raise utils.InputError(
                         f'{directory_required}{flags.format_args(flags.poses_args)}{not_in_current}')
@@ -340,11 +341,11 @@ def main():
                     directives.extend(_directives)
 
         else:  # args.project or args.single:
-            paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
-            #                                             directory = symdesign_directory,
+            paths, job.location = putils.collect_program_input_paths(projects=args.project, singles=args.single)
+            #                                                          directory = symdesign_directory,
             if paths:  # There are files present
                 for path in paths:
-                    name, project, *_ = reversed(path.split(os.sep))
+                    *_, project, name = path.parts
                     pose_identifiers.append(f'{project}{os.sep}{name}')
 
         if not pose_identifiers:
@@ -374,7 +375,7 @@ def main():
             pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
             # Check all jobs that were checked out against those that were requested
-            pose_identifier_to_pose_job_map = {pose_job.pose_identifier: pose_job for pose_job in pose_jobs}
+            pose_identifier_to_pose_job_map = {pj.pose_identifier: pj for pj in pose_jobs}
             missing_pose_identifiers = set(pose_identifier_to_pose_job_map.keys()).difference(pose_identifiers)
             if missing_pose_identifiers:
                 logger.warning(
@@ -382,8 +383,9 @@ def main():
                     % '\n'.join(missing_pose_identifiers))
                 remove_missing_identifiers = [pose_identifiers.index(identifier)
                                               for identifier in missing_pose_identifiers]
-                for index in sorted(remove_missing_identifiers, reverse=True):
-                    pose_identifiers.pop(index)
+                pose_identifiers = list(pose_identifiers)
+                for idx in sorted(remove_missing_identifiers, reverse=True):
+                    pose_identifiers.pop(idx)
             # else:
             #     remove_missing_identifiers = []
 
@@ -684,22 +686,25 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Find base output directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
-    root_directory = utils.get_program_root_directory(
-        args.directory or (args.project or args.single or [None])[0])  # Get the first in the sequence
-    root_in_cwd = utils.get_program_root_directory(os.getcwd())
-    if root_in_cwd:
-        root_in_current = True
-        if root_directory is None:  # No directory from the input. Is it in, or the current working directory?
-            root_directory = root_in_cwd
+    target = putils.program_output
+    root_in_current = False
+    # If any of the latter args, get the first in the sequence.
+    search_path = args.directory or (args.project or args.single or [None])[0]
+    if search_path:
+        root_directory = putils.get_path_to_target_directory_from(search_path, target)
     else:
-        root_in_current = False
+        root_directory = putils.get_path_to_target_directory_from(Path.cwd(), target)
+        if root_directory is not None:
+            # No directory from the input use the current working directory
+            root_in_current = True
 
     project_name = None
     """Used to set a leading string on all new PoseJob paths"""
     if root_directory is None:  # No program output directory from the input
+        # No program output directory from the input
         # By default, assume new input and make in the current directory
         new_program_output = True
-        root_directory = os.path.abspath(os.path.join(os.getcwd(), putils.program_output))
+        root_directory = (Path.cwd() / putils.program_output).absolute()
         # Check if there is a file and see if we can solve there
         file_sources = ['file', 'poses', 'specification_file']  # 'poses' 'pose_file'
         for file_source in file_sources:
@@ -710,8 +715,8 @@ def main():
                 with open(file, 'r') as f:
                     line = f.readline()
                     basename, extension = os.path.splitext(line)
-                    if extension == '':  # Provided as directory/pose_name (pose_identifier) from putils.program_output
-                        file_directory = utils.get_program_root_directory(line)
+                    if extension == '':  # Not a file, but provided as directory/pose_name (pose_identifier)
+                        file_directory = putils.get_path_to_target_directory_from(line, target)
                         if file_directory is not None:
                             root_directory = file_directory
                             new_program_output = False
@@ -722,13 +727,13 @@ def main():
                         project_name = os.path.splitext(os.path.basename(file))[0]
                 break
         # Ensure the base directory is made if it is indeed new and in os.getcwd()
-        os.makedirs(root_directory, exist_ok=True)
+        root_directory.mkdir(parents=True, exist_ok=True)
     else:
         new_program_output = False
     # -----------------------------------------------------------------------------------------------------------------
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
-    job = job_resources_factory.get(program_root=root_directory, arguments=args, initial=new_program_output)
+    job = job_resources_factory(path=root_directory, arguments=args, initial=new_program_output)
     if job.project_name:  # One was provided using flags (arguments=args) ^
         project_name = job.project_name
     # else:
@@ -828,7 +833,7 @@ def main():
     if job.module in flags.select_modules:
         # Set selection based on full database when no PoseJob are specified through other flags
         # if utils.is_program_base(symdesign_directory): <- hypothetical test for correct program_root
-        base_symdesign_dir = utils.get_program_root_directory(args.directory)
+        base_symdesign_dir = putils.get_path_to_target_directory_from(args.directory, target)
         if base_symdesign_dir == args.directory:
             select_from_directory = True
     # elif job.module in [flags.select_designs, flags.select_sequences] \
@@ -852,7 +857,6 @@ def main():
     reported_args = job.report_specified_arguments(args)
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
-    logger.info(f"Using resources in Database located at '{job.data}'")
     uses_fragments = [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]
     if job.module in uses_fragments:
         if job.module == flags.generate_fragments:
@@ -890,7 +894,7 @@ def main():
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+            all_uniprot_id_to_prot_data = db.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
             # Finalize additions to the database
             session.commit()
 
@@ -1006,7 +1010,7 @@ def main():
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+            all_uniprot_id_to_prot_data = db.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
             # Finalize additions to the database
             session.commit()
 
@@ -1085,8 +1089,8 @@ def main():
         if job.load_to_db:
             # These are not part of the db, but exist in a program_output
             if args.project or args.single:
-                paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
-                #                                             directory=symdesign_directory,
+                paths, job.location = putils.collect_program_input_paths(projects=args.project, singles=args.single)
+                #                                                          directory=symdesign_directory,
             # elif select_from_directory:
             #     paths, job.location = utils.collect_designs(directory=args.directory)
             else:
@@ -1101,11 +1105,8 @@ def main():
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
         elif args.file or args.directory:
-            # Todo
-            #  file_paths from fasta
-            file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
-            pose_jobs = [PoseJob.from_path(path, project=project_name)
-                         for path in job.get_range_slice(file_paths)]
+            file_paths, job.location = putils.collect_program_input_paths(files=args.file, directory=args.directory)
+            pose_jobs = [PoseJob.from_path(path, project=project_name) for path in job.get_range_slice(file_paths)]
         else:  # job.pdb_codes job.query_codes
             # Load PoseJob from pdb codes or a pdb query...
             structure_id_to_entity_ids, possibly_new_uniprot_to_prot_metadata = \
@@ -1115,7 +1116,7 @@ def main():
 
             # Write new data to the database and fetch existing data
             with job.db.session(expire_on_commit=False) as session:
-                all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+                all_uniprot_id_to_prot_data = db.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
                 # Finalize additions to the database
                 session.commit()
 
@@ -1363,9 +1364,9 @@ def main():
             with job.db.session(expire_on_commit=False) as session:
                 # Deal with new data compared to existing entries
                 all_uniprot_id_to_prot_data = \
-                    sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
-                                            existing_uniprot_entities=existing_uniprot_entities,
-                                            existing_protein_metadata=existing_protein_metadata)
+                    db.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
+                                           existing_uniprot_entities=existing_uniprot_entities,
+                                           existing_protein_metadata=existing_protein_metadata)
                 # Finalize additions to the database
                 session.commit()
 

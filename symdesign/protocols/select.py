@@ -5,7 +5,6 @@ import os
 import shutil
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from glob import glob
 from itertools import repeat, count
 from typing import Any
 
@@ -906,19 +905,22 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
     # Format sequences for expression
     tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
+    exceptions = []
     codon_optimization_errors = {}
-    for pose_job, _designs in results.items():
+    for pose_job in results:
         pose_job.load_pose()
         number_of_entities = pose_job.number_of_entities
         number_of_tags, tag_index = solve_tags(number_of_entities, job.tag_entities)
         pose_job.pose.rename_chains()
-        for design in _designs:
-            file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
-            file = sorted(glob(file_glob))
-            if not file:
-                logger.error(f'No file found for {file_glob}')
+        for design in pose_job.current_designs:
+            files = sorted(pose_job.designs_path.glob(f'*{design}*'), key=lambda p: p.stem)
+            # file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
+            # file = sorted(glob(file_glob))
+            if not files:
+                exceptions.append((pose_job, f"No file found for '{pose_job.designs_path / f'*{design}*'}'"))
+                # logger.error(f'No file found for {file_glob}')
                 continue
-            design_pose = Pose.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
+            design_pose = Pose.from_file(files[0], log=pose_job.log, entity_names=pose_job.entity_names)
             designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
 
             # Container of booleans whether each Entity has been tagged
@@ -1249,7 +1251,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             file_name=os.path.join(job.output_directory, 'SelectedSequencesNucleotide'))
         logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
 
-    return return_pose_jobs
+    return results
 
 
 def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterable[int],
@@ -1572,8 +1574,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     save_poses_df.to_csv(new_dataframe)
     logger.info(f'New DataFrame with selected poses written to: {new_dataframe}')
 
-    return final_pose_id_to_identifier.values()
-    # return final_poses
+    final_poses = [session.get(PoseJob, pose_id_) for pose_id_ in selected_pose_ids]
+    return final_poses
 
 
 def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) -> list[PoseJob]:

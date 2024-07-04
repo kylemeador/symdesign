@@ -162,7 +162,7 @@ def load_evolutionary_profile(model: ContainsEntities, warn_metrics: bool = Fals
     return measure_evolution, measure_alignment
 
 
-def load_bmdca(model: ContainsEntities, sequences_by_entity: list[dict[str, str]]) -> np.ndarray:
+def load_bmdca(model: ContainsEntities, sequences_by_entity: list[dict[str, str]]) -> list[np.ndarray]:
     """Add direct coupling analysis (DCA) data to the model
 
     Args:
@@ -196,7 +196,7 @@ def load_bmdca(model: ContainsEntities, sequences_by_entity: list[dict[str, str]
             dca_design_residues_concat = []
             break
 
-    return np.concatenate(dca_design_residues_concat, axis=1)
+    return dca_design_residues_concat
 
 
 # class PoseDirectory(ABC):  # Raises error about the subclass types not being the same...
@@ -3600,7 +3600,7 @@ class PoseProtocol(PoseData):
             (residues_df.loc[:, idx_slice[:, metrics.library.collapse_significance_by_contact_order_z.name]] != 0).sum(axis=1)
         # if self.measure_alignment:
         # Todo THESE ARE NOW DIFFERENT SOURCE if not self.measure_alignment
-        collapse_increased_df = residues_df.loc[:, idx_slice[:, metrics.library.collapse_increased_z.mean]]
+        collapse_increased_df = residues_df.loc[:, idx_slice[:, metrics.library.collapse_increased_z.name]]
         total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
         # designs_df['collapse_increase_significance_by_contact_order_z_mean'] = \
         #     designs_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse

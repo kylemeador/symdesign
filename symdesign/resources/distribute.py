@@ -160,6 +160,11 @@ def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
             directives = to_iterable(file, ensure_file=True)
 
     # Check if the file lines (commands) contain a script or a command
+    if not all(directives):
+        missing_indices = [idx for idx, directive in enumerate(directives) if not directive]
+        raise InputError(
+            f"Couldn't verify that the directive at indices {','.join(missing_indices)} exist"
+        )
     first_directive, *remaining_directives = directives
     contains_scripts = True if first_directive.endswith('.sh') else False
     for idx, directive in enumerate(remaining_directives, 1):

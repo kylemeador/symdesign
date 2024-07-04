@@ -2985,7 +2985,7 @@ class SymmetryOpsMixin(abc.ABC):
             new_coords = []
             new_atoms = []
             new_residues = []
-            for entity in enumerate(self.entities):
+            for idx, entity in enumerate(self.entities):
                 new_coords.append(entity.coords)
                 new_atoms.extend(entity.atoms)
                 new_residues.extend(entity.residues)
@@ -3510,7 +3510,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         super(StructureBase, StructureBase).symmetry.fset(self, symmetry)
         if self.is_symmetric() and self.is_dependent():
             # Set the parent StructureBase.symmetric_dependents to the 'entities' container
-            self.parent.symmetric_dependents = 'entities'
+            self.parent.symmetric_dependents = '_entities'
 
     # @property
     # def center_of_mass_symmetric_models(self) -> np.ndarray:
@@ -4543,6 +4543,11 @@ class Models(UserList):  # (Model):
                     _write_model(model)
                     handle.write('ENDMDL\n')
             else:
+                if not increment_chains:
+                    logger.warning(f'{self.__class__.__name__}.write() called without specifying a mechanism to '
+                                   "increment successive model chains. Provide 'multimodel' or 'increment_chains' as "
+                                   'True in order to specify a behavior if the output is undesired')
+
                 for model in self:
                     _write_model(model)
 
@@ -8276,9 +8281,10 @@ class Pose(SymmetricModel, MetricsMixin):
                 _metrics[metrics.library.percent_fragment_coil.name] /= number_fragments_interface
                 try:
                     _metrics[metrics.library.nanohedra_score_normalized.name] = \
-                        _metrics[metrics.library.nanohedra_score.name] / _metrics[metrics.library.number_residues_fragment_total.name]
+                        _metrics[metrics.library.nanohedra_score.name] / _metrics['number_residues_fragment_total']
                     _metrics[metrics.library.nanohedra_score_center_normalized.name] = \
-                        _metrics[metrics.library.nanohedra_score_center.name] / _metrics[metrics.library.number_residues_fragment_center.name]
+                        _metrics[metrics.library.nanohedra_score_center.name] \
+                        / _metrics['number_residues_fragment_center']
                 except ZeroDivisionError:
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
@@ -8316,9 +8322,9 @@ class Pose(SymmetricModel, MetricsMixin):
                     metric_d[metrics.library.percent_fragment_coil.name] = 0.
             try:
                 metric_d[metrics.library.nanohedra_score_normalized.name] = \
-                    metric_d[metrics.library.nanohedra_score.name] / metric_d[metrics.library.number_residues_fragment_total.name]
+                    metric_d[metrics.library.nanohedra_score.name] / metric_d['number_residues_fragment_total']
                 metric_d[metrics.library.nanohedra_score_center_normalized.name] = \
-                    metric_d[metrics.library.nanohedra_score_center.name]/metric_d[metrics.library.number_residues_fragment_center.name]
+                    metric_d[metrics.library.nanohedra_score_center.name]/metric_d['number_residues_fragment_center']
             except ZeroDivisionError:
                 self.log.debug(f'{self.name}: No fragment residues were found')
                 metric_d[metrics.library.nanohedra_score_normalized.name] = \

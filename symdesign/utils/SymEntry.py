@@ -762,7 +762,7 @@ class SymEntry:
         return 't:<0,0,d>' in self._int_dof_groups[1]
 
     @property
-    def ref_frame_tx_dof(self) -> bool:
+    def ref_frame_tx_dof(self) -> list[list[str] | None]:
         return self._ref_frame_tx_dof
 
     @property

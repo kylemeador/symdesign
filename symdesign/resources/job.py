@@ -181,7 +181,7 @@ class FlagsBase:
 
 # These dataclasses help simplify the use of flags into namespaces
 # Due to an error evaluating the singleton eval(type(None).__name__), need to pass a globals argument
-nonetype_map = {'NoneType': None}
+nonetype_map = {'NoneType': None, 'FlagStr': flags.FlagStr}
 Cluster = dataclasses.make_dataclass(
     'Cluster',
     [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
@@ -1134,7 +1134,7 @@ class JobResources:
                 try:
                     value = arguments.pop(_dest)
                     if value is not None:
-                        reported_args[arg.dest] = value
+                        reported_args[_dest] = value
                 except KeyError:
                     return
         else:
@@ -1142,7 +1142,7 @@ class JobResources:
                 try:
                     value = arguments.pop(_dest)
                     if value is not None and value != _default:
-                        reported_args[arg.dest] = value
+                        reported_args[_dest] = value
                 except KeyError:
                     return
 
@@ -1151,8 +1151,8 @@ class JobResources:
             for arg in group._group_actions:
                 if isinstance(arg, argparse._SubParsersAction):  # This is a subparser, recurse
                     for name, sub_parser in arg.choices.items():
-                        for group in sub_parser._action_groups:
-                            for module_arg in group._group_actions:
+                        for sub_group in sub_parser._action_groups:
+                            for module_arg in sub_group._group_actions:
                                 report_arg(module_arg.dest, module_arg.default)
                 else:
                     report_arg(arg.dest, arg.default)

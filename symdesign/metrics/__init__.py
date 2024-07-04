@@ -976,6 +976,7 @@ def filter_df_for_index_by_value(
     Returns:
         {metric_name: ['0001', '0002', ...], ...}
     """
+    _filter_df = filter_df()
     filtered_indices = {}
     print_filters = []
     for metric_name, filter_ops in metrics.items():
@@ -1026,7 +1027,7 @@ def filter_df_for_index_by_value(
                 filter_ops = filter_ops.get('value', 0.)
             else:
                 substituted_metric_name = metric_name.translate(utils.digit_remover())
-                specification = filter_df.loc['direction', substituted_metric_name]
+                specification = _filter_df.loc['direction', substituted_metric_name]
 
             if specification == 'max':
                 filtered_indices[metric_name] = df[df[metric_name] >= filter_ops].index.tolist()
@@ -1130,7 +1131,8 @@ def prioritize_design_indices(
             filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
         logger.info(f'Number of starting designs: {len(df)}')
         # When df is not ranked by percentage
-        # _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+        # _filter_df = filter_df()
+        # _filters = {metric: {'direction': _filter_df.loc['direction', metric], 'value': value}
         #             for metric, value in filters.items()}
 
         # Filter the DataFrame to include only those values which are le/ge the specified filter
@@ -1270,6 +1272,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
             chosen_metrics = chosen_metrics.difference(unsupported_metrics).union(fixed_metrics)
             # unsupported_metrics = set(chosen_metrics).difference(available_metrics)
 
+        _filter_df = filter_df()
         print(instructions[mode])
         while True:  # not correct:  # correct = False
             print("" if df is None else describe_string)
@@ -1282,7 +1285,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
                     # Todo make ability to specify direction
                     value = input(f"For '{metric}' what value should be used for {level} {mode}ing? %s{input_string}"
                                   % ('Designs with metrics %s than this value will be included' %
-                                     direction[filter_df.loc['direction', substituted_metric]].upper()
+                                     direction[_filter_df.loc['direction', substituted_metric]].upper()
                                      if mode == "filter" else ""))
                     if value in describe:
                         describe_data(df=df) if df is not None \
@@ -1294,7 +1297,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
             # metric_values = {metric: float(input('For "%s" what value should be used for %s %sing?%s%s'
             #                                      % (metric, level, mode,
             #                                         ' Designs with metrics %s than this value will be included'
-            #                                         % direction[filter_df.loc['direction', metric]].upper()
+            #                                         % direction[_filter_df.loc['direction', metric]].upper()
             #                                         if mode == 'filter' else '', input_string)))
             #                  for metric in chosen_metrics}
             if metric_values:
@@ -1329,15 +1332,16 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         A sorted pandas.Series with the best indices first in the Series.index, and the resulting optimization values
         in the corresponding value.
     """
+    _filter_df = filter_df()
     if weights:  # Could be None or empty dict
-        # weights = {metric: dict(direction=filter_df.loc['direction', metric], value=value)
+        # weights = {metric: dict(direction=_filter_df.loc['direction', metric], value=value)
         #            for metric, value in weights.items()}
         coefficients = {}
         print_weights = []
         for metric_name, weight_ops in weights.items():
             # Modify the provided metric of digits to get its configuration info
             substituted_metric = metric_name.translate(utils.digit_remover())
-            direction = filter_df.loc['direction', substituted_metric]
+            direction = _filter_df.loc['direction', substituted_metric]
             if isinstance(weight_ops, list):
                 # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
                 # Currently, can only have one weight per metric...
@@ -1393,7 +1397,7 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         sort_direction = dict(max=False, min=True)  # max - ascending=False, min - ascending=True
 
         # Just sort by the default
-        direction = filter_df.loc['direction', default_weight]
+        direction = _filter_df.loc['direction', default_weight]
         # return df.sort_values(default_sort, ascending=sort_direction[direction])
         return df[default_weight].sort_values(ascending=sort_direction[direction])
     else:
