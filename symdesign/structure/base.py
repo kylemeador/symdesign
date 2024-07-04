@@ -5584,8 +5584,8 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
 
         return res_file_lines
 
-    def make_resfile(self, residue_directives: dict[Residue | int, str], out_path: AnyStr = os.getcwd(),
-                     header: list[str] = None, **kwargs) -> AnyStr:
+    def make_resfile(self, residue_directives: dict[Residue | int, str], out_path: AnyStr | os.PathLike = os.getcwd(),
+                     header: list[str] = None, **kwargs) -> str:
         """Format a resfile for the Rosetta Packer from Residue mutational directives
 
         Args:

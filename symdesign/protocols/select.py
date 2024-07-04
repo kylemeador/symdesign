@@ -41,7 +41,7 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
     all_dfs = []  # None for design in pose_jobs]
     for idx, pose_job in enumerate(pose_jobs):
         try:
-            all_dfs.append(pd.read_csv(pose_job.designs_metrics_csv, index_col=0, header=[0]))
+            all_dfs.append(pd.read_csv(pose_job.designs_metrics_csv_path, index_col=0, header=[0]))
         except FileNotFoundError:  # as error
             # results[idx] = error
             logger.warning(f'{pose_job}: No trajectory analysis file found. Skipping')
@@ -584,24 +584,23 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         # selected_poses = [pose_job for pose_job in pose_jobs if pose_job_name in selected_poses]
 
     # Format selected poses for output
-    os.makedirs(job.output_directory, exist_ok=True)
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
         total_df = total_df[~total_df.index.duplicated()]
-        total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
+        total_df_filename = job.output_directory / 'TotalPoseMetrics.csv'
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose DataFrame was written to: {total_df_filename}')
 
     logger.info(f'{len(save_poses_df)} Poses were selected')
     if len(save_poses_df) != len(total_df):
         if job.filter or job.weight:
-            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                               f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
+            new_dataframe_path = job.output_directory / (f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                         f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
         else:
-            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-PoseMetrics.csv')
-        save_poses_df.to_csv(new_dataframe)
-        logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
+            new_dataframe_path = job.output_directory / f'{utils.starttime}-PoseMetrics.csv'
+        save_poses_df.to_csv(new_dataframe_path)
+        logger.info(f'New DataFrame with selected poses was written to: {new_dataframe_path}')
 
     # # Select by clustering analysis
     # if job.cluster:
@@ -800,7 +799,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #             representative_pose_job = next(iter(pose_jobs))
     #         except StopIteration:
     #             raise RuntimeError('Missing the required argument pose_jobs. It must be passed to continue')
-    #         example_trajectory = representative_pose_job.designs_metrics_csv
+    #         example_trajectory = representative_pose_job.designs_metrics_csv_path
     #         trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
     #         sequence_metrics = set(trajectory_df.columns.get_level_values(-1).tolist())
     #
@@ -834,48 +833,47 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'{len(selected_poses)} Poses were selected')
     logger.info(f'{len(save_poses_df)} Designs were selected')
     # Format selected sequences for output
-    os.makedirs(job.output_directory, exist_ok=True)
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
         total_df = total_df[~total_df.index.duplicated()]
-        total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
+        total_df_filename = job.output_directory / 'TotalDesignMetrics.csv'
         total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
+        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df_filename}')
 
     if job.filter or job.weight:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                           f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
+        new_dataframe_path = job.output_directory / (f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                     f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
     else:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-DesignMetrics.csv')
-    save_poses_df.to_csv(new_dataframe)
-    logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
+        new_dataframe_path = job.output_directory / f'{utils.starttime}-DesignMetrics.csv'
+    save_poses_df.to_csv(new_dataframe_path)
+    logger.info(f'New DataFrame with selected designs was written to: {new_dataframe_path}')
 
     # Create new output of designed PDB's  # Todo attach the state to these files somehow for further use
     exceptions = []
     for pose_job, _designs in selected_poses.items():
         pose_job.current_designs = _designs
         for design in _designs:
-            file_path = os.path.join(pose_job.designs_path, f'*{design}*')
-            file = sorted(glob(file_path))
-            if not file:  # Add to exceptions
-                exceptions.append((pose_job, f'No file found for "{file_path}"'))
+            files = sorted(pose_job.designs_path.glob(f'*{design}*'), key=lambda p: p.stem)
+            # file_path = os.path.join(pose_job.designs_path, f'*{design}*')
+            # file = sorted(glob(file_path))
+            if not files:  # Add to exceptions
+                exceptions.append((pose_job, f"No file found for '{pose_job.designs_path / f'*{design}*'}'"))
                 continue
-            out_path = os.path.join(job.output_directory, f'{pose_job}_design_{design}.pdb')
-            if not os.path.exists(out_path):
-                shutil.copy(file[0], out_path)  # [i])))
-                # shutil.copy(pose_job.designs_metrics_csv,
-                #     os.path.join(outdir_traj, os.path.basename(pose_job.designs_metrics_csv)))
-                # shutil.copy(pose_job.residues_metrics_csv,
-                #     os.path.join(outdir_res, os.path.basename(pose_job.residues_metrics_csv)))
+            out_path = job.output_directory / f'{pose_job}_design_{design}.pdb'
+            if not out_path.exists():
+                shutil.copy(files[0], out_path)  # [i])))
+                # shutil.copy(pose_job.designs_metrics_csv_path,
+                #     os.path.join(outdir_traj, pose_job.designs_metrics_csv_path.name))
+                # shutil.copy(pose_job.residues_metrics_csv_path,
+                #     os.path.join(outdir_res, pose_job.residues_metrics_csv_path.name))
         # try:
         #     # Create symbolic links to the output PDB's
-        #     os.symlink(file[0], os.path.join(job.output_directory,
-        #                                      '%s_design_%s.pdb' % (str(pose_job), design)))  # [i])))
-        #     os.symlink(pose_job.designs_metrics_csv,
-        #                os.path.join(outdir_traj, os.path.basename(pose_job.designs_metrics_csv)))
-        #     os.symlink(pose_job.residues_metrics_csv,
-        #                os.path.join(outdir_res, os.path.basename(pose_job.residues_metrics_csv)))
+        #     os.symlink(file[0], job.output_directory / f'{pose_job}_design_{design}.pdb')
+        #     os.symlink(pose_job.designs_metrics_csv_path,
+        #                os.path.join(outdir_traj, pose_job.designs_metrics_csv_path.name))
+        #     os.symlink(pose_job.residues_metrics_csv_path,
+        #                os.path.join(outdir_res, pose_job.residues_metrics_csv_path.name))
         # except FileExistsError:
         #     pass
 
@@ -895,8 +893,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     job = job_resources_factory.get()
     results = designs(pose_jobs)
     # Set up output_file pose_jobs for __main__.terminate()
-    return_pose_jobs = list(results.keys())
-    job.output_file = os.path.join(job.output_directory, 'SelectedDesigns.poses')
+    job.output_file = job.output_directory / 'SelectedDesigns.poses'
 
     if job.multicistronic:
         intergenic_sequence = job.multicistronic_intergenic_sequence
@@ -1232,23 +1229,19 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     # Report Errors
     if codon_optimization_errors:
         # Todo utilize errors
-        error_file = \
-            write_sequences(codon_optimization_errors, csv=job.csv,
-                            file_name=os.path.join(job.output_directory,
-                                                   f'OptimizationErrorProteinSequences'))
+        error_file = write_sequences(
+            codon_optimization_errors, file_path=job.output_directory / 'OptimizationErrorProteinSequences',
+            csv=job.csv)
     # Write output sequences to fasta file
-    seq_file = write_sequences(final_sequences, csv=job.csv,
-                               file_name=os.path.join(job.output_directory, 'SelectedSequences'))
+    seq_file = write_sequences(final_sequences, file_path=job.output_directory / 'SelectedSequences', csv=job.csv)
     logger.info(f'Final Design protein sequences written to: {seq_file}')
-    seq_comparison_file = \
-        write_sequences(inserted_sequences, csv=job.csv,
-                        file_name=os.path.join(job.output_directory, 'SelectedSequencesExpressionAdditions'))
+    seq_comparison_file = write_sequences(
+        inserted_sequences, file_path=job.output_directory / 'SelectedSequencesExpressionAdditions', csv=job.csv)
     logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
     # check for protein or nucleotide output
     if job.nucleotide:
-        nucleotide_sequence_file = \
-            write_sequences(nucleotide_sequences, csv=job.csv,
-                            file_name=os.path.join(job.output_directory, 'SelectedSequencesNucleotide'))
+        nucleotide_sequence_file = write_sequences(
+            nucleotide_sequences, file_path=job.output_directory / 'SelectedSequencesNucleotide', csv=job.csv)
         logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
 
     return results
@@ -1524,7 +1517,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # save_poses_df = pd.Series(selected_pose_ids, name=pose_id).to_frame()
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
 
-        os.makedirs(job.output_directory, exist_ok=True)
         logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
         if job.output_structures:
             logger.info(f'Copying Pose files...')
@@ -1534,8 +1526,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 pose_job = session.get(PoseJob, pose_id_)
                 final_pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
                 structure_path = pose_job.get_pose_file()
-                if structure_path and os.path.exists(structure_path):
-                    out_path = os.path.join(job.output_directory, f'{pose_job.project}-{pose_job.name}.pdb')
+                if structure_path and structure_path.exists():
+                    out_path = job.output_directory / f'{pose_job.project}-{pose_job.name}.pdb'
                     # Todo attach the program state to these files for downstream use?
                     shutil.copy(structure_path, out_path)
                 else:
@@ -1552,9 +1544,9 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             out_total_df.set_index('pose_identifier', inplace=True)
             out_total_df.index.rename('pose_identifier', inplace=True)
             # Write
-            total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
-            out_total_df.to_csv(total_df_filename)
-            logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
+            total_df_path = job.output_directory / 'TotalPoseMetrics.csv'
+            out_total_df.to_csv(total_df_path)
+            logger.info(f'Total Pose DataFrame written to: {total_df_path}')
             del out_total_df
     # End session
 
@@ -1567,12 +1559,12 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # Format selected poses for output
     logger.info(f'{len(save_poses_df)} Poses were selected')
     if job.filter or job.weight:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                           f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
+        new_dataframe_path = job.output_directory / (f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                     f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
     else:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-PoseMetrics.csv')
-    save_poses_df.to_csv(new_dataframe)
-    logger.info(f'New DataFrame with selected poses written to: {new_dataframe}')
+        new_dataframe_path = job.output_directory / f'{utils.starttime}-PoseMetrics.csv'
+    save_poses_df.to_csv(new_dataframe_path)
+    logger.info(f'New DataFrame with selected poses written to: {new_dataframe_path}')
 
     final_poses = [session.get(PoseJob, pose_id_) for pose_id_ in selected_pose_ids]
     return final_poses
@@ -1741,7 +1733,6 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
             pass
 
         logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
-        os.makedirs(job.output_directory, exist_ok=True)
         logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
         if job.save_total:
             # Remove duplicate entries
@@ -1759,9 +1750,9 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
             out_total_df.set_index(['pose_identifier', 'design_name'], inplace=True)
             out_total_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
             # Write
-            total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
-            out_total_df.to_csv(total_df_filename)
-            logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
+            total_df_path = job.output_directory / 'TotalDesignMetrics.csv'
+            out_total_df.to_csv(total_df_path)
+            logger.info(f'Total Pose/Designs DataFrame written to: {total_df_path}')
             del out_total_df
 
         # Format selected designs for output
@@ -1786,7 +1777,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                     design_id_to_identifier[design_id_] = design_name
                     design_structure_path = design.structure_path
                     if design_structure_path:
-                        out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
+                        out_path = job.output_directory / f'{pose_job.project}-{design_name}.pdb'
                         if os.path.exists(design_structure_path):
                             # Todo attach the program state to these files for downstream use?
                             shutil.copy(design_structure_path, out_path)
@@ -1847,12 +1838,12 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
     # print('AFTER set_index', save_designs_df)
 
     if job.filter or job.weight:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                           f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
+        new_dataframe_path = job.output_directory / (f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                     f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
     else:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-DesignMetrics.csv')
-    save_designs_df.to_csv(new_dataframe)
-    logger.info(f'New DataFrame with selected designs written to: {new_dataframe}')
+        new_dataframe_path = job.output_directory / f'{utils.starttime}-DesignMetrics.csv'
+    save_designs_df.to_csv(new_dataframe_path)
+    logger.info(f'New DataFrame with selected designs written to: {new_dataframe_path}')
 
     return results  # , exceptions
 
@@ -1919,7 +1910,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             for design in pose_job.current_designs:
                 design.metrics.sequence
     # Set up output_file pose_jobs for __main__.terminate()
-    job.output_file = os.path.join(job.output_directory, 'SelectedDesigns.poses')
+    job.output_file = job.output_directory / 'SelectedDesigns.poses'
 
     if job.multicistronic:
         intergenic_sequence = job.multicistronic_intergenic_sequence
@@ -1953,12 +1944,19 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
         # Find termini data
         logger.info('Searching for solvent accessible termini')
+        retrieve_stride_info = structure_db.structure_database_factory.get().stride.retrieve_data
+
         entity_termini_availability = []
         entity_helical_termini = []
         entity_true_termini = []
         for entity in pose_job.pose.entities:
-            pose_entity_id = f'{pose_job}_{entity.name}'
+            # Todo add stride info to each entity
+            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+            if parsed_secondary_structure:
+                entity.secondary_structure = parsed_secondary_structure
+
             termini_availability = pose_job.pose.get_termini_accessibility(entity)
+            pose_entity_id = f'{pose_job}_{entity.name}'
             logger.debug(f'Designed Entity {pose_entity_id} has the accessible termini: {termini_availability}')
             if job.avoid_tagging_helices:
                 termini_helix_availability = \
@@ -2398,29 +2396,26 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     sequence_metrics_df = pd.DataFrame(sequence_metrics.values(),
                                        index=pd.MultiIndex.from_tuples(sequence_metrics.keys()))
     sequence_metrics_df = sequence_metrics_df.unstack(-1).swaplevel(axis=1)
-    sequence_metrics_filename = os.path.join(job.output_directory, 'SequenceExpressionMetrics.csv')
-    sequence_metrics_df.to_csv(sequence_metrics_filename)
-    logger.info(f'Biochemical protein sequence metrics written to: {sequence_metrics_filename}')
+    sequence_metrics_path = job.output_directory / 'SequenceExpressionMetrics.csv'
+    sequence_metrics_df.to_csv(sequence_metrics_path)
+    logger.info(f'Biochemical protein sequence metrics written to: {sequence_metrics_path}')
 
     # Report Errors
     if codon_optimization_errors:
         # Todo utilize errors
-        error_file = \
-            write_sequences(codon_optimization_errors, csv=job.csv,
-                            file_name=os.path.join(job.output_directory, 'OptimizationErrorProteinSequences'))
+        error_file = write_sequences(
+            codon_optimization_errors, file_path=job.output_directory / 'OptimizationErrorProteinSequences',
+            csv=job.csv)
     # Write output sequences to fasta file
-    seq_file = write_sequences(final_sequences, csv=job.csv,
-                               file_name=os.path.join(job.output_directory, 'SelectedSequences'))
+    seq_file = write_sequences(final_sequences, file_path=job.output_directory / 'SelectedSequences', csv=job.csv)
     logger.info(f'Protein designed sequences written to: {seq_file}')
-    seq_comparison_file = \
-        write_sequences(inserted_sequences, csv=job.csv,
-                        file_name=os.path.join(job.output_directory, 'SelectedSequencesExpressionAdditions'))
+    seq_comparison_file = write_sequences(
+        inserted_sequences, file_path=job.output_directory / 'SelectedSequencesExpressionAdditions', csv=job.csv)
     logger.info(f'Protein expression sequence comparison to designed sequences written to: {seq_comparison_file}')
     # check for protein or nucleotide output
     if job.nucleotide:
-        nucleotide_sequence_file = \
-            write_sequences(nucleotide_sequences, csv=job.csv,
-                            file_name=os.path.join(job.output_directory, 'SelectedSequencesNucleotide'))
+        nucleotide_sequence_file = write_sequences(
+            nucleotide_sequences, file_path=job.output_directory / 'SelectedSequencesNucleotide', csv=job.csv)
         logger.info(f'Nucleotide designed sequences written to: {nucleotide_sequence_file}')
 
     return pose_jobs

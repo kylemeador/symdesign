@@ -466,29 +466,21 @@ def concatenate_fasta_files(file_names: Iterable[AnyStr], out_path: str = 'conca
     return write_fasta(seq_records, out_dir=out_path)
 
 
-def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
-                    out_path: AnyStr = os.getcwd(), file_name: AnyStr = None, csv: bool = False) -> AnyStr:
+def write_sequences(
+    sequences: Sequence | dict[str, Sequence], file_path: Path, names: Sequence = None, csv: bool = False
+) -> AnyStr:
     """Write a fasta file from sequence(s). If a single sequence is provided, pass as a string
 
     Args:
         sequences: If a list, can be list of tuples(name, sequence), or list[sequence] where names contain the
             corresponding sequence names. If dict, uses key as name, value as sequence. If str, treats as the sequence
-        names: The name or names of the sequence record(s). If a single name, will be used as the default file_name
-            base name if file_name not provided. Otherwise, will be used iteratively
-        out_path: The location on disk to output file
-        file_name: The explicit name of the file
+        file_path: The explicit path to the file
+        names: The names of the sequence record(s) applied iteratively to sequences
         csv: Whether the file should be written as a .csv. Default is .fasta
 
     Returns:
-        The name of the output file
+        The name of the output file (with the correct extension, .csv, .fasta appended) according to output file type
     """
-    if file_name is None:
-        if isinstance(names, str):  # Not an iterable
-            file_name = os.path.join(out_path, names)
-        else:
-            raise ValueError(
-                f"Must provide argument 'file_name' or 'names' as a str to {write_sequences.__name__}()")
-
     if csv:
         start, sep = '', ','
         extension = '.csv'
@@ -496,21 +488,20 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         start, sep = '>', '\n'
         extension = '.fasta'
 
-    provided_extension = os.path.splitext(file_name)[-1]
-    if not file_name.endswith(extension) or provided_extension != extension:
-        file_name = f'{os.path.splitext(file_name)[0]}{extension}'
+    if file_path.suffix != extension:
+        file_path = file_path.with_suffix(extension)
 
     def data_dump():
         return f"{write_sequences.__name__} can't parse data to make fasta\n" \
-               f'names={names}, sequences={sequences}, extension={extension}, out_path={out_path}, ' \
-               f'file_name={file_name}'
+               f'names={names}, sequences={sequences}, extension={extension}, ' \
+               f'file_path={file_path}'
 
-    with open(file_name, 'a') as outfile:
+    with open(file_path, 'a') as outfile:
         if isinstance(sequences, np.ndarray):
             sequences = sequences.tolist()
 
         if not sequences:
-            raise ValueError(f"No sequences provided, couldn't write anything")
+            raise ValueError("No sequences provided, couldn't write anything")
 
         if isinstance(sequences, list):
             if isinstance(sequences[0], tuple):  # Where seq[0] is name, seq[1] is seq
@@ -538,7 +529,7 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
             try:
                 name, seq, *_ = sequences
             except ValueError:
-                raise ValueError(f"When using a tuple, expected that the tuple contain (name, sequence) pairs")
+                raise ValueError('When using a tuple, expected that the tuple contain (name, sequence) pairs')
             formatted_sequence_gen = (f'{start}{name}{sep}{seq}',)
         elif isinstance(names, str):  # Assume sequences is a str or tuple
             formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}',)
@@ -546,7 +537,7 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
             raise TypeError(data_dump())
         outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
 
-    return file_name
+    return str(file_path)
 
 
 hhblits_threads = 2
@@ -590,7 +581,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
             raise ValueError(
                 f"{hhblits.__name__}: Can't proceed without argument 'sequence_file' or 'sequence'")
         else:
-            sequence_file = write_sequences((name, sequence), file_name=os.path.join(out_dir, f'{name}.seq'))
+            sequence_file = write_sequences((name, sequence), file_path=Path(out_dir, f'{name}.seq'))
     pssm_file = os.path.join(out_dir, f'{name}.hmm')
     a3m_file = os.path.join(out_dir, f'{name}.a3m')
     # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs

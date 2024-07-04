@@ -19,10 +19,9 @@ import numpy as np
 from Bio.Align import substitution_matrices
 
 from symdesign import metrics, utils
-from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, \
-    MultipleSequenceAlignment, mutation_dictionary, numerical_translation_alph1_bytes, \
-    numerical_translation_alph1_gaped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
-    protein_letters_alph3, write_sequence_to_fasta, write_sequences, \
+from symdesign.sequence import AlignmentProgramLiteral, alignment_programs, MultipleSequenceAlignment, \
+    numerical_translation_alph1_bytes, numerical_translation_alph1_gaped_bytes, parse_hhblits_pssm, ProfileDict, \
+    ProfileEntry, protein_letters_alph1, protein_letters_alph3, write_sequence_to_fasta, \
     get_equivalent_indices, generate_mutations, protein_letters_literal, AminoAcidDistribution
 from symdesign.structure.utils import StructureException
 
@@ -185,18 +184,15 @@ def concatenate_profile(profiles: Iterable[Any], start_at: int = 1) -> dict[int,
     # return new_profile
 
 
-def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = None,
-                    out_dir: AnyStr = os.getcwd()) -> AnyStr | None:
+def write_pssm_to_file(pssm: ProfileDict, file_path: Path) -> AnyStr | None:
     """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
     Args:
         pssm: A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
-        file_name: The explicit name of the file
-        name: The name of the file. Will be used as the default file_name base name if file_name not provided
-        out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+        file_path: The explicit path to the file
 
     Returns:
-        Disk location of newly created .pssm file
+        Disk location of newly created file with '.pssm' appended if no extension provided
     """
     if not pssm:
         return None
@@ -207,16 +203,10 @@ def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = Non
     else:
         separation1 = " " * 3
 
-    if file_name is None:
-        if name is None:
-            raise ValueError(f'Must provide argument "file_name" or "name" as a str to {write_sequences.__name__}')
-        else:
-            file_name = os.path.join(out_dir, name)
+    if file_path.suffix == '':
+        file_path = file_path.with_suffix('pssm')
 
-    if os.path.splitext(file_name)[-1] == '':  # No extension
-        file_name = f'{file_name}.pssm'
-
-    with open(file_name, 'w') as f:
+    with open(file_path, 'w') as f:
         f.write(f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}'
                 f'{separation1}{(" " * 3).join(protein_letters_alph3)}\n')
         for residue_number, profile in pssm.items():
@@ -237,7 +227,7 @@ def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = Non
             f.write(f'{residue_number:>5d} {profile["type"]:1s}   {lod_string:80s} {counts_string:80s} '
                     f'{round(profile.get("info", 0.), 4):4.2f} {round(profile.get("weight", 0.), 4):4.2f}\n')
 
-    return file_name
+    return str(file_path)
 
 
 # Todo
@@ -328,18 +318,16 @@ class Profile(UserList[ProfileEntry]):
         return np.array([[position_info[aa] for aa in alphabet]
                          for position_info in data_source], dtype=np.float32)
 
-    def write(self, file_name: AnyStr | os.PathLike = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> str:
+    def write(self, file_path: Path = None) -> str:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is 1 to last entry
 
         Args:
-            file_name: The explicit name of the file
-            name: The name of the file. Will be used as the default file_name base name if file_name not provided
-            out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+            file_path: The explicit name of the file
 
         Returns:
             Disk location of newly created .pssm file
         """
-        # Format the Profile according to the write_pssm_file mechanism
+        # Format the Profile according to the write_pssm_to_file mechanism
         # This takes the shape of 1 to the last entry
         data: list[list[float]] = [[position_info[aa] for aa in protein_letters_alph3] for position_info in self]
         if self.dtype == 'fragment':
@@ -357,17 +345,10 @@ class Profile(UserList[ProfileEntry]):
         # if type(pssm[first_key]['A']) == float:
         #     counts_freq = True
 
-        if file_name is None:
-            if name is None:
-                raise ValueError(
-                    f"Must provide argument 'file_name' or 'name' to {self.write.__name__}")
-            else:
-                file_name = os.path.join(out_dir, name)
+        if file_path.suffix == '':  # No extension
+            file_path = file_path.with_suffix('.pssm')
 
-        if os.path.splitext(file_name)[-1] == '':  # No extension
-            file_name = f'{file_name}.pssm'
-
-        with open(file_name, 'w') as f:
+        with open(file_path, 'w') as f:
             f.write(f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}'
                     f'{separation1}{(" " * 3).join(protein_letters_alph3)}\n')
             for residue_number, (entry, lod, _type, info, weight) in enumerate(
@@ -387,7 +368,7 @@ class Profile(UserList[ProfileEntry]):
                 f.write(f'{residue_number:>5d} {_type:1s}   {lod_string:80s} {counts_string:80s} '
                         f'{round(info, 4):4.2f} {round(weight, 4):4.2f}\n')
 
-        return str(file_name)
+        return str(file_path)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.dtype})'

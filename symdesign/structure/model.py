@@ -4003,7 +4003,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
                         return self.chains[chain_idx]
         return None
 
-    def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr:
+    def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr | os.PathLike = os.getcwd(), **kwargs) -> AnyStr:
         """Uses the 'make_symmdef_file.pl' script from Rosetta to make a symmetry definition file on the Structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb.pdb -i B -q
@@ -4061,7 +4061,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
 
         return out_file
 
-    def format_sdf(self, lines: list, to_file: AnyStr = None, out_path: AnyStr = os.getcwd(),
+    def format_sdf(self, lines: list, to_file: AnyStr | os.PathLike = None, out_path: AnyStr = os.getcwd(),
                    modify_sym_energy_for_cryst: bool = False, energy: int = None) -> AnyStr:
         """Ensure proper sdf formatting before proceeding
 
@@ -4145,7 +4145,7 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
         if count_ != 0:
             self.log.info(f"Symmetry Definition File '{to_file}' was missing {count_} lines. A fix was attempted and "
                           'modeling may be affected')
-        return to_file
+        return str(to_file)
 
     def reset_mates(self):
         """Remove oligomeric chains. They should be generated fresh"""

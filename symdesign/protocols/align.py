@@ -643,14 +643,11 @@ def align_helices(models: Sequence[ContainsEntities]) -> list[PoseJob] | list:
 
         pose_job.pose = pose
         # pose_job.calculate_pose_design_metrics(session)
-        os.makedirs(pose_job.pose_directory, exist_ok=True)
+        pose_job.pose_directory.mkdir(parents=True, exist_ok=True)
         pose_job.output_pose()
-        pose_job.source_path = pose_job.pose_path
+        pose_job.source_path = str(pose_job.pose_path)
         pose_job.pose = None
-        if job.output_to_directory:
-            logger.info(f'Alignment output -> {pose_job.output_pose_path}')
-        else:
-            logger.info(f'Alignment output -> {pose_job.pose_path}')
+        logger.info(f'Output Pose: {pose_job.output_pose_path}')
 
         pose_jobs.append(pose_job)
 

@@ -25,10 +25,9 @@ from symdesign.resources.job import job_resources_factory  # job has namespace o
 from symdesign.sequence import optimize_protein_sequence, protein_letters_1to3, protein_letters_3to1, \
     read_fasta_file, write_sequences
 from symdesign.structure import Pose
-from symdesign.structure.sequence import write_pssm_file, sequence_difference
+from symdesign.structure.sequence import write_pssm_to_file, sequence_difference
 from symdesign.structure.utils import SymmetryError
-from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
-    rosetta, starttime, sym
+from symdesign.utils import condensed_to_square, InputError, path as putils, starttime, sym
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -74,17 +73,17 @@ def interface_metrics(job: pose.PoseJob):
     if job.current_designs:
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
-        file_paths = get_directory_file_paths(
-            job.designs_path, suffix=job.job.specific_protocol if job.job.specific_protocol else '', extension='.pdb')
+        file_paths = job.get_design_paths(job.job.specific_protocol)
+
     # Include the pose source in the designs to perform metrics on
-    if job.job.measure_pose and os.path.exists(job.pose_path):
+    if job.job.measure_pose and job.pose_path.exists():
         file_paths.append(job.pose_path)
     # If no designs specified or found and the pose_path exists, add it
     # The user probably wants pose metrics without specifying so
     elif not file_paths:
         with job.job.db.session(expire_on_commit=False) as session:
             session.add(job)
-            if not job.designs and os.path.exists(job.pose_path):
+            if not job.designs and job.pose_path.exists():
                 file_paths.append(job.pose_path)
 
     if not file_paths:
@@ -95,13 +94,14 @@ def interface_metrics(job: pose.PoseJob):
         os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files'
                      f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
     with open(design_files, 'w') as f:
-        f.write('%s\n' % '\n'.join(file_paths))
+        f.write('%s\n' % '\n'.join(map(str, file_paths)))
 
-    # generate_files_cmd = ['python', str(putils.list_pdb_files), '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
+    # generate_files_cmd = ['python', str(putils.list_pdb_files), '-d', str(job.designs_path), '-o', design_files,
+    #     '-e', '.pdb'] \
     #     + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
-    main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
-                 '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
-    #              '-in:file:native', job.refined_pdb,
+    main_cmd += [f'@{job.flags_path}', '-in:file:l', design_files,
+                 '-out:file:score_only', str(job.scores_file), '-no_nstruct_label', 'true', '-parser:protocol']
+    #              '-in:file:native', job.refined_pdb_path,
     if job.job.mpi > 0:
         main_cmd = rosetta.run_cmds[rosetta.exe_make] + [str(job.job.mpi)] + main_cmd
 
@@ -130,7 +130,7 @@ def interface_metrics(job: pose.PoseJob):
             metrics_process.communicate()  # wait for command to complete
 
         # Gather metrics for each design produced from this procedure
-        if os.path.exists(job.scores_file):
+        if job.scores_file.exists():
             job.process_rosetta_metrics()
 
 
@@ -255,17 +255,17 @@ def refine(job: pose.PoseJob):
     if job.current_designs:
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
-        file_paths = get_directory_file_paths(
-            job.designs_path, suffix=job.job.specific_protocol if job.job.specific_protocol else '', extension='.pdb')
+        file_paths = job.get_design_paths(job.job.specific_protocol)
+
     # Include the pose source in the designs to perform metrics on
-    if job.job.measure_pose and os.path.exists(job.pose_path):
+    if job.job.measure_pose and job.pose_path.exists():
         file_paths.append(job.pose_path)
     # If no designs specified or found and the pose_path exists, add it
     # The user probably wants pose metrics without specifying so
     elif not file_paths:
         with job.job.db.session(expire_on_commit=False) as session:
             session.add(job)
-            if not job.designs and os.path.exists(job.pose_path):
+            if not job.designs and job.pose_path.exists():
                 file_paths.append(job.pose_path)
 
     if not file_paths:
@@ -286,7 +286,7 @@ def design(job: pose.PoseJob):
     job.protocol = job.job.module
     job.identify_interface()
 
-    os.makedirs(job.data_path, exist_ok=True)
+    job.data_path.mkdir(parents=True, exist_ok=True)
     # Create files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == flags.rosetta:
         # Update upon completion given results of designs list file...
@@ -320,16 +320,16 @@ def design(job: pose.PoseJob):
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity
     job.pose.calculate_profile(favor_fragments=favor_fragments)
-    os.makedirs(job.designs_path, exist_ok=True)
+    job.designs_path.mkdir(parents=True, exist_ok=True)
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
     # match job.job.design.method:  # Todo python 3.10
     #     case [flags.rosetta | flags.consensus]:
     #         # Write generated files
-    #         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
-    #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
-    #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+    #         write_pssm_to_file(job.pose.evolutionary_profile, file_path=job.evolutionary_profile_path)
+    #         write_pssm_to_file(job.pose.profile, file_path=job.design_profile_path)
+    #         job.pose.fragment_profile.write(file_path=job.fragment_profile_path)
     #         if job.job.design.interface:
     #             job.rosetta_interface_design()  # Sets job.protocol
     #         else:
@@ -341,11 +341,11 @@ def design(job: pose.PoseJob):
     #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
     if job.job.design.method in [flags.rosetta, flags.consensus]:
         # Write generated files
-        write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
-        write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
-        job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+        write_pssm_to_file(job.pose.evolutionary_profile, file_path=job.evolutionary_profile_path)
+        write_pssm_to_file(job.pose.profile, file_path=job.design_profile_path)
+        job.pose.fragment_profile.write(file_path=job.fragment_profile_path)
         # Ensure the Pose is refined into the current_energy_function
-        if not job.refined and not os.path.exists(job.refined_pdb):
+        if not job.refined and not job.refined_pdb_path.exists():
             job.refine(gather_metrics=False)
         if job.job.design.interface:
             raise NotImplementedError('Need to generate job.number_of_designs matching job.proteinmpnn_design()...')
@@ -397,7 +397,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         infile = ['-in:file:l', design_files_file, '-in:file:native', job.source_path]
         metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', job.source_path]
     else:
-        infile = ['-in:file:s', job.refined_pdb]
+        infile = ['-in:file:s', str(job.refined_pdb_path)]
 
     job.identify_interface()  # job.load_pose()
     # for design in job.current_designs:
@@ -436,7 +436,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     # nstruct_instruct = ['-no_nstruct_label', 'true']
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
     generate_files_cmd = \
-        ['python', str(putils.list_pdb_files), '-d', job.designs_path, '-o', designed_files_file,  '-e', '.pdb',
+        ['python', str(putils.list_pdb_files), '-d', str(job.designs_path), '-o', designed_files_file,  '-e', '.pdb',
          '-s', f'_{job.protocol}']
 
     main_cmd = rosetta.script_cmd.copy()
@@ -446,22 +446,23 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     job.prepare_rosetta_flags(out_dir=job.scripts_path)
 
     # DESIGN: Prepare command and flags file
-    profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
-        if os.path.exists(job.evolutionary_profile_file) else []
+    profile_cmd = ['-in:file:pssm', str(job.evolutionary_profile_path)] \
+        if job.evolutionary_profile_path.exists() else []
     design_cmds = []
     for res_file, design_ in zip(res_files, job.current_designs):
         design_cmds.append(
             main_cmd + profile_cmd + infile  # <- infile must be 'in:file:s'
-            + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file, '-parser:protocol',
+            + [f'@{job.flags_path}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file, '-parser:protocol',
                os.path.join(rosetta.scripts_dir, f'{protocol_xml1}.xml')]
             + nstruct_instruct + ['-parser:script_vars', f'{putils.design_parent}={design_.name}'])
 
     # metrics_pdb = ['-in:file:l', designed_files_file]
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-    # metric_cmd = main_cmd + ['-in:file:s', job.specific_design if job.specific_design else job.refined_pdb] + \
+    # metric_cmd = main_cmd \
+    #     + ['-in:file:s', job.specific_design if job.specific_design else str(job.refined_pdb_path)] + \
     entity_cmd = main_cmd + ['-in:file:l', designed_files_file] + \
-        [f'@{job.flags}', '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true',
+        [f'@{job.flags_path}', '-out:file:score_only', str(job.scores_file), '-no_nstruct_label', 'true',
          '-parser:protocol', os.path.join(rosetta.scripts_dir, 'metrics_entity.xml')]
 
     if job.job.mpi > 0:
@@ -489,7 +490,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
             metrics_process.communicate()
 
         # Gather metrics for each design produced from this procedure
-        if os.path.exists(job.scores_file):
+        if job.scores_file.exists():
             job.process_rosetta_metrics()
 
 
@@ -501,12 +502,12 @@ def process_rosetta_metrics(job: pose.PoseJob) -> None:
         job: The PoseJob for which the protocol should be performed on
     """
     # Gather metrics for each design produced from other modules
-    if os.path.exists(job.scores_file):
+    if job.scores_file.exists():
         job.identify_interface()
         job.process_rosetta_metrics()
     else:
         raise InputError(
-            f'No scores from Rosetta present at "{job.scores_file}"')
+            f"No scores from Rosetta present at '{job.scores_file}'")
 
 
 @protocol_decorator()
@@ -542,8 +543,7 @@ def helix_bending(job: pose.PoseJob):
     else:  # Just use the residue number to select
         model_to_select = job.pose
 
-    if job.job.output_directory:
-        os.makedirs(job.job.output_directory, exist_ok=True)
+    if job.job.output_to_directory:
         out_dir = job.job.output_directory
     else:
         out_dir = job.pose_directory
@@ -565,7 +565,7 @@ def helix_bending(job: pose.PoseJob):
             logger.info(f'Bend index {bent_idx} has symmetric clashes')
             continue
 
-        trial_path = os.path.join(out_dir, f'{job.name}-bent{next(output_number)}.pdb')
+        trial_path = out_dir / f'{job.name}-bent{next(output_number)}.pdb'
         job.pose.write(out_path=trial_path)
 
 
@@ -590,7 +590,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         The selected designs for the Pose trajectories
     """
     # Load relevant data from the design directory
-    designs_df = pd.read_csv(job.designs_metrics_csv, index_col=0, header=[0])
+    designs_df = pd.read_csv(job.designs_metrics_csv_path, index_col=0, header=[0])
     designs_df.dropna(inplace=True)
     if protocols:
         designs = []
@@ -670,10 +670,10 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
                          for idx, count in enumerate(count_list) if count == num_neighbors}
         job.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                      # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + 1,
-                     % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs_path, _design)}'
+                     % '\n'.join(f'\t{neighbors}\t{job.designs_path / _design}'
                                  for _design, neighbors in final_designs.items()))
 
-        # job.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(job.designs_path, seq))
+        # job.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, job.designs_path / seq)
         #                                                         for i, seq in enumerate(final_designs, 1)))
 
         # Compute the highest density cluster using DBSCAN algorithm
@@ -734,8 +734,6 @@ def create_mulitcistronic_sequences(args):
         args.prefix = f'{args.prefix}_'
 
     # Format sequences for output
-    os.makedirs(job.output_directory, exist_ok=True)
-    nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
-                                               file_name=os.path.join(job.output_directory,
-                                                                      'MulticistronicNucleotideSequences'))
+    nucleotide_sequence_file = write_sequences(
+        nucleotide_sequences, csv=args.csv, file_path=job.output_directory / 'MulticistronicNucleotideSequences')
     logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')

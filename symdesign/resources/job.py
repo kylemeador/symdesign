@@ -222,29 +222,24 @@ class JobResources:
     _input_source: str | list[str] | None
     _location: str | None
     _modules: list[str]
-    _output_directory: AnyStr | None
+    _output_directory: Path | None
     _session: Session | None
     db: DBInfo | None
     reduce_memory: bool = False
 
-    def __init__(self, program_root: AnyStr = None, arguments: argparse.Namespace = None, initial: bool = False,
+    def __init__(self, path: AnyStr, arguments: argparse.Namespace = None, initial: bool = False,
                  **kwargs):
         """Parse the program operation location, ensure paths to these resources are available, and parse arguments
 
         Args:
-            program_root: The root location of program operation
+            path: The root location of program operation
             arguments: The argparse.Namespace object with associated program flags
             initial: Whether this is the first instance of the particular program output
         """
-        try:
-            if os.path.exists(program_root):
-                self.program_root = program_root
-            else:
-                raise FileNotFoundError(
-                    f"Path doesn't exist\n\t{program_root}")
-        except TypeError:
-            raise TypeError(
-                f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
+        if os.path.exists(path):
+            self.program_root = Path(path)
+        else:
+            raise FileNotFoundError(path)
 
         # Format argparse.Namespace arguments
         if arguments is not None:
@@ -397,12 +392,12 @@ class JobResources:
             self.low = self.high = None
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
-        self.background_profile: profile_types_literal = kwargs.get(flags.background_profile.as_attr())
+        self.background_profile: ProfileTypeLiteral = kwargs.get(flags.background_profile.as_attr())
         """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
         background profile.
         """
         # Process design_selector
-        self.design_selector: PoseSpecification = parse_design_selector_flags(**kwargs)
+        self.design_selector: structure.model.PoseSpecification = parse_design_selector_flags(**kwargs)
 
         self.update_metadata = kwargs.get(flags.update_metadata.as_attr())
         self.component1 = kwargs.get(flags.component1.as_attr())
@@ -535,7 +530,7 @@ class JobResources:
 
         # if self.design.evolution_constraint and flags.design not in self.modules:
         #     logger.debug(f'Setting {flags.format_args(flags.evolution_constraint_args)} to False as the no module '
-        #                  f'requesting evolutionary information is utilized')
+        #                  'requesting evolutionary information is utilized')
         #     self.design.evolution_constraint = False
 
         self.only_write_frag_info: bool = kwargs.get(flags.only_write_frag_info.as_attr())
@@ -623,26 +618,26 @@ class JobResources:
             output_directory = kwargs.get(flags.output_directory.as_attr())
             # if not self.output_to_directory:
             if not output_directory:
-                output_directory = os.path.join(os.path.dirname(self.program_root), f'SelectedDesigns')
-                #     os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
+                output_directory = os.path.join(self.program_root.parent, 'SelectedDesigns')
         else:  # if output_directory:
             output_directory = kwargs.get(flags.output_directory.as_attr())
 
         if output_directory:
             self.output_directory = output_directory
-            if os.path.exists(self.output_directory) and not self.overwrite:
+            if self.output_directory.exists() and not self.overwrite:
                 print(f"The specified output directory '{self.output_directory}' already exists. Proceeding may "
                       f'overwrite your old data. Either specify a new one or use the flags {flags.prefix.as_long()} or '
                       f'{flags.suffix.as_long()} to modify the name. To proceed, append {flags.overwrite.as_long()} to '
                       'your command')
                 sys.exit(1)
-            os.makedirs(self.output_directory, exist_ok=True)
+            self.output_directory.mkdir(parents=True, exist_ok=True)
 
         output_file = kwargs.get(flags.output_file.as_attr())
         if output_file:
             self.output_file = output_file
             if os.path.exists(self.output_file) and not self.overwrite:
-                # if self.module in flags.analysis:  # Todo this was allowed, but it's outdated...
+                # if self.module in flags.analysis:
+                # Todo this was allowed, but it's outdated...
                 print(f"The specified output file '{self.output_file}' already exists. Proceeding may "
                       f'overwrite your old data. Either specify a new one or use the flags {flags.prefix.as_long()} or '
                       f'{flags.suffix.as_long()} to modify the name. To proceed, append {flags.overwrite.as_long()} to '
@@ -877,11 +872,11 @@ class JobResources:
         if self.module in flags.select_modules:
             # Make this explicitly False so that selection doesn't copy extra files
             return False
-        return True if self.output_directory else False
+        return True if self.output_directory is not None else False
 
     @property
-    def output_directory(self) -> AnyStr | None:
-        """Where to output the Job"""
+    def output_directory(self) -> Path | None:
+        """The directory to output Job files"""
         try:
             return self._output_directory
         except AttributeError:

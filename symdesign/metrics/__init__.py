@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import operator
+import os
 import sys
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
@@ -193,7 +194,7 @@ all_evolutionary_metrics = multiple_sequence_alignment_dependent_metrics + profi
 frag_profile_dependent_metrics = [library.divergence_fragment_per_residue.name, library.observed_fragment.name]
 
 
-def parse_rosetta_scorefile(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
+def parse_rosetta_scorefile(file: AnyStr | os.PathLike, key: str = 'decoy') -> dict[str, dict[str, str]]:
     """Take a json formatted metrics file and incorporate entries into nested dictionaries with "key" as outer key
 
     Automatically formats scores according to conventional metric naming scheme, ex: "R_", "S_", or "M_" prefix removal

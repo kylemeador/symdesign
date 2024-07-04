@@ -8,6 +8,7 @@ import subprocess
 from collections.abc import Sequence
 from glob import glob
 from pathlib import Path
+from typing import AnyStr
 
 import symdesign
 
@@ -59,10 +60,6 @@ protocol = 'protocol'
 design_parent = 'design_parent'
 hhblits = 'hhblits'
 reference = 'reference'
-frag_dir = 'matching_fragments'
-frag_text_file = 'frag_match_info_file.txt'
-frag_file = os.path.join(frag_dir, frag_text_file)
-pose_file = 'docked_pose_info_file.txt'
 # Memory Requirements
 # 10.5MB was measured 5/13/22 with self.pose,
 # after deleting self.pose: 450 poses -> 6.585339. 900 poses -> 3.346759
@@ -165,3 +162,118 @@ def ex_path(*directories: Sequence[str]) -> str:
         '/path/to/provided/directories'
     """
     return os.path.join('path', 'to', *directories)
+
+
+def get_path_to_target_directory_from(
+    search_path: AnyStr | Path, target_directory: os.PathLike | Path
+) -> Path | None:
+    """Search for the target_directory name in the specified search path and return the path to it
+
+    Args:
+        search_path: The path to search
+        target_directory: The directory to search for
+
+    Returns:
+        The absolute path to the target_directory
+    """
+    search_path = Path(search_path).absolute()
+    if search_path.exists():
+        try:
+            target_index = search_path.parts.index(str(target_directory))
+            # if target_directory in search_path.parts:  # directory1/'target_directory'/directory2/directory3
+        except ValueError:  # Couldn't find the `target_directory` in the path
+            # See if 'target_directory' is a child of the provided search_path
+            if search_path.is_dir() and target_directory in search_path.iterdir():  # directory_provided/'target_directory'
+                directory = search_path / target_directory
+            else:
+                directory = None
+        else:  # Return the path to that directory
+            directory = Path(*search_path.parts[:target_index + 1])
+    else:
+        directory = None
+
+    return directory
+
+
+def collect_program_input_paths(
+    files: Sequence[AnyStr] = None, directory: AnyStr = None, projects: Sequence[AnyStr] = None,
+    singles: Sequence[AnyStr] = None
+) -> tuple[list[Path], str]:
+    """Grab all paths to program inputs from various input sources.
+
+    Args:
+        files: Iterable with disk location of files containing design directories
+        directory: Disk location of the program directory
+        projects: Disk location of a project directory
+        singles: Disk location of a single design directory
+
+    Raises:
+        ValueError if no arguments were passed
+        IsADirectoryError if a file was passed, but it is actually a directory
+
+    Returns:
+        All file/directory paths located and the location where they were located
+    """
+    if files:
+        all_paths = []
+        for path in map(Path, files):
+            if not path.exists():
+                logger.warning(f"No {path=} found. Please ensure correct location/name")
+                continue
+
+            if '.pdb' in path.suffix:  # Single .pdb file passed as input
+                all_paths.append(path)
+            elif '.cif' in path.suffix:  # Single .cif file passed as input
+                all_paths.append(path)
+            # Todo
+            # elif '.fasta' in path.suffix:  # Single .fasta file passed as input
+            #     all_paths.append(path)
+            else:  # Assume a file that specifies other files was passed and load all paths in that file
+                if path.is_dir():
+                    raise IsADirectoryError(
+                        f"'{path}' is a directory not a file. Did you mean to pass 'files'?'")
+
+                with open(path, 'r') as f:
+                    # Only strip the trailing 'os.sep' in case file names are passed
+                    paths = [Path(loc.rstrip(os.sep)) for loc in f.read().splitlines() if loc != '']
+
+                all_paths.extend(paths)
+    else:
+        if directory is not None:
+            base_directory = get_path_to_target_directory_from(directory, program_output)
+        else:
+            base_directory = directory
+
+        if base_directory or projects or singles:
+            # Get all directory paths within:
+            #  base directory -> /base/Projects/project1, ... /base/Projects/projectN
+            #  specified projects -> /base/Projects/project1, /base/Projects/project2, ...
+            #  specified singles -> /base/Projects/project/design1, /base/Projects/project/design2, ...
+            all_paths = []
+            if base_directory:  # base/Projects/*/*/
+                all_paths.extend((p for p in base_directory.glob(f'{projects}/*/*') if p.is_dir()))
+                # all_paths.extend(base_directory.glob(f'{putils.projects}/*/*/')))  # Todo Python3.11
+            if projects:  # base/Projects/project/*/
+                for project in map(Path, projects):
+                    all_paths.extend((p for p in project.glob('*') if p.is_dir()))
+                    # all_paths.extend(project.glob('*/'))  # Todo Python3.11
+            if singles:  # base/Projects/project/single/
+                for single in map(Path, singles):
+                    all_paths.extend(single.glob('*'))
+                    # all_paths.extend(glob(f'{single}{os.sep}'))
+
+            all_paths = [p.absolute() for p in all_paths]
+        elif directory:  # This is probably an uninitialized project. Grab all .pdb files
+            directory_path = Path(directory)
+            all_paths = list(directory_path.glob('*.pdb*')) + list(directory_path.glob('*.cif'))
+            # Todo
+            #     + list(directory_path.glob('*.fasta'))
+            all_paths = sorted(all_paths, key=lambda p: p.stem)
+            directory = directory_path.name  # This is for the location variable return
+        else:  # Function was called with all set to None. This shouldn't happen
+            raise ValueError(
+                f"Can't {collect_program_input_paths.__name__}() with no arguments passed")
+
+    location = (files or directory or projects or singles)
+
+    return sorted(set(all_paths)), location

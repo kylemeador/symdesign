@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import AnyStr
 
@@ -10,7 +12,7 @@ idx_slice = pd.IndexSlice
 
 
 def write_fragment_pairs_as_accumulating_states(
-        ghost_frags: list[GhostFragment], file_name: AnyStr = os.getcwd()) -> AnyStr:
+        ghost_frags: list[GhostFragment], file_name: AnyStr | os.PathLike = os.getcwd()) -> str:
     """Write GhostFragments as an MultiModel trajectory where each successive Model has one more Fragment
 
     Args:
@@ -20,8 +22,8 @@ def write_fragment_pairs_as_accumulating_states(
     Returns:
         The file_name
     """
-    if '.pdb' not in file_name:
-        file_name += '.pdb'
+    if '.pdb' not in str(file_name):
+        file_name = f'{file_name}.pdb'
 
     with open(file_name, 'w') as f:
         atom_iterator = 0
@@ -67,7 +69,7 @@ def write_fragment_pairs_as_accumulating_states(
             residue_iterator += frag_model.number_of_residues
             f.write('ENDMDL\n')
 
-    return file_name
+    return str(file_name)
 
 
 def write_fragments_as_multimodel(ghost_frags: list[GhostFragment], file_name: AnyStr = os.getcwd()) -> AnyStr:

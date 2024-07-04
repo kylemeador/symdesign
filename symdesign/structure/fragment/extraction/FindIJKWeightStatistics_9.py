@@ -53,7 +53,8 @@ def get_cluster_dicts(db: str = biological_interfaces, id_list: list[str] = None
     """
     info_db = symdesign.structure.fragment.resources.frag_directory[db]
     if id_list is None:
-        directory_list = utils.get_base_root_paths_recursively(info_db)
+        file_generator = (os.path.abspath(root) for root, dirs, files in os.walk(info_db) if not dirs)
+        directory_list = sorted(file_generator)
     else:
         directory_list = []
         for _id in id_list:

@@ -3644,11 +3644,11 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
             #     cryst_record = None
             pose_job.pose = pose
             pose_job.calculate_pose_design_metrics(session)
-            os.makedirs(pose_job.pose_directory, exist_ok=True)
+            pose_job.pose_directory.mkdir(parents=True, exist_ok=True)
             pose_job.output_pose()
-            pose_job.source_path = pose_job.pose_path
+            pose_job.source_path = str(pose_job.pose_path)
             pose_job.pose = None
-            logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
+            logger.info(f'Output Pose: {pose_job.output_pose_path}')
 
             # Add metrics to the PoseJob then reset for next pose
             for entity, data in zip(pose.entities, pose_job.entity_data):

@@ -1,5 +1,6 @@
 import argparse
 import os
+from pathlib import Path
 
 from symdesign.structure import Model
 from symdesign import flags, utils
@@ -20,11 +21,12 @@ if __name__ == '__main__':
 
     # input files
     if args.directory:
-        args.files = utils.get_directory_file_paths(args.directory, extension='.pdb*')
+        args.files = sorted(Path(args.directory).glob('*.pdb*'), key=lambda p: p.stem)
     # initialize PDB Objects
     models = [Model.from_file(file, log=logger) for file in args.files]
     model = Model.from_chains([chain for model in models for chain in model.chains],
                               name='-'.join(model.name for model in models), log=logger)
     # Output file
-    os.makedirs(args.output_directory, exist_ok=True)
-    model.write(out_path=os.path.join(args.output_directory, f'{model.name}.pdb'))
+    out_dir_path = Path(args.output_directory)
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+    model.write(out_path=out_dir_path / f'{model.name}.pdb')

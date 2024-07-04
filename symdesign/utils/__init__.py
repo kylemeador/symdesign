@@ -9,13 +9,11 @@ import os
 import pickle
 import string
 import subprocess
-import sys
 import textwrap
 import time
 from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable, Sequence
 from functools import reduce, wraps, lru_cache
-from glob import glob
 from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root as root_logger
@@ -802,20 +800,6 @@ def get_available_memory(human_readable: bool = False) -> int:
 ##############################
 
 
-def get_base_root_paths_recursively(directory: AnyStr, sort: bool = True) -> list[AnyStr]:
-    """Retrieve the bottom most directories recursively from a root directory
-
-    Args:
-        directory: The root directory of interest
-        sort: Whether the files should be filtered by name before returning
-
-    Returns:
-        The list of directories matching the search
-    """
-    file_generator = (os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs)
-    return sorted(file_generator) if sort else list(file_generator)
-
-
 def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: bool = True) -> list[AnyStr]:
     """Retrieve files recursively from a directory
 
@@ -838,27 +822,6 @@ def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: b
     return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_directory_file_paths(
-    directory: AnyStr, suffix: str = '', extension: str = '', sort: bool = True
-) -> list[AnyStr]:
-    """Return all files in a directory with specified extensions and suffixes
-
-    Args:
-        directory: The directory of interest
-        suffix: A string to match before the extension. A glob pattern is built as follows "*suffix*extension"
-            ex: suffix="model" matches "design_model.pdb" and "model1.pdb"
-        extension: A extension to filter by. Include the "." if there is one
-        sort: Whether the files should be filtered by name before returning
-
-    Returns:
-        The list of files matching the search
-    """
-    directory = os.path.abspath(directory)
-    file_generator = (file for file in glob(os.path.join(directory, f'*{suffix}*{extension}')))
-
-    return sorted(file_generator) if sort else list(file_generator)
-
-
 class SymDesignException(Exception):
     pass
 
@@ -877,115 +840,6 @@ class ReportException(SymDesignException):
 
 class MetricsError(SymDesignException):
     pass
-
-
-def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: Sequence = None,
-                    singles: Sequence = None) -> tuple[list, str]:
-    """Grab all poses from an input source
-
-    Args:
-        files: Iterable with disk location of files containing design directories
-        directory: Disk location of the program directory
-        projects: Disk location of a project directory
-        singles: Disk location of a single design directory
-
-    Returns:
-        All pose directories found, the location where they are located
-    """
-    if files:
-        all_paths = []
-        for file in files:
-            if not os.path.exists(file):
-                logger.critical(f"No '{file}' file found. Please ensure correct location/name")
-                sys.exit(1)
-            if '.pdb' in file:  # Single .pdb file passed as input
-                all_paths.append(file)
-            elif '.cif' in file:  # Single .cif file passed as input
-                all_paths.append(file)
-            else:  # Assume a file that specifies individual designs was passed and load all design names in that file
-                try:
-                    with open(file, 'r') as f:
-                        # only strip the trailing 'os.sep' in case file names are passed
-                        paths = map(str.rstrip, [location.strip() for location in f.readlines()
-                                                 if location.strip() != ''], repeat(os.sep))
-                except IsADirectoryError:
-                    raise IsADirectoryError(
-                        f"'{file}' is a directory not a file. Did you mean to run with --file?'")
-                all_paths.extend(paths)
-    else:
-        base_directory = get_program_root_directory(directory)
-        # return all design directories within:
-        #  base directory -> /base/Projects/project1, ... /base/Projects/projectN
-        #  specified projects -> /base/Projects/project1, /base/Projects/project2, ...
-        #  specified singles -> /base/Projects/project/design1, /base/Projects/project/design2, ...
-        if base_directory or projects or singles:
-            all_paths = get_program_directories(base=base_directory, projects=projects, singles=singles)
-        elif directory:  # This is probably an uninitialized project. Grab all .pdb files
-            all_paths = get_directory_file_paths(directory, extension='.pdb')
-            directory = os.path.basename(directory)  # This is for the location variable return
-        else:  # Function was called with all set to None. This shouldn't happen
-            raise ValueError(
-                f"Can't {collect_designs.__name__}() with no arguments passed")
-
-    location = (files or directory or projects or singles)
-
-    return sorted(set(all_paths)), location  # if isinstance(location, str) else location[0]  # Grab first index
-
-
-def get_program_root_directory(search_path: str = None) -> AnyStr | None:
-    """Find the program_output variable in the specified path and return the path to it
-
-    Args:
-        search_path: The path to search
-
-    Returns:
-        The absolute path of the identified program root
-    """
-    root_directory = None
-    if search_path is not None:
-        # Search for the program_output name in the provided path
-        search_path = os.path.abspath(search_path)
-        if putils.program_output in search_path:   # directory1/program_output/directory2/directory3
-            # Return the path to that directory
-            for idx, dirname in enumerate(search_path.split(os.sep), 1):
-                if dirname == putils.program_output:
-                    root_directory = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
-                    break
-            else:
-                raise InputError(
-                    f'{putils.program_output} is missing in search_path. This should never happen')
-        else:  # See if program_output is a child of the provided search_path
-            try:
-                all_files = os.listdir(search_path)
-            except (FileNotFoundError, NotADirectoryError):
-                all_files = []
-            if putils.program_output in all_files:  # directory_provided/program_output
-                for sub_directory in all_files:
-                    if sub_directory == putils.program_output:
-                        root_directory = os.path.join(search_path, sub_directory)
-                        break
-                else:
-                    raise InputError(
-                        f'{putils.program_output} is missing in all_files. This should never happen')
-
-    return root_directory
-
-
-def get_program_directories(base: str = None, projects: Iterable = None, singles: Iterable = None) \
-        -> Generator[AnyStr, None, None]:
-    """Return the specific design directories from the specified hierarchy with the format
-    /base(program_output)/Projects/project/design
-    """
-    paths = []
-    if base:
-        paths.extend(glob(f'{base}{os.sep}{putils.projects}{os.sep}*{os.sep}*{os.sep}'))  # base/Projects/*/*/
-    if projects:
-        for project in projects:
-            paths.extend(glob(f'{project}{os.sep}*{os.sep}'))  # base/Projects/project/*/
-    if singles:
-        for single, extension in map(os.path.splitext, singles):  # Remove extensions
-            paths.extend(glob(f'{single}{os.sep}'))  # base/Projects/project/single/
-    return map(os.path.abspath, paths)
 
 
 # class PoseSpecification(csv.Dialect):

@@ -618,7 +618,7 @@ def create_fragment_info_from_pairs(
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
                                overlap_error: float = None, match_number: int = None,
-                               out_path: AnyStr = os.getcwd(), pose_identifier: str = None):
+                               out_path: AnyStr | os.PathLike = os.getcwd(), pose_identifier: str = None):
     # central_frequencies=None,
     # ghost_residue: Residue = None, matched_residue: Residue = None,
 
@@ -626,7 +626,7 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
     #     raise DesignError(
     #       f'{write_frag_match_info_file.__name__}: Missing required information')
 
-    with open(os.path.join(out_path, utils.path.frag_text_file), 'a+') as out_info_file:
+    with open(os.path.join(out_path, 'frag_match_info_file.txt'), 'a+') as out_info_file:
         if match_number == 1:
             out_info_file.write(f'DOCKED POSE ID: {pose_identifier}\n\n')
             out_info_file.write('***** ALL FRAGMENT MATCHES *****\n\n')
