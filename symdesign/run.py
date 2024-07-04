@@ -10,6 +10,7 @@ import sys
 import traceback
 from argparse import Namespace
 from collections import defaultdict
+from collections.abc import Callable
 from glob import glob
 from itertools import count, repeat, product, combinations
 from subprocess import list2cmdline
@@ -24,17 +25,18 @@ from symdesign import utils
 import symdesign.utils.path as putils
 # Setup logging config before other modules are imported
 logging.config.dictConfig(utils.logging_config.cfg)
-logger = logging.getLogger(putils.program_name.lower())
+logger = logging.getLogger(Path(__file__).parent.name)
 
-from symdesign import flags, guide, protocols
-from symdesign.protocols.pose import PoseJob
-from symdesign.resources.job import JobResources, job_resources_factory
-from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
-from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
-from symdesign.structure import Entity, Pose
-from symdesign.structure import fragment
-from symdesign.structure.utils import StructureException
+from . import flags, guide, ml, protocols
 from .dependencies import rosetta
+from .protocols.pose import PoseJob
+from .resources.job import JobResources, job_resources_factory
+from .resources.query.pdb import retrieve_pdb_entries_by_advanced_query
+from .resources import db, distribute, sql, structure_db, wrapapi
+from .structure import Entity, Pose
+from .structure import fragment
+from .structure.utils import StructureException
+from .utils import path as putils
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],
@@ -344,14 +346,15 @@ def main():
                 for path in paths:
                     name, project, *_ = reversed(path.split(os.sep))
                     pose_identifiers.append(f'{project}{os.sep}{name}')
+
         if not pose_identifiers:
             raise utils.InputError(
-                f"No pose identifiers found from input location '{job.location}'")
+                f"No database pose identifiers found from input location '{job.location}'")
         else:
             pose_identifiers = job.get_range_slice(pose_identifiers)
             if not pose_identifiers:
                 raise utils.InputError(
-                    f"No pose identifiers found with {flags.format_args(flags.range_args)}={job.range}'")
+                    f"No database pose identifiers found with {flags.format_args(flags.range_args)}={job.range}'")
 
         # Fetch identified. No writes
         with job.db.session(expire_on_commit=False) as session:
@@ -375,7 +378,7 @@ def main():
             missing_pose_identifiers = set(pose_identifier_to_pose_job_map.keys()).difference(pose_identifiers)
             if missing_pose_identifiers:
                 logger.warning(
-                    "Couldn't find the following identifiers:\n\t%s\nRemoving them from the Job"
+                    "Couldn't find the following pose identifiers:\n\t%s\nRemoving them from the Job"
                     % '\n'.join(missing_pose_identifiers))
                 remove_missing_identifiers = [pose_identifiers.index(identifier)
                                               for identifier in missing_pose_identifiers]
@@ -503,7 +506,7 @@ def main():
 
             # Todo ensure consensus sbatch generator working
             # Set up sbatch scripts for processed Poses
-            def _get_module_specific_protocol(module: str) -> str:
+            def _get_module_specific_protocol(module: str) -> distribute.ProtocolsLiteral:
                 if module == flags.design:
                     if job.design.interface:
                         if job.design.method == flags.consensus:
@@ -1078,7 +1081,7 @@ def main():
             job.location = f'AlignHelices'  # Used for terminate()
         else:
             raise NotImplementedError()
-    else:  # Load from existing files, usually Structural files in a directory or in the program already
+    else:  # Load from existing files. Expecting structural files in a directory or in the program already
         if job.load_to_db:
             # These are not part of the db, but exist in a program_output
             if args.project or args.single:
@@ -1505,7 +1508,8 @@ def main():
             job.load_job_protocol()
 
             # Fetch the specified protocol with python acceptable naming
-            protocol = getattr(protocols, flags.as_attribute(job.module))
+            protocol: Callable[[PoseJob | tuple[Any]], list[PoseJob | None, Exception]] = (
+                getattr(protocols, flags.as_attribute(job.module)))
             # Figure out how the job should be set up
             if job.module in protocols.config.run_on_pose_job:  # Single poses
                 if job.multi_processing:

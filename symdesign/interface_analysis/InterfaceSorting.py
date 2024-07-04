@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import PISA_DB, retrieve_pisa_file_path, get_complex_interfaces
-from symdesign.resources.query.pdb import get_qsbio_confirmed_assemblies, query_pdb_by, \
+from symdesign.resources.query.pdb import qsbio_confirmed_assemblies, query_pdb_by, \
     retrieve_pdb_entries_by_advanced_query
 from symdesign.structure import Model, Chain, Structure
 from symdesign.utils import path as putils
@@ -396,7 +396,7 @@ if __name__ == '__main__':
         pdbs_of_interest = utils.to_iterable(all_protein_file, ensure_file=True)
 
     # Retrieve the verified set of biological assemblies
-    qsbio_confirmed = get_qsbio_confirmed_assemblies()
+    qsbio_confirmed = qsbio_confirmed_assemblies()
     # Todo remove monomers from confirmed assemblies in source
     qsbio_monomers = utils.to_iterable(putils.qs_bio_monomers_file, ensure_file=True)
     qsbio_monomers_d = {}

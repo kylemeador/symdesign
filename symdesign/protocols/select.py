@@ -18,12 +18,13 @@ from tqdm.auto import tqdm
 from . import cluster
 from .pose import PoseJob
 from symdesign import flags, metrics, utils
-from symdesign.resources import sql, config
+from symdesign.resources import config, sql, structure_db
 from symdesign.resources.job import job_resources_factory
 from symdesign.utils.query import input_string, boolean_choice, validate_input
 from symdesign.structure import Pose
 from symdesign.sequence import constants, optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
+
 putils = utils.path
 
 logger = logging.getLogger(__name__)
@@ -1502,13 +1503,14 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                     f'No "{job.cluster.map}" file was found')
 
             final_pose_indices = select_from_cluster_map(pose_jobs, cluster_map, number=job.cluster.number)
-            final_poses = [pose_jobs[idx] for idx in final_pose_indices]
-            logger.info(f'Selected {len(final_poses)} poses after clustering')
-            selected_pose_ids = [pose_job.id for pose_job in final_poses]
+            clustered_poses = [pose_jobs[idx] for idx in final_pose_indices]
+            logger.info(f'Selected {len(clustered_poses)} poses after clustering')
+            selected_pose_ids = [pose_job.id for pose_job in clustered_poses]
 
         if len(selected_pose_ids) > job.select_number:
             selected_pose_ids = selected_pose_ids[:job.select_number]
-            logger.info(f'Found {len(selected_pose_ids)} Poses after applying your --select-number criteria')
+            logger.info(
+                f'Found {len(selected_pose_ids)} Poses after applying your {flags.select_number.as_long()} criteria')
 
         # Format selected PoseJob ids for output, including all additional metrics/metadata
         if not pose_designs_mean_df.empty:

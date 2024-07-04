@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 #
 #         Args:
 #             name: The name of the data to be retrieved. Will be found with location and extension attributes
+#
 #         Returns:
 #             If the data is available, the object requested will be returned, else None
 #         """
@@ -59,6 +60,7 @@ logger = logging.getLogger(__name__)
 #
 #         Args:
 #             name: The name of the data to be retrieved. Will be found with location and extension attributes
+#
 #         Returns:
 #             If the data is available, the object requested will be returned, else None
 #         """
@@ -86,6 +88,8 @@ logger = logging.getLogger(__name__)
 
 
 class PDBDataStore(DataStore):
+    """"""
+
     def __init__(self, location: str = None, extension: str = '.json', sql=None, log: logging.Logger = logger):
         super().__init__(location=location, extension=extension, sql=sql, log=log)
         # pdb_entity_api: AnyStr | Path = os.path.join(self.location, 'pdb_entity')
@@ -100,6 +104,7 @@ class PDBDataStore(DataStore):
 
         Args:
             name: The EntityID
+
         Returns:
             Value ranging from 0-1 where 1 is completely thermophilic
         """
@@ -114,6 +119,7 @@ class PDBDataStore(DataStore):
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
+
         Returns:
             If data is available, the JSON object from PDB API will be returned, else None
         """
@@ -133,6 +139,7 @@ class PDBDataStore(DataStore):
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
+
         Returns:
             If data is available, the JSON object from PDB API will be returned, else None
         """
@@ -159,6 +166,7 @@ class PDBDataStore(DataStore):
             entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
             entity_integer: The entity integer from the EntryID of interest
             chain: The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of interest
+
         Returns:
             If the data is available, the object requested will be returned, else None
             The possible return formats include:
@@ -261,6 +269,8 @@ class PDBDataStore(DataStore):
 
 
 class UniProtDataStore(DataStore):
+    """"""
+
     def __init__(self, location: str = None, extension: str = '.json', sql=None, log: logging.Logger = logger):
         super().__init__(location=location, extension=extension, sql=sql, log=log)
 
@@ -269,6 +279,7 @@ class UniProtDataStore(DataStore):
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
+
         Returns:
             If the data is available, the object requested will be returned, else None
         """
@@ -288,6 +299,7 @@ class UniProtDataStore(DataStore):
 
         Args:
             uniprot_id: The formatted UniProtID which consists of either a 6 or 10 character code
+
         Returns:
             1 if the UniProtID of interest is a thermophilic organism according to taxonomic classification, else 0
         """

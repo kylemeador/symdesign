@@ -16,6 +16,7 @@ def write_fragment_pairs_as_accumulating_states(
     Args:
         ghost_frags: An iterable of GhostFragments
         file_name: The path that the file should be written to
+
     Returns:
         The file_name
     """
@@ -75,6 +76,7 @@ def write_fragments_as_multimodel(ghost_frags: list[GhostFragment], file_name: A
     Args:
         ghost_frags: An iterable of GhostFragments
         file_name: The path that the file should be written to
+
     Returns:
         The file_name
     """

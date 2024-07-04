@@ -669,7 +669,7 @@ class SymmetryBase(ABC):
                 self.reset_symmetry_state()
             else:
                 raise ValueError(
-                    f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
+                    f"Couldn't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
                     f"Must be class 'str'")
 
 
@@ -1737,11 +1737,7 @@ class ContainsAtoms(StructureBase, ABC):
         self.reset_state()
 
     def get_base_containers(self) -> dict[str, Any]:
-        """Access each of the constituent structure container attributes
-
-        Returns:
-            The instance structural containers as a dictionary with attribute as key and container as value
-        """
+        """Returns an attribute keyed dictionary with the instance Structure object containers as values"""
         return dict(coords=self._coords, atoms=self._atoms)
 
     def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):
@@ -3344,12 +3340,13 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         if structure:
             if isinstance(structure, ContainsResidues):
                 model_kwargs = structure.get_base_containers()
+                residues = model_kwargs.get('residues')
                 for key, value in model_kwargs.items():
                     if key in kwargs:
-                        logger.warning(f"Passing an argument for '{key}' while providing the 'model' argument "
-                                       f"overwrites the '{key}' argument from the 'model'")
-                new_model_kwargs = {**model_kwargs, **kwargs}
-                super().__init__(**new_model_kwargs)
+                        logger.warning(f"Passing an argument for '{key}' while providing the 'structure' argument "
+                                       f"overwrites the '{key}' argument from the 'structure'")
+                kwargs = {**model_kwargs, **kwargs}
+                super().__init__(**kwargs)  # ContainsResidues
             else:
                 raise NotImplementedError(
                     f"Setting {self.__class__.__name__} with model={type(structure).__name__} isn't supported")
@@ -3362,19 +3359,16 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self.ss_type_sequence = []
 
         if self.is_dependent():
-            try:
-                residue_indices[0]
-            except TypeError:
+            if residue_indices is None:
                 if isinstance(self, Structures):  # Structures handles this itself
                     return
                 raise stutils.ConstructionError(
                     f"The {self.__class__.__name__} wasn't passed 'residue_indices' which are required for "
                     f"initialization"
                 )
-
-            if not isinstance(residue_indices, list):
+            elif not isinstance(residue_indices, list):
                 residue_indices = list(residue_indices)
-            # Must set this before setting _atom_indices
+            # Must set _residue_indices before setting _atom_indices
             self._residue_indices = residue_indices
             # Get the atom_indices from the provided residues
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
@@ -3419,7 +3413,6 @@ class ContainsResidues(ContainsAtoms, StructureIndexMixin):
         self.reset_state()
 
     def get_base_containers(self) -> dict[str, Any]:
-        """Returns the instance structural containers as a dictionary with attribute as key and container as value"""
         return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)
 
     @property

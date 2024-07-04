@@ -7,7 +7,7 @@ from logging import Logger
 from collections.abc import Callable
 from typing import Any, AnyStr
 
-from symdesign import utils, resources
+from symdesign import utils
 
 logger = logging.getLogger(__name__)
 # for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
@@ -54,7 +54,8 @@ def write_list_to_file(_list, file_name, **kwargs) -> AnyStr:
 
 
 def not_implemented(data, file_name):
-    raise NotImplemented(f'For save_file with {os.path.splitext(file_name)[-1]}DataStore method not available')
+    raise NotImplemented(
+        f"For 'save_file' with {os.path.splitext(file_name)[-1]}DataStore method not available")
 # lambda data, file_name: (_ for _ in ()).throw(NotImplemented(f'For save_file with {os.path.splitext(file_name)[-1]}'
 #                                                              f'DataStore method not available'))
 
@@ -119,11 +120,11 @@ class DataStore:
             os.makedirs(self.location, exist_ok=True)
 
     def path_to(self, name: str = '*') -> AnyStr:
-        """Return the path_to the storage location given an entity name"""
+        """Returns the path_to the storage location given an entity 'name'"""
         return os.path.join(self.location, f'{name}{self.extension}')
 
     def glob_path(self, name: str = '*') -> AnyStr:
-        """Return the glob_path of the storage location given an entity name"""
+        """Returns the glob_path of the storage location given an entity 'name'"""
         return os.path.join(self.location, f'{name}{self.glob_extension}')
 
     def retrieve_file(self, name: str) -> AnyStr | None:
@@ -156,11 +157,11 @@ class DataStore:
         return names
 
     def store_data(self, data: Any, name: str, **kwargs):
-        """Store the data specfied by data and name to the DataStore. Saves the data as well
+        """Stores the data specfied by data and name to the DataStore. Saves the data as well
 
         Args:
-            data: The data object to be stored with name
-            name: The name of the data to be used
+            data: The object to be stored
+            name: The name of the data to be used for storage
 
         Sets:
             self.name = data
@@ -169,7 +170,7 @@ class DataStore:
         self._save_data(data, name, **kwargs)
 
     def retrieve_data(self, name: str = None) -> Any | None:
-        """Return the data requested by name. Otherwise, load into the Database from a specified location
+        """Returns the data requested by name. Otherwise, load into the Database from a specified location
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
@@ -193,11 +194,11 @@ class DataStore:
         return data
 
     def _save_data(self, data: Any, name: str, **kwargs) -> AnyStr | None:
-        """Return the data located in a particular entry specified by name
+        """Returns the data located in a particular entry specified by name
 
         Args:
-            data: The data object to be stored with name
-            name: The name of the data to be used
+            data: The object to be stored
+            name: The name of the data to be used for storage
 
         Returns:
             The name of the saved data if there was one or the return from the Database insertion
@@ -210,7 +211,7 @@ class DataStore:
         return None
 
     def load_data(self, name: str, **kwargs) -> Any | None:
-        """Return the data located in a particular entry specified by name
+        """Returns the data located in a particular entry specified by name
 
         Args:
             name: The name of the data to be used
@@ -249,10 +250,11 @@ class Database:
         """
         super().__init__()
         if sql:
-            raise NotImplementedError('SQL set up has not been completed')
+            raise NotImplementedError("SQL set up hasn't been completed")
 
         self.sql = sql
         self.log = log
+        # Todo remove after StructureDatabase dealt with
         self.job: 'resources.job.JobResources' | None = None
 
     def load_all_data(self):

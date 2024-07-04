@@ -89,7 +89,7 @@ model symmetric relationships, including their interfaces.
 |Fragment - - - - - - - - - - - - - - - -|                     <- Structure
  [Residue|Residue|Residue|Residue|Residue]                     <- Structure
 ```
-#### Each [Fragment][structure.fragment.Fragment] can map to other [Fragment][structure.fragment.Fragment] instances so that larger [Structure][structure.model.Structure] can be broken down into pairs of [Fragment][structure.fragment.Fragment]. Such [Fragment][structure.fragment.Fragment] overlap with neighboring [Fragment][structure.fragment.Fragment] such as those that aare mapped to a separate "sliding window" register.
+* Each [Fragment][structure.fragment.Fragment] can map to other [Fragment][structure.fragment.Fragment] instances so that larger [Structure][structure.model.Structure] can be broken down into pairs of [Fragment][structure.fragment.Fragment]. Such [Fragment][structure.fragment.Fragment] overlap with neighboring [Fragment][structure.fragment.Fragment] such as those that aare mapped to a separate "sliding window" register.
 ```
 |Structure - - - - - - - - - - - - - - - - - - - - - - - - - | <- Structure
  Fragment- - - |Fragment - - -|Fragment- - - |Fragment - - - | <- Structure

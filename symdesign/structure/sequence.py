@@ -130,7 +130,7 @@ def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: 
         if alphabet_order == 1:
             return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
         elif alphabet_order == 3:
-            raise NotImplementedError('Need to make the "numerical_translation_alph3_bytes" table')
+            raise NotImplementedError("Need to make the 'numerical_translation_alph3_bytes' table")
             return np.vectorize(numerical_translation_alph3_bytes.__getitem__)(_array)
         else:
             raise ValueError(
@@ -240,8 +240,10 @@ def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = Non
     return file_name
 
 
-profile_types_literal = Literal['design', 'evolutionary', 'fragment']
-profile_types = get_args(profile_types_literal)
+# Todo
+ProfileTypeLiteral = Literal['design', 'evolution', 'fragment']
+ProfileTypeLiteral = Literal['design', 'evolutionary', 'fragment']
+profile_types = get_args(ProfileTypeLiteral)
 
 
 class Profile(UserList[ProfileEntry]):
@@ -250,7 +252,7 @@ class Profile(UserList[ProfileEntry]):
          'type': 'W', 'info': 3.20, 'weight': 0.73},
         {}, ...]
     """
-    def __init__(self, entries: Iterable[ProfileEntry], dtype: profile_types_literal = 'design', **kwargs):
+    def __init__(self, entries: Iterable[ProfileEntry], dtype: ProfileTypeLiteral = 'design', **kwargs):
         """Construct the instance
 
         Args:
@@ -553,7 +555,7 @@ class GeneEntity(ABC):
         return False
 
     def add_evolutionary_profile(self, file: AnyStr = None, out_dir: AnyStr = os.getcwd(),
-                                 profile_source: alignment_programs_literal = putils.hhblits, force: bool = False,
+                                 profile_source: AlignmentProgramLiteral = 'hhblits', force: bool = False,
                                  **kwargs):
         """Add the evolutionary profile to the GeneEntity. If the profile isn't provided, it is generated through search
         of homologous protein sequences using the profile_source argument
@@ -567,9 +569,9 @@ class GeneEntity(ABC):
         Sets:
             self.evolutionary_profile (ProfileDict)
         """
-        if profile_source not in alignment_programs:  # [putils.hhblits, 'psiblast']:
+        if profile_source not in alignment_programs:
             raise ValueError(
-                f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
+                f'{self.add_evolutionary_profile.__name__}(): Profile generation only possible from '
                 f'{", ".join(alignment_programs)}, not {profile_source}')
 
         if file is not None:
@@ -579,8 +581,8 @@ class GeneEntity(ABC):
             name = self.name
             sequence_file = self.write_sequence_to_fasta(out_dir=out_dir)
             temp_file = Path(out_dir, f'{name}.hold')
-            pssm_file = os.path.join(out_dir, f'{name}.hmm')
-            if not os.path.exists(pssm_file) or force:
+            pssm_file = Path(out_dir, f'{name}.hmm')
+            if not pssm_file.exists() or force:
                 if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
                     # Create blocking file to prevent excess work
                     with open(temp_file, 'w') as f:
@@ -589,13 +591,10 @@ class GeneEntity(ABC):
                     self.log.info(f'Generating Evolutionary Profile for {name}')
                     getattr(self, profile_source)(sequence_file=sequence_file, out_dir=out_dir)
                     temp_file.unlink(missing_ok=True)
-                    # if os.path.exists(temp_file):
-                    #     os.remove(temp_file)
                 else:  # Block is in place, another process is working
                     self.log.info(f"Waiting for '{name}' profile generation...")
-                    while not os.path.exists(pssm_file):
+                    while not pssm_file.exists():
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
-                            # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
                             raise StructureException(
                                 f'{self.add_evolutionary_profile.__name__}: Generation of the profile for {name} '
@@ -886,39 +885,6 @@ class GeneEntity(ABC):
     #
     #     self.evolutionary_profile = evolutionary_profile
 
-    def hhblits(self, out_dir: AnyStr = os.getcwd(), **kwargs) -> list[str] | None:
-        """Generate a position specific scoring matrix from hhblits using Hidden Markov Models
-
-        Args:
-            out_dir: Disk location where generated file should be written
-
-        Keyword Args:
-            sequence_file: AnyStr = None - The file containing the sequence to use
-            threads: Number of cpu's to use for the process
-            return_command: Whether to simply return the hhblits command
-
-        Returns:
-            The command if return_command is True, otherwise None
-        """
-        result = hhblits(self.name, out_dir=out_dir, **kwargs)
-
-        if result:  # return_command is True
-            return result
-        # Otherwise, make alignment file(s)
-        name = self.name
-        # Set file attributes according to logic of hhblits()
-        a3m_file = os.path.join(out_dir, f'{name}.a3m')
-        msa_file = os.path.join(out_dir, f'{name}.sto')
-        fasta_msa = os.path.join(out_dir, f'{name}.fasta')
-        # Preferred alignment type
-        if os.access(putils.reformat_msa_exe_path, os.X_OK):
-            p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
-            p.communicate()
-            p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
-            p.communicate()
-        else:
-            logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
-
     def add_msa_from_file(self, msa_file: AnyStr, file_format: msa_supported_types_literal = 'stockholm'):
         """Add a multiple sequence alignment to the profile. Handles correct sizing of the MSA
 
@@ -1103,11 +1069,12 @@ class GeneEntity(ABC):
         '.fasta' is appended if not specified in the name argument
 
         Args:
-            dtype: The type of sequence to write. Can be the the keywords 'reference_sequence' or 'sequence'
+            dtype: The type of sequence to write. Can be the keywords 'reference_sequence' or 'sequence'
             file_name: The explicit name of the file
             name: The name of the sequence record. If not provided, the instance name will be used.
                 Will be used as the default file_name base name if file_name not provided
             out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+
         Returns:
             The path to the output file
         """

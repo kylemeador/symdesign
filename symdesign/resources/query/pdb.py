@@ -30,7 +30,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 @lru_cache
-def get_qsbio_confirmed_assemblies() -> dict[str, list[int]]:
+def qsbio_confirmed_assemblies() -> dict[str, list[int]]:
     # Todo
     #  Add the list of QSBio confirmed hetero-oligomers
     #  Make each list of interface ids a set()
@@ -1729,7 +1729,7 @@ def solve_author_confirmed_assemblies(params: QueryParams, grouped_entity_ids: d
     # Check if the top thermophilic ids are actually bona-fide assemblies
     top_entity_ids: list[str | None] = []
     # If they aren't, then solve by PDB API query
-    qsbio_confirmed = get_qsbio_confirmed_assemblies()
+    qsbio_confirmed = qsbio_confirmed_assemblies()
     solve_group_by_pdb = []
     for group_id, entity_ids in grouped_entity_ids.items():
         group_assemblies = [qsbio_confirmed.get(id_[:4].lower()) for id_ in entity_ids]

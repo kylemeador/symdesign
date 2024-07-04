@@ -1517,7 +1517,7 @@ hydrophobicity_scale_literal = Literal['expanded', 'standard']
 def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
                                hydrophobicity: hydrophobicity_scale_literal = 'standard',
                                custom: dict[sequence.protein_letters_literal, int | float] = None,
-                               alphabet_type: sequence.alphabet_types_literal = None,
+                               alphabet_type: sequence.AlphabetTypeLiteral = None,
                                lower_window: int = 3, upper_window: int = 9, **kwargs) -> np.ndarray:
     """Calculate hydrophobic collapse index for sequence(s) of interest and return an HCI array
 
@@ -1544,7 +1544,7 @@ def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarray,
     else:
         hydrophobicity_values = custom
 
-    def solve_alphabet() -> sequence.alphabets_literal:
+    def solve_alphabet() -> sequence.AlphabetLiteral:
         if alphabet_type is None:
             raise ValueError(
                 f"{hydrophobic_collapse_index.__name__}(): Must pass keyword 'alphabet_type' when calculating "

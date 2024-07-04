@@ -447,8 +447,8 @@ def setup(args):
     # Get alphafold database. 5.3 is for params only
     if args.command_line:
         _input = utils.query.validate_input(
-            'To use AlphaFold for structure prediction, model parameters need to be available. Downloading them will '
-            'take 5.3 GB of hard drive space. This will automatically be downloaded in the directory '
+            'To use AlphaFold for structure prediction, model parameters need to be available. Downloading them '
+            'will take 5.3 GB of hard drive space. This will automatically be downloaded in the directory '
             f"'{putils.alphafold_db_dir}' if you consent.", ['Y', 'n'])
     elif args.alphafold_database:
         _input = 'y'

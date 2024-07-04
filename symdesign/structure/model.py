@@ -1588,6 +1588,7 @@ class ContainsChains(ContainsStructures):
 
         Args:
             symmetry: The symmetry of the Structure
+
         Raises:
             SymmetryError: When the specified symmetry is incompatible with the Structure
             StructureException: When the orient program fails
@@ -1637,8 +1638,8 @@ class ContainsChains(ContainsStructures):
         if multicomponent:
             if not isinstance(self, ContainsEntities):
                 raise SymmetryError(
-                    f"Couldn't {repr(self)}.{self.orient.__name__} as the symmetry is {multicomponent=}, however, there"
-                    f" are no .entities in the class {self.__class__.__name__}"
+                    f"Couldn't {repr(self)}.{self.orient.__name__}() as the symmetry is {multicomponent=}, however, "
+                    f"there are no .entities in the class {self.__class__.__name__}"
                 )
             self.entities[0].write(assembly=True, **orient_kwargs)
         else:
@@ -1958,7 +1959,7 @@ class ContainsEntities(ContainsChains):
         """Query the PDB API for information on the PDB code found at the Model.name attribute
 
         For each new instance, makes one call to the PDB API, plus an additional call for each Entity, and one more
-        if biological_assembly is passed. If this has been loaded before, it uses the persistent wrapapi.APIDatabase
+        if biological_assembly is passed. If metadata has been retrieved before, it uses cached data.
 
         Args:
             biological_assembly: The number of the biological assembly that is associated with this structural state
@@ -2046,10 +2047,10 @@ class ContainsEntities(ContainsChains):
         return api_entry
 
     def _create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
-        """Create all Entities in the PDB object searching for the required information if it was not found during
-        file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
-        biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
-        instance using a specified threshold of sequence homology
+        """Create all Entities in the instance searching for the required information if it was not found during
+        file parsing. First, search the PDB API using a parsed PDB EntryID, dependent on the presence of a
+        biological assembly file and/or multimodel file. Finally, initialize Entity instances from Residue instances in
+        each Chain using a specified threshold of sequence homology
 
         Args:
             entity_names: Names explicitly passed for the Entity instances. Length must equal number of entities.
@@ -2291,7 +2292,14 @@ class ContainsEntities(ContainsChains):
         return None
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
-        """Returns the entity associated with a particular chain id"""
+        """Returns the Entity associated with a particular chain id
+
+        Args:
+            chain_id: The chain id to query
+
+        Returns:
+            The Entity if one was found
+        """
         for entity in self.entities:
             if chain_id == entity.chain_id:
                 return entity
@@ -2434,7 +2442,7 @@ class SymmetryOpsMixin(abc.ABC):
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                      crystal: bool = False, cryst_record: str = None, uc_dimensions: list[float] = None,
                      **kwargs):
-        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
+        """Sets the symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
         notation (in CRYST1 format, ex P432) for the Model assembly. If the assembly is a point group, only the symmetry
         notation is required
 
@@ -3837,8 +3845,10 @@ class Entity(SymmetryOpsMixin, ContainsChains, Chain):
             'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', reference=reference),
         }
 
-    def get_alphafold_template_features(self, symmetric: bool = False, heteromer: bool = False, **kwargs) \
-            -> FeatureDict:
+    # Todo StructuredGeneEntity(ContainsResidues)
+    def get_alphafold_template_features(
+        self, symmetric: bool = False, heteromer: bool = False, **kwargs
+    ) -> FeatureDict:
         # if symmetric or heteromer:
         #     # raise NotImplementedError("Can't get multimeric features in "
         #     #                           f"{self.get_alphafold_template_features.__name__}")
@@ -4595,7 +4605,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
                      rotations: np.ndarray | list[list[float]] = None, translations: np.ndarray | list[float] = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      **kwargs):
-        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
+        """Sets the symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
         notation (in CRYST1 format, ex P432) for the Model assembly. If the assembly is a point group, only the symmetry
         notation is required
 
@@ -5002,8 +5012,8 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             return self._oligomeric_model_indices
 
     def _find_oligomeric_model_indices(self, epsilon: float = 0.5):
-        """From an Entity's Chain members, find the SymmetricModel equivalent models using Chain center or mass
-        compared to the symmetric model center of mass
+        """From an Entity's member Chain instances, find the SymmetricModel equivalent models using Chain center or mass
+        compared to the SymmetricModel center of mass
 
         Args:
             epsilon: The distance measurement tolerance to find similar symmetric models to the oligomer
@@ -5174,8 +5184,8 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
     #     self._transformation = transformations
 
     def _assign_pose_transformation(self) -> list[types.TransformationMapping] | list[dict]:
-        """Using the symmetry entry and symmetric material, find the specific transformations necessary to establish the
-        individual symmetric components in the global symmetry
+        """Using the symmetry entry and symmetric material, finds the specific transformations necessary to establish
+        the individual symmetric components in the global symmetry
 
         Sets:
             self.coords (np.ndarray) - To the most contacting asymmetric unit
@@ -5187,7 +5197,7 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             raise SymmetryError(
                 f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
         elif self.sym_entry.is_token():
-            return [{} for entity in self.entities]
+            return [{} for _ in self.entities]
 
         self.log.debug(f'Searching for transformation parameters for the Pose {self.name}')
 
@@ -5602,6 +5612,8 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
         Keyword Args:
             increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
                 a new Model
+            minimal: bool = False - Whether to create the minimally contacting assembly model. This is advantageous in
+                crystalline symmetries to minimize the size of the "assembly"
             surrounding_uc: bool = False - Whether the 3x3 layer group, or 3x3x3 space group should be written when
                 assembly is True and self.dimension > 1
 
@@ -5615,11 +5627,14 @@ class SymmetricModel(SymmetryOpsMixin, ContainsEntities):
             if is_symmetric:
                 if assembly:
                     models = self._generate_assembly_models(**kwargs)
+                    # Ensure that one of increment_chains or multimodel is True
+                    if not kwargs.get('increment_chains'):
+                        kwargs['multimodel'] = True
                     models.write(file_handle=handle, **kwargs)
                 else:  # Skip all models, write asu. Use biomt_record/cryst_record for symmetry
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
-            else:  # Finish with a standard write
+            else:  # Standard write
                 super(Structure, Structure).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
@@ -6162,7 +6177,7 @@ class Pose(SymmetricModel, MetricsMixin):
             self.design_residues = self.residues
             design_indices = list(range(number_of_residues))
 
-        if ca_only:  # self.job.design.ca_only:
+        if ca_only:
             coords_type = 'ca_coords'
             num_model_residues = 1
         else:
@@ -6629,7 +6644,7 @@ class Pose(SymmetricModel, MetricsMixin):
 
         return sequences_and_scores
 
-    def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> dict[str, bool]:
+    def get_termini_accessibility(self, entity: ContainsResidues, report_if_helix: bool = False) -> dict[str, bool]:
         """Returns a dictionary indicating which termini are not buried. Coarsely locates termini which face outward
 
         Args:
@@ -6676,14 +6691,15 @@ class Pose(SymmetricModel, MetricsMixin):
                 c_term = True
 
         if report_if_helix:
-            try:
-                retrieve_stride_info = resources.structure_db.structure_database_factory().stride.retrieve_data
-            except AttributeError:
-                pass
-            else:
-                parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-                if parsed_secondary_structure:
-                    entity.secondary_structure = parsed_secondary_structure
+            # # Todo remove this internal file load from this module...
+            # try:
+            #     retrieve_stride_info = resources.structure_db.structure_database_factory.get().stride.retrieve_data
+            # except AttributeError:
+            #     pass
+            # else:
+            #     parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+            #     if parsed_secondary_structure:
+            #         entity.secondary_structure = parsed_secondary_structure
 
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
@@ -6762,13 +6778,14 @@ class Pose(SymmetricModel, MetricsMixin):
             if msa_metrics and entity.evolutionary_profile:
                 try:
                     profile = getattr(entity, f'{profile_type}_profile')
+                except AttributeError:  # No profile from getattr()
+                    raise ValueError(
+                        f"The {profile_type=} isn't available for {repr(entity)}")
+                else:
                     if profile_type == 'fragment':
                         profile_array = profile.as_array()
                     else:
                         profile_array = pssm_as_array(profile)
-                except AttributeError:  # No profile from getattr()
-                    raise ValueError(
-                        f"The profile_type '{profile_type}' isn't available on {type(entity).__name__} {entity.name}")
 
                 hydrophobic_collapse_profile.append(
                     metrics.hydrophobic_collapse_index(profile_array, alphabet_type='protein_letters_alph1', **kwargs))
@@ -8265,7 +8282,8 @@ class Pose(SymmetricModel, MetricsMixin):
                 except ZeroDivisionError:
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
-                    _metrics[metrics.library.nanohedra_score_normalized.name] = _metrics[metrics.library.nanohedra_score_center_normalized.name] = 0.
+                    _metrics[metrics.library.nanohedra_score_normalized.name] = \
+                        _metrics[metrics.library.nanohedra_score_center_normalized.name] = 0.
 
         elif total_interface:  # For the entire interface
             metric_d = deepcopy(fragment_metric_template)
@@ -8303,7 +8321,8 @@ class Pose(SymmetricModel, MetricsMixin):
                     metric_d[metrics.library.nanohedra_score_center.name]/metric_d[metrics.library.number_residues_fragment_center.name]
             except ZeroDivisionError:
                 self.log.debug(f'{self.name}: No fragment residues were found')
-                metric_d[metrics.library.nanohedra_score_normalized.name] = metric_d[metrics.library.nanohedra_score_center_normalized.name] = 0.
+                metric_d[metrics.library.nanohedra_score_normalized.name] = \
+                    metric_d[metrics.library.nanohedra_score_center_normalized.name] = 0.
 
         else:  # For the entire Pose?
             raise NotImplementedError("There isn't a mechanism to return fragments for the mode specified")
@@ -8521,15 +8540,17 @@ class Pose(SymmetricModel, MetricsMixin):
             self._fragment_info_by_entity_pair[(entity.name, entity.name)] = \
                 create_fragment_info_from_pairs(ghostfrag_surfacefrag_pairs)
 
-    def write_fragment_pairs(self, out_path: AnyStr = os.getcwd(), multimodel: bool = False) -> AnyStr | None:
+    def write_fragment_pairs(
+        self, out_path: AnyStr | os.PathLike = os.getcwd(), multimodel: bool = False
+    ) -> AnyStr | None:
         """Write the fragments associated with the pose to disk
 
         Args:
-            out_path: The path to the directory to output files to
+            out_path: The path to the directory where output file(s) are written
             multimodel: Whether to write all fragments as a multimodel file. File written to "'out_path'/all_frags.pdb"
 
         Returns:
-            The path to the written file if one was written
+            The path to the written file (multimodel=True) or the last written file, if any were written
         """
         residues = self.residues
         ghost_frags = []
@@ -8539,7 +8560,7 @@ class Pose(SymmetricModel, MetricsMixin):
                 ijk = info.cluster
                 clusters.append(ijk)
                 # match_score = info.match
-                aligned_residue = residues[info.mapped]
+                aligned_residue = residues[info.index]
                 ghost_frag = aligned_residue.ghost_fragments[ijk]
                 ghost_frags.append(ghost_frag)
 
@@ -8550,20 +8571,10 @@ class Pose(SymmetricModel, MetricsMixin):
             write_fragments_as_multimodel(ghost_frags, file_path)
         else:
             match_count = count(1)
-            for ghost_frag, ijk in zip(ghost_frags, clusters):
-                file_path = os.path.join(
-                    out_path, '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, next(match_count)))
+            for ghost_frag, (i, j, k) in zip(ghost_frags, clusters):
+                file_path = os.path.join(out_path, f'{i}_{j}_{k}_fragment_match_{next(match_count)}.pdb')
                 ghost_frag.representative.write(out_path=file_path)
 
-        # frag_file = Path(out_path, putils.frag_text_file)
-        # frag_file.unlink(missing_ok=True)  # Ensure old file is removed before new write
-        # for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
-        #     ijk = ghost_frag.ijk
-        #     fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
-        #     trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
-        # write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
-        #                                     overlap_error=z_value_from_match_score(match_score),
-        #                                     match_number=match_count, out_path=out_path)
         return file_path
 
     def debug_pose(self, out_dir: AnyStr = os.getcwd(), tag: str = None):

@@ -623,14 +623,17 @@ def _format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
     # # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
 
     # Place the residue indices from the column names into the index at position -1
-    df = df.stack(0)
+    df = df.stack(0, future_stack=True)
     df.index.set_names('index', level=-1, inplace=True)
 
     return df
 
 
 # Suppress this warning
-pd.set_option('future.no_silent_downcasting', True)
+try:
+    pd.set_option('future.no_silent_downcasting', True)
+except pd._config.config.OptionError:  # This version of pandas is too low
+    pass
 
 
 def write_dataframe(session: Session, designs: pd.DataFrame = None,

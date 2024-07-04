@@ -231,7 +231,7 @@ def query_qs_bio(entry_id: str) -> int:
     Returns:
         The integer of the corresponding PDB Assembly ID according to QSBio
     """
-    biological_assemblies = get_qsbio_confirmed_assemblies().get(entry_id.lower())
+    biological_assemblies = qsbio_confirmed_assemblies().get(entry_id.lower())
     if biological_assemblies:
         # Get the first assembly in matching oligomers
         if len(biological_assemblies) != 1:
@@ -246,6 +246,7 @@ def query_qs_bio(entry_id: str) -> int:
 
 class StructureDatabase(Database):
     """A Database which holds structural data in particular"""
+
     def __init__(self, models: AnyStr | Path = None, full_models: AnyStr | Path = None, oriented: AnyStr | Path = None,
                  oriented_asu: AnyStr | Path = None, refined: AnyStr | Path = None, stride: AnyStr | Path = None,
                  **kwargs):
@@ -281,6 +282,7 @@ class StructureDatabase(Database):
 
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
+    # Todo move to symdesign.protocols given self.job dependency?
     def orient_structures(self, structure_identifiers: Iterable[str], sym_entry: SymEntry = None,
                           by_file: bool = False) \
             -> tuple[dict[str, tuple[str, ...]], dict[tuple[str, ...], list[sql.ProteinMetadata]]]:
@@ -301,6 +303,7 @@ class StructureDatabase(Database):
         if not structure_identifiers:
             return {}, {}
 
+        job = self.job
         self.oriented.make_path()
         self.oriented_asu.make_path()
         models_dir = self.models.location
@@ -453,9 +456,9 @@ class StructureDatabase(Database):
                 if structure_identifier in orient_asu_names:  # orient_asu file exists, just load
                     orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                     pose = Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
-                    if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
-                                                        distance=self.job.design.clash_distance, warn=True):
-                        if not self.job.design.ignore_symmetric_clashes:
+                    if pose.symmetric_assembly_is_clash(measure=job.design.clash_criteria,
+                                                        distance=job.design.clash_distance, warn=True):
+                        if not job.design.ignore_symmetric_clashes:
                             logger.critical(f"The structure '{structure_identifier}' isn't a viable symmetric assembly "
                                             f"in the symmetry {resulting_symmetry}. Couldn't initialize")
                             continue
@@ -473,9 +476,9 @@ class StructureDatabase(Database):
                     # These name=structure_identifier should be the default parsing method anyway...
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
 
-                    if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
-                                                        distance=self.job.design.clash_distance, warn=True):
-                        if not self.job.design.ignore_symmetric_clashes:
+                    if pose.symmetric_assembly_is_clash(measure=job.design.clash_criteria,
+                                                        distance=job.design.clash_distance, warn=True):
+                        if not job.design.ignore_symmetric_clashes:
                             logger.critical(f"The structure '{structure_identifier}' isn't a viable symmetric assembly "
                                             f"in the symmetry {resulting_symmetry}. Couldn't initialize")
                             continue
@@ -730,6 +733,7 @@ class StructureDatabase(Database):
     #
     #     return info_messages, pre_refine, pre_loop_model
 
+    # Todo move to symdesign.protocols given self.job dependency?
     def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata], script_out_path: AnyStr = os.getcwd(),
                                        batch_commands: bool = False) -> list[str] | list:
         """Assess whether structural data requires any processing prior to design calculations.
@@ -750,16 +754,20 @@ class StructureDatabase(Database):
             else:
                 shell = distribute.default_shell
 
-        self.full_models.make_path()
-        self.refined.make_path()
-        full_model_names = self.full_models.retrieve_names()
-        full_model_dir = self.full_models.location
+        full_models = self.full_models
+        refined = self.refined
+        job = self.job
+        full_models.make_path()
+        refined.make_path()
+        full_model_names = full_models.retrieve_names()
+        full_model_dir = full_models.location
         # Identify the entities to refine and to model loops before proceeding
         protein_data_to_loop_model = []
         for data in metadata:
             if not data.model_source:
-                logger.debug(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
-                             f"ProteinMetadata.model_source for {data.entity_id}. Skipping loop model preprocessing")
+                logger.debug(f"{self.preprocess_metadata_for_design.__name__}(): Couldn't find the "
+                             f"{sql.ProteinMetadata.__name__}.model_source for {data.entity_id}. "
+                             "Skipping loop model preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
             if data.entity_id not in full_model_names:  # Assumes oriented_asu structure name is the same
@@ -769,9 +777,9 @@ class StructureDatabase(Database):
         if protein_data_to_loop_model:
             logger.info("The following structures haven't been modeled for disorder: "
                         f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
-            # Files found unloop_modeled, check to see if work should be done
-            if self.job.init.loop_model_input:  # is not None:
-            #     loop_model_input = self.job.init.loop_model_input
+            # Files found not loop_modeled, check to see if work should be done
+            if job.init.loop_model_input:  # is not None:
+            #     loop_model_input = job.init.loop_model_input
             # else:  # Query user and set up commands to perform loop modeling on missing entities
             #     print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
             #           f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
@@ -812,7 +820,7 @@ class StructureDatabase(Database):
                     else:
                         # # Hard code in parameters
                         # model_type = 'monomer'
-                        relaxed = self.job.predict.models_to_relax is not None
+                        relaxed = job.predict.models_to_relax is not None
                         # Set up the various model_runners to supervise the prediction task for each sequence
                         monomer_runners = set_up_model_runners(model_type='monomer', development=self.job.development)
                         multimer_runners = set_up_model_runners(model_type='multimer', development=self.job.development)
@@ -914,13 +922,14 @@ class StructureDatabase(Database):
                             protein.loop_modeled = True
                             protein.refined = relaxed
                             # Save the min_model asu (now aligned with entity, which was oriented prior)
-                            full_model_file = self.full_models.path_to(name=entity_name)
+                            full_model_file = full_models.path_to(name=entity_name)
                             min_entity.write(out_path=full_model_file)
                             if relaxed:
-                                refined_path = self.refined.path_to(name=entity_name)
+                                refined_path = refined.path_to(name=entity_name)
                                 shutil.copy(full_model_file, refined_path)
                 else:  # rosetta_loop_model
-                    raise NotImplementedError(f"Rosetta loop model hasn't been updated to use ProteinMetadata")
+                    raise NotImplementedError(
+                        f"Rosetta loop model hasn't been updated to use {sql.ProteinMetadata.__name__}")
                     flags_file = os.path.join(full_model_dir, 'loop_model_flags')
                     # if not os.path.exists(flags_file):
                     loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
@@ -950,19 +959,19 @@ class StructureDatabase(Database):
                         structure_.renumber_residues()
                         structure_loop_file = structure_.make_loop_file(out_path=full_model_dir)
                         if not structure_loop_file:  # No loops found, copy input file to the full model
-                            copy_cmd = ['scp', self.refined.path_to(protein_data.name),
-                                        self.full_models.path_to(protein_data.name)]
+                            copy_cmd = ['scp', refined.path_to(protein_data.name),
+                                        full_models.path_to(protein_data.name)]
                             loop_model_cmds.append(
                                 distribute.write_script(
                                     subprocess.list2cmdline(copy_cmd), name=protein_data.name, out_path=full_model_dir))
                             # Can't do this v as refined path doesn't exist yet
-                            # shutil.copy(self.refined.path_to(protein_data.name),
-                            #             self.full_models.path_to(protein_data.name))
+                            # shutil.copy(refined.path_to(protein_data.name),
+                            #             full_models.path_to(protein_data.name))
                             continue
                         structure_blueprint = structure_.make_blueprint_file(out_path=full_model_dir)
                         structure_cmd = rosetta.script_cmd + loop_model_cmd \
                             + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
-                               '-in:file:s', self.refined.path_to(protein_data.name),
+                               '-in:file:s', refined.path_to(protein_data.name),
                                '-out:path:pdb', structure_out_path] \
                             + [f'sdf={sym_def_files[protein_data.symmetry_group]}',
                                f'symmetry={"asymmetric" if protein_data.symmetry_group == "C1" else "make_point_group"}']
@@ -973,7 +982,7 @@ class StructureDatabase(Database):
                                           '-o', os.path.join(full_model_dir, f'{protein_data.name}_ensemble.pdb')]
                         # Copy the first model from output loop models to be the full model
                         copy_cmd = ['scp', os.path.join(structure_out_path, f'{protein_data.name}_0001.pdb'),
-                                    self.full_models.path_to(protein_data.name)]
+                                    full_models.path_to(protein_data.name)]
                         loop_model_cmds.append(
                             distribute.write_script(
                                 subprocess.list2cmdline(structure_cmd), name=protein_data.name, out_path=full_model_dir,
@@ -1002,14 +1011,15 @@ class StructureDatabase(Database):
                 for protein in protein_data_to_loop_model:
                     protein.loop_modeled = False
 
-        refine_names = self.refined.retrieve_names()
-        refine_dir = self.refined.location
+        refine_names = refined.retrieve_names()
+        refine_dir = refined.location
         # Identify the entities to refine before proceeding
         protein_data_to_refine = []
         for data in metadata:
             if not data.model_source:
-                logger.debug(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
-                             f"ProteinMetadata.model_source for {data.entity_id}. Skipping refine preprocessing")
+                logger.debug(f"{self.preprocess_metadata_for_design.__name__}(): Couldn't find the "
+                             f"{sql.ProteinMetadata.__name__}.model_source for {data.entity_id}. "
+                             "Skipping loop model preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
             if data.entity_id not in refine_names:  # Assumes oriented_asu structure name is the same
@@ -1019,8 +1029,8 @@ class StructureDatabase(Database):
             # Files found unrefined, check to see if work should be done
             logger.info("The following structures haven't been refined: "
                         f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
-            if self.job.init.refine_input:  # is not None:
-            #     refine_input = self.job.init.refine_input
+            if job.init.refine_input:  # is not None:
+            #     refine_input = job.init.refine_input
             # else:  # Query user and set up commands to perform refinement on missing entities
             #     print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you '
             #           f'perform initial refinement. You can also refine them later using the {flags.refine} module')

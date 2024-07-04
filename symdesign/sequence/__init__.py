@@ -25,28 +25,22 @@ ZERO_OFFSET = 1
 logger = logging.getLogger(__name__)
 sequence_resources = Path(__file__).parent / 'resources'
 # Types
+# Todo move protein_letters to a module
 protein_letters3_alph1_literal = Literal[
     'ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR']
 protein_letters3_alph1_extended_literal = Literal[
-    'ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
-    'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR', 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL']
+    protein_letters3_alph1_literal, 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL']
 protein_letters3_alph1: tuple[str, ...] = get_args(protein_letters3_alph1_literal)
 protein_letters3_alph1_extended: tuple[str, ...] = get_args(protein_letters3_alph1_extended_literal)
-protein_letters_literal = Literal[
-    'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 protein_letters_alph1_literal = Literal[
     'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
-protein_letters_alph1_gaped_literal = Literal[
-    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '-']
-protein_letters_alph1_extended_literal = Literal[
-    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y',
-    'B', 'X', 'Z', 'J', 'U', 'O']
-protein_letters_alph1_extended_and_gap_literal = Literal[
-    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y',
-    'B', 'X', 'Z', 'J', 'U', 'O', '-']
-protein_letters_alph3_unknown_gaped_literal = Literal[
-    'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-']
+protein_letters_alph1_gaped_literal = Literal[protein_letters_alph1_literal, '-']
+protein_letters_alph1_extended_literal = Literal[protein_letters_alph1_literal, 'B', 'X', 'Z', 'J', 'U', 'O']
+protein_letters_alph1_extended_and_gap_literal = Literal[protein_letters_alph1_extended_literal, '-']
+protein_letters_literal = Literal[
+    'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+protein_letters_alph3_unknown_gaped_literal = Literal[protein_letters_literal, 'X', '-']
 protein_letters_alph1: str = ''.join(get_args(protein_letters_alph1_literal))
 """ACDEFGHIKLMNPQRSTVWY"""
 protein_letters_alph1_extended: str = ''.join(get_args(protein_letters_alph1_extended_literal))
@@ -90,25 +84,24 @@ numerical_translation_alph1_unknown_gaped_bytes = \
     defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_unknown_gaped), count()))
 numerical_translation_alph3_unknown_gaped_bytes = \
     defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown_gaped), count()))
-alphabet_types_literal = Literal[
+AlphabetTypeLiteral = Literal[
     'protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gaped',
     'protein_letters_alph3_gaped', 'protein_letters_alph1_unknown', 'protein_letters_alph3_unknown',
     'protein_letters_alph1_unknown_gaped', 'protein_letters_alph3_unknown_gaped']
-alphabet_types: tuple[str, ...] = get_args(alphabet_types_literal)
-alphabets_literal = Literal[
+alphabet_types: tuple[str, ...] = get_args(AlphabetTypeLiteral)
+AlphabetLiteral = Literal[
     'ACDEFGHIKLMNPQRSTVWY', 'ARNDCQEGHILKMFPSTWYV', 'ACDEFGHIKLMNPQRSTVWY-', 'ARNDCQEGHILKMFPSTWYV-',
     'ACDEFGHIKLMNPQRSTVWYX', 'ARNDCQEGHILKMFPSTWYVX', 'ACDEFGHIKLMNPQRSTVWYX-', 'ARNDCQEGHILKMFPSTWYVX-'
 ]
-alphabets: tuple[str, ...] = get_args(alphabets_literal)
+alphabets: tuple[str, ...] = get_args(AlphabetLiteral)
 alphabet_to_alphabet_type = dict(zip(alphabets, alphabet_types))
 alphabet_type_to_alphabet = dict(zip(alphabet_types, alphabets))
-alignment_programs_literal = Literal['hhblits', 'psiblast']
-alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
-profile_types = Literal['evolutionary', 'fragment', '']
-optimization_species_literal = Literal[
+AlignmentProgramLiteral = Literal['hhblits', 'psiblast']
+alignment_programs: tuple[str, ...] = get_args(AlignmentProgramLiteral)
+OptimizationSpeciesLiteral = Literal[
     'b_subtilis', 'c_elegans', 'd_melanogaster', 'e_coli', 'g_gallus', 'h_sapiens', 'm_musculus',
     'm_musculus_domesticus', 's_cerevisiae']
-# optimization_species = get_args(optimization_species_literal)
+# optimization_species = get_args(OptimizationSpeciesLiteral)
 
 
 class AminoAcidDistribution(TypedDict):
@@ -168,9 +161,12 @@ def create_numeric_translation_table(alphabet: Sequence[str], bytes_: bool = Tru
     return dict(zip(alphabet, count()))
 
 
-def get_numeric_translation_table(alphabet_type: alphabet_types_literal) -> defaultdict[str, int] | dict[str, int]:
+def get_numeric_translation_table(alphabet_type: AlphabetTypeLiteral) -> defaultdict[str, int] | dict[str, int]:
     """Given an amino acid alphabet type, return the corresponding numerical translation table.
     If a table is passed, just return it
+
+    Args:
+        alphabet_type: The type of alphabet to use
 
     Returns:
         The integer mapping to the sequence of the requested alphabet
@@ -218,14 +214,14 @@ def get_numeric_translation_table(alphabet_type: alphabet_types_literal) -> defa
     elif alphabet_type == 'protein_letters_alph3_unknown_gaped':
         numeric_translation_table = numerical_translation_alph3_unknown_gaped_bytes
     else:
-        try:  # To see if we already have the alphabet, and return the defaultdict
+        try:  # To see if the alphabet is registered, and return the defaultdict
             _type = alphabet_to_alphabet_type[alphabet_type]
         except KeyError:
             raise KeyError(
-                f"The alphabet '{alphabet_type}' isn't an allowed alphabet_type."
+                f"The alphabet={alphabet_type} isn't a known 'alphabet' or an 'alphabet_type'."
                 f" See {', '.join(alphabet_types)}")
             # raise ValueError(wrong_alphabet_type)
-        logger.warning(f"{get_numeric_translation_table.__name__}: The alphabet_type '{alphabet_type}' "
+        logger.warning(f"{get_numeric_translation_table.__name__}(): The alphabet_type '{alphabet_type}' "
                        "isn't viable. Attempting to create it")
         numeric_translation_table = create_numeric_translation_table(alphabet_type)
 
@@ -635,12 +631,13 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     return None
 
 
-def optimize_protein_sequence(sequence: str, species: optimization_species_literal = 'e_coli') -> str:
+def optimize_protein_sequence(sequence: str, species: OptimizationSpeciesLiteral = 'e_coli') -> str:
     """Optimize a sequence for expression in a desired organism
 
     Args:
         sequence: The sequence of interest
         species: The species context to optimize nucleotide sequence usage
+
     Returns:
         The input sequence optimized to nucleotides for expression considerations
     """
@@ -699,10 +696,12 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
     """Modify a sequence to contain mutations specified by a mutation dictionary
 
     Assumes a zero-index sequence and zero-index mutations
+
     Args:
         sequence: 'Wild-type' sequence to mutate
         mutations: {mutation_index: {'from': AA, 'to': AA}, ...}
         find_orf: Whether to find the correct ORF for the mutations and the seq
+
     Returns:
         seq: The mutated sequence
     """
@@ -736,6 +735,7 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
     Args:
         sequence: Sequence to search for ORF in 1 letter format
         mutations: {mutation_index: {'from': AA, 'to': AA}, ...} zero-indexed sequence dictionary
+
     Returns:
         The zero-indexed integer to offset the provided sequence to best match the provided mutations
     """
@@ -825,6 +825,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
         return_all: Whether to return all the indices and there corresponding mutational data
         return_to: Whether to return only the 'to' amino acid type
         return_from: Whether to return only the 'from' amino acid type
+
     Returns:
         Mutation index to mutations with format
             {1: {'from': 'A', 'to': 'K'}, ...}
@@ -883,6 +884,7 @@ def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int
 
     Args:
         reference_sequence: {key1: 'MSGKLDA...', ...} or {key2: {1: 'A', 2: 'S', ...}, ...}
+
     Returns:
         {key1: 0, key2: 123, ...}
     """
@@ -1036,6 +1038,7 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, translation_table: dict[st
         numeric_sequence: The sequence to convert
         translation_table: If a translation table is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
+
     Returns:
         The alphabetically encoded sequence where each entry along axis=-1 is the one letter amino acid
     """
@@ -1058,6 +1061,7 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, muta
         target: The first sequence to compare
         query: The second sequence to compare
         mutation_allowed: Whether equivalent indices can exist at mutation sites
+
     Returns:
         The pair of indices where the sequences align.
             Ex: sequence1 = A B C D E F ...
@@ -1135,6 +1139,7 @@ def get_lod(frequencies: dict[protein_letters_literal, float],
         frequencies: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
         background: {'A': 0.10, 'C': 0.02, 'D': 0.04, ...}
         as_int: Whether to round the lod values to an integer
+
     Returns:
          The log of odds for each amino acid type {'A': 2, 'C': -9, 'D': -1, ...}
     """
@@ -1169,6 +1174,7 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
 
     Args:
         file: The location of the file on disk
+
     Returns:
         Dictionary containing residue indexed profile information
             i.e. {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
@@ -1209,6 +1215,7 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
     Args:
         file: The file to parse, typically with the extension '.hmm'
         null_background: Whether to use the null background for the specific protein
+
     Returns:
         Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
@@ -1292,6 +1299,7 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
 #         alignment_counts: The counts of each AA in each column [{'A': 31, 'C': 0, ...}, 2: {}, ...]
 #         alignment:
 #         column_counts: The indexed counts for each column in the msa that are not gaped
+#
 #     Returns:
 #         Weight of each sequence in the MSA - [2.390, 2.90, 5.33, 1.123, ...]
 #     """
@@ -1310,7 +1318,7 @@ numerical_profile = np.ndarray  # Type[np.ndarray]
 
 class MultipleSequenceAlignment:
     """Extends the MultipleSeqAlignment with commonly used operations"""
-    _alphabet_type: alphabet_types_literal
+    _alphabet_type: AlphabetTypeLiteral
     _array: np.ndarray
     _counts_by_position: list[list[int]] | np.ndarray
     _deletion_matrix: np.ndarray
@@ -1356,6 +1364,7 @@ class MultipleSequenceAlignment:
 
         Args:
             named_sequences: Where name and sequence must be a string, i.e. {'1': 'MNTEELQVAAFEI...', ...}
+
         Returns:
             The MultipleSequenceAlignment object for the provided sequences
         """
@@ -1593,7 +1602,7 @@ class MultipleSequenceAlignment:
             return self._sequence_identifiers
 
     @property
-    def alphabet_type(self) -> alphabet_types_literal:
+    def alphabet_type(self) -> AlphabetTypeLiteral:
         """The type of alphabet that the alignment is mapped to numerically"""
         try:
             return self._alphabet_type
@@ -1611,7 +1620,7 @@ class MultipleSequenceAlignment:
             return self._alphabet_type
 
     @alphabet_type.setter
-    def alphabet_type(self, alphabet_type: alphabet_types_literal):
+    def alphabet_type(self, alphabet_type: AlphabetTypeLiteral):
         """Set the alphabet_type to allow interpretation of .numeric_sequence to the correct encoding"""
         if alphabet_type in alphabet_types:
             self._alphabet_type = alphabet_type
@@ -1815,6 +1824,7 @@ class MultipleSequenceAlignment:
 
         Args:
             profile: A profile of values with shape (length, alphabet_length) where length is the number_of_positions
+
         Returns:
             The array with shape (length, number_of_positions) with the value for each amino acid index in profile
         """
@@ -1840,8 +1850,10 @@ class MultipleSequenceAlignment:
     #     Args:
     #         score_dict (dict):
     #         window_len (int): Number of residues on either side of the current residue
+    #
     #     Keyword Args:
     #         lamda=0.5 (float): Float between 0 and 1
+    #
     #     Returns:
     #         (dict):
     #     """
@@ -1875,6 +1887,7 @@ class MultipleSequenceAlignment:
     #
     #     Args:
     #         probability_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+    #
     #     Returns:
     #          sorted_alternates_dict (dict): {15: ['S', 'A', 'T'], ... }
     #     """

@@ -51,7 +51,7 @@ def is_sbatch_available() -> bool:
 #                        '-relax:bb_move', 'false']
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-protocols_literal = Literal[
+ProtocolsLiteral = Literal[
     'align-helices',
     'refine',
     'interface-design',
@@ -71,7 +71,7 @@ protocols_literal = Literal[
     'bmdca',
     'predict-structure',
 ]
-protocols: tuple[str, ...] = get_args(protocols_literal)
+protocols: tuple[str, ...] = get_args(ProtocolsLiteral)
 # Cluster Dependencies and Multiprocessing
 # processes = (1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 1, 2, 1)
 # process_scale = dict(zip(protocols, processes))
@@ -114,6 +114,7 @@ def run(cmd: list[str] | AnyStr, log_file_name: AnyStr | os.PathLike, program: s
         log_file_name: Location on disk of log file
         program: The interpreter for said command
         srun: Whether to utilize a job step prefix during command issuance
+
     Returns:
         Whether the command executed successfully
     """
@@ -140,14 +141,16 @@ def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
     Args:
         directives: The locations of scripts which should be executed
         file: The location of a file containing the location(s) of scripts/commands
+
     Raises:
         InputError: When the scripts/commands passed are malformed or do not exist
+
     Returns:
-        None
+        None if scripts are valid
     """
     script_or_command = \
         '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
-        '\nEither a file extension OR a command requried. Cannot mix'
+        "\nEither a file extension OR a command required. Can't mix"
     # Automatically detect if the commands file has executable scripts or errors
     if directives is None:
         if file is None:
@@ -164,7 +167,7 @@ def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
         if directive[-3:] == '.sh':  # This is a file
             if not os.path.exists(directive):  # Check if file is missing
                 raise InputError(
-                    f"The command at location '{directive}' doesn't exist")
+                    f"The directive at location '{directive}' doesn't exist")
             if not contains_scripts:  # There was a change from non-script files
                 raise InputError(script_or_command.format(file, idx, directive))
         else:  # directive is a command
@@ -175,7 +178,7 @@ def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
                 contains_scripts = False
 
 
-def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, out_path: AnyStr = os.getcwd(),
+def distribute(file: AnyStr, scale: ProtocolsLiteral, number_of_commands: int, out_path: AnyStr = os.getcwd(),
                success_file: AnyStr = None, failure_file: AnyStr = None, log_file: AnyStr = None, max_jobs: int = 80,
                mpi: int = None,
                finishing_commands: Iterable[str] = None, batch: bool = is_sbatch_available(), **kwargs) -> str:
@@ -193,6 +196,7 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
         mpi: The number of processes to run concurrently with MPI
         finishing_commands: Commands to run once all sbatch processes are completed
         batch: Whether the distribution file should be formatted as a SLURM sbatch script
+
     Returns:
         The name of the script that was written
     """
@@ -258,7 +262,7 @@ sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, c
 script_warning = 'Ensure the script(s) below are correct'
 
 
-def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
+def commands(commands: Sequence[str], name: str, protocol: ProtocolsLiteral,
              out_path: AnyStr = os.getcwd(), commands_out_path: AnyStr = None, **kwargs) -> str:
     """Given a batch of commands, write them to a file and distribute that work for completion using specified
     computational resources
@@ -322,7 +326,7 @@ def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
 
 
 def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),
-                 additional: list = None, shell: str = 'bash', status_wrap: str = None) -> AnyStr:
+                 additional: list = None, shell: str = 'bash', status_wrap: str = None) -> str:
     """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
 
     Args:
@@ -332,6 +336,7 @@ def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcw
         additional: Additional commands also formatted using subprocess.list2cmdline()
         shell: The shell which should interpret the script
         status_wrap: The name of a file in which to check and set the status of the command in the shell
+
     Returns:
         The name of the file
     """
@@ -353,13 +358,14 @@ def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcw
     return file_name
 
 
-def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: AnyStr = os.getcwd()) -> AnyStr:
+def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: AnyStr = os.getcwd()) -> str:
     """Write a list of commands out to a file
 
     Args:
         commands: An iterable with the commands as values
         name: The name of the file. Will be appended with '.cmd(s)'
         out_path: The directory where the file will be written
+
     Returns:
         The filename of the new file
     """

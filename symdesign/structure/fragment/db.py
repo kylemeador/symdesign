@@ -10,9 +10,9 @@ import numpy as np
 import scipy.spatial.transform
 from attr import frozen
 
+from .resources import binary_lookup_table_path, biological_fragment_db_pickle, biological_interfaces, frag_directory
 from symdesign import utils, structure
 from symdesign.sequence import protein_letters_literal
-from .resources import binary_lookup_table_path, biological_fragment_db_pickle, biological_interfaces, frag_directory
 
 putils = utils.path
 

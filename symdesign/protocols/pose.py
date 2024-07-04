@@ -19,14 +19,11 @@ import alphafold.data.pipeline as af_pipeline
 from alphafold.common import residue_constants
 from cycler import cycler
 import jax.numpy as jnp
-from matplotlib import pyplot as plt
-# from matplotlib.axes import Axes
+from matplotlib import figure, pyplot as plt
 from matplotlib.ticker import MultipleLocator
-# from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist, cdist
-# import seaborn as sns
 import sklearn as skl
 from sqlalchemy import select, inspect
 from sqlalchemy.exc import IntegrityError
@@ -42,7 +39,8 @@ from symdesign.sequence import MultipleSequenceAlignment, write_sequences
 from symdesign.structure.base import StructureBase
 from symdesign.structure.coordinates import superposition3d
 from symdesign.structure import ContainsEntities, Entity, Structure, Pose, PoseSpecification
-from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
+from symdesign.structure.sequence import profile_types, sequence_difference, pssm_as_array, concatenate_profile, \
+    sequences_to_numeric
 from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
     starttime, SymDesignException
@@ -57,9 +55,8 @@ cst_value = round(0.2 * rosetta.reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 null_cmd = ['echo']
-observed_types = ('evolution', 'fragment', 'design', 'interface')
 missing_pose_transformation = "The design couldn't be transformed as it is missing the required " \
-                              '"pose_transformation" attribute. Was this generated properly?'
+                              "'pose_transformation' attribute. Was this generated properly?"
 
 
 def load_evolutionary_profile(model: ContainsEntities, warn_metrics: bool = False) -> tuple[bool, bool]:
@@ -70,7 +67,7 @@ def load_evolutionary_profile(model: ContainsEntities, warn_metrics: bool = Fals
         warn_metrics: Whether to warn the user about missing files for metric collection
 
     Returns:
-        A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
+        A tuple of boolean values indicating if, 1-evolutionary and 2-alignment information was added to all
             the Entity instances
     """
     api_db = resources.wrapapi.api_database_factory.get()
@@ -108,7 +105,7 @@ def load_evolutionary_profile(model: ContainsEntities, warn_metrics: bool = Fals
             measure_evolution = False
             warn = True
         else:
-            logger.debug(f'Adding {entity.name}.evolutionary_profile')
+            logger.debug(f'Setting {repr(entity)}.evolutionary_profile')
             entity.evolutionary_profile = evolutionary_profile
 
         if entity.msa:
@@ -440,148 +437,77 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     # START classmethod where PoseData hasn't been initialized from sqlalchemy
     @classmethod
-    def from_path(cls, path: str, project: str = None, **kwargs):
-        """Load the PoseJob from a path with file types or a directory
+    def from_directory(cls, source: AnyStr | Path, **kwargs):
+        """Load assuming a directory (project/pose_name)
 
         Args:
-            path: The path where the PoseJob instance should load structural data
-            project: The project where the file should be included
-
-        Returns:
-            The PoseJob instance
-        """
-        if not os.path.exists(path):
-            raise FileNotFoundError(
-                f"The specified {cls.__name__} path '{path}' wasn't found")
-        filename, extension = os.path.splitext(path)
-        # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
-        if extension != '':  # Initialize from input file
-            project_path, name = os.path.split(filename)
-            if project is None:
-                remainder, project = os.path.split(project_path)
-                if project == '':
-                    raise InputError(
-                        f"Couldn't get the project from the path '{path}'. Please provide "
-                        f"project name with {flags.format_args(flags.project_name_args)}")
-
-            return cls(name=name, project=project, source_path=path, **kwargs)
-        elif os.path.isdir(path):
-            # Same as from_directory. This is an existing pose_identifier that hasn't been initialized
-            try:
-                name, project, *_ = reversed(path.split(os.sep))
-            except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
-                raise InputError(
-                    f"Couldn't coerce {path} to a {cls.__name__}. The directory must contain the "
-                    f'"project{os.sep}pose_name" string')
-            return cls(name=name, project=project, **kwargs)
-        else:
-            raise InputError(
-                f"{cls.__name__} couldn't load the specified source path '{path}'")
-
-    @classmethod
-    def from_file(cls, file: str, project: str = None, **kwargs):
-        """Load the PoseJob from a structural file including .pdb/.cif file types
-
-        Args:
-            file: The file where the PoseJob instance should load structure files
-            project: The project where the file should be included
-
-        Returns:
-            The PoseJob instance
-        """
-        # file = os.path.abspath(file)
-        if not os.path.exists(file):
-            raise FileNotFoundError(
-                f"The specified {cls.__name__} structure source file '{file}' wasn't found!")
-        filename, extension = os.path.splitext(file)
-        # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
-        if extension != '':  # Initialize from input file
-            project_path, name = os.path.split(filename)
-        # elif os.path.isdir(design_path):  # This is a pose_name that hasn't been initialized
-        #     file = None
-        #     # self.project_path = os.path.dirname(design_path)
-        #     # self.project = os.path.basename(self.project_path)
-        #     # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
-        else:
-            raise InputError(
-                f"{cls.__name__} couldn't load the specified source file '{file}'")
-
-        # if self.job.nanohedra_outputV1:
-        #     # path/to/design_symmetry/building_blocks/degen/rot/tx
-        #     # path_components[-4] are the oligomeric (building_blocks) names
-        #     name = '-'.join(path_components[-4:])
-        #     project = path_components[-5]  # if root is None else root
-        #     file = os.path.join(file, putils.asu)
-
-        if project is None:
-            remainder, project = os.path.split(project_path)
-            if project == '':
-                raise InputError(
-                    f"Couldn't get the project from the path '{file}'. Please provide "
-                    f"project name with {flags.format_args(flags.project_name_args)}")
-
-        return cls(name=name, project=project, source_path=file, **kwargs)
-
-    @classmethod
-    def from_directory(cls, source_path: str, **kwargs):
-        """Assumes the PoseJob is constructed from the pose_name (project/pose_name) and job.projects
-
-        Args:
-            source_path: The path to the directory where PoseJob information is stored
-
-        Returns:
-            The PoseJob instance
+            source: The path to the directory where information is stored
         """
         try:
-            name, project, *_ = reversed(source_path.split(os.sep))
-        except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
+            *_, project, name = Path(source).parts
+        except ValueError:  # Only got 1 value during unpacking... This isn't a valid 'pose_directory' identifier
             raise InputError(
-                f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
-                f'"project{os.sep}pose_name" string')
+                f"Couldn't coerce '{source=}' to a {cls.__name__}. The directory must contain the "
+                f"'project{os.sep}pose_name' string")
 
         return cls(name=name, project=project, **kwargs)
 
     @classmethod
+    def from_path(cls, path: AnyStr | Path, project: str = None, **kwargs):
+        """Load from a path with file types or a directory
+
+        Args:
+            path: The path where the instance should load structural data
+            project: The project where the file should be included
+        """
+        _path = Path(path)
+        if not _path.exists():
+            raise FileNotFoundError(
+                f"The specified {cls.__name__} {path=} wasn't found")
+        # filename, extension = os.path.splitext(path)
+        # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
+        if _path.suffix != '':  # Initialize from input file
+            # project_path, name = os.path.split(filename)
+            if project is None:
+                project = _path.parent.name
+                if project == '':
+                    raise InputError(
+                        f"Couldn't get the project from the path '{_path}'. Please provide "
+                        f"project name with {flags.format_args(flags.project_name_args)}")
+
+            return cls(name=_path.stem, project=project, source_path=_path, **kwargs)
+        elif _path.is_dir():
+            return cls.from_directory(_path, **kwargs)
+        else:
+            raise InputError(
+                f"{cls.__name__} couldn't load the specified source {path=}")
+
+    @classmethod
+    def from_pose_identifier(cls, pose_identifier: str, **kwargs):
+        """Load from the name and project
+
+        Args:
+            pose_identifier: The project and the name concatenated that identify this PoseJob
+        """
+        return cls.from_directory(pose_identifier, **kwargs)
+
+    @classmethod
     def from_name(cls, name: str = None, project: str = None, **kwargs):
-        """Load the PoseJob from the name and project
+        """Load from the name and project
 
         Args:
             name: The name to identify this PoseJob
             project: The project where the file should be included
-
-        Returns:
-            The PoseJob instance
         """
-        return cls(name=name, project=project, **kwargs)
-
-    @classmethod
-    def from_pose_identifier(cls, pose_identifier: str, **kwargs):
-        """Load the PoseJob from the name and project
-
-        Args:
-            pose_identifier: The project and the name concatenated that identify this PoseJob
-
-        Returns:
-            The PoseJob instance
-        """
-        try:
-            project, name = pose_identifier.split(os.sep)
-        except ValueError:  # We don't have a pose_identifier
-            raise InputError(
-                f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
-                f'pose_identifier is passed with the "project{os.sep}name" string')
         return cls(name=name, project=project, **kwargs)
 
     @classmethod
     def from_pose(cls, pose: Pose, project: str = None, **kwargs):
-        """Load the PoseJob from an existing Pose
+        """Load from an existing Pose
 
         Args:
-            pose: The Pose to initialize the PoseJob with
+            pose: The existing Pose
             project: The project where the file should be included
-
-        Returns:
-            The PoseJob instance
         """
         return cls(name=pose.name, project=project, pose=pose, **kwargs)
     # END classmethods where the PoseData hasn't been initialized from sqlalchemy
@@ -637,14 +563,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Configure standard pose loading mechanism with self.source_path
         if self.source_path is None:
             try:
-                self.source_path = self.get_pose_file()
+                self.source_path = str(self.get_pose_file())
             except FileNotFoundError:
-                if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
-                    self.source_path = self.asu_path
+                if self.asu_path.exists():  # Standard mechanism of loading the pose
+                    self.source_path = str(self.asu_path)
                 else:
                     self.source_path = None
 
-    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, pose: Pose = None,
+    def __init__(self, name: str = None, project: str = None, source_path: AnyStr | Path = None, pose: Pose = None,
                  protocol: str = None, pose_source: sql.DesignData = None,
                  # pose_transformation: Sequence[types.TransformationMapping] = None,
                  # entity_metadata: list[sql.EntityData] = None,
@@ -663,7 +589,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # PoseJob attributes
         self.name = name
         self.project = project
-        self.source_path = source_path
+        self.source_path = str(source_path) if source_path else source_path
 
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
         self.__init_from_db__()
@@ -1189,7 +1115,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         Args:
             out_path: The path to save the self.pose.
-                All other outputs are done to the self.pose_directory or self.output_path
+                All other outputs are written to the self.output_path which by default is self.pose_directory
             force: Whether to force writing of the pose
 
         Returns:
@@ -1226,39 +1152,29 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         if self.pose.is_symmetric():
             if self.job.output_assembly:
-                if self.job.output_to_directory:
-                    assembly_path = self.output_assembly_path
-                else:
-                    assembly_path = self.assembly_path
-                if not os.path.exists(assembly_path) or self.job.overwrite:
-                    self.pose.write(assembly=True, out_path=assembly_path,
+                if not self.assembly_path.exists() or self.job.overwrite:
+                    self.pose.write(assembly=True, out_path=self.assembly_path,
                                     increment_chains=self.job.increment_chains,
                                     surrounding_uc=self.job.output_surrounding_uc)
-                    self.log.info(f"Symmetric assembly written to: '{assembly_path}'")
+                    self.log.info(f"Symmetric assembly written to: '{self.assembly_path}'")
             if self.job.output_oligomers:  # Write out Entity.assembly instances to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
-                    if self.job.output_to_directory:
-                        oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
-                    else:
-                        oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
-                    if not os.path.exists(oligomer_path) or self.job.overwrite:
+                    oligomer_path = self.output_path / f'{entity.name}_oligomer.pdb'
+                    if not oligomer_path.exists() or self.job.overwrite:
                         entity.write(assembly=True, out_path=oligomer_path)
-                        self.log.info(f"Entity {entity.name} oligomer written to: '{oligomer_path}'")
+                        self.log.info(f"{repr(entity)} oligomer written to: '{oligomer_path}'")
 
         if self.job.output_entities:  # Write out Entity instances to the PoseJob
             for idx, entity in enumerate(self.pose.entities):
-                if self.job.output_to_directory:
-                    entity_path = os.path.join(self.output_path, f'{entity.name}_entity_.pdb')
-                else:
-                    entity_path = os.path.join(self.pose_directory, f'{entity.name}_entity.pdb')
-                if not os.path.exists(entity_path) or self.job.overwrite:
+                entity_path = self.output_path / f'{entity.name}_entity.pdb'
+                if not entity_path.exists() or self.job.overwrite:
                     entity.write(out_path=entity_path)
                     self.log.info(f"Entity {entity.name} written to: '{entity_path}'")
 
         if self.job.output_fragments:
             # if not self.pose.fragment_pairs:
             #     self.pose.generate_interface_fragments()
-            os.makedirs(self.frags_path, exist_ok=True)
+            self.frags_path.mkdir(parents=True, exist_ok=True)
             if self.job.output_trajectory:
                 # Write all fragments as one trajectory
                 if self.sym_entry.unit_cell:
@@ -1268,22 +1184,20 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         if self.job.output_interface:
             interface_structure = self.pose.get_interface()
-            if self.job.output_to_directory:
-                interface_path = os.path.join(self.output_path, f'{self.name}_interface.pdb')
-            else:
-                interface_path = os.path.join(self.pose_directory, f'{self.name}_interface.pdb')
+            interface_path = self.output_path / f'{self.name}_interface.pdb'
             interface_structure.write(out_path=interface_path)
 
         if out_path == 'POSE':
-            out_path = self.pose_path
+            out_path = str(self.pose_path)
 
         if out_path:
+            # This check exists for the purpose of ensuring there is always a 'pose_path'.
             if not os.path.exists(out_path) or self.job.overwrite or force:
                 self.pose.write(out_path=out_path)
                 self.log.info(f"Wrote Pose file to: '{out_path}'")
 
         if self.job.output_to_directory:
-            if not os.path.exists(self.output_pose_path) or self.job.overwrite or force:
+            if not self.output_pose_path.exists() or self.job.overwrite or force:
                 out_path = self.output_pose_path
                 self.pose.write(out_path=out_path)
                 self.log.info(f"Wrote Pose file to: '{out_path}'")
@@ -1371,10 +1285,10 @@ class PoseProtocol(PoseData):
                 out_path = self.assembly_path
             else:
                 os.makedirs(self.job.orient_dir, exist_ok=True)
-                out_path = os.path.join(self.job.orient_dir, f'{self.initial_pose.name}.pdb')
+                out_path = Path(self.job.orient_dir, f'{self.initial_pose.name}.pdb')
 
-            orient_file = self.initial_pose.write(out_path=out_path)
-            self.log.info(f'The oriented file was saved to {orient_file}')
+            self.initial_pose.write(out_path=out_path, assembly=True)
+            self.log.info(f'The oriented file was saved to {out_path}')
 
             # Now that symmetry is set, just set the pose attribute
             self.pose = self.initial_pose
@@ -1383,15 +1297,17 @@ class PoseProtocol(PoseData):
             raise SymmetryError(
                 warn_missing_symmetry % self.orient.__name__)
 
-    def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
-                              out_dir: AnyStr = os.getcwd()) -> str:
+    def prepare_rosetta_flags(
+        self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: AnyStr | os.PathLike = None,
+        out_path: AnyStr | os.PathLike = os.getcwd()
+    ) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
         Args:
             symmetry_protocol: The type of symmetric protocol (specifying design dimension) to use for Rosetta jobs
             sym_def_file: A Rosetta specific file specifying the symmetry system
             pdb_out_path: Disk location to write the resulting design files
-            out_dir: Disk location to write the flags file
+            out_path: Disk location to write the flags file
 
         Returns:
             Disk location of the flags file
@@ -1399,10 +1315,10 @@ class PoseProtocol(PoseData):
         # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
         # Relies on PoseDirecotry attributes
         # .designs_path
-        # .refined_pdb
+        # .refined_pdb_path
         # .scores_file
-        # .design_profile_file
-        # .fragment_profile_file
+        # .design_profile_path
+        # .fragment_profile_path
         number_of_residues = self.pose.number_of_residues
         self.log.info(f'Total number of residues in Pose: {number_of_residues}')
 
@@ -1420,18 +1336,17 @@ class PoseProtocol(PoseData):
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
 
-        variables = rosetta.variables \
+        variables: list[tuple[str, Any]] = rosetta.variables \
             + [('dist', distance), ('repack', 'yes'),
                ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        variables.extend([('design_profile', self.design_profile_file)]
-                         if os.path.exists(self.design_profile_file) else [])
-        variables.extend([('fragment_profile', self.fragment_profile_file)]
-                         if os.path.exists(self.fragment_profile_file) else [])
+        variables.extend([('design_profile', str(self.design_profile_path))]
+                         if self.design_profile_path.exists() else [])
+        variables.extend([('fragment_profile', str(self.fragment_profile_path))]
+                         if self.fragment_profile_path.exists() else [])
 
         if self.pose.is_symmetric():
             if symmetry_protocol is None:
-                symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice',
-                                      None: 'asymmetric'}  # -1: 'asymmetric'
+                symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice', None: 'asymmetric'}
                 symmetry_protocol = symmetry_protocols[self.symmetry_dimension]
             variables.append(('symmetry', symmetry_protocol))
             # The current self.sym_entry can still be None if requested for this particular job
@@ -1468,7 +1383,7 @@ class PoseProtocol(PoseData):
                                ','.join([f'{res.number}{res.chain_id}' for res in fragment_residues]))])
         else:  # Get an out-of-bounds index
             variables.extend([('fragment_residues', out_of_bounds_residue)])
-        core_residues = self.pose.core_residues
+        core_residues = self.pose.get_core_residues()
         if core_residues:
             variables.extend([('core_residues', ','.join([f'{res.number}{res.chain_id}' for res in core_residues]))])
         else:  # Get an out-of-bounds index
@@ -1479,16 +1394,15 @@ class PoseProtocol(PoseData):
             rosetta_flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
             rosetta_flags.extend([f'-out:path:pdb {self.designs_path}', f'-scorefile {self.scores_file}'])
-        rosetta_flags.append(f'-in:file:native {self.refined_pdb}')
+        rosetta_flags.append(f'-in:file:native {self.refined_pdb_path}')
         rosetta_flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
-        os.makedirs(out_dir, exist_ok=True)
-        out_file = os.path.join(out_dir, 'flags')
-        with open(out_file, 'w') as f:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, 'w') as f:
             f.write('%s\n' % '\n'.join(rosetta_flags))
-        self.log.debug(f'Rosetta flags written to: {out_file}')
+        self.log.debug(f'Rosetta flags written to: {out_path}')
 
-        return out_file
+        return str(out_path)
 
     def generate_entity_metrics_commands(self, base_command) -> list[list[str] | None]:
         """Use the Pose state to generate metrics commands for each Entity instance
@@ -1503,21 +1417,21 @@ class PoseProtocol(PoseData):
         if len(self.entity_data) == 1:  # There is no unbound state to query as only one entity
             return []
         if len(self.symmetry_definition_files) != len(self.entity_data) or self.job.force:
-            os.makedirs(self.data_path, exist_ok=True)
+            self.data_path.mkdir(parents=True, exist_ok=True)
             for entity in self.pose.entities:
                 if entity.is_symmetric():  # Make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
                                     modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
                 # Todo monitor if Rosetta energy modifier changed from 2x for crystal set up and adjust accordingly
                 else:
-                    shutil.copy(os.path.join(rosetta.symmetry_definition_dir, 'C1.sym'),
-                                os.path.join(self.data_path, f'{entity.name}.sdf'))
+                    shutil.copy(rosetta.symmetry_definition_dir / 'C1.sym',
+                                self.data_path / f'{entity.name}.sdf')
 
         entity_metric_commands = []
         for idx, data in enumerate(self.entity_data, 1):
             name = data.name
             if self.is_symmetric():
-                entity_sdf = f'sdf={os.path.join(self.data_path, f"{name}.sdf")}'
+                entity_sdf = f'sdf={self.data_path / f"{name}.sdf"}'
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
@@ -1533,12 +1447,12 @@ class PoseProtocol(PoseData):
         """Generate a list of commands compatible with subprocess.Popen()/subprocess.list2cmdline() to run
         process-rosetta-metrics
         """
-        return [putils.program_exe, flags.process_rosetta_metrics, '--single', self.pose_directory] \
+        return [putils.program_exe, flags.process_rosetta_metrics, '--single', str(self.pose_directory)] \
             + self.job.parsed_arguments
 
     # def get_cmd_analysis(self) -> list[list[str], ...]:
     #     """Generate a list of commands compatible with subprocess.Popen()/subprocess.list2cmdline() to run analysis"""
-    #     return [putils.program_exe, flags.analysis, '--single', self.pose_directory] + self.job.parsed_arguments
+    #     return [putils.program_exe, flags.analysis, '--single', str(self.pose_directory)] + self.job.parsed_arguments
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str]):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
@@ -1549,11 +1463,12 @@ class PoseProtocol(PoseData):
                 the input sequence
         """
         self.load_pose()
-        # Write each "threaded" structure out for further processing
         number_of_residues = self.pose.number_of_residues
         # Ensure that mutations to the Pose aren't saved to state
         pose_copy = self.pose.copy()
-        design_files = []
+
+        # Write each "threaded" structure for further processing and save filename
+        design_files: list[str] = []
         for sequence_id, sequence in sequences.items():
             if len(sequence) != number_of_residues:
                 raise DesignError(
@@ -1561,20 +1476,17 @@ class PoseProtocol(PoseData):
                     f'the number of residues in the pose')
             for res_idx, residue_type in enumerate(sequence):
                 pose_copy.mutate_residue(index=res_idx, to=residue_type)
-            # pre_threaded_file = os.path.join(self.data_path, f'{self.name}_{self.protocol}{seq_idx:04d}.pdb')
-            pre_threaded_file = os.path.join(self.data_path, f'{sequence_id}.pdb')
+            # pre_threaded_file = self.data_path / f'{self.name}_{self.protocol}{seq_idx:04d}.pdb'
+            pre_threaded_file = self.data_path / f'{sequence_id}.pdb'
             design_files.append(pose_copy.write(out_path=pre_threaded_file))
-
-        os.makedirs(self.scripts_path, exist_ok=True)
-        design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
 
         # # Modify each sequence score to reflect the new "decoy" name
         # # Todo update as a consequence of new SQL
         # sequence_ids = sequences.keys()
-        # design_scores = metrics.parse_rosetta_scores(self.scores_file)
+        # design_scores = metrics.parse_rosetta_scorefile(self.scores_file)
         # for design, scores in design_scores.items():
         #     if design in sequence_ids:
-        #         # We previously saved data. Copy to the identifier that is present after threading
+        #         # Previously saved data. Copy to the identifier that is present after threading
         #         scores['decoy'] = f'{design}_{self.protocol}'
         #         # write_json(_scores, self.scores_file)
         #         with open(self.scores_file, 'a') as f_save:
@@ -1686,9 +1598,6 @@ class PoseProtocol(PoseData):
             model_type = 'multimer'
             self.log.info(f'The AlphaFold model was automatically set to {model_type} due to detected multimeric pose')
 
-        # # Todo enable compilation time savings by returning a precomputed model_factory. Padding the size of this may
-        # #  help quite a bit
-        # model_runners = resources.ml.alphafold_model_factory.get()
         if self.job.predict.num_predictions_per_model is None:
             if run_multimer_system:
                 # Default is 5, with 5 models for 25 outputs. Could do 1 to increase speed...
@@ -2808,6 +2717,7 @@ class PoseProtocol(PoseData):
             raise DesignError(
                 f'Missing required metrics: "{", ".join(metric_set)}"')
 
+        # Todo learn how to produce Rosetta score terms in output score file. Not in FastRelax...
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
         remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
         # Todo remove dirty when columns are correct (after P432)
@@ -2986,7 +2896,7 @@ class PoseProtocol(PoseData):
         if putils.design_parent in scores_df:
             # Replace missing values with the pose_source DesignData
             # This is loaded above at 'design_names = self.design_names'
-            parents = scores_df.pop(putils.design_parent)  # .fillna(self.pose_source)
+            parents = scores_df.pop(putils.design_parent)
             logger.critical("Setting parents functionality hasn't been tested. Proceed with caution")
             for design, parent in parents.items():
                 if parent is np.nan:
@@ -3066,9 +2976,9 @@ class PoseProtocol(PoseData):
             session.add_all(self.current_designs)
 
             # Add attribute to DesignData to save the provided_name and design design_parent
-            for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
-                design_data.design_parent = parents[provided_name]
-                design_data.provided_name = provided_name
+            for _design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
+                _design_data.design_parent = parents[provided_name]
+                _design_data.provided_name = provided_name
 
             designs_path = self.designs_path
             new_design_new_filenames = {data.provided_name: os.path.join(designs_path, f'{data.name}.pdb')
@@ -3523,8 +3433,7 @@ class PoseProtocol(PoseData):
         for entity_data, entity in zip(self.entity_data, self.pose.entities):
             number_mutations = \
                 mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:
-                                                             1 + entity.c_terminal_residue.index], :]]\
-                .sum(axis=1)
+                                                             1 + entity.c_terminal_residue.index], :]].sum(axis=1)
             entity_designs[entity_data.id] = dict(
                 number_mutations=number_mutations,
                 percent_mutations=number_mutations / entity.number_of_residues)
@@ -3669,15 +3578,19 @@ class PoseProtocol(PoseData):
         pose_df = self.pose.df
         # Calculate mutational content
         # designs_df['number_mutations'] = mutation_df.sum(axis=1)
-        designs_df[metrics.library.percent_mutations.name] = designs_df[metrics.library.number_mutations.name] / pose_length
+        designs_df[metrics.library.percent_mutations.name] = \
+            (designs_df[metrics.library.number_mutations.name] / pose_length)
 
-        designs_df[metrics.library.sequence_loss_design_per_residue.name] = designs_df[metrics.library.sequence_loss_design.name] / pose_length
+        designs_df[metrics.library.sequence_loss_design_per_residue.name] = \
+            designs_df[metrics.library.sequence_loss_design.name] / pose_length
         # The per residue average loss compared to the design profile
-        designs_df[metrics.library.sequence_loss_evolution_per_residue.name] = designs_df[metrics.library.sequence_loss_evolution.name] / pose_length
+        designs_df[metrics.library.sequence_loss_evolution_per_residue.name] = \
+            designs_df[metrics.library.sequence_loss_evolution.name] / pose_length
         # The per residue average loss compared to the evolution profile
         # Todo modify this when fragments come from elsewhere, not just interface
         designs_df[metrics.library.sequence_loss_fragment_per_residue.name] = \
-            designs_df[metrics.library.sequence_loss_fragment.name] / pose_df[metrics.library.number_residues_interface_fragment_total.name]
+            designs_df[metrics.library.sequence_loss_fragment.name] \
+            / pose_df[metrics.library.number_residues_interface_fragment_total.name]
         # The per residue average loss compared to the fragment profile
 
         # designs_df['collapse_new_positions'] /= pose_length
@@ -3692,15 +3605,20 @@ class PoseProtocol(PoseData):
         # designs_df['collapse_increase_significance_by_contact_order_z_mean'] = \
         #     designs_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
         # designs_df['collapse_increased_z'] /= pose_length
-        designs_df[metrics.library.collapse_increased_z_mean.name] = collapse_increased_df.sum(axis=1) / total_increased_collapse
-        designs_df[metrics.library.collapse_violation.name] = designs_df[metrics.library.collapse_new_positions.name] > 0
-        designs_df[metrics.library.collapse_variance.name] = designs_df[metrics.library.collapse_deviation_magnitude.name] / pose_length
+        designs_df[metrics.library.collapse_increased_z_mean.name] = \
+            collapse_increased_df.sum(axis=1) / total_increased_collapse
+        designs_df[metrics.library.collapse_violation.name] = \
+            designs_df[metrics.library.collapse_new_positions.name] > 0
+        designs_df[metrics.library.collapse_variance.name] = \
+            designs_df[metrics.library.collapse_deviation_magnitude.name] / pose_length
         designs_df[metrics.library.collapse_sequential_peaks_z_mean.name] = \
             designs_df[metrics.library.collapse_sequential_peaks_z.name] / total_increased_collapse
-        designs_df[metrics.library.collapse_sequential_z_mean.name] = designs_df[metrics.library.collapse_sequential_z.name] / total_increased_collapse
+        designs_df[metrics.library.collapse_sequential_z_mean.name] = \
+            designs_df[metrics.library.collapse_sequential_z.name] / total_increased_collapse
 
         # Ensure summed observed_types are taken as the average over the pose_length
-        for _type in observed_types:
+        # 'evolution' VS 'evolutionary'?!, 'fragment', 'design', 'interface'
+        for _type in profile_types + ('interface',):
             try:
                 designs_df[f'observed_{_type}'] /= pose_length
             except KeyError:
@@ -3730,12 +3648,13 @@ class PoseProtocol(PoseData):
 
             # Fetch data from the database
             # Get the name/provided_name to design_id mapping
-            design_names = [design.name for design in designs]
-            design_ids = [design.id for design in designs]
+            design_names: list[str] = [design.name for design in designs]
+            design_ids: list[int] = [design.id for design in designs]
             design_name_to_id_map = dict(zip(design_names, design_ids))
-            design_sequences = [design.sequence for design in designs]
-            design_paths_to_process = [design.structure_path for design in designs]
-            select_stmt = select((sql.DesignResidues.design_id, sql.DesignResidues.index, sql.DesignResidues.design_residue))\
+            design_sequences: list[str] = [design.sequence for design in designs]
+            design_paths_to_process: list[str] = [design.structure_path for design in designs]
+            select_stmt = select(
+                (sql.DesignResidues.design_id, sql.DesignResidues.index, sql.DesignResidues.design_residue)) \
                 .where(sql.DesignResidues.design_id.in_(design_ids))
             index_col = metrics.ResidueMetrics.index.name
             design_residue_df = \
@@ -3820,7 +3739,7 @@ class PoseProtocol(PoseData):
     #
     #     return pose_s
 
-    def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array])\
+    def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]) \
             -> tuple[pd.DataFrame, pd.DataFrame]:
         #                      designs: Iterable[Pose] | Iterable[AnyStr] = None
         """Takes the sequences/scores ProteinMPNN features including 'design_indices', 'proteinmpnn_loss_complex',
@@ -3966,7 +3885,7 @@ class PoseProtocol(PoseData):
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # Construct interface residue array
         interface_residue_bool = np.zeros((len(designs), pose_length), dtype=int)
         for idx, interface_indices in enumerate(interface_residues):
@@ -4048,7 +3967,7 @@ class PoseProtocol(PoseData):
                                                      nan=np.nan, neginf=metrics.zero_probability_evol_value)
             torch_log_evolutionary_profile = torch.from_numpy(corrected_evol_array)
             per_residue_evolutionary_profile_loss = \
-                resources.ml.sequence_nllloss(torch_numeric_sequences, torch_log_evolutionary_profile)
+                ml.sequence_nllloss(torch_numeric_sequences, torch_log_evolutionary_profile)
         else:
             # Because self.pose.calculate_profile() is used below, need to ensure there is a null_profile attached
             if not self.pose.evolutionary_profile:
@@ -4071,7 +3990,7 @@ class PoseProtocol(PoseData):
             corrected_frag_array = np.nan_to_num(np.log(batch_fragment_profile), copy=False,
                                                  nan=np.nan, neginf=metrics.zero_probability_frag_value)
         per_residue_fragment_profile_loss = \
-            resources.ml.sequence_nllloss(torch_numeric_sequences, torch.from_numpy(corrected_frag_array))
+            ml.sequence_nllloss(torch_numeric_sequences, torch.from_numpy(corrected_frag_array))
         # else:
         #     per_residue_fragment_profile_loss = nan_blank_data
 
@@ -4090,7 +4009,7 @@ class PoseProtocol(PoseData):
         else:
             torch_log_design_profile = torch.from_numpy(log_batch_profile)
         per_residue_design_profile_loss = \
-            resources.ml.sequence_nllloss(torch_numeric_sequences, torch_log_design_profile)
+            ml.sequence_nllloss(torch_numeric_sequences, torch_log_design_profile)
 
         if self.job.fragment_db is not None:
             interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
@@ -4177,9 +4096,10 @@ class PoseProtocol(PoseData):
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
-        dca_design_residues_concat = load_bmdca(self.pose, named_sequences_by_entity)
-        if dca_design_residues_concat:
-            # concatenate along columns, adding residue index to column, design name to row
+        dca_design_residues = load_bmdca(self.pose, named_sequences_by_entity)
+        if dca_design_residues:
+            # Concatenate along columns, adding residue index to column, design name to row
+            dca_design_residues_concat = np.concatenate(dca_design_residues, axis=1)
             dca_concatenated_df = pd.DataFrame(dca_design_residues_concat, index=design_ids, columns=residue_indices)
             # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
             dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
@@ -4220,7 +4140,7 @@ class PoseProtocol(PoseData):
         # Todo fold these into Model(s) and attack metrics from Pose objects?
         if designs is None:
             pose_kwargs = self.pose_kwargs
-            designs = [Pose.from_file(file, **pose_kwargs) for file in self.get_design_files()]  # Todo PoseJob(.path)
+            designs = [Pose.from_file(file, **pose_kwargs) for file in self.get_design_paths()]  # Todo PoseJob(.path)
 
         pose_sequences = {pose.name: pose.sequence for pose in designs}
         sequences_df = self.analyze_sequence_metrics_per_design(pose_sequences)
@@ -4262,8 +4182,8 @@ class PoseProtocol(PoseData):
         source_df = pd.DataFrame(empty_source, index=[pose_name])
 
         # Get the metrics from the score file for each design
-        if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseJob(.path)
-            self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
+        if self.scores_file.exists():  # Rosetta scores file is present  # Todo PoseJob(.path)
+            self.log.debug(f'Found design scores in file: {self.scores_file}')
             design_was_performed = True
             # # Get the scores from the score file on design trajectory metrics
             # source_df = pd.DataFrame.from_dict({pose_name: {putils.protocol: job_key}}, orient='index')
@@ -4518,7 +4438,7 @@ class PoseProtocol(PoseData):
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # Fill in missing pose_source metrics for each design not calculated in rosetta
         # residues_df.fillna(residues_df.loc[pose_name, idx_slice[:, 'contact_order']], inplace=True)
         residues_df.fillna(residues_df.loc[pose_name, :], inplace=True)
@@ -4619,9 +4539,10 @@ class PoseProtocol(PoseData):
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in enumerate(named_sequences_by_entity)}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
-        dca_design_residues_concat = load_bmdca(self.pose, named_sequences_by_entity)
-        if dca_design_residues_concat:
-            # concatenate along columns, adding residue index to column, design name to row
+        dca_design_residues = load_bmdca(self.pose, named_sequences_by_entity)
+        if dca_design_residues:
+            # Concatenate along columns, adding residue index to column, design name to row
+            dca_design_residues_concat = np.concatenate(dca_design_residues, axis=1)
             dca_concatenated_df = pd.DataFrame(
                 dca_design_residues_concat, index=viable_designs, columns=residue_indices)
             # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
@@ -5026,7 +4947,7 @@ class PoseProtocol(PoseData):
             # Commit the newly acquired metrics
             session.commit()
 
-        write_sequences(pose_sequences, file_name=self.designed_sequences_file)
+        write_sequences(pose_sequences, file_path=self.designed_sequences_path)
 
         # Create figures
         if self.job.figures:  # For plotting collapse profile, errat data, contact order
@@ -5048,7 +4969,7 @@ class PoseProtocol(PoseData):
             figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
             color_cycler = cycler(color=large_color_array)
             plt.rc('axes', prop_cycle=color_cycler)
-            fig = plt.figure(figsize=figure_aspect_ratio)
+            fig: figure.Figure = plt.figure(figsize=figure_aspect_ratio)
             # legend_fill_value = int(15 * pose_length / 100)
 
             # sharex=True allows the axis to be shared across plots
@@ -5277,7 +5198,7 @@ def insert_pose_jobs(session: Session, pose_jobs: Iterable[PoseJob], project: st
                             possibly_new_uniprot_to_prot_metadata[
                                 entity_data.meta.uniprot_ids].append(entity_data.meta)
 
-                    all_uniprot_id_to_prot_data = sql.initialize_metadata(
+                    all_uniprot_id_to_prot_data = resources.db.initialize_metadata(
                         session, possibly_new_uniprot_to_prot_metadata)
 
                     # logger.debug([[data.meta.entity_id for data in pose_job.entity_data] for pose_job in pose_jobs])

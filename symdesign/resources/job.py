@@ -10,23 +10,27 @@ import sys
 from collections.abc import Iterable, Sequence
 from copy import deepcopy
 from itertools import repeat
-from typing import Annotated, Any, AnyStr
+from pathlib import Path
+from typing import Annotated, Any, AnyStr, TypeVar
 
 import jax
 import psutil
 import tensorflow as tf
 from tqdm.auto import tqdm
-from sqlalchemy import create_engine, event, select
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from . import config, distribute, sql, structure_db, wrapapi
 from symdesign import flags, guide, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.utils import factory, SymEntry, path as putils
+from .db import DBInfo
+from ..structure.sequence import ProfileTypeLiteral
 
 logger = logging.getLogger(__name__)
 gb_divisior = 1_000_000_000
+T = TypeVar('T')
+# FlagStr = flags.FlagStr
 
 
 def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
@@ -208,28 +212,6 @@ Predict = dataclasses.make_dataclass(
      for flag, default in flags.predict_defaults.items()],
     bases=(FlagsBase,))
 #     frozen=True)
-
-
-class DBInfo:
-    def __init__(self, location: AnyStr, echo: bool = False):
-        self.location = location
-        self.engine: Engine = create_engine(self.location, echo=echo, future=True)
-        self.session: sessionmaker = sessionmaker(self.engine, future=True)
-
-        if 'sqlite' in self.location:
-            # The below functions are recommended to help overcome issues with SQLite transaction scope
-            # See: https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#pysqlite-serializable
-            @event.listens_for(self.engine, 'connect')
-            def do_connect(dbapi_connection, connection_record):
-                """Disable pysqlite's emitting of the BEGIN statement entirely.
-                Also stops it from emitting COMMIT before any DDL
-                """
-                dbapi_connection.isolation_level = None
-
-            @event.listens_for(self.engine, 'begin')
-            def do_begin(conn):
-                """Emit our own BEGIN"""
-                conn.exec_driver_sql('BEGIN')
 
 
 class JobResources:
@@ -908,11 +890,10 @@ class JobResources:
 
     @output_directory.setter
     def output_directory(self, output_directory: str):
-        """Where to output the Job"""
         # Format the output_directory so that the basename, i.e. the part that is desired
         # can be formatted with prefix/suffix
-        dirname, output_directory = os.path.split(output_directory.rstrip(os.sep))
-        self._output_directory = os.path.join(dirname, f'{self.prefix}{output_directory}{self.suffix}')
+        dirname, output_directory = os.path.split(str.rstrip(output_directory, os.sep))
+        self._output_directory = Path(dirname, f'{self.prefix}{output_directory}{self.suffix}')
 
     @property
     def output_file(self) -> AnyStr | None:
@@ -925,7 +906,6 @@ class JobResources:
 
     @output_file.setter
     def output_file(self, output_file: str):
-        """Where to output info related to successful Job operation"""
         # Format the output_file so that the basename, i.e. the part that is desired
         # can be formatted with prefix/suffix
         dirname, basename = os.path.split(output_file.rstrip(os.sep))
@@ -943,7 +923,7 @@ class JobResources:
     @location.setter
     def location(self, location: str | list[str]):
         if location is None:
-            self._input_source = self.program_root
+            self._input_source = str(self.program_root)
         elif isinstance(location, str):
             self._location = location
             self._input_source, extension = os.path.splitext(os.path.basename(location))
@@ -958,7 +938,7 @@ class JobResources:
             raise ValueError(
                 f"Couldn't handle the provided location type {type(location).__name__}")
 
-    def get_range_slice(self, jobs: Sequence) -> Sequence[Any]:
+    def get_range_slice(self, jobs: Sequence[T]) -> Sequence[T]:
         """Slice the input work by a set increment. This is parsed from the flags.range_args
 
         Args:
@@ -988,7 +968,7 @@ class JobResources:
         try:
             return self._input_source
         except AttributeError:
-            self._input_source = self.program_root
+            self._input_source = str(self.program_root)
             return self._input_source
 
     @property
@@ -1245,7 +1225,7 @@ class JobResources:
         # Set up sequence data using hhblits and profile bmDCA for each input entity
         # all_entity_ids = []
         os.makedirs(self.sequences, exist_ok=True)
-        if not putils.uniclust_db:
+        if not putils.uniclust_db.exists():
             # No database has been set up
             logger.warning(f"Couldn't locate a compatible database to run hhblits. Skipping evolutionary acquisition")
         else:
@@ -1292,8 +1272,8 @@ class JobResources:
                         if not sequence_file:
                             sequence_file = entity.write_sequence_to_fasta(out_dir=self.sequences)
 
-                        hhblits_cmds.append(entity.hhblits(sequence_file=sequence_file, out_dir=self.profiles,
-                                                           return_command=True))
+                        hhblits_cmds.append(hhblits(
+                            entity.name, sequence_file=sequence_file, out_dir=self.profiles, return_command=True))
                         msa_file = None
                     else:
                         msa_file = api_db.alignments.retrieve_file(name=entity.name)
@@ -1410,7 +1390,7 @@ class JobResources:
             # reformat_msa_cmd_file = \
             #     SDUtils.write_commands(reformat_msa_cmds, name=f'{utils.starttime}-reformat_msa',
             #                            out_path=self.profiles)
-            # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=self.program_root,
+            # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=str(self.program_root),
             #                              scale='script', max_jobs=len(reformat_msa_cmds),
             #                              log_file=os.path.join(self.profiles, 'generate_profiles.log'),
             #                              number_of_commands=len(reformat_msa_cmds))

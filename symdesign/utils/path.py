@@ -135,7 +135,7 @@ if hhsuite_db_dir.exists():
 else:
     uniclust_db = Path('')
 hhsuite_git = 'https://github.com/soedinglab/hh-suite'
-# Alphfold
+# Alphafold
 alphafold_db_dir = dependency_dir / 'alphafold'
 alphafold_params_dir = alphafold_db_dir / 'params'
 alphafold_params_name = config.get('af_params')

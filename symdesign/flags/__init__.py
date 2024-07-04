@@ -16,14 +16,15 @@ from psutil import cpu_count
 from symdesign.dependencies.rosetta import current_energy_function
 from symdesign.metrics import collection as metrics_collection, inverse_operations, library, operator_strings, \
     viable_operations
-from symdesign.sequence import constants, optimization_species_literal, profile_types
-from symdesign.resources import config
+from symdesign.ml import alphafold
+from symdesign.sequence import constants, OptimizationSpeciesLiteral
+from symdesign.structure.fragment.resources import biological_interfaces, fragment_database_sources
+from symdesign.structure.sequence import profile_types
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, \
     design_programs_literal, termini_literal
 from symdesign.utils import InputError, log_levels, digit_remover, to_iterable, logging_levels
 from symdesign.utils.path import default_clustered_pose_file, default_path_file, ex_path, \
     program_output, program_name, projects, submodule_guide, submodule_help, program_help, program_exe
-from symdesign.structure.fragment.resources import biological_interfaces, fragment_database_sources
 from symdesign.utils.logging_config import DEFAULT_LOGGING_LEVEL
 from symdesign.utils.SymEntry import query_mode_args
 
@@ -1285,7 +1286,7 @@ all_filter_args = filter_args + filter_file_args
 filter_kwargs = dict(nargs='*', default=tuple(), help='Whether to filter selection using metrics')  # default=None,
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
 optimize_species_args = ('-opt', optimize_species.as_long())
-optimize_species_kwargs = dict(default='e_coli', choices=get_args(optimization_species_literal), metavar='',
+optimize_species_kwargs = dict(default='e_coli', choices=get_args(OptimizationSpeciesLiteral), metavar='',
                                help='The organism where nucleotide usage should be optimized\n'
                                     'Choices=%(choices)s\nDefault=%(default)s')
 output_structures_args = ('-Os', output_structures.as_long())

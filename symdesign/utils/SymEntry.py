@@ -13,8 +13,8 @@ from typing import Literal, get_args
 import numpy as np
 
 from symdesign import utils
-from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
 from symdesign.dependencies import rosetta
+from symdesign.utils.symmetry import layer_group_cryst1_fmt_dict, valid_subunit_number, space_group_symmetry_operators,\
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
     sub_symmetries, flip_y_matrix, MAX_SYMMETRY, valid_symmetries, CRYST
 
@@ -390,7 +390,7 @@ class SymEntry:
                     f"Can't create a {self.__class__.__name__} without passing 'space_group' or 'sym_map'")
             else:
                 self.resulting_symmetry, *_ = sym_map
-            self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
+            self.dimension = 2 if self.resulting_symmetry in layer_group_cryst1_fmt_dict else 3
             self.cell_lengths = self.cell_angles = None
             self.total_dof = self.cycle_size = 0
 
@@ -931,6 +931,7 @@ class SymEntry:
     #     Args:
     #         optimal_ext_dof_shifts: The parameters for an ideal shift of a single component in the resulting material
     #         group_number: The number of the group to find the vector for
+    #
     #     Returns:
     #         The optimal vector for translation
     #     """
@@ -944,6 +945,7 @@ class SymEntry:
         Args:
             optimal_shift_vec: An Nx3 array where N is the number of shift instances
                 and 3 is number of possible external degrees of freedom (even if they are not utilized)
+
         Returns:
             The unit cell dimensions for each optimal shift vector passed
         """
@@ -976,6 +978,7 @@ class SymEntry:
             b: The unit cell parameter for the lattice dimension 'b'
             c: The unit cell parameter for the lattice dimension 'c'
             angles: The unit cell parameters for the lattice angles alpha, beta, gamma. Not utilized!
+
         Returns:
             The optimal shifts in each direction a, b, and c if they are allowed
         """
@@ -1213,6 +1216,7 @@ def get_rot_matrices(step_deg: int | float, axis: str = 'z', rot_range_deg: int 
         step_deg: The number of degrees for each rotation step
         axis: The axis about which to rotate
         rot_range_deg: The range with which rotation is possible
+
     Returns:
         The rotation matrices with shape (rotations, 3, 3)
     """
@@ -1249,6 +1253,7 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
     Args:
         rotations: A group of rotations with shape (rotations, 3, 3)
         degeneracies: A group of degeneracies with shape (degeneracies, 3, 3)
+
     Returns:
         The matrices resulting from the multiplication of each rotation by each degeneracy.
             Product has length = (rotations x degeneracies, 3, 3) where the first 3x3 array on axis 0 is the identity
@@ -1340,6 +1345,7 @@ def parse_symmetry_specification(specification: str) -> list[str]:
 
     Args:
         specification: The specification string
+
     Returns:
         The parsed string with each member split into a list - ['RESULT', 'SUBSYMMETRY1', 'SUBSYMMETRY2', ...]
     """
@@ -1354,6 +1360,7 @@ def parse_symmetry_to_sym_entry(sym_entry_number: int = None, symmetry: str = No
         sym_entry_number: The integer corresponding to the desired SymEntry
         symmetry: The symmetry specified by a string
         sym_map: A symmetry map where each successive entry is the corresponding symmetry group number for the structure
+
     Returns:
         The SymEntry instance or None if parsing failed
     """
@@ -1408,6 +1415,7 @@ def sdf_lookup(symmetry: str = None) -> Path:
 
     Args:
         symmetry: Can be a valid_point_group, or None
+
     Returns:
         The path to the symmetry definition file
     """
@@ -1451,6 +1459,7 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
         groups: The groups provided in the symmetry
         result: The resulting symmetry
         entry_number: The SymEntry number of interest
+
     Returns:
         True if the symmetry operators are valid, False otherwise
     """
@@ -1508,6 +1517,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
     Args:
         result: The global symmetry
         symmetry_operators: Additional operators which specify sub-symmetric systems in the larger result
+
     Returns:
         The entry number of the SymEntry
     """
@@ -1641,6 +1651,7 @@ def print_matching_entries(match_string, matching_entries: Iterable[int]):
     Args:
         match_string: The string inserted into "All entries found matching {match_string}:"
         matching_entries: The matching entry numbers
+
     Returns:
         None
     """
@@ -1683,6 +1694,7 @@ def query(mode: query_modes_literal, *additional_mode_args, nanohedra: bool = Tr
             'all-entries', 'combination', 'counterpart', 'dimension', and 'result'
         *additional_mode_args: Additional query args required
         nanohedra: True if only Nanohedra docking symmetries should be queried
+
     Returns:
         None
     """
