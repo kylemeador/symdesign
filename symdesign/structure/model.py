@@ -28,10 +28,11 @@ from .config import default_sasa_burial_threshold
 from .coordinates import Coordinates, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .dependencies import orient_dir_path, orient_exe_path, orient_symmetry_files_dir
 from .fragment import find_fragment_overlap, create_fragment_info_from_pairs
-from .fragment.db import alignment_types, alignment_types_literal, FragmentDatabase, FragmentInfo, FragmentObservation
+from .fragment.db import MAPPED, PAIRED, alignment_types, alignment_types_literal, FragmentDatabase, FragmentInfo, \
+    FragmentObservation
 from .fragment.metrics import fragment_metric_template
 from .fragment.visuals import write_fragments_as_multimodel
-from .sequence import GeneEntity, Profile, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
+from .sequence import GeneEntity, Profile, profile_types, pssm_as_array, sequence_to_numeric, sequences_to_numeric, \
     sequence_to_one_hot, aa_counts_alph3, aa_nan_counts_alph3
 from .utils import ConstructionError, chain_id_generator, coords_type_literal, default_clash_criteria, \
     default_clash_distance, DesignError, design_programs_literal, StructureException, SymmetryError
@@ -439,9 +440,19 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
                 (with fragment_length length) for that residue, where each index in the inner set can have multiple
                 observations
         """
-        if alignment_type not in alignment_types:
+        # alignment_type_to_idx = {MAPPED: 0, PAIRED: 1}  # could move to class, but not used elsewhere
+        if alignment_type == MAPPED:
+            index_attribute = 'index'
+            stat_index = 0
+        elif alignment_type == PAIRED:
+            index_attribute = 'paired_index'
+            stat_index = 1
+        else:
+            # if alignment_type not in alignment_types:
             raise ValueError(
-                f"Argument 'alignment_type' must be one of '{', '.join(alignment_types)}' not {alignment_type}")
+                f"Argument 'alignment_type' must be one of '{', '.join(alignment_types)}', not {alignment_type}")
+
+        alignment_frequencies = f'{alignment_type}_frequencies'
 
         fragment_db = self.fragment_db
         fragment_map = self.fragment_map
@@ -454,15 +465,16 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         # new observation is created for that fragment index.
         for fragment in fragments:
             # Offset the specified fragment index to the overall index in the ContainsStructures
-            fragment_index = getattr(fragment, alignment_type)
+            fragment_index = getattr(fragment, index_attribute)
             cluster = fragment.cluster
             match = fragment.match
             residue_index = fragment_index - self.offset_index
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
-            aa_freq = getattr(fragment_db.info[cluster], alignment_type)
+            aa_freq = getattr(fragment_db.info[cluster], alignment_frequencies)
             for frag_idx, frequencies in aa_freq.items():  # (lower_bound - upper_bound), [freqs]
                 _frequencies = frequencies.copy()
-                _frag_info = FragmentObservation(source=alignment_type, cluster=cluster, match=match,
+
+                _frag_info = FragmentObservation(stat_index=stat_index, cluster=cluster, match=match,
                                                  weight=_frequencies.pop('weight'), frequencies=_frequencies)
                 fragment_map[residue_index + frag_idx][frag_idx].add(_frag_info)
 
@@ -510,7 +522,6 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
         no_design = []
         fragment_profile = [[{} for _ in range(fragment_db.fragment_length)]
                             for _ in range(self.number_of_residues)]
-        indexed_observations: dict[int, set[FragmentObservation]]
         for residue_index, indexed_observations in enumerate(fragment_map):
             total_fragment_observations = total_fragment_weight_x_match = total_fragment_weight = 0
 
@@ -601,7 +612,6 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             raise ValueError(
                 f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
 
-        alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_default_value = 0.5  # When fragment pair RMSD is equal to the mean cluster size RMSD
         bounded_floor = 0.2
         default_match_score_floor = match_score_default_value - bounded_floor
@@ -633,7 +643,7 @@ class StructuredGeneEntity(ContainsResidues, GeneEntity):
             # Find the total contribution from a typical fragment of this type
             typical_fragment_weight_total = sum(
                 fragment_stats[f'{observation.cluster[0]}_{observation.cluster[1]}_0'][0]
-                [alignment_type_to_idx[observation.source]] for index_observations in fragment_map.values()
+                [observation.stat_index] for index_observations in fragment_map.values()
                 for observation in index_observations)
 
             # Get the average contribution of each fragment type

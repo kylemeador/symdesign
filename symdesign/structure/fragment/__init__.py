@@ -606,12 +606,12 @@ def create_fragment_info_from_pairs(
         The formatted fragment information for each pair
             {'mapped': int, 'paired': int, 'match': float, 'cluster': tuple(int, int, int)}
     """
-    fragment_matches = [db.FragmentInfo(mapped=ghost_frag.index, paired=surf_frag.index,
+    fragment_matches = [db.FragmentInfo(index=ghost_frag.index, paired_index=surf_frag.index,
                                         match=match_score, cluster=ghost_frag.ijk)
                         for ghost_frag, surf_frag, match_score in ghostfrag_frag_pairs]
 
-    logger.debug(f'Fragments for Entity1 found at indices: {[frag.mapped for frag in fragment_matches]}')
-    logger.debug(f'Fragments for Entity2 found at indices: {[frag.paired for frag in fragment_matches]}')
+    logger.debug(f'Fragments for Entity1 found at indices: {[frag.index for frag in fragment_matches]}')
+    logger.debug(f'Fragments for Entity2 found at indices: {[frag.paired_index for frag in fragment_matches]}')
 
     return fragment_matches
 

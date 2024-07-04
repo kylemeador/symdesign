@@ -2976,8 +2976,8 @@ def fragment_dock(input_models: Iterable[ContainsEntities]) -> list[PoseJob] | l
                     passing_surf_coords = []
                     reference_rmsds = []
                     for entity_pair, fragment_info in pose.fragment_info_by_entity_pair:
-                        ghost_frag = pose_residues[fragment_info.paired]
-                        surf_frag = pose_residues[fragment_info.mapped]
+                        ghost_frag = pose_residues[fragment_info.paired_index]
+                        surf_frag = pose_residues[fragment_info.index]
                         passing_ghost_coords.append(ghost_frag.guide_coords)
                         passing_surf_coords.append(surf_frag.guide_coords)
                         reference_rmsds.append(ghost_frag.rmsd)

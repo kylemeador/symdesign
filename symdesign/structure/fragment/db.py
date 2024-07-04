@@ -4,11 +4,12 @@ import logging
 import math
 import os
 from collections import defaultdict
-from typing import Annotated, Any, Literal, get_args, Iterable
+from glob import glob
+from typing import Annotated, Any, AnyStr, Literal, Iterable
 
 import numpy as np
 import scipy.spatial.transform
-from attr import frozen
+from attrs import field, frozen
 
 from .resources import binary_lookup_table_path, biological_fragment_db_pickle, biological_interfaces, frag_directory
 from symdesign import utils, structure
@@ -19,7 +20,9 @@ putils = utils.path
 # Globals
 logger = logging.getLogger(__name__)
 alignment_types_literal = Literal['mapped', 'paired']
-alignment_types: tuple[str, str] = get_args(alignment_types_literal)
+MAPPED = 'mapped'
+PAIRED = 'paired'
+alignment_types: tuple[str, str] = (MAPPED, PAIRED)
 aa_frequencies_type: dict[protein_letters_literal, float]
 RELOAD_DB = 123
 PARTNER_CHAIN = 'partnerchain'
@@ -27,24 +30,28 @@ PARTNER_CHAIN = 'partnerchain'
 
 @frozen(auto_attribs=True)
 class FragmentInfo:
-    mapped: int
-    paired: int
+    """Stores information for a single fragment observation mapped to a Structure."""
+    index: int
+    paired_index: int
     match: float
     cluster: tuple[int, int, int]
 
 
 @frozen(auto_attribs=True)
 class FragmentObservation:
-    source: str
+    stat_index: int
+    """The index where the observations stats are held in the statistics object"""
+    # source: str
     cluster: tuple[int, int, int]
+    """The integers that make up the cluster identifier"""
     match: float
-    """The match of the entire fragment observation to the fragment cluster representative"""
+    """The match to the fragment cluster representative"""
     weight: float
-    """The contribution of the FragObservation to atomic interactions from the entire fragment observation"""
+    """The amount the fragment index contributes to atomic interactions in the cluster"""
     frequencies: aa_frequencies_type
 
-    def __hash__(self):
-        return hash(self.source) * hash(self.cluster)
+    def __hash__(self) -> int:
+        return hash(self.stat_index) * hash(self.cluster)
 
 
 class Representative:
@@ -66,21 +73,122 @@ class Representative:
             raise ValueError("Couldn't get the representative residue index upon initialization")
 
 
-class FragmentDatabase(info.FragmentInfo):
-    cluster_representatives_path: str
-    cluster_info_path: str
+def parameterize_frag_length(length: int) -> tuple[int, int]:
+    """Generate fragment length range parameters for use in fragment functions
+
+    Args:
+        length: The length of the fragment
+
+    Returns:
+        The tuple that provide the range for the specified length centered around 0
+            ex: length=5 -> (-2, 3), length=6 -> (-3, 3)
+    """
+    if length % 2 == 1:  # fragment length is odd
+        index_offset = 1
+    else:  # length is even
+        logger.warning(
+            f"{parameterize_frag_length.__name__}: {length} is an even integer which isn't symmetric about "
+            'a single residue. Ensure this is what you want')
+        index_offset = 0
+
+    # Get the number of residues extending to each side
+    _range = math.floor(length / 2)
+
+    return -_range, _range + index_offset
+
+
+source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
+old_weighted_counts_keys = Literal[protein_letters_literal, 'stats']
+old_aa_weighted_counts_type: dict[old_weighted_counts_keys, int | tuple[int, int]]
+# Todo add 'weight' instead of 'stats' (0, 1) during creation
+#  weighted_counts_keys = Literal[sequence.protein_letters_literal, 'weight']
+#  aa_weighted_counts_type: dict[weighted_counts_keys, int | float]
+#  aa_weighted_counts: aa_weighted_counts_type = dict(zip(sequence.protein_letters_alph1, repeat(0.)))
+#  """{protein_letters_alph1, repeat(0) | 'weight': 1}"""  # 'count': 0,
+#  aa_weighted_counts['weight'] = 1
+#  # aa_weighted_counts.update({'count': 0, 'weight': 1})
+#  # """{protein_letters_alph1, repeat(0) | 'stats'=(0, 1)}"""
+#  # aa_weighted_counts.update({'stats': (0, 1)})
+
+# representative_filename: str = None, Todo
+# mapped_frequencies: old_aa_weighted_counts_type Todo
+# paired_frequencies: old_aa_weighted_counts_type Todo
+
+
+@frozen(auto_attribs=True)
+class ClusterInfo:
+    name: str
+    """The name of the cluster"""
+    size: int
+    """The number of observations in the cluster"""
+    rmsd: float
+    """The root mean squared deviation for all observations"""
+    representative_filename: str = field(alias='rep')  # Todo test that this alias works...
+    """The file name for the representative"""
+    mapped_frequencies: old_aa_weighted_counts_type = field(alias='mapped')
+    """The amino acid frequencies for each index in the 'mapped' fragment"""
+    paired_frequencies: old_aa_weighted_counts_type = field(alias='paired')
+    """The amino acid frequencies for each index in the 'paired' fragment"""
+
+    def __attrs_post_init__(self):
+        # This is a temporary fix to separate 'stats' into 'counts' and 'weights' these items
+        # Todo remove once making of fragment_database reflects correct usage
+        for frequencies_by_index in (self.mapped_frequencies, self.paired_frequencies):
+            for index, frequencies in frequencies_by_index.items():
+                frequency_count, frequency_weight = frequencies.pop('stats')
+                # Don't 'counts' as they are accessed using self.size
+                # frequencies['counts'] = frequency_count
+                frequencies['weight'] = frequency_weight
+
+
+class FragmentDatabase:
+    """Stores all Fragment metadata for a particular FragmentDatabase"""
+    info: dict[tuple[int, int, int], ClusterInfo]
+    fragment_length: int
+    fragment_range: tuple[int, int]
+    source: str
+    statistics: dict[str, list[list[float, float, dict[int, int]], int]]
+    """
+    {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., 
+     frequencies: {'A': 0.11, ...}}
+    Ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
+    """
+
     euler_lookup: EulerLookup | None
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     paired_frags: dict[tuple[int, int, int], tuple['structure.model.Model', str]]
     representatives: dict[int, Representative]
 
-    def __init__(self, **kwargs):  # init_db: bool = True, fragment_length: int = 5
-        super().__init__(**kwargs)
-        if self.source == putils.biological_interfaces:  # Todo parameterize
-            self.cluster_representatives_path = putils.intfrag_cluster_rep_dirpath
-            self.monofrag_representatives_path = putils.monofrag_cluster_rep_dirpath
+    def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, sql: bool = False,
+                 **kwargs):
+        """Construct the instance
 
+        Args:
+            source: The type of fragment information to use
+            fragment_length: The length of the fragment database
+            sql: Whether the database is stored in SQL table
+            **kwargs:
+        """
+        if sql:
+            raise NotImplementedError("Can't connect to database yet")
+            self.db = True
+        else:
+            # Initialize as local directory
+            self.db = False
+            # Todo parameterize
+            # if source == biological_interfaces:
+            #     self.cluster_representatives_path = putils.intfrag_cluster_rep_dirpath
+            #     self.monofrag_representatives_path = putils.monofrag_cluster_rep_dirpath
+
+        # super().__init__()  # object
+        self.fragment_length = fragment_length
+        self.fragment_range = parameterize_frag_length(fragment_length)
+        self.info = {}
+        self.source = source  # Todo self.biological_source
+        self.statistics = self._load_db_statistics()
+        self.aa_frequencies: aa_frequencies_type = self.statistics.pop('frequencies')
+        """Database specific amino acid representation frequencies"""
         self.euler_lookup = None
         self.indexed_ghosts = {}
         self.paired_frags = {}
@@ -97,21 +205,107 @@ class FragmentDatabase(info.FragmentInfo):
                 f"Available sources are: {', '.join(frag_directory.keys())}"
             )
 
+    def _load_db_statistics(self) -> dict:
+        """Retrieve summary statistics for a specific fragment database located on directory
 
-        # if init_db:
-        #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
-        #     # self.get_monofrag_cluster_rep_dict()
-        #     self.representatives = {int(os.path.splitext(file)[0]):
-        #                             structure.base.Chain.from_file(os.path.join(root, file), log=None).ca_coords
-        #                             for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
-        #     self.paired_frags = load_paired_fragment_representatives(self.cluster_representatives_path)
-        #     self.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
-        #     # self.load_cluster_info_from_text()
-        #     self._index_ghosts()
-        # else:
-        #     self.representatives = {}
-        #     self.paired_frags = {}
-        #     self.indexed_ghosts = {}
+        Returns:
+            {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
+                           total_fragment_observations], cluster_id2: ...,
+             frequencies: {'A': 0.11, ...}}
+                ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
+        """
+        if self.db:
+            raise NotImplementedError("Can't connect to database yet")
+        else:
+            stats_files = sorted(glob(os.path.join(os.path.dirname(self.location), f'{self.source}_statistics.pkl')))
+            if not stats_files:
+                raise FileNotFoundError(
+                    "Couldn't locate the file "
+                    f"{os.path.join(os.path.dirname(self.location), f'{self.source}_statistics.pkl')} "
+                    f"which is required for {self._load_db_statistics.__name__}")
+            elif len(stats_files) == 1:
+                return utils.unpickle(stats_files[0])
+            else:
+                raise RuntimeError('There were too many statistics.pkl files found at the database source')
+
+    # Todo rework this and below func for Database
+    def retrieve_cluster_info(
+            self, cluster: tuple[int, int, int], source: source_literal = None, index: str = None
+    ) -> ClusterInfo:
+        """Return information from the fragment information database by cluster_id, information source, and source index
+
+        Args:
+            cluster: A cluster_id to get information about
+            source: The source of information to retrieve. Must be one of 'size', 'rmsd', 'rep', 'mapped', or 'paired'
+            index: The index to gather information from. Source must be one of 'mapped' or 'paired' to use
+        Returns:
+            {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': indexed_frequencies, 'paired': indexed_frequencies}
+            Where indexed_frequencies has format {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)}, -1: {}, ..., 2: {}}
+        """
+        try:
+            cluster_data = self.info[cluster]
+        except KeyError:
+            self.load_cluster_info(ids=[cluster])
+            cluster_data = self.info[cluster]
+
+        return cluster_data
+
+    def load_cluster_info(self, ids: Iterable[tuple[int, int, int]] = None):
+        """Load cluster information from the fragment database source into attribute .info
+
+        Args:
+            ids: ['1_2_123', ...]
+
+        Sets:
+            self.info (dict[str, dict]): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
+        """
+        if self.db:
+            raise NotImplementedError("Can't connect to database yet")
+
+            # These routines are used for local files
+            if ids is None:  # Load all data
+                identified_files = [
+                    (tuple(int(id_) for id_ in os.path.splitext(os.path.basename(cluster_file))[0].split('_')),
+                     cluster_file)
+                    for cluster_file in utils.get_file_paths_recursively(self.location, extension='.pkl')
+                ]
+            else:
+                location = self.location
+                identified_files = []
+                for _id in ids:
+                    id_str = '_'.join(map(str, _id))
+                    c_id1 = _id[0]
+                    c_id2 = _id[1]
+                    identified_files.append(
+                        (_id, os.path.join(location, str(c_id1), f'{c_id1}_{c_id2}', id_str, f'{id_str}.pkl'))
+                    )
+
+                self.info.update({cluster_ids: ClusterInfo(**utils.unpickle(cluster_file))
+                                  for cluster_ids, cluster_file in identified_files})
+
+    # def load_cluster_info_from_text(self, ids: Sequence[str] = None):
+    #     """Load cluster information from the fragment database source text files into attribute .info
+    #
+    #     Args:
+    #         ids: ['1_2_123', ...]
+    #
+    #     Sets:
+    #         self.info (dict[str, dict]): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
+    #     """
+    #     if self.db:
+    #         raise NotImplementedError("Can't connect to MySQL database yet")
+    #     else:
+    #         if ids is None:  # Load all data
+    #             identified_files = \
+    #                 [(os.path.splitext(os.path.basename(cluster_directory))[0], cluster_directory)
+    #                  for cluster_directory in utils.get_file_paths_recursively(self.cluster_info_path)]
+    #         else:
+    #             identified_files = [(_id, os.path.join(self.cluster_info_path, c_id1,
+    #                                                    f'{c_id1}_{c_id2}', _id, f'{_id}.txt'))
+    #                                 for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_')))]
+    #
+    #         self.info.update({tuple(map(int, cluster_id.split('_'))): ClusterInfo.from_file(cluster_file)
+    #                           for cluster_id, cluster_file in identified_files})
 
     def index_ghosts(self):
         """From a loaded fragment database, precompute all required data into numpy arrays to populate Ghost Fragments
@@ -214,8 +408,8 @@ class FragmentDatabase(info.FragmentInfo):
         #                               'paired': {'center': {'indices': set()}, 'total': {'indices': set()}},
         #                               'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
         for fragment in fragment_matches:
-            center_residx1 = fragment.mapped  # fragment['mapped']
-            center_residx2 = fragment.paired  # fragment['paired']
+            center_residx1 = fragment.index  # fragment['mapped']
+            center_residx2 = fragment.paired_index  # fragment['paired']
             match_score = fragment.match  # fragment['match']
             i, j, k = fragment.cluster  # fragment['cluster']
             fragment_i_index_count_d[i] += 1

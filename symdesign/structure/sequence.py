@@ -1127,34 +1127,6 @@ def overlap_consensus(issm: dict, aa_set: dict) -> dict:  # UNUSED
     return consensus
 
 
-def get_cluster_dicts(db: str = putils.biological_interfaces, id_list: list[str] = None) -> dict[str, dict]:
-    """Generate an interface specific scoring matrix from the fragment library
-
-    Args:
-        db: The source of the fragment information
-        id_list: [1_2_24, ...]
-
-    Returns:
-         cluster_dict: {'1_2_45': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
-    """
-    info_db = putils.frag_directory[db]
-    if id_list is None:
-        directory_list = utils.get_base_root_paths_recursively(info_db)
-    else:
-        directory_list = []
-        for _id in id_list:
-            c_id = _id.split('_')
-            _dir = os.path.join(info_db, c_id[0], c_id[0] + '_' + c_id[1], c_id[0] + '_' + c_id[1] + '_' + c_id[2])
-            directory_list.append(_dir)
-
-    cluster_dict = {}
-    for cluster in directory_list:
-        filename = os.path.join(cluster, os.path.basename(cluster) + '.pkl')
-        cluster_dict[os.path.basename(cluster)] = utils.unpickle(filename)
-
-    return cluster_dict
-
-
 def return_cluster_id_string(cluster_rep: str, index_number: int = 3) -> str:
     while len(cluster_rep) < 3:
         cluster_rep += '0'

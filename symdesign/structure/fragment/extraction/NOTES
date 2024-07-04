@@ -36,7 +36,7 @@ Step 6: Calculate All to All RMSD of Top 5 Representatives using "2_AllToAllRMSD
 	('4m73_AB_frag_114_B', '2xdp_AB_frag_989_A', 2.932248573228939)
 
 	
-Step 7: Center representatives in Top5MonoFragClustersRepresentative and save in "Top5MonoFragClustersRepresentativeCentered" using "4_CenterMonoFragmentRepresentatives.py" and Rename:
+Step 7: Center representatives "fragment_representatives" using "4_CenterMonoFragmentRepresentatives.py" and Rename:
 	mv 4m73_AB_frag_114_B.pdb 1.pdb
 	mv 4kgd_AC_frag_53_C.pdb 2.pdb
 	mv 1vki_AB_frag_34_B.pdb 3.pdb
